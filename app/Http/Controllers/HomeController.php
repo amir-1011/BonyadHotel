@@ -34,10 +34,11 @@ class HomeController extends Controller
 
         // Popular cities (cities with accommodations)
         $popularCities = City::withCount(['accommodations' => fn($q) => $q->where('is_active', true)])
-            ->having('accommodations_count', '>', 0)
-            ->orderByDesc('accommodations_count')
+            ->get()
+            ->filter(fn($c) => $c->accommodations_count > 0)
+            ->sortByDesc('accommodations_count')
             ->take(8)
-            ->get();
+            ->values();
 
         return view('home', compact('provinces', 'citiesForMap', 'featured', 'popularCities'));
     }

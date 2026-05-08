@@ -1,3 +1,12 @@
+@php
+    $navLocations = \App\Models\Province::with('cities')->orderBy('name')->get()->flatMap(function($p) {
+        $items = [['type'=>'province','id'=>$p->id,'name'=>$p->name,'province'=>'','province_id'=>null]];
+        foreach ($p->cities as $c) {
+            $items[] = ['type'=>'city','id'=>$c->id,'name'=>$c->name,'province'=>$p->name,'province_id'=>$p->id];
+        }
+        return $items;
+    })->values()->toArray();
+@endphp
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -22,6 +31,122 @@
     {{-- Vite compiled CSS (Swiper + AOS + custom) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
+    {{-- Search popup + x-cloak --}}
+    <style>
+    [x-cloak]{display:none!important}
+
+    /* ══ Expanded search bar ══════════════════════════════════ */
+    .bnb-search-wrap { position: relative; z-index: 1055; }
+    .bnb-search-expanded {
+        display: flex; align-items: center;
+        background: #fff;
+        border: 1px solid var(--bnb-border);
+        border-radius: 40px;
+        box-shadow: 0 6px 20px rgba(0,0,0,.12);
+        height: 56px;
+        overflow: visible;
+        position: relative; z-index: 1055;
+    }
+    .bnb-stab {
+        flex: 1; display: flex; flex-direction: column; align-items: flex-end;
+        padding: 8px 18px; background: transparent; border: none;
+        border-radius: 32px; cursor: pointer;
+        transition: background .15s; min-width: 0;
+    }
+    .bnb-stab:hover { background: #f0f0f0; }
+    .bnb-stab.bnb-stab-active { background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,.16); }
+    .bnb-stab-label { font-size: 11px; font-weight: 700; color: var(--bnb-dark); white-space: nowrap; }
+    .bnb-stab-val   { font-size: 12px; color: var(--bnb-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+    .bnb-stab-div   { width: 1px; height: 24px; background: var(--bnb-border); flex-shrink: 0; }
+    .bnb-search-go  {
+        background: var(--bnb-red); color: #fff; border: none; border-radius: 24px;
+        padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+        display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+        font-family: var(--bnb-font); transition: background .15s; margin: 4px 4px 4px 0;
+    }
+    .bnb-search-go:hover { background: #E31C5F; }
+
+    /* ══ Dropdown panel ═══════════════════════════════════════ */
+    .bnb-search-drop {
+        position: fixed; top: 76px; left: 50%; transform: translateX(-50%);
+        background: #fff; border-radius: 24px;
+        box-shadow: 0 16px 56px rgba(0,0,0,.18);
+        padding: 28px 32px;
+        min-width: 480px; max-width: 640px; width: 90vw;
+        z-index: 1060;
+    }
+    .bnb-drop-title {
+        font-size: 11px; font-weight: 700; color: var(--bnb-dark);
+        letter-spacing: .5px; text-transform: uppercase; margin-bottom: 14px;
+    }
+
+    /* Location input */
+    .bnb-loc-wrap {
+        display: flex; align-items: center; gap: 8px;
+        border: 1.5px solid var(--bnb-border); border-radius: 12px;
+        padding: 10px 14px; margin-bottom: 14px; background: var(--bnb-bg-light);
+        transition: border-color .15s;
+    }
+    .bnb-loc-wrap:focus-within { border-color: var(--bnb-dark); background: #fff; }
+    .bnb-loc-input {
+        flex: 1; border: none; background: transparent; font-size: 15px;
+        color: var(--bnb-dark); font-family: var(--bnb-font); outline: none; text-align: right;
+    }
+    .bnb-loc-clear { background: none; border: none; color: var(--bnb-gray); cursor: pointer; font-size: 20px; line-height: 1; padding: 0; }
+
+    /* Suggestions list */
+    .bnb-suggestions { max-height: 280px; overflow-y: auto; }
+    .bnb-sug-btn {
+        display: flex; align-items: center; gap: 14px; width: 100%;
+        padding: 11px 10px; border: none; background: transparent; border-radius: 12px;
+        cursor: pointer; transition: background .1s; text-align: right; font-family: var(--bnb-font);
+    }
+    .bnb-sug-btn:hover { background: var(--bnb-bg-light); }
+    .bnb-sug-icon {
+        width: 38px; height: 38px; background: #ebebeb; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+    }
+    .bnb-sug-name { font-size: 14px; font-weight: 600; color: var(--bnb-dark); }
+    .bnb-sug-sub  { font-size: 12px; color: var(--bnb-gray); }
+
+    /* Guest counter */
+    .bnb-guest-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 18px 0; border-bottom: 1px solid var(--bnb-border);
+    }
+    .bnb-guest-row:last-child { border-bottom: none; }
+    .bnb-counter { display: flex; align-items: center; gap: 18px; }
+    .bnb-cnt-btn {
+        width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #b0b0b0;
+        background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; color: #717171; transition: border-color .15s, color .15s; line-height: 1;
+    }
+    .bnb-cnt-btn:hover:not([disabled]) { border-color: var(--bnb-dark); color: var(--bnb-dark); }
+    .bnb-cnt-btn[disabled] { opacity: .3; cursor: not-allowed; }
+
+    /* Backdrop */
+    .bnb-search-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1050;
+    }
+
+    /* Alpine transitions */
+    .sf-enter { transition: opacity .2s ease, transform .2s ease; }
+    .sf-enter-from { opacity: 0; }
+    .sf-enter-to { opacity: 1; }
+    .sf-leave { transition: opacity .15s ease; }
+    .sf-leave-from { opacity: 1; }
+    .sf-leave-to { opacity: 0; }
+    .sd-enter { transition: opacity .2s ease, margin-top .2s ease; }
+    .sd-enter-from { opacity: 0; margin-top: -10px; }
+    .sd-enter-to { opacity: 1; margin-top: 0; }
+    .sd-leave { transition: opacity .15s ease; }
+    .sd-leave-from { opacity: 1; }
+    .sd-leave-to { opacity: 0; }
+
+    /* Calendar inside panel */
+    .bnb-search-drop .datepicker-plot-area { font-size: 13px; }
+    </style>
+
     @stack('styles')
 </head>
 <body class="bnb-page">
@@ -41,23 +166,140 @@
                 بنیاد
             </a>
 
-            {{-- Compact Search Pill (always visible on md+) --}}
-            <div class="bnb-search-pill d-none d-md-flex flex-grow-1 mx-auto" style="max-width:460px;">
-                <a href="{{ route('accommodations.index') }}" class="pill-item text-decoration-none" style="border-left:none;border-right:1px solid #DDDDDD;">
-                    <span class="pill-label">کجا</span>
-                    <span class="pill-value">جستجوی مقصد</span>
-                </a>
-                <a href="{{ route('accommodations.index') }}" class="pill-item text-decoration-none" style="border-left:none;border-right:1px solid #DDDDDD;">
-                    <span class="pill-label">چه زمانی</span>
-                    <span class="pill-value">افزودن تاریخ</span>
-                </a>
-                <a href="{{ route('accommodations.index') }}" class="pill-item text-decoration-none">
-                    <span class="pill-label">چند نفر</span>
-                    <span class="pill-value">افزودن مهمان</span>
-                </a>
-                <a href="{{ route('accommodations.index') }}" class="bnb-search-btn text-decoration-none">
-                    <i class="bi bi-search" style="color:#fff;font-size:14px;"></i>
-                </a>
+            {{-- ── Airbnb-style Interactive Search (Alpine.js) ───────────── --}}
+            <div class="bnb-search-wrap d-none d-md-flex flex-grow-1 mx-auto" style="max-width:620px;"
+                 x-data="bnbNavSearch()"
+                 @keydown.escape.window="close()">
+
+                {{-- Compact pill (default state) --}}
+                <div class="bnb-search-pill w-100"
+                     x-show="!open"
+                     x-transition:enter="sf-enter" x-transition:enter-start="sf-enter-from" x-transition:enter-end="sf-enter-to"
+                     x-transition:leave="sf-leave" x-transition:leave-start="sf-leave-from" x-transition:leave-end="sf-leave-to"
+                     style="display:flex;">
+                    <button type="button" class="pill-item" style="border-left:none;border-right:1px solid #DDDDDD;" @click.stop="activate('where')">
+                        <span class="pill-label">کجا</span>
+                        <span class="pill-value" x-text="locationLabel"></span>
+                    </button>
+                    <button type="button" class="pill-item" style="border-left:none;border-right:1px solid #DDDDDD;" @click.stop="activate('when')">
+                        <span class="pill-label">چه زمانی</span>
+                        <span class="pill-value" x-text="dateLabel"></span>
+                    </button>
+                    <button type="button" class="pill-item" @click.stop="activate('who')">
+                        <span class="pill-label">چند نفر</span>
+                        <span class="pill-value" x-text="guests + ' نفر'"></span>
+                    </button>
+                    <button type="button" class="bnb-search-btn" @click.stop="submit()">
+                        <i class="bi bi-search" style="color:#fff;font-size:14px;"></i>
+                    </button>
+                </div>
+
+                {{-- Expanded bar (open state) --}}
+                <div class="bnb-search-expanded w-100" x-show="open" x-cloak
+                     x-transition:enter="sf-enter" x-transition:enter-start="sf-enter-from" x-transition:enter-end="sf-enter-to"
+                     x-transition:leave="sf-leave" x-transition:leave-start="sf-leave-from" x-transition:leave-end="sf-leave-to">
+                    <button type="button" class="bnb-stab" :class="{'bnb-stab-active': step==='where'}" @click.stop="activate('where')">
+                        <div class="bnb-stab-label">مقصد</div>
+                        <div class="bnb-stab-val" x-text="locationLabel"></div>
+                    </button>
+                    <div class="bnb-stab-div"></div>
+                    <button type="button" class="bnb-stab" :class="{'bnb-stab-active': step==='when'}" @click.stop="activate('when')">
+                        <div class="bnb-stab-label">ورود</div>
+                        <div class="bnb-stab-val" x-text="checkIn ? jalaliStr(checkIn) : 'افزودن تاریخ'"></div>
+                    </button>
+                    <div class="bnb-stab-div"></div>
+                    <button type="button" class="bnb-stab" :class="{'bnb-stab-active': step==='when' && checkIn}" @click.stop="activate('when')">
+                        <div class="bnb-stab-label">خروج</div>
+                        <div class="bnb-stab-val" x-text="checkOut ? jalaliStr(checkOut) : 'افزودن تاریخ'"></div>
+                    </button>
+                    <div class="bnb-stab-div"></div>
+                    <button type="button" class="bnb-stab bnb-stab-last" :class="{'bnb-stab-active': step==='who'}" @click.stop="activate('who')">
+                        <div class="bnb-stab-label">مهمان</div>
+                        <div class="bnb-stab-val" x-text="guests + ' نفر'"></div>
+                    </button>
+                    <button type="button" class="bnb-search-go" @click.stop="submit()">
+                        <i class="bi bi-search"></i>جستجو
+                    </button>
+                </div>
+
+                {{-- Dropdown panel --}}
+                <div class="bnb-search-drop" x-show="open" x-cloak
+                     x-transition:enter="sd-enter" x-transition:enter-start="sd-enter-from" x-transition:enter-end="sd-enter-to"
+                     x-transition:leave="sd-leave" x-transition:leave-start="sd-leave-from" x-transition:leave-end="sd-leave-to">
+
+                    {{-- WHERE --}}
+                    <div x-show="step==='where'">
+                        <p class="bnb-drop-title">مقصد کجاست؟</p>
+                        <div class="bnb-loc-wrap">
+                            <i class="bi bi-search" style="color:var(--bnb-gray);font-size:15px;flex-shrink:0;"></i>
+                            <input type="text" class="bnb-loc-input" placeholder="جستجوی استان یا شهر..."
+                                   x-model="locationQuery" @input="filterLocations()" x-ref="locInput" autocomplete="off">
+                            <button type="button" class="bnb-loc-clear" x-show="locationQuery" @click="locationQuery='';suggestions=allLocations.slice(0,8);">&times;</button>
+                        </div>
+                        <div class="bnb-suggestions">
+                            <template x-for="loc in suggestions" :key="loc.type+'-'+loc.id">
+                                <button type="button" class="bnb-sug-btn" @click="selectLocation(loc)">
+                                    <div class="bnb-sug-icon">
+                                        <i :class="loc.type==='province'?'bi bi-map':'bi bi-geo-alt-fill'"></i>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div class="bnb-sug-name" x-text="loc.name"></div>
+                                        <div class="bnb-sug-sub" x-show="loc.type==='city'" x-text="loc.province"></div>
+                                        <div class="bnb-sug-sub" x-show="loc.type==='province'">استان</div>
+                                    </div>
+                                </button>
+                            </template>
+                            <div x-show="suggestions.length===0" style="text-align:center;padding:20px;color:var(--bnb-gray);font-size:14px;">نتیجه‌ای یافت نشد</div>
+                        </div>
+                    </div>
+
+                    {{-- WHEN --}}
+                    <div x-show="step==='when'">
+                        <p class="bnb-drop-title">چه زمانی سفر می‌کنید؟</p>
+                        <div style="display:flex;gap:24px;font-size:13px;color:var(--bnb-gray);margin-bottom:14px;">
+                            <span x-text="checkIn ? '✓ ورود: '+jalaliStr(checkIn) : 'تاریخ ورود را انتخاب کنید'" :style="checkIn?'color:var(--bnb-red);font-weight:600':''"></span>
+                            <span x-text="checkOut ? '✓ خروج: '+jalaliStr(checkOut) : 'سپس تاریخ خروج'" :style="checkOut?'color:var(--bnb-red);font-weight:600':''"></span>
+                        </div>
+                        <div id="navCalEl" style="direction:rtl;"></div>
+                        <div x-show="checkIn && checkOut" style="margin-top:14px;text-align:left;">
+                            <button type="button" class="bnb-filter-pill" @click="activate('who')">
+                                <i class="bi bi-arrow-left me-1"></i>مرحله بعد: مهمانان
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- WHO --}}
+                    <div x-show="step==='who'">
+                        <p class="bnb-drop-title">چند نفر سفر می‌کنند؟</p>
+                        <div class="bnb-guest-row">
+                            <div>
+                                <div style="font-weight:600;font-size:15px;color:var(--bnb-dark);">مهمانان</div>
+                                <div style="font-size:13px;color:var(--bnb-gray);">بزرگسال و کودک</div>
+                            </div>
+                            <div class="bnb-counter">
+                                <button type="button" class="bnb-cnt-btn" @click="guests>1 && guests--" :disabled="guests<=1">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <span x-text="guests" style="min-width:24px;text-align:center;font-size:16px;font-weight:600;"></span>
+                                <button type="button" class="bnb-cnt-btn" @click="guests<16 && guests++">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
+                            <button type="button" style="background:none;border:none;color:var(--bnb-gray);font-size:13px;text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);" @click="guests=1">پاک کردن</button>
+                            <button type="button" class="btn-bnb" @click="submit()">
+                                <i class="bi bi-search me-1"></i>جستجو
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Backdrop --}}
+                <div class="bnb-search-backdrop" x-show="open" x-cloak @click="close()"
+                     x-transition:enter="sf-enter" x-transition:enter-start="sf-enter-from" x-transition:enter-end="sf-enter-to"
+                     x-transition:leave="sf-leave" x-transition:leave-start="sf-leave-from" x-transition:leave-end="sf-leave-to">
+                </div>
             </div>
 
             {{-- Right actions --}}
@@ -317,6 +559,144 @@ function initJalaliRange(calSel, inSel, outSel, displaySel, initIn, initOut, onR
             }
         }
     });
+}
+
+// ─── Airbnb Nav Search (Alpine.js) ───────────────────────────────────────────
+window.bnbLocations = @json($navLocations);
+
+function bnbNavSearch() {
+    return {
+        open: false,
+        step: 'where',          // 'where' | 'when' | 'who'
+        // Location
+        locationQuery: '',
+        provinceId: null,
+        cityId: null,
+        locationLabel: 'جستجوی مقصد',
+        suggestions: [],
+        allLocations: [],
+        // Dates
+        checkIn: '',
+        checkOut: '',
+        calInitialized: false,
+        // Guests
+        guests: 1,
+
+        get dateLabel() {
+            if (this.checkIn && this.checkOut)
+                return this.jalaliStr(this.checkIn) + ' — ' + this.jalaliStr(this.checkOut);
+            if (this.checkIn) return this.jalaliStr(this.checkIn);
+            return 'افزودن تاریخ';
+        },
+
+        jalaliStr(g) {
+            if (!g) return '';
+            try { return new persianDate(new Date(g + 'T12:00:00')).format('YYYY/MM/DD'); } catch(e) { return g; }
+        },
+
+        init() {
+            this.allLocations = window.bnbLocations || [];
+            this.suggestions  = this.allLocations.slice(0, 9);
+            // Pre-fill from current URL query params
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('check_in'))  this.checkIn  = p.get('check_in');
+            if (p.get('check_out')) this.checkOut = p.get('check_out');
+            if (p.get('guests'))    this.guests   = parseInt(p.get('guests')) || 1;
+            const cid = parseInt(p.get('city_id'));
+            const pid = parseInt(p.get('province_id'));
+            if (cid) {
+                const c = this.allLocations.find(l => l.type === 'city' && l.id === cid);
+                if (c) { this.cityId = c.id; this.provinceId = c.province_id; this.locationLabel = c.name; }
+            } else if (pid) {
+                const pv = this.allLocations.find(l => l.type === 'province' && l.id === pid);
+                if (pv) { this.provinceId = pv.id; this.locationLabel = pv.name; }
+            }
+        },
+
+        activate(s) {
+            this.open = true;
+            this.step = s;
+            if (s === 'where') {
+                this.$nextTick(() => { if (this.$refs.locInput) this.$refs.locInput.focus(); });
+            }
+            if (s === 'when') {
+                this.$nextTick(() => { if (!this.calInitialized) this.initCal(); });
+            }
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+        },
+
+        close() {
+            this.open = false;
+            document.body.style.overflow = '';
+        },
+
+        filterLocations() {
+            const q = this.locationQuery.trim();
+            if (!q) { this.suggestions = this.allLocations.slice(0, 9); return; }
+            this.suggestions = this.allLocations
+                .filter(l => l.name.includes(q) || (l.province && l.province.includes(q)))
+                .slice(0, 10);
+        },
+
+        selectLocation(loc) {
+            if (loc.type === 'province') {
+                this.provinceId = loc.id; this.cityId = null;
+                this.locationLabel = loc.name; this.locationQuery = loc.name;
+            } else {
+                this.cityId = loc.id; this.provinceId = loc.province_id;
+                this.locationLabel = loc.name;
+                this.locationQuery = loc.name + '، ' + loc.province;
+            }
+            this.activate('when');
+        },
+
+        initCal() {
+            const self = this;
+            let phase = 0, startUnix = null;
+            function toGreg(unix) {
+                const d = new Date(unix);
+                return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            }
+            if (typeof $ === 'undefined' || typeof $.fn.persianDatepicker === 'undefined') return;
+            $('#navCalEl').persianDatepicker({
+                inline: true,
+                calendar: { persian: { locale: 'fa' } },
+                format: 'YYYY/MM/DD',
+                minDate: new persianDate().valueOf(),
+                onSelect(unix) {
+                    if (phase === 0) {
+                        startUnix = unix;
+                        self.checkIn  = toGreg(unix);
+                        self.checkOut = '';
+                        phase = 1;
+                    } else {
+                        if (unix > startUnix) {
+                            self.checkOut = toGreg(unix);
+                            phase = 0; startUnix = null;
+                            self.$nextTick(() => self.activate('who'));
+                        } else {
+                            startUnix = unix;
+                            self.checkIn  = toGreg(unix);
+                            self.checkOut = '';
+                        }
+                    }
+                }
+            });
+            this.calInitialized = true;
+        },
+
+        submit() {
+            const p = new URLSearchParams();
+            if (this.cityId)      p.set('city_id',     this.cityId);
+            else if (this.provinceId) p.set('province_id', this.provinceId);
+            if (this.checkIn)     p.set('check_in',    this.checkIn);
+            if (this.checkOut)    p.set('check_out',   this.checkOut);
+            if (this.guests > 1)  p.set('guests',      this.guests);
+            this.close();
+            window.location.href = '/accommodations' + (p.toString() ? '?' + p.toString() : '');
+        }
+    };
 }
 </script>
 
