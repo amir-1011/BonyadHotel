@@ -49,6 +49,11 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
+    public function favorites()
+    {
+        return $this->belongsToMany(Accommodation::class, 'user_favorites')->withTimestamps();
+    }
+
     public function isAdmin(): bool
     {
         return $this->hasRole('super_admin');

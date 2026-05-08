@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccommodationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
@@ -44,6 +45,10 @@ Route::middleware('auth')->group(function () {
 
     // Reviews
     Route::post('/accommodations/{accommodation}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+
+    // Favorites
+    Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+    Route::post('/favorites/{accommodation}/toggle', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
 });
 
 // ─── Super Admin Panel ───────────────────────────────────────────────────────

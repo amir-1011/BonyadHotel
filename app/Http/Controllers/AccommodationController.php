@@ -22,6 +22,40 @@ class AccommodationController extends Controller
         } elseif ($request->filled('province_id')) {
             $query->whereHas('city', fn($q) => $q->where('province_id', $request->province_id));
             $cities = City::where('province_id', $request->province_id)->orderBy('name')->get();
+        } elseif ($request->filled('lat') && $request->filled('lng')) {
+            $lat    = (float) $request->lat;
+            $lng    = (float) $request->lng;
+            $radius = max(1, min(500, (float) $request->input('radius', 30)));
+
+            // Bounding box approximation (1 degree lat ≈ 111 km)
+            $latDelta = $radius / 111.0;
+            $lngDelta = $radius / (111.0 * cos(deg2rad($lat)));
+
+            $query->whereNotNull('lat')
+                  ->whereNotNull('lng')
+                  ->whereBetween('lat', [$lat - $latDelta, $lat + $latDelta])
+                  ->whereBetween('lng', [$lng - $lngDelta, $lng + $lngDelta]);
+
+            // Precise Haversine filter in PHP after DB fetch
+            $haversine = function ($a) use ($lat, $lng, $radius) {
+                $R   = 6371;
+                $dLat = deg2rad($a->lat - $lat);
+                $dLng = deg2rad($a->lng - $lng);
+                $h   = sin($dLat / 2) ** 2
+                     + cos(deg2rad($lat)) * cos(deg2rad($a->lat)) * sin($dLng / 2) ** 2;
+                return 2 * $R * asin(sqrt($h)) <= $radius;
+            };
+
+            $accommodations = $query->latest()->get()->filter($haversine);
+            $accommodations = new \Illuminate\Pagination\LengthAwarePaginator(
+                $accommodations->forPage(\Illuminate\Pagination\Paginator::resolveCurrentPage(), 12)->values(),
+                $accommodations->count(),
+                12,
+                null,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'query' => $request->query()]
+            );
+
+            return view('accommodations.index', compact('accommodations', 'provinces', 'cities'));
         }
 
         if ($request->filled('guests')) {

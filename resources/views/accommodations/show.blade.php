@@ -3,18 +3,79 @@
 @section('title', $accommodation->name)
 
 @push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 <style>
 /* ── Photo grid ─────────────────────────────────────── */
 .bnb-photo-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 220px 220px;
     gap: 8px;
     border-radius: var(--bnb-radius);
     overflow: hidden;
     margin: 0 -24px;
+    height: 450px;
 }
-.bnb-photo-grid-main { grid-row: 1 / 3; }
+
+/* 1 Image Layout */
+.bnb-photo-grid.grid-count-1 {
+    grid-template-columns: 1fr;
+}
+
+/* 2 Images Layout */
+.bnb-photo-grid.grid-count-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* 3 Images Layout */
+.bnb-photo-grid.grid-count-3 {
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-3 .bnb-photo-grid-main { grid-row: 1 / 3; }
+
+/* 4 Images Layout */
+.bnb-photo-grid.grid-count-4 {
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: repeat(3, 1fr);
+}
+.grid-count-4 .bnb-photo-grid-main { grid-row: 1 / 4; }
+
+/* 5 Images Layout */
+.bnb-photo-grid.grid-count-5:not(.mobile-grid) {
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-5:not(.mobile-grid) .bnb-photo-grid-main { grid-column: 1 / 2; grid-row: 1 / 3; }
+
+/* 5 Images Layout */
+.bnb-photo-grid.grid-count-5:not(.mobile-grid) {
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-5:not(.mobile-grid) .bnb-photo-grid-main { grid-column: 1 / 2; grid-row: 1 / 3; }
+
+/* 6 Images Layout */
+.bnb-photo-grid.grid-count-6:not(.mobile-grid) {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-6:not(.mobile-grid) .bnb-photo-grid-main { grid-column: 1 / 2; grid-row: 1 / 3; }
+.grid-count-6:not(.mobile-grid) .bnb-photo-grid-wrap:nth-child(2) { grid-column: 2 / 3; grid-row: 1 / 3; }
+
+/* 7 Images Layout */
+.bnb-photo-grid.grid-count-7:not(.mobile-grid) {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-7:not(.mobile-grid) .bnb-photo-grid-main { grid-column: 1 / 2; grid-row: 1 / 3; }
+
+/* 8 Images Layout */
+.bnb-photo-grid.grid-count-8:not(.mobile-grid) {
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+.grid-count-8:not(.mobile-grid) .bnb-photo-grid-main { grid-column: 1 / 2; grid-row: 1 / 3; }
+.grid-count-8:not(.mobile-grid) .bnb-photo-grid-wrap:nth-child(2) { grid-column: 2 / 3; grid-row: 1 / 3; }
+
 .bnb-photo-grid img {
     width: 100%; height: 100%; object-fit: cover; display: block;
     transition: transform .3s; cursor: pointer;
@@ -29,18 +90,29 @@
 }
 .bnb-show-all-btn:hover { background: var(--bnb-bg-light); }
 @media (max-width: 767px) {
-    .bnb-photo-grid { grid-template-columns: 1fr; grid-template-rows: 260px; margin: 0 -16px; }
-    .bnb-photo-grid-wrap:not(.bnb-photo-grid-main) { display: none; }
+    .bnb-photo-grid { 
+        display: none !important;
+    }
+}
+.bnb-mobile-slider { display: none; }
+@media (max-width: 767px) {
+    .bnb-mobile-slider { 
+        display: block; 
+        margin: 0 -16px; 
+        position: relative;
+        margin-top: -64px; /* Pull up to touch the ceiling under transparent nav */
+    }
+    .bnb-mobile-slider .swiper-slide img {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+    }
+    .bnb-mobile-slider .swiper-pagination-bullet-active {
+        background: #fff;
+    }
 }
 /* ── Page layout ─────────────────────────────────────── */
-.bnb-show-layout { display: grid; grid-template-columns: 1fr 380px; gap: 60px; padding-top: 28px; }
-.bnb-show-right { position: sticky; top: 80px; align-self: start; }
-@media (max-width: 991px) {
-    .bnb-show-layout { grid-template-columns: 1fr; gap: 0; }
-    .bnb-show-right { position: static; margin-top: 32px; }
-}
-/* ── Booking widget ──────────────────────────────────── */
-.bnb-book-widget { border: 1px solid var(--bnb-border); border-radius: 12px; padding: 24px; box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+.bnb-show-layout { display: grid; grid-template-columns: 1fr; padding-top: 28px; }
 .bnb-book-price { font-size: 20px; font-weight: 700; color: var(--bnb-dark); margin-bottom: 16px; }
 .bnb-book-price span { font-size: 14px; font-weight: 400; color: var(--bnb-gray); }
 .bnb-book-fields { border: 1px solid var(--bnb-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
@@ -55,7 +127,22 @@
 .bnb-host-row { display: flex; align-items: center; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--bnb-border); }
 .bnb-host-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--bnb-red), #E31C5F); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; flex-shrink: 0; }
 /* ── Sticky tabs ─────────────────────────────────────── */
-.bnb-sticky-tabs { position: sticky; top: 60px; background: #fff; border-bottom: 1px solid var(--bnb-border); z-index: 90; margin: 0 -24px; padding: 0 24px; display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
+.bnb-sticky-tabs { 
+    position: sticky; 
+    background: #fff; 
+    border-bottom: 1px solid var(--bnb-border); 
+    z-index: 90; 
+    margin: 0 -24px; 
+    padding: 0 24px; 
+    display: flex; 
+    gap: 0; 
+    overflow-x: auto; 
+    scrollbar-width: none; 
+}
+/* This class is now handled globally in app.blade.php for perfect sync */
+.bnb-sticky-tabs.is-nav-sticky {
+    /* Base style inherited from .is-nav-sticky */
+}
 .bnb-sticky-tabs::-webkit-scrollbar { display: none; }
 .bnb-sticky-tab { padding: 14px 16px; font-size: 14px; font-weight: 500; color: var(--bnb-gray); border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; text-decoration: none; transition: color .15s, border-color .15s; }
 .bnb-sticky-tab:hover, .bnb-sticky-tab.active { color: var(--bnb-dark); border-bottom-color: var(--bnb-dark); }
@@ -64,16 +151,28 @@
 .bnb-amenity-item { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--bnb-dark); }
 /* ── Room card ────────────────────────────────────────── */
 .bnb-room-card { border: 1px solid var(--bnb-border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
-.bnb-rate-row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--bnb-border); }
+.bnb-rate-row { display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--bnb-border); }
+@media (min-width: 576px) {
+    .bnb-rate-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; }
+}
 .bnb-rate-row:last-child { border-bottom: none; }
+.bnb-rate-action { display: flex; justify-content: flex-end; }
+@media (min-width: 576px) {
+    .bnb-rate-action { display: block; }
+}
 /* ── Star selector ────────────────────────────────────── */
 .bnb-star-selector { display: flex; gap: 4px; font-size: 24px; cursor: pointer; }
 .bnb-star-selector .bi { color: var(--bnb-dark); transition: color .15s; }
-/* ── Photo modal ──────────────────────────────────────── */
-#photoModal .modal-dialog { max-width: 900px; }
-#photoModal .photo-grid { display: flex; flex-direction: column; gap: 8px; }
-#photoModal .photo-grid img { width: 100%; border-radius: 8px; object-fit: cover; }
+/* ── Title and Rating Section ────────────────────────── */
+.bnb-main-title { font-size: 26px; font-weight: 800; color: var(--bnb-dark); margin-bottom: 8px; letter-spacing: -0.5px; }
+.bnb-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; color: var(--bnb-dark); }
+.bnb-rating-badge { display: flex; align-items: center; gap: 4px; font-weight: 700; }
+.bnb-rating-count { color: var(--bnb-gray); font-weight: 400; text-decoration: underline; cursor: pointer; }
+.bnb-dot-separator { color: var(--bnb-gray); font-size: 8px; padding: 0 4px; }
+.bnb-location-link { color: var(--bnb-gray); text-decoration: underline; font-weight: 500; transition: color 0.2s; }
+.bnb-location-link:hover { color: var(--bnb-dark); }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
 @endpush
 
 @section('content')
@@ -82,47 +181,79 @@
     if ($accommodation->image && !$allImages->contains($accommodation->image)) {
         $allImages->prepend($accommodation->image);
     }
-    $img0 = $allImages->get(0); $img1 = $allImages->get(1);
-    $img2 = $allImages->get(2); $img3 = $allImages->get(3); $img4 = $allImages->get(4);
+    $displayImages = $allImages->take(8);
+    $imgCount = $displayImages->count();
 @endphp
 
 <div class="container-fluid px-3 px-lg-5">
 
-{{-- PHOTO GRID --}}
-<div style="position:relative;padding-top:24px;">
-    <div class="bnb-photo-grid">
-        <div class="bnb-photo-grid-wrap bnb-photo-grid-main">
-            @if($img0)<img src="{{ asset('storage/' . $img0) }}" alt="{{ $accommodation->name }}" onclick="openPhotoModal()">
-            @else<div style="height:100%;background:var(--bnb-bg-light);display:flex;align-items:center;justify-content:center;font-size:5rem;">🏠</div>@endif
-        </div>
-        @foreach([$img1, $img2, $img3, $img4] as $sideImg)
-        <div class="bnb-photo-grid-wrap">
-            @if($sideImg)<img src="{{ asset('storage/' . $sideImg) }}" alt="{{ $accommodation->name }}" onclick="openPhotoModal()">
-            @elseif($img0)<img src="{{ asset('storage/' . $img0) }}" alt="{{ $accommodation->name }}" onclick="openPhotoModal()" style="filter:brightness(.6)">
-            @else<div style="height:100%;background:var(--bnb-bg-light);"></div>@endif
-        </div>
+{{-- MOBILE SLIDER (Swiper) --}}
+<div class="bnb-mobile-slider swiper" id="mobile-zoom-gallery">
+    <div class="swiper-wrapper">
+        @foreach($allImages as $img)
+            <div class="swiper-slide">
+                <a href="{{ asset('storage/' . $img) }}" 
+                   data-pswp-width="1200" 
+                   data-pswp-height="800" 
+                   class="pswp-gallery-item-mobile">
+                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
+                </a>
+            </div>
         @endforeach
     </div>
+    <div class="swiper-pagination"></div>
+</div>
+
+{{-- PHOTO GRID --}}
+<div class="d-none d-md-block" style="position:relative;padding-top:24px;">
+    <div class="bnb-photo-grid grid-count-{{ $imgCount }}" id="zoom-gallery">
+        @foreach($allImages as $index => $img)
+            <div class="bnb-photo-grid-wrap {{ $index === 0 ? 'bnb-photo-grid-main' : '' }} {{ $index >= 8 ? 'd-none' : '' }}">
+                <a href="{{ asset('storage/' . $img) }}" 
+                   data-pswp-width="1200" 
+                   data-pswp-height="800" 
+                   class="pswp-gallery-item">
+                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
+                </a>
+            </div>
+        @endforeach
+
+        @if($imgCount === 0)
+            <div class="bnb-photo-grid-wrap bnb-photo-grid-main">
+                <div style="height:100%;background:var(--bnb-bg-light);display:flex;align-items:center;justify-content:center;font-size:5rem;">🏠</div>
+            </div>
+        @endif
+    </div>
     @if($allImages->count() > 0)
-    <button class="bnb-show-all-btn" data-bs-toggle="modal" data-bs-target="#photoModal">
+    <button class="bnb-show-all-btn" id="pswp-btn-all">
         <i class="bi bi-grid-3x3-gap"></i> نمایش همه تصاویر ({{ $allImages->count() }})
     </button>
     @endif
 </div>
 
 {{-- TITLE ROW --}}
-<div class="d-flex justify-content-between align-items-start mt-4 mb-1" style="flex-wrap:wrap;gap:12px;">
+<div class="d-flex justify-content-between align-items-start mt-4 mb-2" style="flex-wrap:wrap;gap:16px;">
     <div>
-        <h1 style="font-size:22px;font-weight:700;color:var(--bnb-dark);margin-bottom:4px;">{{ $accommodation->name }}</h1>
-        <div style="font-size:14px;color:var(--bnb-gray);">
+        <h1 class="bnb-main-title">{{ $accommodation->name }}</h1>
+        <div class="bnb-meta-row">
             @if($accommodation->averageRating() > 0)
-                <i class="bi bi-star-fill" style="color:var(--bnb-dark);font-size:12px;"></i>
-                <strong style="color:var(--bnb-dark);">{{ $accommodation->averageRating() }}</strong>
-                <span>({{ $accommodation->reviewCount() }} نظر)</span>
-                <span style="margin:0 6px;">·</span>
+                <div class="bnb-rating-badge">
+                    <i class="bi bi-star-fill" style="color:var(--bnb-dark); font-size: 13px;"></i>
+                    <span>{{ number_format($accommodation->averageRating(), 1) }}</span>
+                </div>
+                <span class="bnb-rating-count" onclick="document.getElementById('sec-reviews').scrollIntoView({behavior:'smooth'})">
+                    {{ $accommodation->reviewCount() }} نظر
+                </span>
+                <span class="bnb-dot-separator">●</span>
             @endif
-            <span>{{ $accommodation->city->province->name ?? '' }}، {{ $accommodation->city->name ?? '' }}</span>
-            @if($accommodation->address)<span style="margin:0 6px;">·</span><span>{{ $accommodation->address }}</span>@endif
+            
+            <i class="bi bi-geo-alt-fill" style="font-size: 14px; color: var(--bnb-gray);"></i>
+            <span style="font-weight: 600;">{{ $accommodation->city->province->name ?? '' }}، {{ $accommodation->city->name ?? '' }}</span>
+            
+            @if($accommodation->address)
+                <span class="bnb-dot-separator">●</span>
+                <a href="#sec-map" class="bnb-location-link">{{ $accommodation->address }}</a>
+            @endif
         </div>
     </div>
     <div class="d-flex gap-2">
@@ -132,7 +263,7 @@
 </div>
 
 {{-- STICKY TABS --}}
-<div class="bnb-sticky-tabs" id="stickyTabs">
+<div class="bnb-sticky-tabs is-nav-sticky" id="stickyTabs">
     <a class="bnb-sticky-tab active" href="#sec-info">اطلاعات</a>
     <a class="bnb-sticky-tab" href="#sec-amenities">امکانات</a>
     @if($roomTypes->isNotEmpty())<a class="bnb-sticky-tab" href="#sec-rooms">اتاق‌ها</a>@endif
@@ -147,12 +278,12 @@
     <div class="bnb-show-left">
 
         {{-- Spec row --}}
-        <div id="sec-info" class="d-flex gap-4 py-5 border-bottom" style="flex-wrap:wrap;">
-            <div style="text-align:center;min-width:80px;"><i class="bi bi-people-fill" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->capacity }} نفر</div><div style="font-size:12px;color:var(--bnb-gray);">ظرفیت</div></div>
-            <div style="text-align:center;min-width:80px;"><i class="bi bi-door-open-fill" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->rooms }}</div><div style="font-size:12px;color:var(--bnb-gray);">اتاق</div></div>
-            <div style="text-align:center;min-width:80px;"><i class="bi bi-building" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->typeLabel() }}</div><div style="font-size:12px;color:var(--bnb-gray);">نوع</div></div>
+        <div id="sec-info" class="p-3 border rounded-4 d-flex gap-4 my-4" style="flex-wrap:wrap; background-color: #fafafa;">
+            <div class="px-3" style="text-align:center;min-width:80px; flex: 1 0 0;"><i class="bi bi-people-fill" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->capacity }} نفر</div><div style="font-size:12px;color:var(--bnb-gray);">ظرفیت</div></div>
+            <div class="px-3" style="text-align:center;min-width:80px; flex: 1 0 0;"><i class="bi bi-door-open-fill" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->rooms }}</div><div style="font-size:12px;color:var(--bnb-gray);">اتاق</div></div>
+            <div class="px-3" style="text-align:center;min-width:80px; flex: 1 0 0;"><i class="bi bi-building" style="font-size:1.5rem;"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">{{ $accommodation->typeLabel() }}</div><div style="font-size:12px;color:var(--bnb-gray);">نوع</div></div>
             @if(in_array('مناسب ویلچر', $accommodation->amenities ?? []))
-            <div style="text-align:center;min-width:80px;"><i class="bi bi-wheelchair" style="font-size:1.5rem;color:var(--bnb-red);"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">دسترسی</div><div style="font-size:12px;color:var(--bnb-gray);">ویلچر</div></div>
+            <div class="px-3" style="text-align:center;min-width:80px; flex: 1 0 0;"><i class="bi bi-person-wheelchair" style="font-size:1.5rem;color:var(--bnb-red);"></i><div style="font-size:14px;font-weight:600;margin-top:4px;">دسترسی</div><div style="font-size:12px;color:var(--bnb-gray);">ویلچر</div></div>
             @endif
         </div>
 
@@ -231,24 +362,40 @@
                             @else<span><i class="bi bi-credit-card me-1"></i>پرداخت آنلاین</span>@endif
                         </div>
                     </div>
-                    <div style="text-align:center;white-space:nowrap;">
-                        <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
-                        <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب</div>
-                    </div>
-                    <div>
-                        @auth
-                        <form class="room-reserve-form" action="{{ route('bookings.store', $accommodation) }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="room_type_id" value="{{ $roomType->id }}">
-                            <input type="hidden" name="room_rate_id" value="{{ $rate->id }}">
-                            <input type="hidden" name="check_in" class="rt-check-in">
-                            <input type="hidden" name="check_out" class="rt-check-out">
-                            <input type="hidden" name="guests" value="{{ $roomType->capacity }}">
-                            <button type="button" class="btn-bnb" style="white-space:nowrap;" onclick="reserveRoom(this)">رزرو</button>
-                        </form>
-                        @else
-                        <a href="{{ route('auth.mobile') }}" class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap;">ورود برای رزرو</a>
-                        @endauth
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="text-align:right;white-space:nowrap;">
+                            @auth
+                                @if(Auth::user()->discount_percentage > 0)
+                                    @php $discRate = round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($rate->price_per_night) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ number_format($discRate) }}</div>
+                                @else
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                @endif
+                            @else
+                                <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                            @endauth
+                            <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب</div>
+                        </div>
+                        <div class="bnb-rate-action">
+                            @auth
+                            <form class="room-reserve-form" action="{{ route('bookings.store', $accommodation) }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="room_type_id" value="{{ $roomType->id }}">
+                                <input type="hidden" name="room_rate_id" value="{{ $rate->id }}">
+                                <input type="hidden" name="check_in" class="rt-check-in">
+                                <input type="hidden" name="check_out" class="rt-check-out">
+                                <input type="hidden" name="guests" value="{{ $roomType->capacity }}">
+                                @php
+                                    $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
+                                    $btnOrigPrice = $rate->price_per_night;
+                                @endphp
+                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }})">رزرو</button>
+                            </form>
+                            @else
+                            <a href="{{ route('auth.mobile') }}" class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap; width: 100%; text-align: center;">ورود برای رزرو</a>
+                            @endauth
+                        </div>
                     </div>
                 </div>
                 @endforeach
@@ -328,11 +475,26 @@
 
     </div>{{-- /left --}}
 
-    {{-- RIGHT: Booking Widget --}}
-    <div class="bnb-show-right">
+    {{-- RIGHT: Booking Widget removed – using bottom pay bar instead --}}
+    <div style="display:none;"
+        x-data="bnbBookWidget('{{ request('check_in') }}','{{ request('check_out') }}',{{ request('guests',1) }})"
+        @nav-search-updated.window="syncFromNav($event.detail)">
         <div class="bnb-book-widget" id="sec-book">
             <div class="bnb-book-price">
-                {{ number_format($accommodation->price_per_night) }} <span>تومان / شب</span>
+                <span class="text-xs text-slate-500 font-normal">شروع از</span>
+                @auth
+                    @if(Auth::user()->discount_percentage > 0)
+                        @php $discShow = round($accommodation->lowest_price * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                        <span style="font-size:14px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ number_format($accommodation->lowest_price) }}</span>
+                        <span class="font-bold text-xl" style="color:var(--bnb-red);">{{ number_format($discShow) }}</span>
+                    @else
+                        <span class="font-bold text-xl">{{ number_format($accommodation->lowest_price) }}</span>
+                    @endif
+                @else
+                    <span class="font-bold text-xl">{{ number_format($accommodation->lowest_price) }}</span>
+                @endauth
+                <span class="text-xs">تومان</span>
+                <span class="text-slate-400 font-normal">/ شب</span>
                 @if($accommodation->averageRating() > 0)
                 <div style="font-size:13px;color:var(--bnb-gray);font-weight:400;margin-top:4px;">
                     <i class="bi bi-star-fill" style="color:var(--bnb-dark);font-size:11px;"></i>
@@ -348,49 +510,127 @@
             @if($errors->any())
             <div class="bnb-alert bnb-alert-danger" style="margin-bottom:16px;">@foreach($errors->all() as $err)<div>{{ $err }}</div>@endforeach</div>
             @endif
-            <form action="{{ route('bookings.store', $accommodation) }}" method="POST" id="bookingForm">
+            <form onsubmit="return false;" id="bookingForm">
                 @csrf
-                <div class="bnb-book-fields">
-                    <div class="bnb-book-field" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#showDateCal">
+                <div class="bnb-book-fields" :style="calOpen ? 'overflow:visible;' : ''">
+                    <div class="bnb-book-field" style="cursor:pointer;position:relative;" @click.stop="openCal()" @click.outside="calOpen=false">
                         <label>تاریخ ورود و خروج</label>
-                        <div id="showDateDisplay" class="picker-trigger"><span style="color:var(--bnb-gray);">انتخاب تاریخ</span></div>
-                    </div>
-                    <div class="collapse" id="showDateCal" style="border-bottom:1px solid var(--bnb-border);">
-                        <div style="padding:8px;">
-                            <div style="font-size:12px;color:var(--bnb-gray);margin-bottom:4px;padding:0 6px;"><i class="bi bi-info-circle me-1"></i>کلیک اول: ورود — کلیک دوم: خروج</div>
-                            <div class="range-picker-cal"><div id="showCalEl"></div></div>
+                        <div class="picker-trigger" style="display:flex;align-items:center;justify-content:space-between;">
+                            <span x-text="dateLabel || 'انتخاب تاریخ'" :style="dateLabel ? 'color:var(--bnb-dark);' : 'color:var(--bnb-gray);'"></span>
+                            <i class="bi bi-calendar3" style="color:var(--bnb-gray);font-size:13px;"></i>
+                        </div>
+                        {{-- Inline calendar dropdown --}}
+                        <div x-show="calOpen" x-cloak @click.stop
+                             style="position:absolute;top:calc(100% + 8px);right:0;left:0;background:#fff;border:1px solid var(--bnb-border);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:16px;z-index:200;min-width:300px;">
+                            {{-- Date summary row --}}
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                                <div :style="checkIn ? 'background:var(--bnb-red);color:#fff;' : 'background:var(--bnb-bg-light);color:var(--bnb-gray);'"
+                                     style="flex:1;border-radius:10px;padding:7px 10px;text-align:center;transition:all .2s;">
+                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">ورود</div>
+                                    <div style="font-weight:600;font-size:13px;" x-text="checkIn ? jalaliStr(checkIn) : 'انتخاب'"></div>
+                                </div>
+                                <i class="bi bi-arrow-left" style="color:var(--bnb-gray);flex-shrink:0;"></i>
+                                <div :style="checkOut ? 'background:var(--bnb-red);color:#fff;' : 'background:var(--bnb-bg-light);color:var(--bnb-gray);'"
+                                     style="flex:1;border-radius:10px;padding:7px 10px;text-align:center;transition:all .2s;">
+                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">خروج</div>
+                                    <div style="font-weight:600;font-size:13px;" x-text="checkOut ? jalaliStr(checkOut) : 'انتخاب'"></div>
+                                </div>
+                            </div>
+                            {{-- Month nav --}}
+                            <div class="bnb-cal-header">
+                                <button type="button" class="bnb-cal-nav" @click.stop="calNext()">&lsaquo;</button>
+                                <span class="bnb-cal-title" x-text="calMonthLabel"></span>
+                                <button type="button" class="bnb-cal-nav" @click.stop="calPrev()">&rsaquo;</button>
+                            </div>
+                            {{-- Day headers --}}
+                            <div class="bnb-cal-dow">
+                                <template x-for="h in ['ج','پ','چ','س','د','ی','ش']"><span x-text="h"></span></template>
+                            </div>
+                            {{-- Day grid --}}
+                            <div class="bnb-cal-grid">
+                                <template x-for="(cell, idx) in calDays" :key="idx">
+                                    <button type="button"
+                                        :disabled="!cell || cell.past"
+                                        @click.stop="cell && !cell.past && selectCalDay(cell)"
+                                        @mouseenter="cell && !cell.past && (calHover = cell.greg)"
+                                        @mouseleave="calHover = null"
+                                        :class="{
+                                            'bnb-cal-cell':true,
+                                            'cal-start':   cell && cell.greg === checkIn,
+                                            'cal-end':     cell && cell.greg === checkOut,
+                                            'cal-range':   calInRange(cell),
+                                            'cal-hover-range': calHoverRange(cell),
+                                            'cal-empty':   !cell
+                                        }">
+                                        <span x-text="cell ? cell.d : ''"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            {{-- Footer --}}
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
+                                <div>
+                                    <span x-show="checkIn && checkOut" class="bnb-cal-nights" x-text="calNights + ' شب اقامت'"></span>
+                                    <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">حالا تاریخ خروج را انتخاب کنید</span>
+                                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button x-show="checkIn || checkOut" type="button"
+                                        @click.stop="checkIn='';checkOut='';calPhase=0;updateLabel();"
+                                        style="background:none;border:none;font-size:12px;color:var(--bnb-gray);text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);">پاک</button>
+                                    <button x-show="checkIn && checkOut" type="button"
+                                        @click.stop="calOpen=false"
+                                        class="btn-bnb" style="padding:6px 14px;font-size:12px;">تأیید</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <input type="hidden" name="check_in" id="checkIn" value="{{ request('check_in', old('check_in')) }}">
-                    <input type="hidden" name="check_out" id="checkOut" value="{{ request('check_out', old('check_out')) }}">
+
                     <div class="bnb-book-field">
                         <label>تعداد مهمان</label>
-                        <select name="guests" class="picker-trigger" style="border:none;outline:none;font-family:var(--bnb-font);font-size:14px;">
-                            @for($i = 1; $i <= $accommodation->capacity; $i++)
-                                <option value="{{ $i }}" {{ request('guests', 1) == $i ? 'selected' : '' }}>{{ $i }} مهمان</option>
-                            @endfor
-                        </select>
+                        <div class="d-flex align-items-center justify-content-between" style="padding-top:2px;">
+                            <button type="button"
+                                @click.stop="if(guests > 1) guests--"
+                                style="width:32px;height:32px;border-radius:50% !important;border:1.5px solid var(--bnb-border);background:#fff;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bnb-dark);padding:0 !important;"
+                                :style="{ opacity: guests <= 1 ? 0.35 : 1, cursor: guests <= 1 ? 'not-allowed' : 'pointer' }"
+                                :disabled="guests <= 1">−</button>
+                            <span x-text="guests + ' مهمان'" style="font-size:14px;font-weight:600;color:var(--bnb-dark);"></span>
+                            <button type="button"
+                                @click.stop="if(guests < 20) guests++"
+                                style="width:32px;height:32px;border-radius:50% !important;border:1.5px solid var(--bnb-border);background:#fff;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bnb-dark);padding:0 !important;"
+                                :style="{ opacity: guests >= 20 ? 0.35 : 1, cursor: guests >= 20 ? 'not-allowed' : 'pointer' }"
+                                :disabled="guests >= 20">+</button>
+                        </div>
                     </div>
                 </div>
-                <div id="pricePreview" class="bnb-price-breakdown d-none">
-                    <div class="bnb-price-row"><span>{{ number_format($accommodation->price_per_night) }} × <span id="nightsCount">0</span> شب</span><span id="basePrice">-</span></div>
-                    @auth
-                        @if(Auth::user()->discount_percentage > 0)
-                        <div class="bnb-price-row" style="color:var(--bnb-red);"><span>تخفیف {{ Auth::user()->discount_percentage }}٪</span><span id="discountAmount">-</span></div>
-                        @endif
-                    @endauth
-                    <div class="bnb-price-row total"><span>جمع کل</span><span id="totalPrice">-</span></div>
-                </div>
+
                 @auth
                     @if($roomTypes->isNotEmpty())
                     <a href="#sec-rooms" class="btn-bnb d-block text-decoration-none text-center mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">مشاهده اتاق‌ها و رزرو</a>
                     @else
-                    <button type="submit" class="btn-bnb w-100 mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">ثبت رزرو</button>
+                    <button type="button" @click="submitBooking()" class="btn-bnb w-100 mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">ثبت رزرو</button>
                     @endif
                 @else
                 <a href="{{ route('auth.mobile') }}" class="btn-bnb d-block text-decoration-none text-center mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));"><i class="bi bi-phone me-1"></i>ورود برای رزرو</a>
                 @endauth
             </form>
+            <div class="bnb-price-breakdown" :class="checkIn && checkOut ? '' : 'd-none'">
+                <div class="bnb-price-row">
+                    <span>{{ number_format($accommodation->price_per_night) }} × <span x-text="calNights">0</span> شب</span>
+                    <span x-text="(calNights * {{ $accommodation->price_per_night }}).toLocaleString('fa-IR') + ' تومان'">-</span>
+                </div>
+                @auth
+                    @if(Auth::user()->discount_percentage > 0)
+                    <div class="bnb-price-row" style="color:var(--bnb-red);">
+                        <span>تخفیف {{ Auth::user()->discount_percentage }}٪</span>
+                        <span x-text="'-' + Math.round((calNights * {{ $accommodation->price_per_night }} * {{ Auth::user()->discount_percentage }} / 100)).toLocaleString('fa-IR') + ' تومان'">-</span>
+                    </div>
+                    @endif
+                @endauth
+                <div class="bnb-price-row total">
+                    <span>جمع کل</span>
+                    <span x-text="Math.round((calNights * {{ $accommodation->price_per_night }} * (1 - {{ auth()->check() ? auth()->user()->discount_percentage : 0 }} / 100))).toLocaleString('fa-IR') + ' تومان'">-</span>
+                </div>
+            </div>
             <p style="font-size:12px;color:var(--bnb-gray);text-align:center;margin-top:12px;"><i class="bi bi-shield-check me-1"></i>تا زمان تأیید نهایی، هیچ مبلغی دریافت نمی‌شود</p>
         </div>
     </div>
@@ -398,59 +638,521 @@
 </div>{{-- /layout --}}
 </div>{{-- /container --}}
 
-{{-- Photo Modal --}}
-<div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title" style="font-size:15px;font-weight:600;">{{ $accommodation->name }} — همه تصاویر</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body" style="max-height:80vh;overflow-y:auto;">
-                <div class="photo-grid">
-                    @foreach($allImages as $img)<img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}" loading="lazy">@endforeach
-                </div>
+{{-- ═══════════════════════════════════════════════════
+     BOOKING BAR  (fixed bottom – all screens)
+═══════════════════════════════════════════════════ --}}
+{{-- Quick-Book Drawer --}}
+<div x-data="mbbDrawer()" @keydown.escape.window="drawerOpen=false">
+
+    {{-- Backdrop --}}
+    <div x-show="drawerOpen" x-transition.opacity
+         style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1060;"
+         @click="drawerOpen=false" x-cloak></div>
+
+    {{-- Slide-up sheet --}}
+    <div x-show="drawerOpen" x-cloak
+         x-transition
+         style="position:fixed;bottom:0;right:0;left:0;z-index:1071;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;max-height:90vh;overflow-y:auto;max-width:500px;margin:0 auto;box-shadow: 0 -8px 30px rgba(0,0,0,0.15);">
+
+        {{-- Handle + title --}}
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="width:36px;height:4px;border-radius:2px;background:var(--bnb-border);margin:0 auto 14px;"></div>
+            <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">تاریخ و تعداد نفرات را انتخاب کنید</div>
+        </div>
+
+        {{-- Date summary badges --}}
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <div :style="checkIn ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : ''"
+                 style="flex:1;border:1.5px solid var(--bnb-border);border-radius:10px;padding:9px 12px;text-align:center;">
+                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">ورود</div>
+                <div style="font-size:13px;font-weight:600;" x-text="checkIn ? jalStr(checkIn) : 'انتخاب'"></div>
+            </div>
+            <div :style="checkOut ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : ''"
+                 style="flex:1;border:1.5px solid var(--bnb-border);border-radius:10px;padding:9px 12px;text-align:center;">
+                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">خروج</div>
+                <div style="font-size:13px;font-weight:600;" x-text="checkOut ? jalStr(checkOut) : 'انتخاب'"></div>
             </div>
         </div>
+
+        {{-- Inline Jalali Calendar --}}
+        <div style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <button type="button" @click.stop="calNext()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&lsaquo;</button>
+                <span style="font-size:14px;font-weight:700;" x-text="calMonthLabel"></span>
+                <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
+                <template x-for="h in ['ج','پ','چ','س','د','ی','ش']">
+                    <span style="font-size:11px;color:var(--bnb-gray);padding:4px 0;" x-text="h"></span>
+                </template>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+                <template x-for="(cell, idx) in calDays" :key="idx">
+                    <button type="button"
+                        :disabled="!cell || cell.past"
+                        @click.stop="cell && !cell.past && selectDay(cell)"
+                        :class="{
+                            'bnb-cal-cell': true,
+                            'cal-start':  cell && cell.greg === checkIn,
+                            'cal-end':    cell && cell.greg === checkOut,
+                            'cal-range':  cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
+                            'cal-empty':  !cell
+                        }">
+                        <span x-text="cell ? cell.d : ''"></span>
+                    </button>
+                </template>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
+                <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
+                <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
+                    style="background:none;border:none;font-size:12px;color:var(--bnb-gray);text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);">پاک کردن</button>
+            </div>
+        </div>
+
+        {{-- Guests counter --}}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--bnb-border);">
+            <div>
+                <div style="font-size:14px;font-weight:600;">تعداد نفرات</div>
+                <div style="font-size:12px;color:var(--bnb-gray);">بزرگسال و کودک</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <button type="button" class="bnb-cnt-btn" @click.stop="guests>1 && guests--" :disabled="guests<=1"><i class="bi bi-dash"></i></button>
+                <span x-text="guests" style="min-width:24px;text-align:center;font-size:16px;font-weight:600;"></span>
+                <button type="button" class="bnb-cnt-btn" @click.stop="guests<16 && guests++"><i class="bi bi-plus"></i></button>
+            </div>
+        </div>
+
+        {{-- Confirm dates button --}}
+        <button type="button" @click="confirmDates()"
+                :disabled="!checkIn || !checkOut"
+                :style="(!checkIn || !checkOut) ? 'opacity:.5;cursor:not-allowed;' : ''"
+                class="btn-bnb"
+                style="width:100%;padding:14px;font-size:15px;border-radius:12px;margin-top:16px;">
+            <i class="bi bi-check-circle me-1"></i> تأیید
+        </button>
     </div>
+
+    {{-- Sticky bottom pay bar --}}
+    <div x-show="datesConfirmed && checkIn && checkOut && targetForm" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         class="bnb-pay-bar">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:600px;margin:0 auto;">
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+                    <template x-if="originalPrice > 0 && originalPrice !== pricePerNight">
+                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="(nights * originalPrice).toLocaleString('fa-IR') + ' تومان'"></span>
+                    </template>
+                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="(nights * pricePerNight).toLocaleString('fa-IR') + ' تومان'"></span>
+                </div>
+                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر'"></div>
+            </div>
+            <button type="button" @click="pay()"
+                    class="btn-bnb"
+                    style="padding:12px 28px;border-radius:12px;font-size:14px;white-space:nowrap;flex-shrink:0;">
+                <i class="bi bi-credit-card me-1"></i> پرداخت
+            </button>
+        </div>
+    </div>
+
 </div>
 
 @endsection
 
 @push('scripts')
-<script>
-function openPhotoModal() { new bootstrap.Modal(document.getElementById('photoModal')).show(); }
-
-function reserveRoom(btn) {
-    var ci = document.getElementById('checkIn').value;
-    var co = document.getElementById('checkOut').value;
-    if (!ci || !co) { alert('لطفاً ابتدا تاریخ ورود و خروج را انتخاب کنید.'); document.getElementById('sec-book').scrollIntoView({behavior:'smooth',block:'center'}); return; }
-    var form = btn.closest('form');
-    form.querySelector('.rt-check-in').value = ci;
-    form.querySelector('.rt-check-out').value = co;
-    form.submit();
-}
-
-var pricePerNight = {{ $accommodation->price_per_night }};
-var discountPct   = {{ auth()->check() ? auth()->user()->discount_percentage : 0 }};
-
-function updatePrice() {
-    var ci = $('#checkIn').val(), co = $('#checkOut').val();
-    if (!ci || !co) { $('#pricePreview').addClass('d-none'); return; }
-    var nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
-    if (nights <= 0) return;
-    var base = pricePerNight * nights, discount = Math.round(base * discountPct / 100), total = base - discount;
-    $('#nightsCount').text(nights);
-    $('#basePrice').text(base.toLocaleString('fa-IR') + ' تومان');
-    $('#discountAmount').text('-' + discount.toLocaleString('fa-IR') + ' تومان');
-    $('#totalPrice').text(total.toLocaleString('fa-IR') + ' تومان');
-    $('#pricePreview').removeClass('d-none');
-}
-
-var ciGreg = $('#checkIn').val(), coGreg = $('#checkOut').val();
-initJalaliRange('#showCalEl', '#checkIn', '#checkOut', '#showDateDisplay', ciGreg, coGreg, function() {
-    updatePrice();
-    var colEl = document.getElementById('showDateCal');
-    if (colEl) bootstrap.Collapse.getOrCreateInstance(colEl).hide();
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script type="module">
+import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.min.js';
+const lighthouse = new PhotoSwipeLightbox({
+  gallery: '#zoom-gallery',
+  children: '.pswp-gallery-item',
+  pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.min.js'),
+  clickToCloseNonZoomable: true,
+  padding: { top: 20, bottom: 20, left: 20, right: 20 }
 });
-if (ciGreg && coGreg) updatePrice();
+lighthouse.on('pointerDown', (e) => {
+    if (e.originalEvent.target.classList.contains('pswp__img')) return;
+    lighthouse.pswp.close();
+});
+lighthouse.init();
+
+document.getElementById('pswp-btn-all').addEventListener('click', () => {
+    lighthouse.loadAndOpen(0);
+});
+
+// PhotoSwipe for Mobile Slider
+const mobileLighthouse = new PhotoSwipeLightbox({
+  gallery: '#mobile-zoom-gallery',
+  children: '.pswp-gallery-item-mobile',
+  pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.min.js'),
+});
+// Prevent default link behavior for fast clicks/taps
+mobileLighthouse.on('pointerDown', (e) => {
+    e.originalEvent.preventDefault();
+});
+mobileLighthouse.init();
+
+// Initialize Swiper for mobile slider
+new Swiper('.bnb-mobile-slider', {
+    pagination: {
+        el: '.swiper-pagination',
+        type: 'bullets',
+        clickable: true
+    },
+    loop: true,
+});
+</script>
+<script>
+function reserveRoom(btn, pricePerNight, origPrice) {
+    var form  = btn.closest('form');
+    var price = pricePerNight || 0;
+    var orig  = origPrice || price;
+    // Open the quick-book drawer
+    var drawerEl = document.querySelector('[x-data="mbbDrawer()"]');
+    if (drawerEl && typeof Alpine !== 'undefined') {
+        var drawer = Alpine.$data(drawerEl);
+        drawer.openForRoom(form, price, orig);
+    }
+}
+
+// Price breakdown is handled reactively by Alpine.js in the booking widget.
+
+function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
+    return {
+        checkIn:  initCheckIn  || '',
+        checkOut: initCheckOut || '',
+        guests:   parseInt(initGuests) || 1,
+        dateLabel: '',
+        // Calendar state
+        calOpen:  false,
+        calYear:  null,
+        calMonth: null,
+        calPhase: 0,
+        calHover: null,
+
+        get calNights() {
+            if (!this.checkIn || !this.checkOut) return 0;
+            return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
+        },
+
+        get calMonthLabel() {
+            if (!this.calYear) return '';
+            const n = ['','فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+            return n[this.calMonth] + ' ' + this.calYear;
+        },
+
+        get calDays() {
+            if (!this.calYear || typeof persianDate === 'undefined') return [];
+            const pd   = new persianDate([this.calYear, this.calMonth, 1]);
+            const fdow = pd.day();
+            const dim  = pd.daysInMonth();
+            const now  = new persianDate();
+            const ty = now.year(), tm = now.month(), td = now.date();
+            const offset = (6 - fdow + 7) % 7;
+            let cells = [];
+            for (let i = 0; i < offset; i++) cells.push(null);
+            for (let d = 1; d <= dim; d++) {
+                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
+                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
+                cells.push({ d, greg, past });
+            }
+            return cells;
+        },
+
+        init() {
+            if (typeof persianDate !== 'undefined') {
+                const t = new persianDate();
+                this.calYear  = t.year();
+                this.calMonth = t.month();
+            }
+            this.updateLabel();
+            // Sync widget changes → Navbar
+            this.$watch('checkIn',  () => this._syncToNav());
+            this.$watch('checkOut', () => this._syncToNav());
+            this.$watch('guests',   () => this._syncToNav());
+        },
+
+        _syncToNav() {
+            const navEl = document.querySelector('[x-data="bnbNavSearch()"]');
+            if (!navEl || typeof Alpine === 'undefined') return;
+            const nav = Alpine.$data(navEl);
+            if (nav.checkIn  !== this.checkIn)  nav.checkIn  = this.checkIn;
+            if (nav.checkOut !== this.checkOut) nav.checkOut = this.checkOut;
+            if (nav.guests   !== this.guests)   nav.guests   = this.guests;
+        },
+
+        jalaliStr(g) {
+            if (!g) return '';
+            try { return new persianDate(new Date(g + 'T12:00:00')).format('YYYY/MM/DD'); } catch(e) { return g; }
+        },
+
+        updateLabel() {
+            if (this.checkIn && this.checkOut) {
+                this.dateLabel = this.jalaliStr(this.checkIn) + ' — ' + this.jalaliStr(this.checkOut);
+            } else if (this.checkIn) {
+                this.dateLabel = 'ورود: ' + this.jalaliStr(this.checkIn);
+            } else {
+                this.dateLabel = '';
+            }
+        },
+
+        openCal() {
+            this.calOpen = !this.calOpen;
+        },
+
+        calPrev() {
+            if (this.calMonth === 1) { this.calYear--; this.calMonth = 12; }
+            else this.calMonth--;
+        },
+
+        calNext() {
+            if (this.calMonth === 12) { this.calYear++; this.calMonth = 1; }
+            else this.calMonth++;
+        },
+
+        selectCalDay(cell) {
+            if (!cell || cell.past) return;
+            if (this.calPhase === 0) {
+                this.checkIn  = cell.greg;
+                this.checkOut = '';
+                this.calPhase = 1;
+                this.updateLabel();
+            } else {
+                if (cell.greg > this.checkIn) {
+                    this.checkOut = cell.greg;
+                    this.calPhase = 0;
+                    this.calHover = null;
+                    this.updateLabel();
+                    this.calOpen  = false;
+                } else {
+                    this.checkIn  = cell.greg;
+                    this.checkOut = '';
+                    this.updateLabel();
+                }
+            }
+        },
+
+        calInRange(cell) {
+            if (!cell || !this.checkIn || !this.checkOut) return false;
+            return cell.greg > this.checkIn && cell.greg < this.checkOut;
+        },
+
+        calHoverRange(cell) {
+            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover) return false;
+            if (this.calHover > this.checkIn)
+                return cell.greg > this.checkIn && cell.greg < this.calHover;
+            return false;
+        },
+
+        syncFromNav(detail) {
+            const ci = detail.checkIn  || '';
+            const co = detail.checkOut || '';
+            const g  = detail.guests   || 1;
+            // Guard: only update if actually changed (prevents infinite loop with _syncToNav)
+            if (ci === this.checkIn && co === this.checkOut && g === this.guests) return;
+            this.checkIn  = ci;
+            this.checkOut = co;
+            this.guests   = g;
+            this.updateLabel();
+        },
+
+        submitBooking() {
+            if (!this.checkIn || !this.checkOut) {
+                this.calOpen = true;
+                return;
+            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route('bookings.store', $accommodation) }}';
+            const addInput = (name, val) => { const i = document.createElement('input'); i.type='hidden'; i.name=name; i.value=val; form.appendChild(i); };
+            addInput('_token', '{{ csrf_token() }}');
+            addInput('check_in',  this.checkIn);
+            addInput('check_out', this.checkOut);
+            addInput('guests',    this.guests);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+}
+
+function mbbDrawer() {
+    return {
+        drawerOpen: false,
+        datesConfirmed: false,
+        checkIn: '',
+        checkOut: '',
+        guests: 1,
+        calYear: null,
+        calMonth: null,
+        calPhase: 0,
+        targetForm: null,
+        pricePerNight: 0,
+        originalPrice: 0,
+
+        get nights() {
+            if (!this.checkIn || !this.checkOut) return 0;
+            return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
+        },
+
+        get calMonthLabel() {
+            if (!this.calYear) return '';
+            const n = ['','فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+            return n[this.calMonth] + ' ' + this.calYear;
+        },
+
+        get calDays() {
+            if (!this.calYear || typeof persianDate === 'undefined') return [];
+            const pd   = new persianDate([this.calYear, this.calMonth, 1]);
+            const fdow = pd.day();
+            const dim  = pd.daysInMonth();
+            const now  = new persianDate();
+            const ty = now.year(), tm = now.month(), td = now.date();
+            const offset = (6 - fdow + 7) % 7;
+            let cells = [];
+            for (let i = 0; i < offset; i++) cells.push(null);
+            for (let d = 1; d <= dim; d++) {
+                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
+                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
+                cells.push({ d, greg, past });
+            }
+            return cells;
+        },
+
+        init() {
+            if (typeof persianDate !== 'undefined') {
+                const t = new persianDate();
+                this.calYear  = t.year();
+                this.calMonth = t.month();
+            }
+            // Hide bottom navbar when drawer is open
+            this.$watch('drawerOpen', val => {
+                const nav = document.querySelector('.bnb-bottom-nav');
+                if (nav) nav.style.display = val ? 'none' : '';
+                
+                // When opening, if we have a check-in date, move calendar to its month
+                if (val && this.checkIn) {
+                    try {
+                        const pDate = new persianDate(new Date(this.checkIn + 'T12:00:00'));
+                        this.calYear = pDate.year();
+                        this.calMonth = pDate.month();
+                    } catch(e) {}
+                }
+            });
+            // Reset confirmation if user changes dates
+            this.$watch('checkIn',  () => { if (this.drawerOpen) this.datesConfirmed = false; });
+            this.$watch('checkOut', () => { if (this.drawerOpen) this.datesConfirmed = false; });
+            // Pre-fill from existing booking widget state if available
+            const widgetEl = document.querySelector('[x-data^="bnbBookWidget"]');
+            if (widgetEl && typeof Alpine !== 'undefined') {
+                this.$nextTick(() => {
+                    try {
+                        const w = Alpine.$data(widgetEl);
+                        if (w.checkIn)  this.checkIn  = w.checkIn;
+                        if (w.checkOut) this.checkOut = w.checkOut;
+                        if (w.guests)   this.guests   = w.guests;
+                    } catch(e) {}
+                });
+            }
+            // Sync from nav search updates
+            window.addEventListener('nav-search-updated', (e) => {
+                if (e.detail.checkIn)  this.checkIn  = e.detail.checkIn;
+                if (e.detail.checkOut) this.checkOut = e.detail.checkOut;
+                if (e.detail.guests)   this.guests   = e.detail.guests;
+            });
+        },
+
+        jalStr(g) {
+            if (!g) return '';
+            try { return new persianDate(new Date(g + 'T12:00:00')).format('YYYY/MM/DD'); } catch(e) { return g; }
+        },
+
+        calPrev() {
+            if (this.calMonth === 1) { this.calYear--; this.calMonth = 12; }
+            else this.calMonth--;
+        },
+
+        calNext() {
+            if (this.calMonth === 12) { this.calYear++; this.calMonth = 1; }
+            else this.calMonth++;
+        },
+
+        selectDay(cell) {
+            if (!cell || cell.past) return;
+            if (this.calPhase === 0) {
+                this.checkIn  = cell.greg;
+                this.checkOut = '';
+                this.calPhase = 1;
+            } else {
+                if (cell.greg > this.checkIn) {
+                    this.checkOut = cell.greg;
+                    this.calPhase = 0;
+                } else {
+                    this.checkIn  = cell.greg;
+                    this.checkOut = '';
+                }
+            }
+        },
+
+        onBookClick() {
+            // If dates already selected, scroll straight to rooms
+            if (this.checkIn && this.checkOut) {
+                this._scrollToRooms();
+            } else {
+                // Open drawer to pick dates
+                this.drawerOpen = true;
+            }
+        },
+
+        confirmDates() {
+            if (!this.checkIn || !this.checkOut) return;
+            this.datesConfirmed = true;
+            this.drawerOpen = false;
+        },
+
+        pay() {
+            if (!this.checkIn || !this.checkOut || !this.targetForm) return;
+            const form = this.targetForm;
+            const ci = form.querySelector('.rt-check-in');
+            const co = form.querySelector('.rt-check-out');
+            const g  = form.querySelector('input[name="guests"]');
+            if (ci) ci.value = this.checkIn;
+            if (co) co.value = this.checkOut;
+            if (g)  g.value  = this.guests;
+            form.submit();
+        },
+
+        openForRoom(form, price, origPrice) {
+            this.targetForm    = form;
+            this.pricePerNight = price;
+            this.originalPrice = origPrice || price;
+            this.datesConfirmed = false;
+            this.drawerOpen    = true;
+        },
+
+        confirmAndPay() {
+            this.confirmDates();
+        },
+
+        confirmAndScroll() {
+            this.confirmDates();
+        },
+
+        _scrollToRooms() {
+            const el = document.getElementById('sec-rooms');
+            if (!el) return;
+            const nav = document.getElementById('bnbNavbar');
+            const navH = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
+            const offset = navH + 50;
+            const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+            window.scrollTo({ top, behavior: 'smooth' });
+        }
+    };
+}
 
 function highlightStars(count) {
     document.querySelectorAll('#starSelector .bi').forEach(function(el, i) { el.className = 'bi bi-star' + (i < count ? '-fill' : ''); });
@@ -476,15 +1178,87 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('scroll', function() {
     var sections = ['sec-info','sec-amenities','sec-rooms','sec-reviews','sec-map'];
     var tabs = document.querySelectorAll('.bnb-sticky-tab');
+    var nav = document.getElementById('bnbNavbar');
+    // We use a more robust check for height
+    var navHeight = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
+    var tabsHeight = 50; // Approximated height of .bnb-sticky-tabs
+    var offset = navHeight + tabsHeight + 10;
+    
     var active = 'sec-info';
-    sections.forEach(function(id) { var el = document.getElementById(id); if (el && window.scrollY >= el.offsetTop - 120) active = id; });
-    tabs.forEach(function(tab) { tab.classList.remove('active'); if (tab.getAttribute('href') === '#' + active) tab.classList.add('active'); });
+    sections.forEach(function(id) { 
+        var el = document.getElementById(id); 
+        if (el && window.scrollY >= el.offsetTop - offset) active = id; 
+    });
+    tabs.forEach(function(tab) { 
+        tab.classList.remove('active'); 
+        if (tab.getAttribute('href') === '#' + active) tab.classList.add('active'); 
+    });
 });
 
+// Smooth scroll with correct offset for anchors
+document.querySelectorAll('.bnb-sticky-tab, .bnb-location-link, .bnb-rating-count').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        const href = this.getAttribute('href') || this.getAttribute('onclick')?.match(/#[\w-]+/)?.[0];
+        if (!href || !href.startsWith('#')) return;
+        
+        const target = document.querySelector(href);
+        if (target) {
+            e.preventDefault();
+            const nav = document.getElementById('bnbNavbar');
+            const navHeight = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
+            const tabsHeight = 48; 
+            const offset = navHeight + tabsHeight - 2; 
+            
+            const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - offset;
+            window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+        }
+    });
+});
+
+@auth
+var _userFavorites = @json(Auth::user()->favorites()->pluck('accommodations.id')->toArray());
+@else
+var _userFavorites = [];
+@endauth
+
 function toggleWishlist(btn, id) {
-    var icon = btn.querySelector('i');
-    if (icon.classList.contains('bi-heart')) { icon.classList.replace('bi-heart','bi-heart-fill'); btn.style.color='var(--bnb-red)'; }
-    else { icon.classList.replace('bi-heart-fill','bi-heart'); btn.style.color=''; }
+    @guest
+    window.location.href = '{{ route('auth.mobile') }}';
+    return;
+    @endguest
+
+    fetch('{{ url('/favorites') }}/' + id + '/toggle', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+            'Accept': 'application/json'
+        }
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        var icon = btn.querySelector('i');
+        if (data.favorited) {
+            icon.classList.replace('bi-heart','bi-heart-fill');
+            btn.style.color = 'var(--bnb-red)';
+            _userFavorites.push(id);
+        } else {
+            icon.classList.replace('bi-heart-fill','bi-heart');
+            btn.style.color = '';
+            _userFavorites = _userFavorites.filter(function(x){ return x !== id; });
+        }
+    });
 }
+
+(function () {
+    var showBtn = document.querySelector('.bnb-filter-pill[onclick*="toggleWishlist"]');
+    if (showBtn) {
+        var accId = {{ $accommodation->id }};
+        var icon = showBtn.querySelector('i');
+        if (icon && _userFavorites.includes(accId)) {
+            icon.classList.replace('bi-heart','bi-heart-fill');
+            showBtn.style.color = 'var(--bnb-red)';
+        }
+    }
+})();
 </script>
 @endpush

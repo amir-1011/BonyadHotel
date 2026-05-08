@@ -53,9 +53,37 @@ class Accommodation extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'user_favorites')->withTimestamps();
+    }
+
+    public function isFavoritedBy(User $user): bool
+    {
+        return $this->favoritedBy()->where('user_id', $user->id)->exists();
+    }
+
     public function roomTypes()
     {
         return $this->hasMany(RoomType::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Get the lowest price among all room types and rates.
+     */
+    public function getLowestPriceAttribute(): ?float
+    {
+        // Try to get the minimum price from active room rates related to this accommodation
+        $minRate = RoomRate::whereIn('room_type_id', function ($query) {
+            $query->select('id')
+                ->from('room_types')
+                ->where('accommodation_id', $this->id)
+                ->where('is_active', true);
+        })
+        ->where('is_active', true)
+        ->min('price_per_night');
+
+        return $minRate ?: $this->price_per_night;
     }
 
     public function typeLabel(): string

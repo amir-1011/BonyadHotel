@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             RolesAndUsersSeeder::class,
             AssignHostsSeeder::class,
             BookingAndReviewSeeder::class,
+            RichAccommodationSeeder::class,
         ]);
     }
 }

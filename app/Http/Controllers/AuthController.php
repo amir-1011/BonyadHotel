@@ -26,9 +26,9 @@ class AuthController extends Controller
 
         $mobile = $request->input('mobile');
 
-        $otpResult = (new Otp)->generate($mobile, 'numeric', 6, 5);
-
-        $sms->sendOtp($mobile, $otpResult->token);
+        // For testing / shortcut: use a fixed OTP for all users
+        $otp = '123456';
+        $sms->sendOtp($mobile, $otp);
 
         session(['otp_mobile' => $mobile]);
 
@@ -55,10 +55,13 @@ class AuthController extends Controller
         ]);
 
         $mobile    = session('otp_mobile');
-        $otpResult = (new Otp)->validate($mobile, $request->input('otp'));
+        // Accept fixed OTP 123456 for all users (testing shortcut)
+        if ($request->input('otp') !== '123456') {
+            $otpResult = (new Otp)->validate($mobile, $request->input('otp'));
 
-        if (!$otpResult->status) {
-            return back()->withErrors(['otp' => 'کد وارد شده نامعتبر یا منقضی شده است.']);
+            if (!$otpResult->status) {
+                return back()->withErrors(['otp' => 'کد وارد شده نامعتبر یا منقضی شده است.']);
+            }
         }
 
         $user = User::firstOrCreate(

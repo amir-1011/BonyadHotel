@@ -11,7 +11,6 @@
 }
 .results-left {
     flex: 1;
-    overflow-y: auto;
     padding: 20px 24px;
     min-width: 0;
 }
@@ -19,8 +18,8 @@
     width: 440px;
     flex-shrink: 0;
     position: sticky;
-    top: 60px;
-    height: calc(100vh - 60px);
+    top: 80px;
+    height: calc(100vh - 80px);
 }
 @media (max-width: 991px) {
     .results-right { display: none; }
@@ -43,6 +42,12 @@
     padding: 0 24px;
 }
 .filter-bar-inner::-webkit-scrollbar { display: none; }
+
+@media (max-width: 767px) {
+    .filter-bar-inner {
+        padding: 0 16px;
+    }
+}
 
 /* Price markers on map */
 .leaflet-price-marker {
@@ -67,21 +72,25 @@
 /* Map results mobile toggle */
 .map-toggle-btn {
     position: fixed;
-    bottom: 24px;
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     background: var(--bnb-dark);
     color: #fff;
     border: none;
-    border-radius: 20px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 600;
+    border-radius: 24px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
     font-family: var(--bnb-font);
     cursor: pointer;
-    z-index: 999;
-    display: flex; align-items: center; gap: 6px;
+    z-index: 1000;
+    display: flex; align-items: center; gap: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.map-toggle-btn:active {
+    transform: translateX(-50%) scale(0.95);
 }
 @media (min-width: 992px) { .map-toggle-btn { display: none; } }
 
@@ -106,6 +115,38 @@
     font-size: 18px;
 }
 #mapMain, #mapMobile { height: 100%; border-radius: 0; }
+
+/* Responsive Accommodation Card adjustments */
+.accommodation-list-card {
+    display: flex;
+    gap: 16px;
+}
+.alc-img-wrap {
+    width: 220px;
+    min-width: 220px;
+    height: 160px;
+    border-radius: var(--bnb-radius);
+    overflow: hidden;
+    background: var(--bnb-bg-light);
+}
+
+@media (max-width: 575px) {
+    .accommodation-list-card {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .alc-img-wrap {
+        width: 100%;
+        min-width: 100%;
+        height: 200px;
+    }
+    .bnb-results-count {
+        font-size: 13px;
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px;
+    }
+}
 </style>
 @endpush
 
@@ -118,35 +159,7 @@
     <form action="{{ route('accommodations.index') }}" method="GET" id="filterForm">
         <div class="filter-bar-inner">
 
-            {{-- Location pill --}}
-            <button type="button" class="bnb-filter-pill {{ request('province_id') || request('city_id') ? 'active' : '' }}"
-                    data-bs-toggle="collapse" data-bs-target="#filterLocation">
-                <i class="bi bi-geo-alt me-1"></i>
-                @if(request('city_id') && $cities->firstWhere('id', request('city_id')))
-                    {{ $cities->firstWhere('id', request('city_id'))->name }}
-                @elseif(request('province_id') && $provinces->firstWhere('id', request('province_id')))
-                    {{ $provinces->firstWhere('id', request('province_id'))->name }}
-                @else
-                    مکان
-                @endif
-            </button>
 
-            {{-- Date pill --}}
-            <button type="button" class="bnb-filter-pill {{ request('check_in') ? 'active' : '' }}"
-                    data-bs-toggle="collapse" data-bs-target="#filterDates">
-                <i class="bi bi-calendar me-1"></i>
-                @if(request('check_in') && request('check_out'))
-                    {{ \Carbon\Carbon::parse(request('check_in'))->format('m/d') }} - {{ \Carbon\Carbon::parse(request('check_out'))->format('m/d') }}
-                @else
-                    تاریخ
-                @endif
-            </button>
-
-            {{-- Guests pill --}}
-            <button type="button" class="bnb-filter-pill {{ request('guests') > 1 ? 'active' : '' }}"
-                    data-bs-toggle="collapse" data-bs-target="#filterGuests">
-                <i class="bi bi-people me-1"></i>{{ request('guests', 1) }} مهمان
-            </button>
 
             {{-- Type filter --}}
             @php $types = ['' => 'همه انواع', 'hotel' => 'هتل', 'villa' => 'ویلا', 'apartment' => 'آپارتمان', 'hostel' => 'هاستل', 'traditional' => 'سنتی']; @endphp
@@ -166,80 +179,14 @@
 
             {{-- Reset --}}
             @if(request()->hasAny(['province_id','city_id','check_in','check_out','guests','type','wheelchair']))
-                <a href="{{ route('accommodations.index') }}" class="bnb-filter-pill text-decoration-none" style="color:var(--bnb-red);border-color:var(--bnb-red);">
-                    <i class="bi bi-x me-1"></i>پاک کردن
+                <a href="{{ route('accommodations.index') }}" class="bnb-filter-pill text-decoration-none ms-md-auto" style="color:var(--bnb-red);border-color:var(--bnb-red);">
+                    <i class="bi bi-x me-1"></i>پاک کردن فیلترها
                 </a>
             @endif
         </div>
 
         {{-- Collapsed filters --}}
-        <div class="collapse px-4 pt-3 pb-2" id="filterLocation">
-            <div class="row g-2">
-                <div class="col-md-5">
-                    <label class="bnb-label">استان</label>
-                    <select name="province_id" id="provinceSelect" class="bnb-select select2-basic">
-                        <option value="">همه استان‌ها</option>
-                        @foreach($provinces as $p)
-                            <option value="{{ $p->id }}" {{ request('province_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-5">
-                    <label class="bnb-label">شهر</label>
-                    <select name="city_id" id="citySelect" class="bnb-select select2-basic" {{ $cities->isEmpty() ? 'disabled' : '' }}>
-                        <option value="">همه شهرها</option>
-                        @foreach($cities as $city)
-                            <option value="{{ $city->id }}" {{ request('city_id') == $city->id ? 'selected' : '' }}>{{ $city->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn-bnb w-100">اعمال</button>
-                </div>
-            </div>
-        </div>
-        <div class="collapse px-4 pt-3 pb-2" id="filterDates">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-7">
-                    <div class="range-picker-trigger border rounded-3 px-3 py-2 bg-white d-flex align-items-center justify-content-between"
-                         data-bs-toggle="collapse" data-bs-target="#indexDateCal">
-                        <div id="indexDateDisplay"><span class="text-muted">انتخاب تاریخ ورود و خروج</span></div>
-                        <i class="bi bi-calendar3" style="color:var(--bnb-red)"></i>
-                    </div>
-                    <div class="range-picker-phase small mt-1" style="color:var(--bnb-gray);">
-                        <i class="bi bi-info-circle me-1"></i>کلیک اول: ورود — کلیک دوم: خروج
-                    </div>
-                    <div class="collapse mt-1" id="indexDateCal">
-                        <div class="range-picker-cal"><div id="indexCalEl"></div></div>
-                    </div>
-                    <input type="hidden" name="check_in" id="checkIn" value="{{ request('check_in') }}">
-                    <input type="hidden" name="check_out" id="checkOut" value="{{ request('check_out') }}">
-                </div>
-                <div class="col-md-3">
-                    <label class="bnb-label">تعداد مهمان</label>
-                    <select name="guests" class="bnb-select">
-                        @for($i = 1; $i <= 10; $i++)
-                            <option value="{{ $i }}" {{ request('guests') == $i ? 'selected' : '' }}>{{ $i }} نفر</option>
-                        @endfor
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn-bnb w-100">اعمال</button>
-                </div>
-            </div>
-        </div>
-        <div class="collapse px-4 pt-2 pb-2" id="filterGuests">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-4">
-                    <label class="bnb-label">تعداد مهمان</label>
-                    <select name="guests" id="guestsSelect" class="bnb-select" onchange="this.form.submit()">
-                        @for($i = 1; $i <= 10; $i++)
-                            <option value="{{ $i }}" {{ request('guests') == $i ? 'selected' : '' }}>{{ $i }} نفر</option>
-                        @endfor
-                    </select>
-                </div>
-            </div>
-        </div>
+        
     </form>
 </div>
 
@@ -268,12 +215,12 @@
             </span>
             @auth
                 @if(Auth::user()->discount_percentage > 0)
-                    <span class="badge-bnb">{{ Auth::user()->discount_percentage }}٪ تخفیف ویژه</span>
+                    <span class="badge-bnb ms-md-auto">{{ Auth::user()->discount_percentage }}٪ تخفیف ویژه</span>
                 @endif
             @endauth
         </div>
 
-        @forelse($accommodations as $acc)
+@forelse($accommodations as $acc)
             @php
                 $coverImg = $acc->image ?: collect($acc->images ?? [])->filter()->first();
                 $rating   = $acc->averageRating();
@@ -281,14 +228,14 @@
             @endphp
             <a href="{{ route('accommodations.show', $acc) }}?check_in={{ request('check_in') }}&check_out={{ request('check_out') }}&guests={{ request('guests', 1) }}"
                class="text-decoration-none d-block mb-4" data-aos="fade-up">
-                <div class="bnb-card" style="display:flex;gap:16px;">
+                <div class="bnb-card accommodation-list-card">
                     {{-- Image --}}
-                    <div style="width:220px;min-width:220px;border-radius:var(--bnb-radius);overflow:hidden;background:var(--bnb-bg-light);">
+                    <div class="alc-img-wrap">
                         @if($coverImg)
                             <img src="{{ asset('storage/' . $coverImg) }}" alt="{{ $acc->name }}"
-                                 style="width:100%;height:160px;object-fit:cover;display:block;" loading="lazy">
+                                 style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
                         @else
-                            <div style="height:160px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;">
+                            <div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;">
                                 @if($acc->type==='hotel') 🏨
                                 @elseif($acc->type==='villa') 🏡
                                 @elseif($acc->type==='apartment') 🏢
@@ -308,15 +255,30 @@
                                 <div style="font-size:16px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;">{{ $acc->name }}</div>
                                 <div style="font-size:13px;color:var(--bnb-gray);">ظرفیت {{ $acc->capacity }} نفر · {{ $acc->rooms }} اتاق</div>
                                 @if($acc->amenities)
+                                    @php
+                                        $amenities = $acc->amenities ?? [];
+                                        $hasWheel = in_array('مناسب ویلچر', $amenities);
+                                        $others = array_values(array_filter($amenities, function($a){ return $a !== 'مناسب ویلچر'; }));
+                                        $show = array_slice($others, 0, 4);
+                                        if ($hasWheel && !in_array('مناسب ویلچر', $show)) {
+                                            $show[] = 'مناسب ویلچر';
+                                        }
+                                    @endphp
                                     <div class="mt-2 d-none d-md-block">
-                                        @foreach(array_slice($acc->amenities, 0, 4) as $amenity)
-                                            <span style="display:inline-block;background:var(--bnb-bg-light);border:1px solid var(--bnb-border);border-radius:20px;padding:2px 10px;font-size:11px;margin-left:4px;margin-bottom:4px;">{{ $amenity }}</span>
+                                        @foreach($show as $amenity)
+                                            @if($amenity === 'مناسب ویلچر')
+                                                <span style="display:inline-block;background:var(--bnb-red);color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;margin-left:4px;margin-bottom:4px;">
+                                                    <i class="bi bi-wheelchair me-1"></i>{{ $amenity }}
+                                                </span>
+                                            @else
+                                                <span style="display:inline-block;background:var(--bnb-bg-light);border:1px solid var(--bnb-border);border-radius:20px;padding:2px 10px;font-size:11px;margin-left:4px;margin-bottom:4px;">{{ $amenity }}</span>
+                                            @endif
                                         @endforeach
                                     </div>
                                 @endif
                             </div>
                             {{-- Heart --}}
-                            <button class="bnb-card-heart" style="position:static;padding:0;" onclick="event.preventDefault(); toggleWishlist(this, {{ $acc->id }})">
+                            <button class="bnb-card-heart" style="position:static;padding:0;" data-acc-id="{{ $acc->id }}" onclick="event.preventDefault(); toggleWishlist(this, {{ $acc->id }})">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:20px;height:20px;fill:rgba(0,0,0,.3);stroke:#fff;stroke-width:2;overflow:visible;">
                                     <path d="M16 28c7-4.73 14-10 14-17a6.98 6.98 0 0 0-7-7c-1.8 0-3.58.68-4.95 2.05L16 8.1l-2.05-2.05a6.98 6.98 0 0 0-9.9 9.9C5.14 17.31 16 28 16 28z"/>
                                 </svg>
@@ -332,9 +294,7 @@
                                         <span style="color:var(--bnb-gray);font-weight:400;">({{ $rCount }} نظر)</span>
                                     </div>
                                 @endif
-                                @if(in_array('مناسب ویلچر', $acc->amenities ?? []))
-                                    <div class="mt-1" style="font-size:12px;color:var(--bnb-gray);"><i class="bi bi-wheelchair me-1"></i>مناسب ویلچر</div>
-                                @endif
+                                {{-- wheelchair info now shown alongside amenities --}}
                             </div>
                             <div class="text-end">
                                 @auth
@@ -376,7 +336,7 @@
 
 {{-- Mobile map toggle --}}
 <button class="map-toggle-btn" onclick="toggleMobileMap()">
-    <i class="bi bi-map"></i> نمایش روی نقشه
+    <i class="bi bi-map"></i> نقشه
 </button>
 <div class="mobile-map-overlay" id="mobileMapOverlay">
     <div id="mapMobile" style="width:100%;height:100%;"></div>
@@ -470,11 +430,45 @@ function toggleMobileMap() {
 }
 
 // ─── Wishlist ─────────────────────────────────────────────────────────────────
-function toggleWishlist(btn, id) {
+@auth
+var _userFavorites = @json(Auth::user()->favorites()->pluck('accommodations.id')->toArray());
+@else
+var _userFavorites = [];
+@endauth
+
+function setHeartState(btn, favorited) {
     var svg = btn.querySelector('svg');
-    var filled = svg.style.fill === 'rgb(255, 56, 92)';
-    svg.style.fill = filled ? 'rgba(0,0,0,0.3)' : '#FF385C';
-    svg.style.stroke = filled ? '#fff' : '#FF385C';
+    svg.style.fill    = favorited ? '#FF385C' : 'rgba(0,0,0,0.3)';
+    svg.style.stroke  = favorited ? '#FF385C' : '#fff';
+}
+
+// Init hearts on page load
+document.querySelectorAll('[data-acc-id]').forEach(function (btn) {
+    setHeartState(btn, _userFavorites.includes(parseInt(btn.dataset.accId)));
+});
+
+function toggleWishlist(btn, id) {
+    @guest
+    window.location.href = '{{ route('auth.mobile') }}';
+    return;
+    @endguest
+
+    fetch('{{ url('/favorites') }}/' + id + '/toggle', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+            'Accept': 'application/json'
+        }
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        setHeartState(btn, data.favorited);
+        if (data.favorited) {
+            _userFavorites.push(id);
+        } else {
+            _userFavorites = _userFavorites.filter(function(x){ return x !== id; });
+        }
+    });
 }
 </script>
 @endpush
