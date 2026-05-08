@@ -3,7 +3,7 @@
 @section('title', 'جزئیات رزرو')
 
 @section('content')
-<div class="container-fluid px-3 px-lg-5" style="padding-top:32px;padding-bottom:48px;">
+<div class="container-xxl px-3 px-lg-4" style="padding-top:32px;padding-bottom:48px;">
 <div style="max-width:720px;margin:0 auto;">
 
     {{-- Header --}}

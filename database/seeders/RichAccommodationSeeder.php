@@ -15,38 +15,8 @@ class RichAccommodationSeeder extends Seeder
         $accommodations = Accommodation::all();
 
         foreach ($accommodations as $acc) {
-            $dir = "public/accommodations/{$acc->id}";
             $publicUrls = [];
-
-            if (!function_exists('imagecreatetruecolor')) {
-                // GD not available — skip image generation but ensure arrays exist
-                $acc->update(['images' => [], 'image' => null]);
-            } else {
-                if (!is_dir(storage_path("app/{$dir}"))) {
-                    mkdir(storage_path("app/{$dir}"), 0777, true);
-                }
-
-                $count = rand(3, 6);
-                for ($i = 1; $i <= $count; $i++) {
-                    $w = 1200; $h = 800;
-                    $img = imagecreatetruecolor($w, $h);
-                    $bg = imagecolorallocate($img, rand(40, 220), rand(40, 220), rand(40, 220));
-                    imagefilledrectangle($img, 0, 0, $w, $h, $bg);
-
-                    $text = mb_substr($acc->name, 0, 30) . " — تصویر {$i}";
-                    $textColor = imagecolorallocate($img, 255, 255, 255);
-                    imagestring($img, 5, 20, 20, $text, $textColor);
-
-                    $filename = "img{$i}.jpg";
-                    $fullPath = storage_path("app/{$dir}/{$filename}");
-                    imagejpeg($img, $fullPath, 85);
-                    imagedestroy($img);
-
-                    $publicUrls[] = "accommodations/{$acc->id}/{$filename}";
-                }
-
-                $acc->update(['images' => $publicUrls, 'image' => $publicUrls[0] ?? null]);
-            }
+            $acc->update(['images' => [], 'image' => null]);
 
             // Create 1-4 room types for each accommodation
             $roomTypeCount = rand(1, 4);

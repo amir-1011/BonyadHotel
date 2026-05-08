@@ -245,7 +245,7 @@
      NAVBAR
 ═══════════════════════════════════════════════════ --}}
 <nav class="bnb-navbar" id="bnbNavbar">
-    <div class="container-fluid px-3 px-lg-5">
+    <div class="container-xxl px-3 px-lg-4">
         <div class="d-flex align-items-center">
 
             {{-- Logo (right in RTL) --}}
@@ -581,7 +581,7 @@
      FLASH MESSAGES
 ═══════════════════════════════════════════════════ --}}
 @if(session('status') || session('success') || session('error') || $errors->any())
-<div class="container-fluid px-3 px-lg-5 pt-3">
+<div class="container-xxl px-3 px-lg-4 pt-3">
     @if(session('status') || session('success'))
         <div class="bnb-alert bnb-alert-success">
             <i class="bi bi-check-circle-fill"></i>
@@ -616,7 +616,7 @@
      FOOTER
 ═══════════════════════════════════════════════════ --}}
 <footer class="bnb-footer">
-    <div class="container-fluid px-3 px-lg-5">
+    <div class="container-xxl px-3 px-lg-4">
         <div class="bnb-footer-grid">
             {{-- پشتیبانی --}}
             <div>

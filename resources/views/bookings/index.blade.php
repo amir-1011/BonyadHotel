@@ -3,7 +3,7 @@
 @section('title', 'رزروهای من')
 
 @section('content')
-<div class="container-fluid px-3 px-lg-5" style="padding-top:32px;padding-bottom:48px;">
+<div class="container-xxl px-3 px-lg-4" style="padding-top:32px;padding-bottom:48px;">
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 style="font-size:22px;font-weight:700;color:var(--bnb-dark);margin:0;">رزروهای من</h1>
     <a href="{{ route('home') }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-plus-circle me-1"></i>رزرو جدید</a>

@@ -137,7 +137,7 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-3 px-lg-5">
+<div class="container-xxl px-3 px-lg-4">
 <div class="prf-layout">
 
     {{-- ── LEFT: User Card ── --}}

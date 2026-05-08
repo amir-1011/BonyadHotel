@@ -165,7 +165,7 @@
      CATEGORY FILTERS
 ═══════════════════════════════════ --}}
 <div class="home-cats" style="border-bottom:1px solid var(--bnb-border);">
-    <div class="container-fluid px-3 px-lg-5">
+    <div class="container-xxl px-3 px-lg-4">
         <div class="home-cats-inner">
             @php
             $cats = [
@@ -198,7 +198,7 @@
 @endphp
 
 @if(!$isRegularUser)
-<div class="container-fluid px-3 px-lg-5 mt-4">
+<div class="container-xxl px-3 px-lg-4 mt-4">
     @if($isVeteran)
         @php $user = auth()->user(); @endphp
         <div class="d-flex align-items-center bg-white rounded-4 shadow-sm position-relative mb-4 overflow-hidden" 
@@ -277,7 +277,7 @@
 {{-- ═══════════════════════════════════
      FEATURED ACCOMMODATIONS
 ═══════════════════════════════════ --}}
-<div class="container-fluid px-3 px-lg-5 mt-5">
+<div class="container-xxl px-3 px-lg-4 mt-5">
     <div class="bnb-section-header mb-3">
         <h2 class="bnb-section-title">اقامتگاه‌های پیشنهادی</h2>
         <a href="{{ route('accommodations.index') }}" class="bnb-show-all">مشاهده همه</a>
@@ -373,7 +373,7 @@
      POPULAR CITIES
 ═══════════════════════════════════ --}}
 @if($popularCities->isNotEmpty())
-<div class="container-fluid px-3 px-lg-5 mt-5 mb-4">
+<div class="container-xxl px-3 px-lg-4 mt-5 mb-4">
     <h2 class="bnb-section-title mb-4" data-aos="fade-up">مقاصد محبوب</h2>
     <div class="row g-3">
         @foreach($popularCities->take(8) as $city)

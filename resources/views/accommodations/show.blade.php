@@ -185,7 +185,7 @@
     $imgCount = $displayImages->count();
 @endphp
 
-<div class="container-fluid px-3 px-lg-5">
+<div class="container-xxl px-3 px-lg-4">
 
 {{-- MOBILE SLIDER (Swiper) --}}
 <div class="bnb-mobile-slider swiper" id="mobile-zoom-gallery">
