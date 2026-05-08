@@ -92,6 +92,20 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host'])->group(functi
     Route::get('/reviews', [\App\Http\Controllers\Host\ReviewController::class, 'index'])->name('reviews.index');
     Route::post('/reviews/{review}/reply', [\App\Http\Controllers\Host\ReviewController::class, 'reply'])->name('reviews.reply');
     Route::delete('/reviews/{review}/reply', [\App\Http\Controllers\Host\ReviewController::class, 'deleteReply'])->name('reviews.reply.delete');
+
+    // Room Types (nested under accommodation)
+    Route::prefix('accommodations/{accommodation}/room-types')->name('room-types.')->group(function () {
+        Route::get('/',                     [\App\Http\Controllers\Host\RoomTypeController::class, 'index'])->name('index');
+        Route::get('/create',               [\App\Http\Controllers\Host\RoomTypeController::class, 'create'])->name('create');
+        Route::post('/',                    [\App\Http\Controllers\Host\RoomTypeController::class, 'store'])->name('store');
+        Route::get('/{roomType}/edit',      [\App\Http\Controllers\Host\RoomTypeController::class, 'edit'])->name('edit');
+        Route::put('/{roomType}',           [\App\Http\Controllers\Host\RoomTypeController::class, 'update'])->name('update');
+        Route::delete('/{roomType}',        [\App\Http\Controllers\Host\RoomTypeController::class, 'destroy'])->name('destroy');
+        // Rates
+        Route::post('/{roomType}/rates',                    [\App\Http\Controllers\Host\RoomTypeController::class, 'storeRate'])->name('rates.store');
+        Route::put('/{roomType}/rates/{rate}',              [\App\Http\Controllers\Host\RoomTypeController::class, 'updateRate'])->name('rates.update');
+        Route::delete('/{roomType}/rates/{rate}',           [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
+    });
 });
 
 

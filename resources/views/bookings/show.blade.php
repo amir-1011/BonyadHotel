@@ -65,6 +65,41 @@
                     </div>
                 </div>
 
+                {{-- Room Type / Rate --}}
+                @if($booking->roomType)
+                <div class="border rounded-3 p-3 mb-4">
+                    <h6 class="fw-bold text-muted mb-2"><i class="bi bi-door-open me-2"></i>اتاق رزرو شده</h6>
+                    <div class="row g-2 small">
+                        <div class="col-6 col-md-4">
+                            <strong>نوع اتاق:</strong><br>
+                            {{ $booking->roomType->name }}
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <strong>نوع تخت:</strong><br>
+                            {{ $booking->roomType->bed_type }}
+                        </div>
+                        @if($booking->roomRate)
+                        <div class="col-6 col-md-4">
+                            <strong>تعرفه:</strong><br>
+                            {{ $booking->roomRate->name }}
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <strong>صبحانه:</strong><br>
+                            @if($booking->roomRate->breakfast_included)
+                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> دارد</span>
+                            @else
+                                <span class="text-muted"><i class="bi bi-x-circle"></i> ندارد</span>
+                            @endif
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <strong>سیاست لغو:</strong><br>
+                            {{ $booking->roomRate->cancellationLabel() }}
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 {{-- Price Details --}}
                 <div class="border rounded-3 p-3 mb-4">
                     <h6 class="fw-bold text-muted mb-2"><i class="bi bi-cash-coin me-2"></i>جزئیات مالی</h6>

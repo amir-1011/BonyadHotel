@@ -63,6 +63,12 @@ class AccommodationController extends Controller
         $reviews = $accommodation->reviews()->where('is_visible', true)
             ->with('user')->latest()->get();
 
+        // Room types with active rates
+        $roomTypes = $accommodation->roomTypes()
+            ->where('is_active', true)
+            ->with(['rates' => fn($q) => $q->where('is_active', true)->orderBy('price_per_night')])
+            ->get();
+
         // Can current user leave a review?
         $canReview = false;
         if (auth()->check()) {
@@ -77,7 +83,7 @@ class AccommodationController extends Controller
             ? $accommodation->reviews()->where('user_id', auth()->id())->first()
             : null;
 
-        return view('accommodations.show', compact('accommodation', 'reviews', 'canReview', 'userReview'));
+        return view('accommodations.show', compact('accommodation', 'reviews', 'canReview', 'userReview', 'roomTypes'));
     }
 
     public function citiesByProvince(Province $province)

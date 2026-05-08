@@ -71,9 +71,19 @@
                 </div>
 
                 @auth
+                    @if($roomTypes->isNotEmpty())
+                    <div class="alert alert-info py-2 mb-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        پس از انتخاب تاریخ، اتاق موردنظر را از بخش <strong>«انتخاب اتاق»</strong> رزرو کنید.
+                    </div>
+                    <a href="#roomsSection" class="btn btn-success w-100">
+                        <i class="bi bi-door-open me-1"></i>مشاهده اتاق‌ها و رزرو
+                    </a>
+                    @else
                     <button type="submit" class="btn btn-success w-100 mt-2">
                         <i class="bi bi-check2-circle me-1"></i>ثبت رزرو
                     </button>
+                    @endif
                 @else
                     <a href="{{ route('auth.mobile') }}" class="btn btn-primary w-100 mt-2">
                         <i class="bi bi-phone me-1"></i>ورود برای رزرو
@@ -209,6 +219,172 @@
     </div>
 </div>
 
+{{-- ── Rooms Section (trip.com style) ────────────────────────────────────── --}}
+@if($roomTypes->isNotEmpty())
+<div class="mt-4" id="roomsSection">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+            <h5 class="fw-bold mb-0"><i class="bi bi-door-open me-2 text-primary"></i>انتخاب اتاق</h5>
+            <span class="text-muted small">قیمت‌ها بر اساس هر شب اقامت — برای رزرو ابتدا تاریخ‌ها را در بالا انتخاب کنید</span>
+        </div>
+
+        @foreach($roomTypes as $roomType)
+        @if($roomType->rates->isNotEmpty())
+        <div class="border-bottom">
+            <div class="row g-0">
+                {{-- Left: Room Info --}}
+                <div class="col-md-4 p-3 border-end-md">
+                    @php $rtImages = collect($roomType->images ?? [])->filter()->values(); @endphp
+                    @if($rtImages->count() > 1)
+                    <div id="rtCarousel{{ $roomType->id }}" class="carousel slide mb-3" data-bs-ride="false">
+                        <div class="carousel-inner rounded-3 overflow-hidden" style="height:180px">
+                            @foreach($rtImages as $idx => $img)
+                            <div class="carousel-item {{ $idx===0 ? 'active' : '' }}">
+                                <img src="{{ asset('storage/'.$img) }}" class="d-block w-100"
+                                     style="height:180px;object-fit:cover" alt="{{ $roomType->name }}">
+                            </div>
+                            @endforeach
+                        </div>
+                        <button class="carousel-control-prev" type="button"
+                                data-bs-target="#rtCarousel{{ $roomType->id }}" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button"
+                                data-bs-target="#rtCarousel{{ $roomType->id }}" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    </div>
+                    @elseif($rtImages->count() === 1)
+                    <img src="{{ asset('storage/'.$rtImages[0]) }}" class="img-fluid rounded-3 mb-3 w-100"
+                         style="height:180px;object-fit:cover" alt="{{ $roomType->name }}">
+                    @else
+                    <div class="bg-light rounded-3 d-flex align-items-center justify-content-center mb-3"
+                         style="height:180px">
+                        <i class="bi bi-door-open text-muted" style="font-size:3rem"></i>
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold">{{ $roomType->name }}</h6>
+                    <div class="d-flex flex-column gap-1 text-muted small">
+                        @if($roomType->bed_type)
+                        <span><i class="bi bi-moon-stars me-2 text-primary"></i>{{ $roomType->bed_type }}</span>
+                        @endif
+                        <span><i class="bi bi-people me-2 text-primary"></i>ظرفیت {{ $roomType->capacity }} نفر</span>
+                        @if($roomType->size_sqm)
+                        <span><i class="bi bi-aspect-ratio me-2 text-primary"></i>{{ $roomType->size_sqm }} متر مربع</span>
+                        @endif
+                        <span>
+                            @if($roomType->has_private_bathroom)
+                            <i class="bi bi-check-circle-fill me-2 text-success"></i>حمام اختصاصی
+                            @else
+                            <i class="bi bi-x-circle me-2 text-muted"></i>بدون حمام اختصاصی
+                            @endif
+                        </span>
+                        @if($roomType->smoking)
+                        <span class="text-warning"><i class="bi bi-fire me-2"></i>اتاق سیگاری</span>
+                        @else
+                        <span class="text-success"><i class="bi bi-slash-circle me-2"></i>غیر سیگاری</span>
+                        @endif
+                    </div>
+                    @if($roomType->amenities && count($roomType->amenities))
+                    <div class="mt-2 d-flex flex-wrap gap-1">
+                        @foreach($roomType->amenities as $a)
+                        <span class="badge bg-light text-dark border" style="font-size:.7rem">{{ $a }}</span>
+                        @endforeach
+                    </div>
+                    @endif
+                    @if($roomType->description)
+                    <p class="small text-muted mt-2 mb-0">{{ Str::limit($roomType->description, 120) }}</p>
+                    @endif
+                </div>
+
+                {{-- Right: Rates Table --}}
+                <div class="col-md-8 p-0">
+                    <table class="table table-bordered mb-0 align-middle h-100">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-muted small fw-normal px-3">انتخاب شما</th>
+                                <th class="text-muted small fw-normal text-center px-2" style="width:80px">ظرفیت</th>
+                                <th class="text-muted small fw-normal text-center px-2" style="width:150px">قیمت امشب</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($roomType->rates as $rate)
+                            <tr>
+                                <td class="px-3 py-3">
+                                    <div class="fw-semibold mb-1">{{ $rate->name }}</div>
+                                    @if($rate->breakfast_included)
+                                    <div class="text-success small mb-1">
+                                        <i class="bi bi-cup-hot-fill me-1"></i>صبحانه رایگان
+                                    </div>
+                                    @elseif($rate->breakfast_price_per_person)
+                                    <div class="text-muted small mb-1">
+                                        <i class="bi bi-cup-hot me-1"></i>صبحانه {{ number_format($rate->breakfast_price_per_person) }} تومان/نفر (اختیاری)
+                                    </div>
+                                    @else
+                                    <div class="text-muted small mb-1">
+                                        <i class="bi bi-x me-1"></i>بدون صبحانه
+                                    </div>
+                                    @endif
+                                    <div class="small mb-1">
+                                        @if($rate->cancellation_policy === 'free')
+                                        <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>لغو رایگان</span>
+                                        @else
+                                        <span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>غیر قابل استرداد</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-muted small">
+                                        @if($rate->payment_type === 'pay_at_hotel')
+                                        <i class="bi bi-building me-1"></i>پرداخت در محل
+                                        @else
+                                        <i class="bi bi-credit-card me-1"></i>پرداخت آنلاین
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="text-center px-2">
+                                    @for($p = 0; $p < min($roomType->capacity, 5); $p++)
+                                    <i class="bi bi-person-fill small text-muted"></i>
+                                    @endfor
+                                    @if($roomType->capacity > 5)
+                                    <span class="text-muted small">+{{ $roomType->capacity - 5 }}</span>
+                                    @endif
+                                </td>
+                                <td class="text-center px-2 py-3">
+                                    <div class="fw-bold text-primary" style="font-size:1.1rem">{{ number_format($rate->price_per_night) }}</div>
+                                    <div class="text-muted" style="font-size:.72rem">تومان / شب</div>
+                                    @auth
+                                    <form class="room-reserve-form mt-2"
+                                          action="{{ route('bookings.store', $accommodation) }}" method="POST">
+                                        @csrf
+                                        <input type="hidden" name="room_type_id" value="{{ $roomType->id }}">
+                                        <input type="hidden" name="room_rate_id" value="{{ $rate->id }}">
+                                        <input type="hidden" name="check_in" class="rt-check-in">
+                                        <input type="hidden" name="check_out" class="rt-check-out">
+                                        <input type="hidden" name="guests" value="{{ $roomType->capacity }}">
+                                        <button type="button" class="btn btn-primary btn-sm w-100"
+                                                onclick="reserveRoom(this)">
+                                            <i class="bi bi-calendar-check me-1"></i>رزرو
+                                        </button>
+                                    </form>
+                                    @else
+                                    <a href="{{ route('auth.mobile') }}" class="btn btn-outline-primary btn-sm w-100 mt-2">
+                                        <i class="bi bi-phone me-1"></i>ورود برای رزرو
+                                    </a>
+                                    @endauth
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
+        @endforeach
+    </div>
+</div>
+@endif
+
 {{-- Reviews Section --}}
 <div class="container my-5">
     <div class="row">
@@ -316,6 +492,21 @@
 
 @push('scripts')
 <script>
+// ── Reserve room with selected dates ────────────────────────────────────────
+function reserveRoom(btn) {
+    const ci = document.getElementById('checkIn').value;
+    const co = document.getElementById('checkOut').value;
+    if (!ci || !co) {
+        alert('لطفاً ابتدا تاریخ ورود و خروج را انتخاب کنید.');
+        document.getElementById('bookingForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    const form = btn.closest('form');
+    form.querySelector('.rt-check-in').value  = ci;
+    form.querySelector('.rt-check-out').value = co;
+    form.submit();
+}
+
 // ── Carousel thumbnail sync ──────────────────────────────────────────────────
 var carouselEl = document.getElementById('accCarousel');
 if (carouselEl) {

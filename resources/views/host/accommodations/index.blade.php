@@ -46,9 +46,12 @@
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-white d-flex gap-2">
+            <div class="card-footer bg-white d-flex gap-2 flex-wrap">
                 <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-sm btn-outline-secondary flex-fill" target="_blank">
                     <i class="bi bi-eye me-1"></i>نمایش
+                </a>
+                <a href="{{ route('host.room-types.index', $acc) }}" class="btn btn-sm btn-outline-info flex-fill">
+                    <i class="bi bi-door-open me-1"></i>اتاق‌ها
                 </a>
                 <a href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="btn btn-sm btn-outline-primary flex-fill">
                     <i class="bi bi-calendar-check me-1"></i>رزروها

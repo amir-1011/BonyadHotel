@@ -53,6 +53,11 @@ class Accommodation extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function roomTypes()
+    {
+        return $this->hasMany(RoomType::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function typeLabel(): string
     {
         return match($this->type) {

@@ -31,7 +31,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th>کد</th><th>کاربر</th><th>اقامتگاه</th><th>ورود</th><th>خروج</th><th>شب</th><th>مبلغ</th><th>وضعیت</th><th>عملیات</th></tr>
+                <tr><th>کد</th><th>کاربر</th><th>اقامتگاه</th><th>اتاق</th><th>ورود</th><th>خروج</th><th>شب</th><th>مبلغ</th><th>وضعیت</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($bookings as $b)
@@ -54,6 +54,7 @@
                             {{ Str::limit($b->accommodation->name ?? '', 22) }}
                         </a>
                     </td>
+                    <td class="small">{{ $b->roomType?->name ?? '—' }}</td>
                     <td class="small">@jalali($b->check_in)</td>
                     <td class="small">@jalali($b->check_out)</td>
                     <td>{{ $b->nights }}</td>

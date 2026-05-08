@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\Review;
+use App\Models\RoomRate;
+use App\Models\RoomType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -23,9 +25,11 @@ class BookingController extends Controller
     public function store(Request $request, Accommodation $accommodation)
     {
         $request->validate([
-            'check_in'  => ['required', 'date', 'after_or_equal:today'],
-            'check_out' => ['required', 'date', 'after:check_in'],
-            'guests'    => ['required', 'integer', 'min:1', 'max:' . $accommodation->capacity],
+            'check_in'      => ['required', 'date', 'after_or_equal:today'],
+            'check_out'     => ['required', 'date', 'after:check_in'],
+            'guests'        => ['required', 'integer', 'min:1', 'max:' . $accommodation->capacity],
+            'room_type_id'  => ['nullable', 'integer', 'exists:room_types,id'],
+            'room_rate_id'  => ['nullable', 'integer', 'exists:room_rates,id'],
         ], [
             'check_in.required'        => 'تاریخ ورود الزامی است.',
             'check_in.after_or_equal'  => 'تاریخ ورود نمی‌تواند در گذشته باشد.',
@@ -41,26 +45,56 @@ class BookingController extends Controller
             return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
         }
 
+        // Determine price per night — use room rate if provided, else accommodation default
+        $roomTypeId = $request->input('room_type_id');
+        $roomRateId = $request->input('room_rate_id');
+        $roomRate   = null;
+        $roomType   = null;
+
+        if ($roomRateId) {
+            $roomRate = RoomRate::find($roomRateId);
+            if ($roomRate) {
+                $roomType = $roomRate->roomType;
+                // Security: ensure rate belongs to this accommodation
+                if ($roomType->accommodation_id !== $accommodation->id) {
+                    $roomRate = null;
+                    $roomType = null;
+                    $roomRateId = null;
+                    $roomTypeId = null;
+                }
+            }
+        } elseif ($roomTypeId) {
+            $roomType = RoomType::find($roomTypeId);
+            if ($roomType && $roomType->accommodation_id !== $accommodation->id) {
+                $roomType = null;
+                $roomTypeId = null;
+            }
+        }
+
+        $pricePerNight = $roomRate ? $roomRate->price_per_night : $accommodation->price_per_night;
+
         $user              = Auth::user();
         $nights            = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
-        $basePrice         = $accommodation->price_per_night * $nights;
+        $basePrice         = $pricePerNight * $nights;
         $discountPct       = $user->discount_percentage;
         $discountAmount    = (int) ($basePrice * $discountPct / 100);
         $totalPrice        = $basePrice - $discountAmount;
 
         $booking = Booking::create([
-            'user_id'            => $user->id,
-            'accommodation_id'   => $accommodation->id,
-            'check_in'           => $checkIn,
-            'check_out'          => $checkOut,
-            'guests'             => $request->input('guests'),
-            'nights'             => $nights,
-            'base_price'         => $basePrice,
-            'discount_percentage'=> $discountPct,
-            'discount_amount'    => $discountAmount,
-            'total_price'        => $totalPrice,
-            'status'             => 'confirmed',
-            'tracking_code'      => strtoupper(Str::random(10)),
+            'user_id'             => $user->id,
+            'accommodation_id'    => $accommodation->id,
+            'room_type_id'        => $roomType?->id,
+            'room_rate_id'        => $roomRate?->id,
+            'check_in'            => $checkIn,
+            'check_out'           => $checkOut,
+            'guests'              => $request->input('guests'),
+            'nights'              => $nights,
+            'base_price'          => $basePrice,
+            'discount_percentage' => $discountPct,
+            'discount_amount'     => $discountAmount,
+            'total_price'         => $totalPrice,
+            'status'              => 'confirmed',
+            'tracking_code'       => strtoupper(Str::random(10)),
         ]);
 
         return redirect()->route('bookings.show', $booking)

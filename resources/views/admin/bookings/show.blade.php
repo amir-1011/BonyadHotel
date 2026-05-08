@@ -21,6 +21,12 @@
                 <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">تاریخ خروج</span><span>@jalali($booking->check_out)</span></li>
                 <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">تعداد شب</span><span>{{ $booking->nights }}</span></li>
                 <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">تعداد مهمان</span><span>{{ $booking->guests }}</span></li>
+                @if($booking->roomType)
+                <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">نوع اتاق</span><span>{{ $booking->roomType->name }}</span></li>
+                @endif
+                @if($booking->roomRate)
+                <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">تعرفه</span><span>{{ $booking->roomRate->name }}</span></li>
+                @endif
                 <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">قیمت پایه</span><span>{{ number_format($booking->base_price) }} ت</span></li>
                 <li class="list-group-item d-flex justify-content-between small"><span class="text-muted">تخفیف ({{ $booking->discount_percentage }}%)</span><span class="text-danger">{{ number_format($booking->discount_amount) }} ت-</span></li>
                 <li class="list-group-item d-flex justify-content-between"><span class="fw-bold">مبلغ نهایی</span><strong class="text-primary">{{ number_format($booking->total_price) }} ت</strong></li>

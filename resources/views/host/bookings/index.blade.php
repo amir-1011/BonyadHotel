@@ -36,7 +36,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th>کد</th><th>مهمان</th><th>اقامتگاه</th><th>ورود</th><th>خروج</th><th>مبلغ</th><th>وضعیت</th><th>عملیات</th></tr>
+                <tr><th>کد</th><th>مهمان</th><th>اقامتگاه</th><th>اتاق</th><th>ورود</th><th>خروج</th><th>مبلغ</th><th>وضعیت</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($bookings as $b)
@@ -44,6 +44,7 @@
                     <td><code class="small">{{ $b->tracking_code }}</code></td>
                     <td class="small">{{ $b->user->name ?? $b->user->mobile }}</td>
                     <td class="small">{{ Str::limit($b->accommodation->name, 22) }}</td>
+                    <td class="small">{{ $b->roomType?->name ?? '—' }}</td>
                     <td class="small">@jalali($b->check_in)</td>
                     <td class="small">@jalali($b->check_out)</td>
                     <td class="small">{{ number_format($b->total_price) }}</td>

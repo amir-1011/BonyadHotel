@@ -48,6 +48,10 @@
         <a href="{{ route('host.accommodations.index') }}" class="nav-link {{ request()->routeIs('host.accommodations.*') ? 'active' : '' }}">
             <i class="bi bi-building me-2"></i> اقامتگاه‌های من
         </a>
+        <a href="#" class="nav-link {{ request()->routeIs('host.room-types.*') ? 'active' : '' }}"
+           onclick="event.preventDefault();window.location='{{ route('host.accommodations.index') }}'">
+            <i class="bi bi-door-open me-2"></i> مدیریت اتاق‌ها
+        </a>
         <a href="{{ route('host.bookings.index') }}" class="nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check me-2"></i> رزروها
         </a>
