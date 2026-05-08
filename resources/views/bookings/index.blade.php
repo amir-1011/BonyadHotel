@@ -3,11 +3,10 @@
 @section('title', 'رزروهای من')
 
 @section('content')
+<div class="container-fluid px-3 px-lg-5" style="padding-top:32px;padding-bottom:48px;">
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>رزروهای من</h4>
-    <a href="{{ route('home') }}" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-plus-circle me-1"></i>رزرو جدید
-    </a>
+    <h1 style="font-size:22px;font-weight:700;color:var(--bnb-dark);margin:0;">رزروهای من</h1>
+    <a href="{{ route('home') }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-plus-circle me-1"></i>رزرو جدید</a>
 </div>
 
 @forelse($bookings as $booking)
@@ -15,78 +14,49 @@
         $isCompleted = $booking->status === 'confirmed' && $booking->check_out < now()->toDateString();
         $alreadyReviewed = isset($reviewedAccIds[$booking->accommodation_id]);
     @endphp
-    <div class="card mb-3 shadow-sm {{ $isCompleted && !$alreadyReviewed ? 'border-warning border-2' : '' }}">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+    <div style="border:1px solid {{ $isCompleted && !$alreadyReviewed ? 'var(--bnb-red)' : 'var(--bnb-border)' }};border-radius:12px;overflow:hidden;margin-bottom:16px;background:#fff;" data-aos="fade-up">
+        <div style="padding:20px;">
+            <div class="d-flex justify-content-between align-items-start" style="flex-wrap:wrap;gap:12px;">
                 <div>
-                    <h6 class="fw-bold mb-1">{{ $booking->accommodation->name }}</h6>
-                    <p class="text-muted mb-1" style="font-size:.82rem">
-                        <i class="bi bi-geo-alt me-1"></i>
-                        {{ $booking->accommodation->city->province->name }} - {{ $booking->accommodation->city->name }}
-                    </p>
-                    <p class="mb-1" style="font-size:.82rem">
+                    <div style="font-size:16px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;">{{ $booking->accommodation->name }}</div>
+                    <div style="font-size:13px;color:var(--bnb-gray);margin-bottom:2px;"><i class="bi bi-geo-alt me-1"></i>{{ $booking->accommodation->city->province->name }} — {{ $booking->accommodation->city->name }}</div>
+                    <div style="font-size:13px;color:var(--bnb-gray);margin-bottom:2px;">
                         <i class="bi bi-calendar-range me-1"></i>
                         {{ \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::parse($booking->check_in))->format('Y/m/d') }}
                         تا
                         {{ \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::parse($booking->check_out))->format('Y/m/d') }}
-                        | {{ $booking->nights }} شب | {{ $booking->guests }} نفر
-                    </p>
-                    <p class="text-muted mb-0" style="font-size:.8rem">
-                        کد رهگیری: <span class="tracking-code">{{ $booking->tracking_code }}</span>
-                    </p>
+                        &middot; {{ $booking->nights }} شب &middot; {{ $booking->guests }} نفر
+                    </div>
+                    <div style="font-size:12px;color:var(--bnb-gray);"><i class="bi bi-hash me-1"></i>کد رهگیری: <strong style="color:var(--bnb-dark);">{{ $booking->tracking_code }}</strong></div>
                 </div>
-                <div class="text-end flex-shrink-0">
-                    <span class="badge bg-{{ $booking->statusColor() }} px-2 py-1 d-block mb-1">
-                        {{ $booking->statusLabel() }}
-                    </span>
-                    @if($isCompleted)
-                        @if($alreadyReviewed)
-                            <span class="badge bg-success"><i class="bi bi-star-fill me-1"></i>نظر ثبت شده</span>
-                        @else
-                            <span class="badge bg-warning text-dark"><i class="bi bi-star me-1"></i>منتظر نظر شما</span>
-                        @endif
-                    @endif
-                    @if($booking->discount_percentage > 0)
-                        <div class="text-muted text-decoration-line-through mt-1" style="font-size:.78rem">{{ number_format($booking->base_price) }}</div>
-                    @endif
-                    <div class="price-tag">{{ number_format($booking->total_price) }}</div>
-                    <div class="text-muted" style="font-size:.75rem">تومان</div>
-                    @if($booking->discount_percentage > 0)
-                        <span class="badge bg-success" style="font-size:.72rem">{{ $booking->discount_percentage }}٪ تخفیف</span>
-                    @endif
+                <div style="text-align:left;">
+                    @php $statusColors = ['confirmed'=>'green','pending'=>'orange','cancelled'=>'var(--bnb-red)']; $sc = $statusColors[$booking->status] ?? 'var(--bnb-gray)'; @endphp
+                    <span style="display:inline-block;background:{{ $sc }}1a;color:{{ $sc }};border:1px solid {{ $sc }}40;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;margin-bottom:8px;">{{ $booking->statusLabel() }}</span>
+                    @if($booking->discount_percentage > 0)<div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($booking->base_price) }}</div>@endif
+                    <div style="font-size:18px;font-weight:700;color:var(--bnb-dark);">{{ number_format($booking->total_price) }} <span style="font-size:12px;font-weight:400;color:var(--bnb-gray);">تومان</span></div>
+                    @if($booking->discount_percentage > 0)<div style="font-size:12px;color:var(--bnb-red);">{{ $booking->discount_percentage }}٪ تخفیف</div>@endif
                 </div>
             </div>
-
-            {{-- Action buttons --}}
-            <div class="d-flex gap-2 flex-wrap align-items-center">
-                <a href="{{ route('bookings.show', $booking) }}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-eye me-1"></i>جزئیات
-                </a>
+            <div style="border-top:1px solid var(--bnb-border);margin-top:16px;padding-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                <a href="{{ route('bookings.show', $booking) }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-eye me-1"></i>جزئیات</a>
                 @if($booking->status === 'confirmed' && $booking->check_out >= now()->toDateString())
-                    <form action="{{ route('bookings.cancel', $booking) }}" method="POST"
-                          onsubmit="return confirm('آیا از لغو این رزرو مطمئن هستید؟')">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-x-circle me-1"></i>لغو رزرو
-                        </button>
-                    </form>
+                <form action="{{ route('bookings.cancel', $booking) }}" method="POST" onsubmit="return confirm('آیا از لغو این رزرو مطمئن هستید؟')">
+                    @csrf
+                    <button type="submit" class="bnb-filter-pill" style="border-color:var(--bnb-red);color:var(--bnb-red);background:none;cursor:pointer;font-family:var(--bnb-font);"><i class="bi bi-x-circle me-1"></i>لغو</button>
+                </form>
                 @endif
                 @if($isCompleted && !$alreadyReviewed)
-                    <button class="btn btn-warning btn-sm" type="button"
-                            onclick="document.getElementById('review-form-{{ $booking->id }}').classList.toggle('d-none')">
-                        <i class="bi bi-star me-1"></i>ثبت نظر
-                    </button>
+                <button class="bnb-filter-pill" style="border-color:var(--bnb-dark);background:var(--bnb-dark);color:#fff;cursor:pointer;font-family:var(--bnb-font);" type="button" onclick="document.getElementById('review-form-{{ $booking->id }}').classList.toggle('d-none')">
+                    <i class="bi bi-star me-1"></i>ثبت نظر
+                </button>
                 @elseif($isCompleted && $alreadyReviewed)
-                    <a href="{{ route('accommodations.show', $booking->accommodation) }}#reviews" class="btn btn-outline-success btn-sm">
-                        <i class="bi bi-chat-square-text me-1"></i>مشاهده نظر
-                    </a>
+                <a href="{{ route('accommodations.show', $booking->accommodation) }}#reviews" class="bnb-filter-pill text-decoration-none" style="color:green;border-color:green;"><i class="bi bi-star-fill me-1"></i>نظر ثبت شده</a>
                 @endif
             </div>
 
-            {{-- Inline review form (hidden by default) --}}
             @if($isCompleted && !$alreadyReviewed)
-            <div id="review-form-{{ $booking->id }}" class="d-none mt-3 border-top pt-3">
-                <h6 class="fw-bold mb-3"><i class="bi bi-star-fill text-warning me-2"></i>نظر خود را ثبت کنید</h6>
+            <div id="review-form-{{ $booking->id }}" class="d-none" style="padding:20px;border-top:1px solid var(--bnb-border);">
+                <h6 style="font-size:15px;font-weight:600;margin-bottom:16px;"><i class="bi bi-star-fill me-2" style="color:var(--bnb-dark);"></i>نظر خود را ثبت کنید</h6>
                 <form action="{{ route('reviews.store', $booking->accommodation) }}" method="POST">
                     @csrf
                     <input type="hidden" name="booking_id" value="{{ $booking->id }}">
@@ -125,49 +95,34 @@
         </div>
     </div>
 @empty
-    <div class="text-center py-5">
-        <i class="bi bi-calendar-x display-4 text-muted"></i>
-        <p class="mt-3 text-muted fs-5">هنوز رزروی ثبت نکرده‌اید.</p>
-        <a href="{{ route('home') }}" class="btn btn-primary btn-lg mt-2">
-            <i class="bi bi-search me-1"></i>جستجو و رزرو اقامتگاه
-        </a>
+    <div style="text-align:center;padding:60px 20px;">
+        <div style="font-size:64px;margin-bottom:16px;">📅</div>
+        <h5 style="color:var(--bnb-dark);font-weight:600;">هنوز رزروی ندارید</h5>
+        <p style="color:var(--bnb-gray);">اقامتگاه موردنظرتان را پیدا کنید و اولین رزروتان را ثبت کنید!</p>
+        <a href="{{ route('home') }}" class="btn-bnb" style="display:inline-block;text-decoration:none;margin-top:8px;"><i class="bi bi-search me-1"></i>جستجو اقامتگاه</a>
     </div>
 @endforelse
 
-{{ $bookings->links() }}
+<div class="mt-3">{{ $bookings->links() }}</div>
+</div>
 @endsection
 
 @push('scripts')
+<style>
+.bnb-star-selector { display: flex; gap: 4px; font-size: 22px; cursor: pointer; }
+.bnb-star-selector .bi { color: var(--bnb-dark); transition: color .15s; }
+</style>
 <script>
-// Star rating for inline review forms
-document.querySelectorAll('[data-group][data-val]').forEach(star => {
-    star.addEventListener('click', function () {
-        const group = this.dataset.group;
-        const val = parseInt(this.dataset.val);
-        document.getElementById('rating-' + group).value = val;
-        updateStars(group, val);
-    });
-    star.addEventListener('mouseenter', function () {
-        updateStars(this.dataset.group, parseInt(this.dataset.val));
-    });
+document.querySelectorAll('[data-group][data-val]').forEach(function(star) {
+    star.addEventListener('click', function() { var g = this.dataset.group; var v = parseInt(this.dataset.val); document.getElementById('rating-'+g).value = v; updateStars(g, v); });
+    star.addEventListener('mouseenter', function() { updateStars(this.dataset.group, parseInt(this.dataset.val)); });
 });
-document.querySelectorAll('[id^="stars-"]').forEach(container => {
-    container.addEventListener('mouseleave', function () {
-        const group = this.id.replace('stars-', '');
-        const val = parseInt(document.getElementById('rating-' + group).value) || 5;
-        updateStars(group, val);
-    });
+document.querySelectorAll('[id^="stars-"]').forEach(function(container) {
+    container.addEventListener('mouseleave', function() { var g = this.id.replace('stars-',''); updateStars(g, parseInt(document.getElementById('rating-'+g).value)||5); });
 });
 function updateStars(group, val) {
-    document.querySelectorAll('.rating-star-' + group).forEach((s, i) => {
-        s.className = 'bi bi-star' + (i < val ? '-fill' : '') + ' rating-star-' + group + ' text-warning';
-    });
+    document.querySelectorAll('#stars-'+group+' .bi').forEach(function(s, i) { s.className = 'bi bi-star'+(i < val ? '-fill' : ''); });
 }
-// Init each star group to current hidden input value
-document.querySelectorAll('[id^="rating-"]').forEach(input => {
-    const group = input.id.replace('rating-', '');
-    const val = parseInt(input.value) || 5;
-    updateStars(group, val);
-});
+document.querySelectorAll('[id^="rating-"]').forEach(function(input) { var g = input.id.replace('rating-',''); updateStars(g, parseInt(input.value)||5); });
 </script>
 @endpush

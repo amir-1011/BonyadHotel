@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\Province;
 use Illuminate\Http\Request;
@@ -24,6 +25,20 @@ class HomeController extends Controller
             ->filter(fn($c) => $c['lat'] && $c['lng'])
             ->values();
 
-        return view('home', compact('provinces', 'citiesForMap'));
+        // Featured accommodations for Airbnb-style cards
+        $featured = Accommodation::with(['city.province', 'reviews'])
+            ->where('is_active', true)
+            ->latest()
+            ->take(12)
+            ->get();
+
+        // Popular cities (cities with accommodations)
+        $popularCities = City::withCount(['accommodations' => fn($q) => $q->where('is_active', true)])
+            ->having('accommodations_count', '>', 0)
+            ->orderByDesc('accommodations_count')
+            ->take(8)
+            ->get();
+
+        return view('home', compact('provinces', 'citiesForMap', 'featured', 'popularCities'));
     }
 }
