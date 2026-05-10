@@ -8,6 +8,7 @@ use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\RoomTypeBlockedDate;
 use App\Services\ImageUploadService;
+use Morilog\Jalali\Jalalian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -215,15 +216,33 @@ class RoomTypeController extends Controller
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $data = $request->validate([
-            'date_from' => ['required', 'date', 'after_or_equal:today'],
-            'date_to'   => ['required', 'date', 'after_or_equal:date_from'],
+        $raw = $request->validate([
+            'date_from' => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
+            'date_to'   => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
             'reason'    => ['nullable', 'string', 'max:200'],
         ]);
 
-        $from   = new \DateTime($data['date_from']);
-        $to     = new \DateTime($data['date_to']);
-        $reason = $data['reason'] ?? null;
+        // Convert Jalali (Solar Hijri) input to Gregorian
+        try {
+            $split    = fn(string $s) => array_map('intval', preg_split('/[\/\-]/', $s));
+            [$fy, $fm, $fd] = $split($raw['date_from']);
+            [$ty, $tm, $td] = $split($raw['date_to']);
+            $fromGreg = (new Jalalian($fy, $fm, $fd))->toCarbon()->format('Y-m-d');
+            $toGreg   = (new Jalalian($ty, $tm, $td))->toCarbon()->format('Y-m-d');
+        } catch (\Exception $e) {
+            return back()->withErrors(['date_from' => 'تاریخ خورشیدی وارد شده معتبر نیست.'])->withInput();
+        }
+
+        if ($fromGreg < now()->toDateString()) {
+            return back()->withErrors(['date_from' => 'تاریخ شروع نباید در گذشته باشد.'])->withInput();
+        }
+        if ($toGreg < $fromGreg) {
+            return back()->withErrors(['date_to' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.'])->withInput();
+        }
+
+        $from   = new \DateTime($fromGreg);
+        $to     = new \DateTime($toGreg);
+        $reason = $raw['reason'] ?? null;
         $cursor = clone $from;
 
         while ($cursor <= $to) {

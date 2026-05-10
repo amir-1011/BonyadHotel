@@ -90,18 +90,25 @@
                 </p>
                 <form action="{{ route('admin.room-types.blocked-dates.store', [$accommodation, $roomType]) }}" method="POST">
                     @csrf
+                    @php $todayJalali = \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::today())->format('Y/m/d'); @endphp
                     <div class="mb-3">
                         <label class="form-label fw-semibold">از تاریخ <span class="text-danger">*</span></label>
-                        <input type="date" name="date_from" class="form-control @error('date_from') is-invalid @enderror"
-                               min="{{ now()->toDateString() }}"
-                               value="{{ old('date_from', now()->toDateString()) }}" required>
+                        <input type="text" name="date_from"
+                               class="form-control @error('date_from') is-invalid @enderror"
+                               placeholder="مثال: {{ $todayJalali }}"
+                               value="{{ old('date_from', $todayJalali) }}"
+                               autocomplete="off" required>
+                        <div class="form-text">تاریخ خورشیدی — مثال: ۱۴۰۵/۰۲/۲۰</div>
                         @error('date_from')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">تا تاریخ <span class="text-danger">*</span></label>
-                        <input type="date" name="date_to" class="form-control @error('date_to') is-invalid @enderror"
-                               min="{{ now()->toDateString() }}"
-                               value="{{ old('date_to', now()->toDateString()) }}" required>
+                        <input type="text" name="date_to"
+                               class="form-control @error('date_to') is-invalid @enderror"
+                               placeholder="مثال: {{ $todayJalali }}"
+                               value="{{ old('date_to', $todayJalali) }}"
+                               autocomplete="off" required>
+                        <div class="form-text">تاریخ خورشیدی — مثال: ۱۴۰۵/۰۲/۲۵</div>
                         @error('date_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="mb-4">
@@ -224,7 +231,7 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>تاریخ</th>
+                                <th>تاریخ خورشیدی</th>
                                 <th>دلیل</th>
                                 <th class="text-end">عملیات</th>
                             </tr>
@@ -232,7 +239,7 @@
                         <tbody>
                         @foreach($blockedDates as $bd)
                         <tr>
-                            <td class="fw-semibold">{{ $bd->date->format('Y-m-d') }}</td>
+                            <td class="fw-semibold">{{ \Morilog\Jalali\Jalalian::fromCarbon($bd->date)->format('Y/m/d') }}</td>
                             <td class="text-muted">{{ $bd->reason ?: '—' }}</td>
                             <td class="text-end">
                                 <form action="{{ route('admin.room-types.blocked-dates.destroy', [$accommodation, $roomType, $bd]) }}"

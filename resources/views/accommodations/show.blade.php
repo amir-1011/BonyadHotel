@@ -1300,14 +1300,12 @@ function mbbDrawer() {
             });
         },
 
-        _ymKey(year, month) {
-            return year + '-' + String(month).padStart(2, '0');
-        },
-
-        _addMonthsToYM(ym, n) {
-            const [y, m] = ym.split('-').map(Number);
-            const d = new Date(y, m - 1 + n, 1);
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        // Convert Jalali year+month (with optional offset) to Gregorian YYYY-MM for API calls
+        _gregYmForJalali(jYear, jMonth) {
+            while (jMonth > 12) { jMonth -= 12; jYear++; }
+            while (jMonth < 1)  { jMonth += 12; jYear--; }
+            const gd = new persianDate([jYear, jMonth, 1]).toDate();
+            return gd.getFullYear() + '-' + String(gd.getMonth() + 1).padStart(2, '0');
         },
 
         async fetchAvailability(months) {
@@ -1335,8 +1333,8 @@ function mbbDrawer() {
 
         _ensureMonthLoaded() {
             if (!this.roomTypeId) return;
-            const curr = this._ymKey(this.calYear, this.calMonth);
-            const next = this._addMonthsToYM(curr, 1);
+            const curr = this._gregYmForJalali(this.calYear, this.calMonth);
+            const next = this._gregYmForJalali(this.calYear, this.calMonth + 1);
             this.fetchAvailability([curr, next]);
         },
 
@@ -1412,11 +1410,8 @@ function mbbDrawer() {
             this.drawerOpen       = true;
 
             if (roomTypeId) {
-                // Load current + next 2 months
-                const curr = this.calYear
-                    ? this._ymKey(this.calYear, this.calMonth)
-                    : (new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0'));
-                const months = [0, 1, 2].map(i => this._addMonthsToYM(curr, i));
+                // Load current + next 2 Gregorian months (converted from Jalali calendar state)
+                const months = [0, 1, 2].map(i => this._gregYmForJalali(this.calYear, this.calMonth + i));
                 this.fetchAvailability(months);
             }
         },
