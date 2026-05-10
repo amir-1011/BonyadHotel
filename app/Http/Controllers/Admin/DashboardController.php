@@ -37,9 +37,16 @@ class DashboardController extends Controller
             ->limit(5)->get();
 
         // Monthly revenue (last 6 months)
+        $driver = DB::getDriverName();
+        $monthExpression = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            'pgsql'  => "to_char(created_at, 'YYYY-MM')",
+            default  => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
+
         $monthlyRevenue = Booking::where('status', 'confirmed')
             ->where('created_at', '>=', now()->subMonths(6))
-            ->select(DB::raw("strftime('%Y-%m', created_at) as month"), DB::raw('sum(total_price) as total'))
+            ->selectRaw("{$monthExpression} as month, SUM(total_price) as total")
             ->groupBy('month')
             ->orderBy('month')
             ->get();

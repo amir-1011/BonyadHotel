@@ -3,7 +3,7 @@
 @section('title', $accommodation->name)
 
 @push('styles')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" />
 <style>
 /* ── Photo grid ─────────────────────────────────────── */
 .bnb-photo-grid {
@@ -162,7 +162,7 @@
 }
 /* ── Star selector ────────────────────────────────────── */
 .bnb-star-selector { display: flex; gap: 4px; font-size: 24px; cursor: pointer; }
-.bnb-star-selector .bi { color: var(--bnb-dark); transition: color .15s; }
+.bnb-star-selector .bi { color: #ffc107; transition: color .15s; }
 /* ── Title and Rating Section ────────────────────────── */
 .bnb-main-title { font-size: 26px; font-weight: 800; color: var(--bnb-dark); margin-bottom: 8px; letter-spacing: -0.5px; }
 .bnb-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; color: var(--bnb-dark); }
@@ -172,7 +172,7 @@
 .bnb-location-link { color: var(--bnb-gray); text-decoration: underline; font-weight: 500; transition: color 0.2s; }
 .bnb-location-link:hover { color: var(--bnb-dark); }
 </style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
+<link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}">
 @endpush
 
 @section('content')
@@ -180,6 +180,20 @@
     $allImages = collect($accommodation->images ?? [])->filter()->values();
     if ($accommodation->image && !$allImages->contains($accommodation->image)) {
         $allImages->prepend($accommodation->image);
+    }
+    $imageSizes = [];
+    foreach ($allImages as $img) {
+        try {
+            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($img);
+            if (file_exists($path)) {
+                $size = @getimagesize($path);
+                if ($size) {
+                    $imageSizes[$img] = ['width' => $size[0], 'height' => $size[1]];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback to default dimensions below.
+        }
     }
     $displayImages = $allImages->take(8);
     $imgCount = $displayImages->count();
@@ -193,9 +207,10 @@
         @foreach($allImages as $img)
             <div class="swiper-slide">
                 <a href="{{ asset('storage/' . $img) }}" 
-                   data-pswp-width="1200" 
-                   data-pswp-height="800" 
-                   class="pswp-gallery-item-mobile">
+                   data-pswp-width="{{ $imageSizes[$img]['width'] ?? 1200 }}" 
+                   data-pswp-height="{{ $imageSizes[$img]['height'] ?? 800 }}" 
+                   class="pswp-gallery-item-mobile"
+                   onclick="event.preventDefault();">
                     <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
                 </a>
             </div>
@@ -210,9 +225,10 @@
         @foreach($allImages as $index => $img)
             <div class="bnb-photo-grid-wrap {{ $index === 0 ? 'bnb-photo-grid-main' : '' }} {{ $index >= 8 ? 'd-none' : '' }}">
                 <a href="{{ asset('storage/' . $img) }}" 
-                   data-pswp-width="1200" 
-                   data-pswp-height="800" 
-                   class="pswp-gallery-item">
+                   data-pswp-width="{{ $imageSizes[$img]['width'] ?? 1200 }}" 
+                   data-pswp-height="{{ $imageSizes[$img]['height'] ?? 800 }}" 
+                   class="pswp-gallery-item"
+                   onclick="event.preventDefault();">
                     <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
                 </a>
             </div>
@@ -344,7 +360,6 @@
                             <span><i class="bi bi-people me-1"></i>{{ $roomType->capacity }} نفر</span>
                             @if($roomType->size_sqm)<span><i class="bi bi-aspect-ratio me-1"></i>{{ $roomType->size_sqm }} متر مربع</span>@endif
                             <span>@if($roomType->has_private_bathroom)<i class="bi bi-check-circle-fill text-success me-1"></i>حمام اختصاصی@else<i class="bi bi-x-circle text-muted me-1"></i>بدون حمام اختصاصی@endif</span>
-                            <span>@if(!$roomType->smoking)<i class="bi bi-slash-circle text-success me-1"></i>غیرسیگاری@else<i class="bi bi-fire text-warning me-1"></i>سیگاری@endif</span>
                         </div>
                     </div>
                 </div>
@@ -408,58 +423,92 @@
         {{-- Reviews --}}
         <div class="py-5" id="sec-reviews">
             @if($accommodation->averageRating() > 0)
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;">
-                <i class="bi bi-star-fill" style="color:var(--bnb-dark);font-size:22px;"></i>
-                <span style="font-size:22px;font-weight:700;color:var(--bnb-dark);">{{ $accommodation->averageRating() }}</span>
-                <span style="font-size:14px;color:var(--bnb-gray);">({{ $accommodation->reviewCount() }} نظر)</span>
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-star-fill text-warning fs-4"></i>
+                <span class="fs-4 fw-bold text-dark">{{ $accommodation->averageRating() }}</span>
+                <span class="text-secondary">({{ $accommodation->reviewCount() }} نظر)</span>
             </div>
             @endif
-            <h2 style="font-size:18px;font-weight:700;color:var(--bnb-dark);margin-bottom:20px;">نظرات مهمانان</h2>
-            @if(session('status'))<div class="bnb-alert bnb-alert-success mb-4">{{ session('status') }}</div>@endif
-            @if($errors->has('rating'))<div class="bnb-alert bnb-alert-danger mb-4">{{ $errors->first('rating') }}</div>@endif
+            
+            <h2 class="h5 fw-bold text-dark mb-4">نظرات مهمانان</h2>
+            
+            @if(session('status'))<div class="alert alert-success border-0 shadow-sm mb-4">{{ session('status') }}</div>@endif
+            @if($errors->has('rating'))<div class="alert alert-danger border-0 shadow-sm mb-4">{{ $errors->first('rating') }}</div>@endif
+            
             @auth
                 @if($canReview && !$userReview)
-                <div class="bnb-room-card mb-5"><div style="padding:20px;">
-                    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">ثبت نظر</h3>
-                    <form action="{{ route('reviews.store', $accommodation) }}" method="POST">
-                        @csrf
-                        <div class="mb-3">
-                            <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">امتیاز</label>
-                            <div class="bnb-star-selector" id="starSelector">
-                                @for($r=1;$r<=5;$r++)<i class="bi bi-star" data-val="{{ $r }}"></i>@endfor
+                <div class="card border-0 shadow-sm mb-5 rounded-4 overflow-hidden">
+                    <div class="card-body p-4">
+                        <h3 class="h6 fw-bold mb-3">ثبت نظر جدید</h3>
+                        <form action="{{ route('reviews.store', $accommodation) }}" method="POST">
+                            @csrf
+                            <div class="mb-3">
+                                <label class="small fw-bold d-block mb-2">امتیاز شما</label>
+                                <div class="bnb-star-selector" id="starSelector">
+                                    @for($r=1;$r<=5;$r++)<i class="bi bi-star" data-val="{{ $r }}"></i>@endfor
+                                </div>
+                                <input type="hidden" name="rating" id="ratingInput" value="5">
                             </div>
-                            <input type="hidden" name="rating" id="ratingInput" value="5">
-                        </div>
-                        <div class="mb-3">
-                            <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">نظر شما</label>
-                            <textarea name="comment" class="bnb-select" rows="4" style="resize:vertical;" placeholder="تجربه اقامت خود را بنویسید...">{{ old('comment') }}</textarea>
-                            @error('comment')<div style="color:var(--bnb-red);font-size:12px;margin-top:4px;">{{ $message }}</div>@enderror
-                        </div>
-                        <button type="submit" class="btn-bnb">ثبت نظر</button>
-                    </form>
-                </div></div>
+                            <div class="mb-3">
+                                <label class="small fw-bold d-block mb-2">تجربه شما</label>
+                                <textarea name="comment" class="form-control border-light-subtle rounded-3" rows="3" placeholder="تجربه اقامت خود را با دیگران به اشتراک بگذارید...">{{ old('comment') }}</textarea>
+                                @error('comment')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                            </div>
+                            <button type="submit" class="btn btn-dark rounded-pill px-4">ثبت نظر</button>
+                        </form>
+                    </div>
+                </div>
                 @elseif($userReview)
-                <div class="bnb-alert bnb-alert-success mb-4"><i class="bi bi-check-circle me-2"></i>شما قبلاً نظر خود را ثبت کرده‌اید.</div>
+                <div class="alert alert-light border shadow-sm mb-4 rounded-3">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>شما قبلاً نظر خود را ثبت کرده‌اید.
+                </div>
                 @endif
             @endauth
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+            <div class="row g-4">
                 @forelse($reviews as $review)
-                <div data-aos="fade-up">
-                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
-                        <div style="width:40px;height:40px;border-radius:50%;background:var(--bnb-bg-light);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--bnb-dark);flex-shrink:0;">{{ mb_substr($review->user->name ?? '؟', 0, 1) }}</div>
-                        <div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ $review->user->name ?? '' }}</div><div style="font-size:12px;color:var(--bnb-gray);">{{ $review->created_at->diffForHumans() }}</div></div>
-                        <div style="margin-right:auto;">@for($s=1;$s<=5;$s++)<i class="bi bi-star{{ $s <= $review->rating ? '-fill' : '' }}" style="color:var(--bnb-dark);font-size:11px;"></i>@endfor</div>
+                <div class="col-12 col-md-6" data-aos="fade-up">
+                    <div class="card h-100 border-0 shadow-sm rounded-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="flex-shrink-0 bg-light text-dark fw-bold rounded-circle d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size: 1.1rem;">
+                                        {{ mb_substr($review->user->name ?? '؟', 0, 1) }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark mb-0">{{ $review->user->name ?? 'مهمان' }}</div>
+                                        <div class="small text-secondary">{{ \Morilog\Jalali\Jalalian::fromCarbon($review->created_at)->ago() }}</div>
+                                    </div>
+                                </div>
+                                <div class="bg-light px-2 py-1 rounded-pill">
+                                    @for($s=1;$s<=5;$s++)
+                                        <i class="bi bi-star{{ $s <= $review->rating ? '-fill' : '' }} text-warning" style="font-size: 10px;"></i>
+                                    @endfor
+                                </div>
+                            </div>
+                            
+                            <p class="card-text text-dark" style="font-size: 14.5px; line-height: 1.7;">
+                                {{ $review->comment }}
+                            </p>
+                            
+                            @if($review->host_reply)
+                            <div class="bg-light rounded-3 p-3 mt-3 border-start border-4 border-dark">
+                                <div class="small fw-bold text-dark mb-2">
+                                    <i class="bi bi-chat-dots-fill me-1"></i> پاسخ میزبان:
+                                </div>
+                                <p class="small text-muted mb-0" style="line-height: 1.6;">{{ $review->host_reply }}</p>
+                            </div>
+                            @endif
+                        </div>
                     </div>
-                    <p style="font-size:14px;color:var(--bnb-dark);line-height:1.6;margin-bottom:8px;">{{ $review->comment }}</p>
-                    @if($review->host_reply)
-                    <div style="background:var(--bnb-bg-light);border-radius:8px;padding:12px;margin-top:8px;">
-                        <div style="font-size:12px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;"><i class="bi bi-reply-fill me-1"></i>پاسخ میزبان</div>
-                        <p style="font-size:13px;color:var(--bnb-gray);margin:0;">{{ $review->host_reply }}</p>
-                    </div>
-                    @endif
                 </div>
                 @empty
-                <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--bnb-gray);"><i class="bi bi-chat-square" style="font-size:2.5rem;display:block;margin-bottom:8px;"></i>هنوز نظری ثبت نشده است.</div>
+                <div class="col-12 text-center py-5">
+                    <div class="text-light mb-3" style="font-size: 4rem;">
+                        <i class="bi bi-chat-square-text"></i>
+                    </div>
+                    <div class="text-secondary">هنوز نظری برای این اقامتگاه ثبت نشده است.</div>
+                </div>
                 @endforelse
             </div>
         </div>
@@ -763,13 +812,13 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script src="{{ asset('vendor/swiper/swiper-bundle.min.js') }}"></script>
 <script type="module">
-import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.min.js';
+import PhotoSwipeLightbox from '{{ asset("vendor/photoswipe/photoswipe-lightbox.esm.min.js") }}';
 const lighthouse = new PhotoSwipeLightbox({
   gallery: '#zoom-gallery',
   children: '.pswp-gallery-item',
-  pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.min.js'),
+  pswpModule: () => import('{{ asset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
   clickToCloseNonZoomable: true,
   padding: { top: 20, bottom: 20, left: 20, right: 20 }
 });
@@ -779,15 +828,18 @@ lighthouse.on('pointerDown', (e) => {
 });
 lighthouse.init();
 
-document.getElementById('pswp-btn-all').addEventListener('click', () => {
-    lighthouse.loadAndOpen(0);
-});
+const pswpBtnAll = document.getElementById('pswp-btn-all');
+if (pswpBtnAll) {
+    pswpBtnAll.addEventListener('click', () => {
+        lighthouse.loadAndOpen(0);
+    });
+}
 
 // PhotoSwipe for Mobile Slider
 const mobileLighthouse = new PhotoSwipeLightbox({
   gallery: '#mobile-zoom-gallery',
   children: '.pswp-gallery-item-mobile',
-  pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.min.js'),
+  pswpModule: () => import('{{ asset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
 });
 // Prevent default link behavior for fast clicks/taps
 mobileLighthouse.on('pointerDown', (e) => {

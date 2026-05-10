@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Accommodation;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -75,9 +76,7 @@ class RoomTypeController extends Controller
         // Handle image uploads
         $images = [];
         if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                $images[] = $file->store('room-types', 'public');
-            }
+            $images = app(ImageUploadService::class)->storeManyWebp($request->file('images', []), 'room-types');
         }
         $data['images'] = $images;
 
@@ -136,9 +135,10 @@ class RoomTypeController extends Controller
         // Append new uploads
         $images = array_filter($keepImages);
         if ($request->hasFile('new_images')) {
-            foreach ($request->file('new_images') as $file) {
-                $images[] = $file->store('room-types', 'public');
-            }
+            $images = array_merge(
+                $images,
+                app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'room-types')
+            );
         }
         $data['images'] = array_values($images);
         unset($data['keep_images'], $data['new_images']);

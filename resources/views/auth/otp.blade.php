@@ -16,7 +16,7 @@
             <p style="font-size:14px;color:var(--bnb-gray);margin-bottom:4px;">کد ۶ رقمی ارسال شده به</p>
             <p style="font-size:16px;font-weight:700;color:var(--bnb-dark);direction:ltr;margin-bottom:20px;">{{ $mobile }}</p>
             <div class="bnb-alert bnb-alert-success" style="margin-bottom:20px;font-size:12px;">
-                <i class="bi bi-info-circle me-1"></i>در حالت آزمایشی، کد OTP در لاگ‌ها ثبت می‌شود: <code>storage/logs/laravel.log</code>
+                <i class="bi bi-info-circle me-1"></i>کد تأیید به‌منظور نسخه تست از 1 تا 6 تعیین شده است.
             </div>
             @if($errors->any())
             <div class="bnb-alert bnb-alert-danger mb-4">

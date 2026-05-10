@@ -13,21 +13,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'بنیاد — رزرو اقامتگاه')</title>
+    <title>@yield('title', 'ایثار — رزرو اقامتگاه')</title>
+    <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
 
-    {{-- Bootstrap 5 RTL --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
-    {{-- Bootstrap Icons --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    {{-- Vazirmatn Font --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.min.css">
-    {{-- Leaflet.js --}}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    {{-- Persian Datepicker (Jalali/Shamsi calendar) --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
-    {{-- Select2 --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.rtl.min.css">
+    {{-- Bootstrap 5 RTL (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
+    {{-- Bootstrap Icons (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    {{-- Vazirmatn Font (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    {{-- Leaflet.js (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
+    {{-- Persian Datepicker (Jalali/Shamsi calendar) (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
+    {{-- Select2 (local) --}}
+    <link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.rtl.min.css') }}">
     {{-- Vite compiled CSS (Swiper + AOS + custom) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -251,10 +253,8 @@
             {{-- Logo (right in RTL) --}}
             <div class="d-none d-md-flex" style="flex:0 0 auto;justify-content:flex-start;">
             <a href="{{ route('home') }}" class="bnb-logo flex-shrink-0">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M16 1C11.5 1 8 5.5 8 10.5C8 14 9.8 17 12.7 18.8L16 31L19.3 18.8C22.2 17 24 14 24 10.5C24 5.5 20.5 1 16 1Z" fill="#FF385C"/>
-                </svg>
-                <span class="d-none d-sm-inline">بنیاد</span>
+                <img src="{{ asset('logo/site-logo.png') }}" alt="ایثار" style="height: 40px;">
+                <span class="d-none d-sm-inline" style="color:#009548;">ایثار</span>
             </a>
             </div>
 
@@ -643,7 +643,7 @@
                 <h6>اجتماع</h6>
                 <div class="bnb-footer-acc-body">
                 <ul>
-                    <li><a href="#">بنیاد علیه تبعیض</a></li>
+                    <li><a href="#">ایثار علیه تبعیض</a></li>
                     <li><a href="#">اقامتگاه‌های مناسب</a></li>
                     <li><a href="#">آپارتمان‌های مهمان‌دوست</a></li>
                     <li><a href="#">تجربیات مسافران</a></li>
@@ -666,13 +666,13 @@
                 </ul>
                 </div>
             </div>
-            {{-- بنیاد --}}
+            {{-- ایثار --}}
             <div>
                 <button class="bnb-footer-acc-toggle" onclick="bnbFooterToggle(this)">
-                    <span>بنیاد</span>
+                    <span>ایثار</span>
                     <i class="bi bi-chevron-down acc-arrow"></i>
                 </button>
-                <h6>بنیاد</h6>
+                <h6>ایثار</h6>
                 <div class="bnb-footer-acc-body">
                 <ul>
                     <li><a href="#">اخبار</a></li>
@@ -685,7 +685,7 @@
         </div>
         <div class="bnb-footer-bottom">
             <div>
-                &copy; {{ date('Y') }} بنیاد — سامانه رزرو اقامتگاه
+                &copy; {{ date('Y') }} ایثار — سامانه رزرو اقامتگاه
             </div>
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <a href="#" class="text-decoration-none" style="color:var(--bnb-gray);">شرایط استفاده</a>
@@ -912,13 +912,13 @@
 </div>{{-- end mobile search wrapper --}}
 
 {{-- JS Libraries --}}
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/fa.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+<script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+<script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
+<script src="{{ asset('vendor/select2/i18n/fa.js') }}"></script>
+<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
 
 <script>
 // ─── تبدیل اعداد لاتین به فارسی ────────────────────────────────────────────

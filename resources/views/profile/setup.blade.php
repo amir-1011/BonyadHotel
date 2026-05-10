@@ -43,16 +43,39 @@
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold">کد ملی</label>
-                    <input
-                        type="text"
-                        name="national_id"
-                        class="form-control @error('national_id') is-invalid @enderror"
-                        value="{{ old('national_id') }}"
-                        placeholder="۱۰ رقم"
-                        maxlength="10"
-                        dir="ltr"
-                        inputmode="numeric"
-                    >
+                    @if(Auth::user()->national_id)
+                        <div class="alert alert-success mb-2 py-2">
+                            <i class="bi bi-check2-circle me-1"></i>
+                            کد ملی شما: <strong dir="ltr">{{ Auth::user()->national_id }}</strong>
+                            <br>
+                            <small>تخفیف: <strong>{{ Auth::user()->discount_percentage }}%</strong></small>
+                        </div>
+                        <input
+                            type="text"
+                            name="national_id"
+                            class="form-control @error('national_id') is-invalid @enderror"
+                            value="{{ old('national_id', Auth::user()->national_id) }}"
+                            placeholder="۱۰ رقم"
+                            maxlength="10"
+                            dir="ltr"
+                            inputmode="numeric"
+                        >
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            می‌توانید کد ملی خود را تغییر دهید یا همین را نگه دارید.
+                        </small>
+                    @else
+                        <input
+                            type="text"
+                            name="national_id"
+                            class="form-control @error('national_id') is-invalid @enderror"
+                            value="{{ old('national_id') }}"
+                            placeholder="۱۰ رقم"
+                            maxlength="10"
+                            dir="ltr"
+                            inputmode="numeric"
+                        >
+                    @endif
                     @error('national_id')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror

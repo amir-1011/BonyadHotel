@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'bale' => [
+        'bot_token' => env('BALE_BOT_TOKEN'),
+        'miniapp_url' => env('BALE_MINIAPP_URL'),
+           'webhook_url' => env('BALE_WEBHOOK_URL'),
+           'webhook_secret' => env('BALE_WEBHOOK_SECRET'),
+    ],
+
 ];

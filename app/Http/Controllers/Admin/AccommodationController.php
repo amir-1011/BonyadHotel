@@ -7,7 +7,9 @@ use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\Province;
 use App\Models\User;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AccommodationController extends Controller
 {
@@ -43,6 +45,12 @@ class AccommodationController extends Controller
     {
         $data = $this->validated($request);
         $data['amenities'] = $this->parseAmenities($request->input('amenities_raw', ''));
+        $data['images'] = [];
+
+        if ($request->hasFile('images')) {
+            $data['images'] = app(ImageUploadService::class)->storeManyWebp($request->file('images', []), 'accommodations');
+        }
+
         Accommodation::create($data);
         return redirect()->route('admin.accommodations.index')
             ->with('status', 'اقامتگاه با موفقیت ثبت شد.');
@@ -59,6 +67,26 @@ class AccommodationController extends Controller
     {
         $data = $this->validated($request, $accommodation);
         $data['amenities'] = $this->parseAmenities($request->input('amenities_raw', ''));
+
+        $existingImages = $accommodation->images ?? [];
+        $keepImages = $request->input('keep_images', []);
+
+        foreach ($existingImages as $img) {
+            if (!in_array($img, $keepImages)) {
+                Storage::disk('public')->delete($img);
+            }
+        }
+
+        $finalImages = array_values(array_intersect($existingImages, $keepImages));
+
+        if ($request->hasFile('new_images')) {
+            $finalImages = array_merge(
+                $finalImages,
+                app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'accommodations')
+            );
+        }
+        $data['images'] = $finalImages;
+
         $accommodation->update($data);
         return redirect()->route('admin.accommodations.index')
             ->with('status', 'اقامتگاه ویرایش شد.');
@@ -93,6 +121,8 @@ class AccommodationController extends Controller
             'lng'            => ['nullable', 'numeric'],
             'image'          => ['nullable', 'string'],
             'is_active'      => ['boolean'],
+            'images.*'       => ['nullable', 'image', 'max:4096'],
+            'new_images.*'   => ['nullable', 'image', 'max:4096'],
         ]);
     }
 

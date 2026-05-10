@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Host;
 use App\Http\Controllers\Controller;
 use App\Models\Accommodation;
 use App\Models\Province;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -37,9 +38,7 @@ class AccommodationController extends Controller
         // Handle image uploads
         $images = [];
         if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                $images[] = $file->store('accommodations', 'public');
-            }
+            $images = app(ImageUploadService::class)->storeManyWebp($request->file('images', []), 'accommodations');
         }
         $data['images'] = $images;
 
@@ -73,9 +72,10 @@ class AccommodationController extends Controller
 
         // Add newly uploaded images
         if ($request->hasFile('new_images')) {
-            foreach ($request->file('new_images') as $file) {
-                $finalImages[] = $file->store('accommodations', 'public');
-            }
+            $finalImages = array_merge(
+                $finalImages,
+                app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'accommodations')
+            );
         }
         $data['images'] = $finalImages;
 

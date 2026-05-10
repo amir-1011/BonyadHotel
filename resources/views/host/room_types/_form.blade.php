@@ -57,7 +57,7 @@ $oldAmenities = old('amenities', $roomType?->amenities ?? []);
 
     {{-- Room count --}}
     <div class="col-md-4">
-        <label class="form-label fw-semibold">تعداد اتاق <span class="text-danger">*</span></label>
+        <label class="form-label fw-semibold">تعداد تخت <span class="text-danger">*</span></label>
         <input type="number" name="room_count" class="form-control @error('room_count') is-invalid @enderror"
                value="{{ old('room_count', $roomType?->room_count ?? 1) }}" min="1">
         @error('room_count')<div class="invalid-feedback">{{ $message }}</div>@enderror

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Under Construction</title>
+
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        body{
+            height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#0f0f0f;
+            font-family:Arial, sans-serif;
+            color:#fff;
+            overflow:hidden;
+        }
+
+        .container{
+            text-align:center;
+            padding:40px;
+        }
+
+        h1{
+            font-size:56px;
+            margin-bottom:20px;
+            letter-spacing:2px;
+        }
+
+        p{
+            font-size:18px;
+            color:#bdbdbd;
+            margin-bottom:30px;
+        }
+
+        .loader{
+            width:60px;
+            height:60px;
+            border:5px solid #333;
+            border-top:5px solid #fff;
+            border-radius:50%;
+            margin:auto;
+            animation:spin 1s linear infinite;
+        }
+
+        @keyframes spin{
+            100%{
+                transform:rotate(360deg);
+            }
+        }
+
+        .footer{
+            margin-top:40px;
+            font-size:14px;
+            color:#777;
+        }
+
+        @media(max-width:600px){
+
+            h1{
+                font-size:36px;
+            }
+
+            p{
+                font-size:16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <h1>🚧 UNDER CONSTRUCTION</h1>
+
+        <p>
+            Bonyadyar is currently under construction.<br>
+            We’ll be back soon.
+        </p>
+
+        <div class="loader"></div>
+
+        <div class="footer">
+            © 2026 All Rights Reserved
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'پنل میزبان') | سامانه رزرو</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.min.css">
+    <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
     <style>
         body { font-family: 'Vazirmatn', sans-serif; background: #f0fdf4; }
         :root { --sidebar-w: 250px; }
@@ -104,8 +106,8 @@
     </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <!-- <script>
 (function(){var fa=['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];var SK=['SCRIPT','STYLE','INPUT','TEXTAREA','SELECT'];function cv(r){var w=document.createTreeWalker(r||document.body,NodeFilter.SHOW_TEXT,{acceptNode:function(n){return SK.indexOf(n.parentElement&&n.parentElement.tagName)!==-1?NodeFilter.FILTER_REJECT:/[0-9]/.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});var ns=[],n;while((n=w.nextNode()))ns.push(n);ns.forEach(function(n){n.nodeValue=n.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});});}
 document.addEventListener('DOMContentLoaded',function(){cv();new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(a){if(a.nodeType===1)cv(a);else if(a.nodeType===3&&/[0-9]/.test(a.nodeValue)){var t=a.parentElement&&a.parentElement.tagName;if(SK.indexOf(t)===-1)a.nodeValue=a.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});}});});}).observe(document.body,{childList:true,subtree:true});});})();

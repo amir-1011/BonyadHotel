@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'بنیاد — رزرو اقامتگاه')
+@section('title', 'ایثار — رزرو اقامتگاه')
 
 @push('styles')
 <style>
@@ -173,7 +173,7 @@
                 ['hotel', 'هتل', '🏨'],
                 ['villa', 'ویلا', '🏡'],
                 ['apartment', 'آپارتمان', '🏢'],
-                ['hostel', 'هاستل', '🛏'],
+                ['hostel', 'استخر', '🛏'],
                 ['traditional', 'سنتی', '🏺'],
             ];
             $activeType = request('type', '');
@@ -251,6 +251,9 @@
                             مشاهده پروفایل
                         </a>
                     @endguest
+                        <a href="{{ route('miniapp.bale.index') }}" class="btn btn-danger fw-bold me-2" style="border-radius:20px;background:#FF385C;border-color:#FF385C;">
+                            ورود با بله
+                        </a>
                 </div>
             </div>
             <div class="row g-2 mt-3 justify-content-center">
@@ -295,7 +298,8 @@
                 @php
                     $rating = $acc->averageRating();
                     $rCount = $acc->reviewCount();
-                    $imgUrl = $acc->image ? asset('storage/' . $acc->image) : null;
+                    $coverImage = $acc->image ?? collect($acc->images ?? [])->filter()->first();
+                    $imgUrl = $coverImage ? asset('storage/' . $coverImage) : null;
                     $typeLabel = $acc->typeLabel();
                 @endphp
                 <div data-aos="fade-up" data-aos-delay="{{ ($loop->index % 4) * 60 }}">

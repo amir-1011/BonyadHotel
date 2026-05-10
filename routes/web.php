@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\AccommodationController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BaleMiniAppController;
+use App\Http\Controllers\BaleSetupController;
+use App\Http\Controllers\BaleWebhookController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
@@ -11,6 +14,12 @@ use Illuminate\Support\Facades\Route;
 
 // Home
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Bale mini-app
+Route::get('/miniapp/bale', [BaleMiniAppController::class, 'index'])->name('miniapp.bale.index');
+Route::post('/miniapp/bale/authenticate', [BaleMiniAppController::class, 'authenticate'])->name('miniapp.bale.authenticate');
+Route::post('/webhooks/bale/{secret}', [BaleWebhookController::class, 'handle'])->name('bale.webhook');
+Route::get('/bale/setup/{secret}', [BaleSetupController::class, 'register'])->name('bale.setup');
 
 // Auth (mobile OTP)
 Route::middleware('guest')->group(function () {
@@ -57,6 +66,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 
     Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('users.index');
     Route::get('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'show'])->name('users.show');
+    Route::get('/users/{user}/edit', [\App\Http\Controllers\Admin\UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('users.update');
     Route::post('/users/{user}/role', [\App\Http\Controllers\Admin\UserController::class, 'assignRole'])->name('users.role');
     Route::post('/users/{user}/toggle', [\App\Http\Controllers\Admin\UserController::class, 'toggleStatus'])->name('users.toggle');
     Route::delete('/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('users.destroy');
@@ -68,6 +79,18 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::put('/accommodations/{accommodation}', [\App\Http\Controllers\Admin\AccommodationController::class, 'update'])->name('accommodations.update');
     Route::delete('/accommodations/{accommodation}', [\App\Http\Controllers\Admin\AccommodationController::class, 'destroy'])->name('accommodations.destroy');
     Route::post('/accommodations/{accommodation}/toggle', [\App\Http\Controllers\Admin\AccommodationController::class, 'toggleActive'])->name('accommodations.toggle');
+
+    Route::prefix('/accommodations/{accommodation}/room-types')->name('room-types.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\RoomTypeController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\RoomTypeController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\RoomTypeController::class, 'store'])->name('store');
+        Route::get('/{roomType}/edit', [\App\Http\Controllers\Admin\RoomTypeController::class, 'edit'])->name('edit');
+        Route::put('/{roomType}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'update'])->name('update');
+        Route::delete('/{roomType}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroy'])->name('destroy');
+        Route::post('/{roomType}/rates', [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeRate'])->name('rates.store');
+        Route::put('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'updateRate'])->name('rates.update');
+        Route::delete('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
+    });
 
     Route::get('/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/{booking}', [\App\Http\Controllers\Admin\BookingController::class, 'show'])->name('bookings.show');

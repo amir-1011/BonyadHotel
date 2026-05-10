@@ -80,6 +80,7 @@
                     <td>
                         <div class="d-flex gap-1 flex-wrap">
                             <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-xs btn-outline-secondary" style="padding:.2rem .5rem;font-size:.75rem;" title="نمایش در سایت" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a href="{{ route('admin.room-types.index', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="مدیریت اتاق‌ها"><i class="bi bi-door-open"></i></a>
                             <a href="{{ route('admin.bookings.index', ['search'=> $acc->name]) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزروها"><i class="bi bi-calendar-check"></i></a>
                             <a href="{{ route('admin.accommodations.edit', $acc) }}" class="btn btn-xs btn-outline-warning" style="padding:.2rem .5rem;font-size:.75rem;" title="ویرایش"><i class="bi bi-pencil"></i></a>
                             <form action="{{ route('admin.accommodations.destroy', $acc) }}" method="POST" onsubmit="return confirm('حذف شود؟')">

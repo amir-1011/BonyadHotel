@@ -77,6 +77,9 @@
                             <a href="{{ route('admin.users.show', $user) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="مشاهده پروفایل">
                                 <i class="bi bi-eye"></i>
                             </a>
+                            <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-xs btn-outline-warning" style="padding:.2rem .5rem;font-size:.75rem;" title="ویرایش اطلاعات">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                             @if($user->hasRole('host'))
                             <a href="{{ route('admin.accommodations.index', ['search'=> $user->name]) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="اقامتگاه‌های میزبان">
                                 <i class="bi bi-building"></i>
