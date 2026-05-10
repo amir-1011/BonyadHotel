@@ -72,7 +72,7 @@ class RoomType extends Model
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('check_in', '<', $to)
             ->where('check_out', '>', $from)
-            ->get(['check_in', 'check_out']);
+            ->get(['check_in', 'check_out', 'rooms_consumed']);
 
         $endExcl = (clone $end)->modify('-1 day')->format('Y-m-d');
 
@@ -101,7 +101,8 @@ class RoomType extends Model
                 $ci = $b->check_in->format('Y-m-d');
                 $co = $b->check_out->format('Y-m-d');
                 if ($ci <= $dateStr && $co > $dateStr) {
-                    $booked++;
+                    // Each booking may consume multiple rooms (multi-room policy)
+                    $booked += (int) ($b->rooms_consumed ?? 1);
                 }
             }
             // Daily override caps the effective total for that day

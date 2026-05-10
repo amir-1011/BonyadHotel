@@ -109,6 +109,8 @@ class AvailabilityController extends Controller
             $result[$rt->id] = [
                 'min_available' => $minAvail,
                 'is_available'  => !$hasBlock && $minAvail > 0,
+                'room_count'    => (int) $rt->room_count,
+                'capacity'      => (int) $rt->capacity,
             ];
         }
 

@@ -475,7 +475,7 @@
             @foreach($roomTypes as $roomType)
             @if($roomType->rates->isNotEmpty())
             <div class="bnb-room-card" data-aos="fade-up"
-                 :class="{ 'rt-cap-exceeded': isOverCapacity({{ $roomType->capacity }}) }">
+                 :class="{ 'rt-cap-exceeded': needsHatch({{ $roomType->capacity }}, {{ $roomType->room_count }}, {{ $roomType->id }}) }">
                 <div style="display:flex;gap:16px;padding:20px;border-bottom:1px solid var(--bnb-border);flex-wrap:wrap;">
                     @php $rtImages = collect($roomType->images ?? [])->filter()->values(); @endphp
                     @if($rtImages->count() > 0)
@@ -491,14 +491,15 @@
                         </div>
                         {{-- Dynamic badges --}}
                         <div class="d-flex flex-wrap gap-2 mt-1">
-                            {{-- Over-capacity warning --}}
-                            <template x-if="isOverCapacity({{ $roomType->capacity }})">
+                            {{-- Rooms-needed warning: shows whenever guests exceed per-room capacity OR available rooms --}}
+                            <template x-if="needsHatch({{ $roomType->capacity }}, {{ $roomType->room_count }}, {{ $roomType->id }})">
                                 <span class="rt-overcap-badge">
-                                    <i class="bi bi-exclamation-triangle-fill"></i>ظرفیت این اتاق {{ $roomType->capacity }} نفر است
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <span x-text="'به ' + roomsNeeded({{ $roomType->capacity }}) + ' اتاق نیاز دارید' + (minAvail({{ $roomType->id }}) !== null ? ' (موجود: ' + minAvail({{ $roomType->id }}) + ')' : ' (تعداد اتاق: {{ $roomType->room_count }})')"></span>
                                 </span>
                             </template>
-                            {{-- Available rooms badge (shown after dates selected) --}}
-                            <template x-if="minAvail({{ $roomType->id }}) !== null">
+                            {{-- Available rooms badge (shown after dates selected, only when not hatched) --}}
+                            <template x-if="minAvail({{ $roomType->id }}) !== null && !needsHatch({{ $roomType->capacity }}, {{ $roomType->room_count }}, {{ $roomType->id }})">
                                 <span class="rt-avail-badge"
                                       :class="minAvail({{ $roomType->id }}) === 0 ? 'avail-none' : minAvail({{ $roomType->id }}) <= 2 ? 'avail-low' : 'avail-ok'">
                                     <i class="bi bi-door-closed"></i>
@@ -1060,7 +1061,7 @@ new Swiper('.bnb-mobile-slider', {
 function roomsSection() {
     return {
         guestCount: 1,
-        availData:  {}, // roomTypeId → { min_available, is_available }
+        availData:  {}, // roomTypeId → { min_available, is_available, room_count, capacity }
         loading:    false,
 
         init() {
@@ -1079,13 +1080,34 @@ function roomsSection() {
             });
         },
 
-        isOverCapacity(cap) {
-            return this.guestCount > parseInt(cap);
+        /**
+         * اتاق‌های مورد نیاز = ceil(تعداد نفرات / ظرفیت هر اتاق)
+         */
+        roomsNeeded(cap) {
+            return Math.ceil(this.guestCount / Math.max(1, parseInt(cap)));
         },
 
+        /**
+         * حداقل اتاق موجود برای این نوع اتاق در بازه تاریخی انتخابی
+         * اگر تاریخ انتخاب نشده → null
+         */
         minAvail(rtId) {
             const d = this.availData[rtId];
             return d !== undefined ? d.min_available : null;
+        },
+
+        /**
+         * آیا باید اتاق هاشور بخورد؟
+         * اگر تاریخ انتخاب شده: rooms_needed > min_available
+         * اگر تاریخ انتخاب نشده: rooms_needed > room_count (ظرفیت کل)
+         */
+        needsHatch(cap, roomCount, rtId) {
+            const needed = this.roomsNeeded(cap);
+            const avail  = this.minAvail(rtId);
+            if (avail !== null) {
+                return needed > avail;
+            }
+            return needed > parseInt(roomCount);
         },
 
         async fetchAllAvail(checkIn, checkOut) {
@@ -1534,11 +1556,25 @@ function mbbDrawer() {
             this.targetForm       = form;
             this.pricePerNight    = price;
             this.originalPrice    = origPrice || price;
-            this.roomTypeId       = roomTypeId || null;
             this.roomTypeName     = rtName || '';
             this.roomTypeCapacity = rtCap || '';
             this.datesConfirmed   = false;
-            this.drawerOpen       = true;
+
+            // Always clear cached availability so new room type gets fresh data
+            const roomChanged     = this.roomTypeId !== (roomTypeId || null);
+            this.roomTypeId       = roomTypeId || null;
+            this.availabilityData = {};
+            this.loadedMonths     = [];
+
+            // Reset calendar to current month when switching rooms so user picks fresh dates
+            if (roomChanged && typeof persianDate !== 'undefined') {
+                const t = new persianDate();
+                this.calYear  = t.year();
+                this.calMonth = t.month();
+                this.calPhase = 0;
+            }
+
+            this.drawerOpen = true;
 
             // Sync guest count to rooms section
             window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guests } }));

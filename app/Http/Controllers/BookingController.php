@@ -69,10 +69,15 @@ class BookingController extends Controller
 
         // Check availability: prefer room-type-level check, fall back to accommodation-level
         if ($roomType) {
-            if (!$roomType->isAvailable($checkIn, $checkOut, 1)) {
-                return back()->withErrors(['check_in' => 'متأسفانه این نوع اتاق در بازه تاریخ انتخابی شما در دسترس نیست.']);
+            // Policy: number of rooms needed = ceil(guests / room_type.capacity)
+            $guests      = (int) $request->input('guests', 1);
+            $roomsNeeded = (int) ceil($guests / max(1, (int) $roomType->capacity));
+
+            if (!$roomType->isAvailable($checkIn, $checkOut, $roomsNeeded)) {
+                return back()->withErrors(['check_in' => 'متأسفانه ظرفیت کافی برای تعداد نفرات انتخابی در بازه تاریخ انتخابی شما وجود ندارد.']);
             }
         } else {
+            $roomsNeeded = 1;
             if (!$accommodation->isAvailable($checkIn, $checkOut)) {
                 return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
             }
@@ -95,6 +100,7 @@ class BookingController extends Controller
             'check_in'            => $checkIn,
             'check_out'           => $checkOut,
             'guests'              => $request->input('guests'),
+            'rooms_consumed'      => $roomsNeeded,
             'nights'              => $nights,
             'base_price'          => $basePrice,
             'discount_percentage' => $discountPct,
