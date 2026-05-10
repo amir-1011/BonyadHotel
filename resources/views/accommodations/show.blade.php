@@ -150,7 +150,29 @@
 .bnb-amenities-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 .bnb-amenity-item { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--bnb-dark); }
 /* ── Room card ────────────────────────────────────────── */
-.bnb-room-card { border: 1px solid var(--bnb-border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+.bnb-room-card { border: 1px solid var(--bnb-border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; position: relative; transition: border-color .2s; }
+/* Over-capacity hatch overlay */
+.bnb-room-card.rt-cap-exceeded { border-color: rgba(255,56,92,.35); }
+.bnb-room-card.rt-cap-exceeded::after {
+    content: '';
+    position: absolute; inset: 0; pointer-events: none; z-index: 2; border-radius: 12px;
+    background-image: repeating-linear-gradient(-45deg, transparent, transparent 9px, rgba(255,56,92,.07) 9px, rgba(255,56,92,.07) 11px);
+    border: 2px solid rgba(255,56,92,.3);
+}
+.rt-overcap-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: var(--bnb-red);
+    background: rgba(255,56,92,.08); border: 1px solid rgba(255,56,92,.2);
+    border-radius: 20px; padding: 2px 8px; margin-top: 4px;
+}
+/* Availability badge on room cards */
+.rt-avail-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; border-radius: 20px; padding: 2px 8px; margin-top: 4px;
+}
+.rt-avail-badge.avail-ok    { color: #065f46; background: #ecfdf5; border: 1px solid #6ee7b7; }
+.rt-avail-badge.avail-low   { color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; }
+.rt-avail-badge.avail-none  { color: #94a3b8; background: #f1f5f9; border: 1px solid #cbd5e1; }
 .bnb-rate-row { display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--bnb-border); }
 @media (min-width: 576px) {
     .bnb-rate-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; }
@@ -441,12 +463,19 @@
 
         {{-- Room Types --}}
         @if($roomTypes->isNotEmpty())
-        <div class="py-5 border-bottom" id="sec-rooms">
-            <h2 style="font-size:18px;font-weight:700;color:var(--bnb-dark);margin-bottom:8px;">انتخاب اتاق</h2>
+        <div class="py-5 border-bottom" id="sec-rooms"
+             x-data="roomsSection()"
+             @bnb-guests-changed.window="guestCount = parseInt($event.detail.guests) || 1"
+             @bnb-dates-set.window="fetchAllAvail($event.detail.checkIn, $event.detail.checkOut)">
+            <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+                <h2 style="font-size:18px;font-weight:700;color:var(--bnb-dark);margin-bottom:0;">انتخاب اتاق</h2>
+                <span x-show="loading" class="text-muted" style="font-size:12px;"><span class="spinner-border spinner-border-sm me-1" role="status"></span>بررسی ظرفیت...</span>
+            </div>
             <p style="font-size:13px;color:var(--bnb-gray);margin-bottom:20px;">پس از انتخاب تاریخ در ویجت رزرو، اتاق موردنظر را رزرو کنید.</p>
             @foreach($roomTypes as $roomType)
             @if($roomType->rates->isNotEmpty())
-            <div class="bnb-room-card" data-aos="fade-up">
+            <div class="bnb-room-card" data-aos="fade-up"
+                 :class="{ 'rt-cap-exceeded': isOverCapacity({{ $roomType->capacity }}) }">
                 <div style="display:flex;gap:16px;padding:20px;border-bottom:1px solid var(--bnb-border);flex-wrap:wrap;">
                     @php $rtImages = collect($roomType->images ?? [])->filter()->values(); @endphp
                     @if($rtImages->count() > 0)
@@ -459,6 +488,23 @@
                             <span><i class="bi bi-people me-1"></i>{{ $roomType->capacity }} نفر</span>
                             @if($roomType->size_sqm)<span><i class="bi bi-aspect-ratio me-1"></i>{{ $roomType->size_sqm }} متر مربع</span>@endif
                             <span>@if($roomType->has_private_bathroom)<i class="bi bi-check-circle-fill text-success me-1"></i>حمام اختصاصی@else<i class="bi bi-x-circle text-muted me-1"></i>بدون حمام اختصاصی@endif</span>
+                        </div>
+                        {{-- Dynamic badges --}}
+                        <div class="d-flex flex-wrap gap-2 mt-1">
+                            {{-- Over-capacity warning --}}
+                            <template x-if="isOverCapacity({{ $roomType->capacity }})">
+                                <span class="rt-overcap-badge">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>ظرفیت این اتاق {{ $roomType->capacity }} نفر است
+                                </span>
+                            </template>
+                            {{-- Available rooms badge (shown after dates selected) --}}
+                            <template x-if="minAvail({{ $roomType->id }}) !== null">
+                                <span class="rt-avail-badge"
+                                      :class="minAvail({{ $roomType->id }}) === 0 ? 'avail-none' : minAvail({{ $roomType->id }}) <= 2 ? 'avail-low' : 'avail-ok'">
+                                    <i class="bi bi-door-closed"></i>
+                                    <span x-text="minAvail({{ $roomType->id }}) === 0 ? 'تکمیل ظرفیت در این بازه' : minAvail({{ $roomType->id }}) + ' اتاق موجود در این بازه'"></span>
+                                </span>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -911,6 +957,23 @@
         {{-- Confirm dates button --}}
         <button type="button" @click="confirmDates()"
                 :disabled="!checkIn || !checkOut"
+        {{-- Available rooms info banner --}}
+        <template x-if="checkIn && checkOut && minAvailInRange !== null">
+            <div style="margin-bottom:8px;padding:8px 12px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;"
+                 :style="minAvailInRange === 0
+                    ? 'background:#fff1f2;color:#dc2626;border:1px solid #fca5a5;'
+                    : minAvailInRange <= 2
+                        ? 'background:#fffbeb;color:#92400e;border:1px solid #fcd34d;'
+                        : 'background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;'">
+                <i :class="minAvailInRange === 0 ? 'bi bi-x-circle-fill' : minAvailInRange <= 2 ? 'bi bi-exclamation-circle-fill' : 'bi bi-check-circle-fill'"></i>
+                <span x-text="minAvailInRange === 0
+                    ? 'این اتاق در بازه انتخابی تکمیل ظرفیت است'
+                    : minAvailInRange + ' اتاق در این بازه موجود است'"></span>
+            </div>
+        </template>
+
+                <button type="button" @click="confirmDates()"
+                :disabled="!checkIn || !checkOut"
                 :style="(!checkIn || !checkOut) ? 'opacity:.5;cursor:not-allowed;' : ''"
                 class="btn-bnb"
                 style="width:100%;padding:14px;font-size:15px;border-radius:12px;margin-top:16px;">
@@ -993,11 +1056,58 @@ new Swiper('.bnb-mobile-slider', {
 });
 </script>
 <script>
+// ── Rooms section Alpine.js component ──────────────────────────────────────
+function roomsSection() {
+    return {
+        guestCount: 1,
+        availData:  {}, // roomTypeId → { min_available, is_available }
+        loading:    false,
+
+        init() {
+            // Sync guest count from sidebar booking widget on next tick
+            this.$nextTick(() => {
+                try {
+                    const w = document.querySelector('[x-data^="bnbBookWidget"]');
+                    if (w && typeof Alpine !== 'undefined') {
+                        const wd = Alpine.$data(w);
+                        if (wd && wd.guests) this.guestCount = parseInt(wd.guests) || 1;
+                        if (wd && wd.checkIn && wd.checkOut) {
+                            this.fetchAllAvail(wd.checkIn, wd.checkOut);
+                        }
+                    }
+                } catch(e) {}
+            });
+        },
+
+        isOverCapacity(cap) {
+            return this.guestCount > parseInt(cap);
+        },
+
+        minAvail(rtId) {
+            const d = this.availData[rtId];
+            return d !== undefined ? d.min_available : null;
+        },
+
+        async fetchAllAvail(checkIn, checkOut) {
+            if (!checkIn || !checkOut) return;
+            this.loading = true;
+            try {
+                const params = new URLSearchParams({ check_in: checkIn, check_out: checkOut });
+                const resp = await fetch('/api/accommodations/{{ $accommodation->id }}/rooms-availability?' + params, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (resp.ok) this.availData = await resp.json();
+            } catch(e) {}
+            this.loading = false;
+        }
+    };
+}
+</script>
+<script>
 function reserveRoom(btn, pricePerNight, origPrice, roomTypeId) {
     var form  = btn.closest('form');
     var price = pricePerNight || 0;
-    var orig  = origPrice || price;
-    var rtId  = roomTypeId || null;
+    var orig  = origPrice || price;    var rtId  = roomTypeId || null;
 
     // Read room-type meta from the card
     var card      = btn.closest('.bnb-room-card');
@@ -1199,6 +1309,19 @@ function mbbDrawer() {
             return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
         },
 
+        // Minimum available rooms across the selected date range
+        get minAvailInRange() {
+            if (!this.checkIn || !this.checkOut) return null;
+            let min = Infinity, count = 0;
+            for (const [d, a] of Object.entries(this.availabilityData)) {
+                if (d >= this.checkIn && d < this.checkOut) {
+                    min = Math.min(min, a.available_rooms);
+                    count++;
+                }
+            }
+            return count > 0 && min < Infinity ? min : null;
+        },
+
         get calMonthLabel() {
             if (!this.calYear) return '';
             const n = ['','فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -1278,6 +1401,10 @@ function mbbDrawer() {
                         this.calMonth = pDate.month();
                     } catch(e) {}
                 }
+            });
+            // Dispatch guest count changes to rooms section
+            this.$watch('guests', val => {
+                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: val } }));
             });
             this.$watch('checkIn',  () => { if (this.drawerOpen) this.datesConfirmed = false; });
             this.$watch('checkOut', () => { if (this.drawerOpen) this.datesConfirmed = false; });
@@ -1385,6 +1512,10 @@ function mbbDrawer() {
             if (!this.checkIn || !this.checkOut) return;
             this.datesConfirmed = true;
             this.drawerOpen = false;
+            // Notify rooms section to fetch availability for all room types
+            window.dispatchEvent(new CustomEvent('bnb-dates-set', {
+                detail: { checkIn: this.checkIn, checkOut: this.checkOut }
+            }));
         },
 
         pay() {
@@ -1408,6 +1539,9 @@ function mbbDrawer() {
             this.roomTypeCapacity = rtCap || '';
             this.datesConfirmed   = false;
             this.drawerOpen       = true;
+
+            // Sync guest count to rooms section
+            window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guests } }));
 
             if (roomTypeId) {
                 // Load current + next 2 Gregorian months (converted from Jalali calendar state)

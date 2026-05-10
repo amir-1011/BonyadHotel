@@ -45,6 +45,7 @@ Route::get('/accommodations', [AccommodationController::class, 'index'])->name('
 Route::get('/accommodations/{accommodation}', [AccommodationController::class, 'show'])->name('accommodations.show');
 Route::get('/api/provinces/{province}/cities', [AccommodationController::class, 'citiesByProvince'])->name('api.cities');
 Route::get('/api/room-types/{roomType}/availability', [AvailabilityController::class, 'roomType'])->name('api.room-types.availability');
+Route::get('/api/accommodations/{accommodation}/rooms-availability', [AvailabilityController::class, 'accommodationRooms'])->name('api.accommodations.rooms-availability');
 
 // Bookings (auth required)
 Route::middleware('auth')->group(function () {
@@ -92,10 +93,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
         Route::post('/{roomType}/rates', [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeRate'])->name('rates.store');
         Route::put('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'updateRate'])->name('rates.update');
         Route::delete('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
-        // Blocked dates (admin can also manage)
+        // Blocked dates
         Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Admin\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
+        // Daily availability overrides
+        Route::get('/{roomType}/daily-availability',                  [\App\Http\Controllers\Admin\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
+        Route::post('/{roomType}/daily-availability',                 [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
+        Route::delete('/{roomType}/daily-availability/{override}',    [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
     });
 
     Route::get('/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index'])->name('bookings.index');
@@ -143,6 +148,10 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host'])->group(functi
         Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Host\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Host\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
+        // Daily availability overrides
+        Route::get('/{roomType}/daily-availability',                  [\App\Http\Controllers\Host\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
+        Route::post('/{roomType}/daily-availability',                 [\App\Http\Controllers\Host\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
+        Route::delete('/{roomType}/daily-availability/{override}',    [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
     });
 });
 

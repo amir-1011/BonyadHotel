@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Accommodation;
 use App\Models\RoomType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,5 +73,45 @@ class AvailabilityController extends Controller
         }
 
         return response()->json(['dates' => $dates]);
+    }
+
+    /**
+     * Return min available rooms for every active room type in an accommodation
+     * for a given check_in / check_out range. Used by the public show page to
+     * display availability badges on room cards.
+     *
+     * GET /api/accommodations/{accommodation}/rooms-availability?check_in=Y-m-d&check_out=Y-m-d
+     */
+    public function accommodationRooms(Request $request, Accommodation $accommodation): JsonResponse
+    {
+        if (!$accommodation->is_active) {
+            return response()->json([]);
+        }
+
+        $checkIn  = $request->input('check_in');
+        $checkOut = $request->input('check_out');
+
+        if (!$checkIn || !$checkOut || $checkIn >= $checkOut) {
+            return response()->json([]);
+        }
+
+        // Limit to 90 days to prevent abuse
+        if ((new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days > 90) {
+            return response()->json([]);
+        }
+
+        $result = [];
+        foreach ($accommodation->roomTypes()->where('is_active', true)->get() as $rt) {
+            $map      = $rt->availabilityMap($checkIn, $checkOut);
+            $entries  = collect($map);
+            $minAvail = (int) $entries->min('available_rooms');
+            $hasBlock = $entries->contains('is_blocked', true);
+            $result[$rt->id] = [
+                'min_available' => $minAvail,
+                'is_available'  => !$hasBlock && $minAvail > 0,
+            ];
+        }
+
+        return response()->json($result);
     }
 }

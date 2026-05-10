@@ -7,6 +7,7 @@ use App\Models\Accommodation;
 use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\RoomTypeBlockedDate;
+use App\Models\RoomTypeDailyOverride;
 use App\Services\ImageUploadService;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\Request;
@@ -309,5 +310,85 @@ class RoomTypeController extends Controller
         return redirect()
             ->route('host.room-types.blocked-dates', [$accommodation, $roomType])
             ->with('status', 'تاریخ مسدودسازی حذف شد.');
+    }
+
+    // ── Daily availability overrides ─────────────────────────────────────────
+
+    public function dailyAvailability(Accommodation $accommodation, RoomType $roomType)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $now  = new \DateTime('today');
+        $end  = (clone $now)->modify('+3 months');
+
+        $availabilityMap = $roomType->availabilityMap($now->format('Y-m-d'), $end->format('Y-m-d'));
+
+        $overrides = $roomType->dailyOverrides()
+            ->where('date', '>=', now()->toDateString())
+            ->orderBy('date')
+            ->get();
+
+        return view('host.room_types.daily_availability', compact('accommodation', 'roomType', 'availabilityMap', 'overrides'));
+    }
+
+    public function storeDailyAvailability(Request $request, Accommodation $accommodation, RoomType $roomType)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $raw = $request->validate([
+            'date_from'       => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
+            'date_to'         => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
+            'available_count' => ['required', 'integer', 'min:0', 'max:' . $roomType->room_count],
+            'reason'          => ['nullable', 'string', 'max:200'],
+        ]);
+
+        try {
+            $split    = fn(string $s) => array_map('intval', preg_split('/[\/\-]/', $s));
+            [$fy, $fm, $fd] = $split($raw['date_from']);
+            [$ty, $tm, $td] = $split($raw['date_to']);
+            $fromGreg = (new Jalalian($fy, $fm, $fd))->toCarbon()->format('Y-m-d');
+            $toGreg   = (new Jalalian($ty, $tm, $td))->toCarbon()->format('Y-m-d');
+        } catch (\Exception $e) {
+            return back()->withErrors(['date_from' => 'تاریخ خورشیدی وارد شده معتبر نیست.'])->withInput();
+        }
+
+        if ($fromGreg < now()->toDateString()) {
+            return back()->withErrors(['date_from' => 'تاریخ شروع نباید در گذشته باشد.'])->withInput();
+        }
+        if ($toGreg < $fromGreg) {
+            return back()->withErrors(['date_to' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.'])->withInput();
+        }
+
+        $from   = new \DateTime($fromGreg);
+        $to     = new \DateTime($toGreg);
+        $count  = (int) $raw['available_count'];
+        $reason = $raw['reason'] ?? null;
+        $cursor = clone $from;
+
+        while ($cursor <= $to) {
+            RoomTypeDailyOverride::updateOrCreate(
+                ['room_type_id' => $roomType->id, 'date' => $cursor->format('Y-m-d')],
+                ['available_count' => $count, 'reason' => $reason]
+            );
+            $cursor->modify('+1 day');
+        }
+
+        return redirect()
+            ->route('host.room-types.daily-availability', [$accommodation, $roomType])
+            ->with('status', 'تنظیم ظرفیت روزانه با موفقیت ذخیره شد.');
+    }
+
+    public function destroyDailyAvailability(Accommodation $accommodation, RoomType $roomType, RoomTypeDailyOverride $override)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($override->room_type_id !== $roomType->id, 404);
+
+        $override->delete();
+
+        return redirect()
+            ->route('host.room-types.daily-availability', [$accommodation, $roomType])
+            ->with('status', 'تنظیم ظرفیت حذف شد.');
     }
 }

@@ -44,6 +44,11 @@ class RoomType extends Model
         return $this->hasMany(RoomTypeBlockedDate::class);
     }
 
+    public function dailyOverrides()
+    {
+        return $this->hasMany(RoomTypeDailyOverride::class);
+    }
+
     /** First image or null */
     public function coverImage(): ?string
     {
@@ -58,26 +63,36 @@ class RoomType extends Model
      */
     public function availabilityMap(string $from, string $to): array
     {
-        $start = new \DateTime($from);
-        $end   = new \DateTime($to);
-        $total = (int) $this->room_count;
+        $start     = new \DateTime($from);
+        $end       = new \DateTime($to);
+        $baseTotal = (int) $this->room_count;
 
-        // Count active bookings per date using a date-range overlap approach
+        // Active bookings overlapping the range
         $bookings = $this->bookings()
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('check_in', '<', $to)
             ->where('check_out', '>', $from)
             ->get(['check_in', 'check_out']);
 
+        $endExcl = (clone $end)->modify('-1 day')->format('Y-m-d');
+
         // Manually blocked dates
         $blocked = $this->blockedDates()
-            ->whereBetween('date', [$from, (clone $end)->modify('-1 day')->format('Y-m-d')])
+            ->whereBetween('date', [$from, $endExcl])
             ->pluck('date')
             ->map(fn($d) => $d->format('Y-m-d'))
             ->flip()
             ->all();
 
-        $map = [];
+        // Daily capacity overrides: date → available_count
+        $overrides = $this->dailyOverrides()
+            ->whereBetween('date', [$from, $endExcl])
+            ->get(['date', 'available_count'])
+            ->keyBy(fn($o) => $o->date->format('Y-m-d'))
+            ->map(fn($o) => (int) $o->available_count)
+            ->all();
+
+        $map    = [];
         $cursor = clone $start;
         while ($cursor < $end) {
             $dateStr = $cursor->format('Y-m-d');
@@ -89,11 +104,18 @@ class RoomType extends Model
                     $booked++;
                 }
             }
+            // Daily override caps the effective total for that day
+            $effectiveTotal = array_key_exists($dateStr, $overrides)
+                ? min($overrides[$dateStr], $baseTotal)
+                : $baseTotal;
+
             $map[$dateStr] = [
-                'total'           => $total,
+                'total'           => $effectiveTotal,
                 'booked'          => $booked,
-                'available_rooms' => max(0, $total - $booked),
+                'available_rooms' => max(0, $effectiveTotal - $booked),
                 'is_blocked'      => isset($blocked[$dateStr]),
+                'has_override'    => array_key_exists($dateStr, $overrides),
+                'override_count'  => $overrides[$dateStr] ?? null,
             ];
             $cursor->modify('+1 day');
         }

@@ -96,6 +96,9 @@
                 <a href="{{ route('host.room-types.blocked-dates', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-calendar-x me-1"></i>مسدودسازی تاریخ
                 </a>
+                <a href="{{ route('host.room-types.daily-availability', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-sliders me-1"></i>ظرفیت روزانه
+                </a>
                 <form action="{{ route('host.room-types.destroy', [$accommodation, $rt]) }}" method="POST"
                       onsubmit="return confirm('این اتاق و تمام تعرفه‌هایش حذف شود؟')">
                     @csrf @method('DELETE')
