@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Accommodation;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Models\RoomTypeBlockedDate;
 use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -228,5 +229,66 @@ class RoomTypeController extends Controller
         return redirect()
             ->route('host.room-types.edit', [$accommodation, $roomType])
             ->with('status', 'تعرفه حذف شد.');
+    }
+
+    // ─── Blocked Dates ───────────────────────────────────────────────────────
+
+    public function blockedDates(Accommodation $accommodation, RoomType $roomType)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        // Get availability map for next 3 months for overview
+        $from = now()->startOfDay()->format('Y-m-d');
+        $to   = now()->addMonths(3)->endOfMonth()->addDay()->format('Y-m-d');
+        $availabilityMap = $roomType->availabilityMap($from, $to);
+
+        $blockedDates = $roomType->blockedDates()
+            ->where('date', '>=', now()->toDateString())
+            ->orderBy('date')
+            ->get();
+
+        return view('host.room_types.blocked_dates', compact('accommodation', 'roomType', 'blockedDates', 'availabilityMap'));
+    }
+
+    public function storeBlockedDate(Request $request, Accommodation $accommodation, RoomType $roomType)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $data = $request->validate([
+            'date_from' => ['required', 'date', 'after_or_equal:today'],
+            'date_to'   => ['required', 'date', 'after_or_equal:date_from'],
+            'reason'    => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $from   = new \DateTime($data['date_from']);
+        $to     = new \DateTime($data['date_to']);
+        $reason = $data['reason'] ?? null;
+        $cursor = clone $from;
+
+        while ($cursor <= $to) {
+            RoomTypeBlockedDate::updateOrCreate(
+                ['room_type_id' => $roomType->id, 'date' => $cursor->format('Y-m-d')],
+                ['reason' => $reason]
+            );
+            $cursor->modify('+1 day');
+        }
+
+        return redirect()
+            ->route('host.room-types.blocked-dates', [$accommodation, $roomType])
+            ->with('status', 'تاریخ‌های انتخابی با موفقیت مسدود شدند.');
+    }
+
+    public function destroyBlockedDate(Accommodation $accommodation, RoomType $roomType, RoomTypeBlockedDate $blocked)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($blocked->room_type_id !== $roomType->id, 404);
+
+        $blocked->delete();
+
+        return redirect()
+            ->route('host.room-types.blocked-dates', [$accommodation, $roomType])
+            ->with('status', 'تاریخ مسدودسازی حذف شد.');
     }
 }

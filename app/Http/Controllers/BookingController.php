@@ -41,11 +41,7 @@ class BookingController extends Controller
         $checkIn  = $request->input('check_in');
         $checkOut = $request->input('check_out');
 
-        if (!$accommodation->isAvailable($checkIn, $checkOut)) {
-            return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
-        }
-
-        // Determine price per night — use room rate if provided, else accommodation default
+        // Determine room type / rate early so we can do the right availability check
         $roomTypeId = $request->input('room_type_id');
         $roomRateId = $request->input('room_rate_id');
         $roomRate   = null;
@@ -68,6 +64,17 @@ class BookingController extends Controller
             if ($roomType && $roomType->accommodation_id !== $accommodation->id) {
                 $roomType = null;
                 $roomTypeId = null;
+            }
+        }
+
+        // Check availability: prefer room-type-level check, fall back to accommodation-level
+        if ($roomType) {
+            if (!$roomType->isAvailable($checkIn, $checkOut, 1)) {
+                return back()->withErrors(['check_in' => 'متأسفانه این نوع اتاق در بازه تاریخ انتخابی شما در دسترس نیست.']);
+            }
+        } else {
+            if (!$accommodation->isAvailable($checkIn, $checkOut)) {
+                return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
             }
         }
 

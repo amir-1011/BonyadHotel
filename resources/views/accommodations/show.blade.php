@@ -173,6 +173,105 @@
 .bnb-location-link:hover { color: var(--bnb-dark); }
 </style>
 <link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}">
+<style>
+/* ── Availability Calendar Enhancements ──────────────── */
+.cal-unavailable {
+    position: relative;
+    background: #fafafa !important;
+    color: #ccc !important;
+    cursor: not-allowed !important;
+    overflow: hidden;
+}
+.cal-unavailable::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.08) 3px,
+        rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+}
+.cal-blocked {
+    position: relative;
+    background: #fff0f0 !important;
+    color: #e2756a !important;
+    cursor: not-allowed !important;
+    overflow: hidden;
+}
+.cal-blocked::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 3px,
+        rgba(220,38,38,0.12) 3px,
+        rgba(220,38,38,0.12) 4px
+    );
+    pointer-events: none;
+}
+.cal-low-avail .avail-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin: 1px auto 0;
+}
+.cal-avail .avail-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #10b981;
+    margin: 1px auto 0;
+}
+.bnb-avail-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--bnb-gray);
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: #fafafa;
+    border-radius: 8px;
+}
+.bnb-avail-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.bnb-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.bnb-avail-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--bnb-gray);
+    font-size: 13px;
+    gap: 8px;
+}
+@keyframes bnb-spin { to { transform: rotate(360deg); } }
+.bnb-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--bnb-border);
+    border-top-color: var(--bnb-red);
+    border-radius: 50%;
+    animation: bnb-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+</style>
 @endpush
 
 @section('content')
@@ -354,8 +453,8 @@
                     <img src="{{ asset('storage/' . $rtImages[0]) }}" alt="{{ $roomType->name }}" style="width:140px;height:100px;object-fit:cover;border-radius:8px;flex-shrink:0;">
                     @endif
                     <div>
-                        <div style="font-size:15px;font-weight:600;color:var(--bnb-dark);margin-bottom:8px;">{{ $roomType->name }}</div>
-                        <div style="font-size:13px;color:var(--bnb-gray);display:flex;flex-wrap:wrap;gap:12px;">
+                        <div style="font-size:15px;font-weight:600;color:var(--bnb-dark);margin-bottom:8px;" data-rt-name="{{ $roomType->name }}">{{ $roomType->name }}</div>
+                        <div style="font-size:13px;color:var(--bnb-gray);display:flex;flex-wrap:wrap;gap:12px;" data-rt-cap="{{ $roomType->capacity }}">
                             @if($roomType->bed_type)<span><i class="bi bi-moon-stars me-1"></i>{{ $roomType->bed_type }}</span>@endif
                             <span><i class="bi bi-people me-1"></i>{{ $roomType->capacity }} نفر</span>
                             @if($roomType->size_sqm)<span><i class="bi bi-aspect-ratio me-1"></i>{{ $roomType->size_sqm }} متر مربع</span>@endif
@@ -405,7 +504,7 @@
                                     $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
                                     $btnOrigPrice = $rate->price_per_night;
                                 @endphp
-                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }})">رزرو</button>
+                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }}, {{ $roomType->id }})">رزرو</button>
                             </form>
                             @else
                             <a href="{{ route('auth.mobile') }}" class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap; width: 100%; text-align: center;">ورود برای رزرو</a>
@@ -706,7 +805,10 @@
         {{-- Handle + title --}}
         <div style="text-align:center;margin-bottom:16px;">
             <div style="width:36px;height:4px;border-radius:2px;background:var(--bnb-border);margin:0 auto 14px;"></div>
-            <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">تاریخ و تعداد نفرات را انتخاب کنید</div>
+            <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="roomTypeName || 'تاریخ و تعداد نفرات را انتخاب کنید'"></div>
+            <div x-show="roomTypeCapacity" style="font-size:12px;color:var(--bnb-gray);margin-top:4px;">
+                <i class="bi bi-people me-1"></i><span x-text="'ظرفیت: ' + roomTypeCapacity + ' نفر'"></span>
+            </div>
         </div>
 
         {{-- Date summary badges --}}
@@ -730,6 +832,26 @@
                 <span style="font-size:14px;font-weight:700;" x-text="calMonthLabel"></span>
                 <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
             </div>
+
+            {{-- Legend (only for room-type bookings) --}}
+            <div x-show="roomTypeId" class="bnb-avail-legend">
+                <div class="bnb-avail-legend-item"><div class="bnb-legend-dot" style="background:#10b981;"></div>موجود</div>
+                <div class="bnb-avail-legend-item"><div class="bnb-legend-dot" style="background:#f59e0b;"></div>ظرفیت محدود</div>
+                <div class="bnb-avail-legend-item"><div class="bnb-legend-dot" style="background:#e5e7eb;background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(0,0,0,0.1) 3px,rgba(0,0,0,0.1) 4px);"></div>تکمیل</div>
+                <div class="bnb-avail-legend-item"><div class="bnb-legend-dot" style="background:#fff0f0;background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(220,38,38,0.15) 3px,rgba(220,38,38,0.15) 4px);border:1px solid #fca5a5;"></div>مسدود</div>
+            </div>
+
+            {{-- Loading state --}}
+            <div x-show="availabilityLoading" class="bnb-avail-loading">
+                <div class="bnb-spinner"></div>
+                <span>در حال بررسی ظرفیت...</span>
+            </div>
+
+            {{-- Error state --}}
+            <div x-show="availabilityError && !availabilityLoading" style="font-size:12px;color:#e53e3e;text-align:center;padding:8px;margin-bottom:8px;">
+                <i class="bi bi-exclamation-triangle me-1"></i>خطا در بارگذاری ظرفیت. تقویم به‌صورت عادی نمایش داده می‌شود.
+            </div>
+
             <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
                 <template x-for="h in ['ج','پ','چ','س','د','ی','ش']">
                     <span style="font-size:11px;color:var(--bnb-gray);padding:4px 0;" x-text="h"></span>
@@ -738,23 +860,36 @@
             <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
                 <template x-for="(cell, idx) in calDays" :key="idx">
                     <button type="button"
-                        :disabled="!cell || cell.past"
-                        @click.stop="cell && !cell.past && selectDay(cell)"
+                        :disabled="!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap"
+                        @click.stop="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.disabledByGap && selectDay(cell)"
+                        :title="cell && cell.availInfo ? cell.availInfo : ''"
                         :class="{
-                            'bnb-cal-cell': true,
-                            'cal-start':  cell && cell.greg === checkIn,
-                            'cal-end':    cell && cell.greg === checkOut,
-                            'cal-range':  cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
-                            'cal-empty':  !cell
+                            'bnb-cal-cell':    true,
+                            'cal-start':       cell && cell.greg === checkIn,
+                            'cal-end':         cell && cell.greg === checkOut,
+                            'cal-range':       cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
+                            'cal-empty':       !cell,
+                            'cal-unavailable': cell && !cell.past && cell.isUnavailable,
+                            'cal-blocked':     cell && !cell.past && cell.isBlocked,
+                            'cal-low-avail':   cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail,
+                            'cal-avail':       cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData
                         }">
                         <span x-text="cell ? cell.d : ''"></span>
+                        <template x-if="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail">
+                            <div class="avail-dot"></div>
+                        </template>
+                        <template x-if="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData">
+                            <div class="avail-dot"></div>
+                        </template>
                     </button>
                 </template>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
-                <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
-                <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                <div>
+                    <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
+                    <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
+                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                </div>
                 <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
                     style="background:none;border:none;font-size:12px;color:var(--bnb-gray);text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);">پاک کردن</button>
             </div>
@@ -858,15 +993,21 @@ new Swiper('.bnb-mobile-slider', {
 });
 </script>
 <script>
-function reserveRoom(btn, pricePerNight, origPrice) {
+function reserveRoom(btn, pricePerNight, origPrice, roomTypeId) {
     var form  = btn.closest('form');
     var price = pricePerNight || 0;
     var orig  = origPrice || price;
-    // Open the quick-book drawer
+    var rtId  = roomTypeId || null;
+
+    // Read room-type meta from the card
+    var card      = btn.closest('.bnb-room-card');
+    var rtName    = card ? (card.querySelector('[data-rt-name]')?.dataset.rtName || '') : '';
+    var rtCap     = card ? (card.querySelector('[data-rt-cap]')?.dataset.rtCap || '') : '';
+
     var drawerEl = document.querySelector('[x-data="mbbDrawer()"]');
     if (drawerEl && typeof Alpine !== 'undefined') {
         var drawer = Alpine.$data(drawerEl);
-        drawer.openForRoom(form, price, orig);
+        drawer.openForRoom(form, price, orig, rtId, rtName, rtCap);
     }
 }
 
@@ -1044,6 +1185,14 @@ function mbbDrawer() {
         targetForm: null,
         pricePerNight: 0,
         originalPrice: 0,
+        // Availability
+        roomTypeId: null,
+        roomTypeName: '',
+        roomTypeCapacity: '',
+        availabilityData: {},
+        availabilityLoading: false,
+        availabilityError: false,
+        loadedMonths: [],
 
         get nights() {
             if (!this.checkIn || !this.checkOut) return 0;
@@ -1056,6 +1205,18 @@ function mbbDrawer() {
             return n[this.calMonth] + ' ' + this.calYear;
         },
 
+        // Returns the first blocker (blocked/full) date that is STRICTLY AFTER `from`
+        _firstBlockerAfter(from) {
+            const dates = Object.keys(this.availabilityData).sort();
+            for (const d of dates) {
+                if (d > from) {
+                    const a = this.availabilityData[d];
+                    if (a && (a.is_blocked || a.available_rooms <= 0)) return d;
+                }
+            }
+            return null;
+        },
+
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
@@ -1064,13 +1225,38 @@ function mbbDrawer() {
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
             const offset = (6 - fdow + 7) % 7;
+
+            // First blocker after checkIn (for range constraint in phase 1)
+            const firstBlocker = (this.calPhase === 1 && this.checkIn)
+                ? this._firstBlockerAfter(this.checkIn)
+                : null;
+
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
                 const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
                 const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
-                cells.push({ d, greg, past });
+
+                const avail        = this.availabilityData[greg];
+                const hasAvailData = !!avail;
+                const isBlocked    = avail ? avail.is_blocked : false;
+                const isUnavailable= avail ? (!avail.is_blocked && avail.available_rooms <= 0) : false;
+                const isLowAvail   = avail ? (!avail.is_blocked && avail.available_rooms > 0 && avail.available_rooms < avail.total) : false;
+
+                // In phase 1 (picking checkout): dates after the first blocker are also disabled
+                // But: check_out = firstBlocker itself is ALLOWED (guest leaves that day, doesn't stay that night)
+                const disabledByGap = this.calPhase === 1 && firstBlocker !== null && greg > firstBlocker;
+
+                let availInfo = '';
+                if (avail && !past) {
+                    if (avail.is_blocked) availInfo = 'مسدود شده توسط میزبان';
+                    else if (avail.available_rooms <= 0) availInfo = 'تمام شد';
+                    else if (avail.available_rooms === 1) availInfo = '۱ اتاق باقیمانده';
+                    else availInfo = avail.available_rooms + ' اتاق موجود';
+                }
+
+                cells.push({ d, greg, past, isBlocked, isUnavailable, isLowAvail, hasAvailData, disabledByGap, availInfo });
             }
             return cells;
         },
@@ -1081,12 +1267,10 @@ function mbbDrawer() {
                 this.calYear  = t.year();
                 this.calMonth = t.month();
             }
-            // Hide bottom navbar when drawer is open
             this.$watch('drawerOpen', val => {
                 const nav = document.querySelector('.bnb-bottom-nav');
                 if (nav) nav.style.display = val ? 'none' : '';
-                
-                // When opening, if we have a check-in date, move calendar to its month
+
                 if (val && this.checkIn) {
                     try {
                         const pDate = new persianDate(new Date(this.checkIn + 'T12:00:00'));
@@ -1095,10 +1279,9 @@ function mbbDrawer() {
                     } catch(e) {}
                 }
             });
-            // Reset confirmation if user changes dates
             this.$watch('checkIn',  () => { if (this.drawerOpen) this.datesConfirmed = false; });
             this.$watch('checkOut', () => { if (this.drawerOpen) this.datesConfirmed = false; });
-            // Pre-fill from existing booking widget state if available
+            // Pre-fill from booking widget if available
             const widgetEl = document.querySelector('[x-data^="bnbBookWidget"]');
             if (widgetEl && typeof Alpine !== 'undefined') {
                 this.$nextTick(() => {
@@ -1110,12 +1293,51 @@ function mbbDrawer() {
                     } catch(e) {}
                 });
             }
-            // Sync from nav search updates
             window.addEventListener('nav-search-updated', (e) => {
                 if (e.detail.checkIn)  this.checkIn  = e.detail.checkIn;
                 if (e.detail.checkOut) this.checkOut = e.detail.checkOut;
                 if (e.detail.guests)   this.guests   = e.detail.guests;
             });
+        },
+
+        _ymKey(year, month) {
+            return year + '-' + String(month).padStart(2, '0');
+        },
+
+        _addMonthsToYM(ym, n) {
+            const [y, m] = ym.split('-').map(Number);
+            const d = new Date(y, m - 1 + n, 1);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        },
+
+        async fetchAvailability(months) {
+            if (!this.roomTypeId) return;
+            const toFetch = months.filter(m => !this.loadedMonths.includes(m));
+            if (!toFetch.length) return;
+
+            this.availabilityLoading = true;
+            this.availabilityError   = false;
+            try {
+                const params = new URLSearchParams({ months: toFetch.join(',') });
+                const resp = await fetch('/api/room-types/' + this.roomTypeId + '/availability?' + params, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                Object.assign(this.availabilityData, data.dates || {});
+                this.loadedMonths.push(...toFetch);
+            } catch(e) {
+                this.availabilityError = true;
+            } finally {
+                this.availabilityLoading = false;
+            }
+        },
+
+        _ensureMonthLoaded() {
+            if (!this.roomTypeId) return;
+            const curr = this._ymKey(this.calYear, this.calMonth);
+            const next = this._addMonthsToYM(curr, 1);
+            this.fetchAvailability([curr, next]);
         },
 
         jalStr(g) {
@@ -1126,15 +1348,17 @@ function mbbDrawer() {
         calPrev() {
             if (this.calMonth === 1) { this.calYear--; this.calMonth = 12; }
             else this.calMonth--;
+            this._ensureMonthLoaded();
         },
 
         calNext() {
             if (this.calMonth === 12) { this.calYear++; this.calMonth = 1; }
             else this.calMonth++;
+            this._ensureMonthLoaded();
         },
 
         selectDay(cell) {
-            if (!cell || cell.past) return;
+            if (!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap) return;
             if (this.calPhase === 0) {
                 this.checkIn  = cell.greg;
                 this.checkOut = '';
@@ -1144,6 +1368,7 @@ function mbbDrawer() {
                     this.checkOut = cell.greg;
                     this.calPhase = 0;
                 } else {
+                    // Clicked before or equal to checkIn → restart
                     this.checkIn  = cell.greg;
                     this.checkOut = '';
                 }
@@ -1151,11 +1376,9 @@ function mbbDrawer() {
         },
 
         onBookClick() {
-            // If dates already selected, scroll straight to rooms
             if (this.checkIn && this.checkOut) {
                 this._scrollToRooms();
             } else {
-                // Open drawer to pick dates
                 this.drawerOpen = true;
             }
         },
@@ -1178,20 +1401,24 @@ function mbbDrawer() {
             form.submit();
         },
 
-        openForRoom(form, price, origPrice) {
-            this.targetForm    = form;
-            this.pricePerNight = price;
-            this.originalPrice = origPrice || price;
-            this.datesConfirmed = false;
-            this.drawerOpen    = true;
-        },
+        openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap) {
+            this.targetForm       = form;
+            this.pricePerNight    = price;
+            this.originalPrice    = origPrice || price;
+            this.roomTypeId       = roomTypeId || null;
+            this.roomTypeName     = rtName || '';
+            this.roomTypeCapacity = rtCap || '';
+            this.datesConfirmed   = false;
+            this.drawerOpen       = true;
 
-        confirmAndPay() {
-            this.confirmDates();
-        },
-
-        confirmAndScroll() {
-            this.confirmDates();
+            if (roomTypeId) {
+                // Load current + next 2 months
+                const curr = this.calYear
+                    ? this._ymKey(this.calYear, this.calMonth)
+                    : (new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0'));
+                const months = [0, 1, 2].map(i => this._addMonthsToYM(curr, i));
+                this.fetchAvailability(months);
+            }
         },
 
         _scrollToRooms() {
@@ -1199,8 +1426,7 @@ function mbbDrawer() {
             if (!el) return;
             const nav = document.getElementById('bnbNavbar');
             const navH = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
-            const offset = navH + 50;
-            const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+            const top = el.getBoundingClientRect().top + window.pageYOffset - navH - 50;
             window.scrollTo({ top, behavior: 'smooth' });
         }
     };

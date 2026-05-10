@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccommodationController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BaleMiniAppController;
 use App\Http\Controllers\BaleSetupController;
 use App\Http\Controllers\BaleWebhookController;
@@ -43,6 +44,7 @@ Route::middleware('auth')->group(function () {
 Route::get('/accommodations', [AccommodationController::class, 'index'])->name('accommodations.index');
 Route::get('/accommodations/{accommodation}', [AccommodationController::class, 'show'])->name('accommodations.show');
 Route::get('/api/provinces/{province}/cities', [AccommodationController::class, 'citiesByProvince'])->name('api.cities');
+Route::get('/api/room-types/{roomType}/availability', [AvailabilityController::class, 'roomType'])->name('api.room-types.availability');
 
 // Bookings (auth required)
 Route::middleware('auth')->group(function () {
@@ -90,6 +92,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
         Route::post('/{roomType}/rates', [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeRate'])->name('rates.store');
         Route::put('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'updateRate'])->name('rates.update');
         Route::delete('/{roomType}/rates/{rate}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
+        // Blocked dates (admin can also manage)
+        Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Admin\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
+        Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
+        Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
     });
 
     Route::get('/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index'])->name('bookings.index');
@@ -133,6 +139,10 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host'])->group(functi
         Route::post('/{roomType}/rates',                    [\App\Http\Controllers\Host\RoomTypeController::class, 'storeRate'])->name('rates.store');
         Route::put('/{roomType}/rates/{rate}',              [\App\Http\Controllers\Host\RoomTypeController::class, 'updateRate'])->name('rates.update');
         Route::delete('/{roomType}/rates/{rate}',           [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
+        // Blocked dates
+        Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Host\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
+        Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Host\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
+        Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
     });
 });
 

@@ -89,9 +89,12 @@
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-white d-flex gap-2">
+            <div class="card-footer bg-white d-flex gap-2 flex-wrap">
                 <a href="{{ route('host.room-types.edit', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-warning">
                     <i class="bi bi-pencil me-1"></i>ویرایش و مدیریت تعرفه‌ها
+                </a>
+                <a href="{{ route('host.room-types.blocked-dates', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-calendar-x me-1"></i>مسدودسازی تاریخ
                 </a>
                 <form action="{{ route('host.room-types.destroy', [$accommodation, $rt]) }}" method="POST"
                       onsubmit="return confirm('این اتاق و تمام تعرفه‌هایش حذف شود؟')">
