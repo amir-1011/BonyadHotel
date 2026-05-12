@@ -251,9 +251,7 @@
                             مشاهده پروفایل
                         </a>
                     @endguest
-                        <a href="{{ route('miniapp.bale.index') }}" class="btn btn-danger fw-bold me-2" style="border-radius:20px;background:#FF385C;border-color:#FF385C;">
-                            ورود با بله
-                        </a>
+              
                 </div>
             </div>
             <div class="row g-2 mt-3 justify-content-center">

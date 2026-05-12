@@ -5,6 +5,9 @@
 @section('content')
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2"></i>رزروها ({{ $bookings->total() }})</h5>
+    <a href="{{ route('admin.bookings.export', request()->query()) }}" class="btn btn-success btn-sm">
+        <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+    </a>
 </div>
 
 <div class="card shadow-sm mb-3">

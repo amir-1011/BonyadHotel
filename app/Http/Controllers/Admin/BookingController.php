@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Exports\AdminBookingsExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
@@ -33,6 +35,11 @@ class BookingController extends Controller
     {
         $booking->load('user', 'accommodation.city.province');
         return view('admin.bookings.show', compact('booking'));
+    }
+
+    public function export(Request $request)
+    {
+        return Excel::download(new AdminBookingsExport($request->only(['search', 'status'])), 'bookings.xlsx');
     }
 
     public function updateStatus(Request $request, Booking $booking)

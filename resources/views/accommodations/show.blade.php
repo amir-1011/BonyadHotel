@@ -197,60 +197,56 @@
 <link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}">
 <style>
 /* ── Availability Calendar Enhancements ──────────────── */
-.cal-unavailable {
+.bnb-cal-square-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+.bnb-cal-square-cell {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid transparent;
     position: relative;
-    background: #fafafa !important;
-    color: #ccc !important;
-    cursor: not-allowed !important;
     overflow: hidden;
+    cursor: pointer;
+    background: #fff;
+    transition: all 0.2s;
+    padding: 4px;
 }
-.cal-unavailable::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        -45deg,
-        transparent,
-        transparent 3px,
-        rgba(0,0,0,0.08) 3px,
-        rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none;
+.bnb-cal-square-cell .cd { line-height: 1.2; font-size: 15px; margin-bottom: 2px; }
+.bnb-cal-square-cell .cs { font-size: 9px; font-weight: 600; line-height: 1; opacity: 0.9; }
+.bnb-cal-square-cell.past { opacity: .3; cursor: not-allowed; }
+.bnb-cal-square-cell.cal-empty { background: transparent !important; border-color: transparent !important; pointer-events: none; }
+
+/* Calendar state colors similar to daily_availability */
+.bnb-cal-square-cell.cal-avail { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.bnb-cal-square-cell.cal-low-avail { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.bnb-cal-square-cell.cal-unavailable { 
+    background: #f1f5f9; border-color: #cbd5e1; color: #94a3b8;
+    background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 5px);
 }
-.cal-blocked {
-    position: relative;
-    background: #fff0f0 !important;
-    color: #e2756a !important;
-    cursor: not-allowed !important;
-    overflow: hidden;
+.bnb-cal-square-cell.cal-blocked { 
+    background: #fff0f0; border-color: #fca5a5; color: #dc2626;
+    background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(220,38,38,0.12) 4px, rgba(220,38,38,0.12) 5px);
 }
-.cal-blocked::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        -45deg,
-        transparent,
-        transparent 3px,
-        rgba(220,38,38,0.12) 3px,
-        rgba(220,38,38,0.12) 4px
-    );
-    pointer-events: none;
+
+/* Range Selection */
+.bnb-cal-square-cell.cal-start, .bnb-cal-square-cell.cal-end {
+    background: var(--bnb-red) !important;
+    border-color: var(--bnb-red) !important;
+    color: #fff !important;
 }
-.cal-low-avail .avail-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #f59e0b;
-    margin: 1px auto 0;
+.bnb-cal-square-cell.cal-range {
+    background: rgba(255, 56, 92, 0.1) !important;
+    border-color: rgba(255, 56, 92, 0.2) !important;
 }
-.cal-avail .avail-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #10b981;
-    margin: 1px auto 0;
-}
+
 .bnb-avail-legend {
     display: flex;
     align-items: center;
@@ -899,19 +895,19 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>خطا در بارگذاری ظرفیت. تقویم به‌صورت عادی نمایش داده می‌شود.
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
+            <div class="bnb-cal-square-grid" style="text-align:center;margin-bottom:4px;">
                 <template x-for="h in ['ج','پ','چ','س','د','ی','ش']">
                     <span style="font-size:11px;color:var(--bnb-gray);padding:4px 0;" x-text="h"></span>
                 </template>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+            <div class="bnb-cal-square-grid">
                 <template x-for="(cell, idx) in calDays" :key="idx">
                     <button type="button"
                         :disabled="!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap"
                         @click.stop="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.disabledByGap && selectDay(cell)"
                         :title="cell && cell.availInfo ? cell.availInfo : ''"
+                        class="bnb-cal-square-cell"
                         :class="{
-                            'bnb-cal-cell':    true,
                             'cal-start':       cell && cell.greg === checkIn,
                             'cal-end':         cell && cell.greg === checkOut,
                             'cal-range':       cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
@@ -921,12 +917,9 @@
                             'cal-low-avail':   cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail,
                             'cal-avail':       cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData
                         }">
-                        <span x-text="cell ? cell.d : ''"></span>
-                        <template x-if="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail">
-                            <div class="avail-dot"></div>
-                        </template>
-                        <template x-if="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData">
-                            <div class="avail-dot"></div>
+                        <div class="cd" x-text="cell ? cell.d : ''"></div>
+                        <template x-if="cell && !cell.past && cell.roomCountDisplay">
+                            <div class="cs" x-text="cell.roomCountDisplay"></div>
                         </template>
                     </button>
                 </template>
@@ -956,30 +949,15 @@
         </div>
 
         {{-- Confirm dates button --}}
-        <button type="button" @click="confirmDates()"
-                :disabled="!checkIn || !checkOut"
-        {{-- Available rooms info banner --}}
-        <template x-if="checkIn && checkOut && minAvailInRange !== null">
-            <div style="margin-bottom:8px;padding:8px 12px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;"
-                 :style="minAvailInRange === 0
-                    ? 'background:#fff1f2;color:#dc2626;border:1px solid #fca5a5;'
-                    : minAvailInRange <= 2
-                        ? 'background:#fffbeb;color:#92400e;border:1px solid #fcd34d;'
-                        : 'background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;'">
-                <i :class="minAvailInRange === 0 ? 'bi bi-x-circle-fill' : minAvailInRange <= 2 ? 'bi bi-exclamation-circle-fill' : 'bi bi-check-circle-fill'"></i>
-                <span x-text="minAvailInRange === 0
-                    ? 'این اتاق در بازه انتخابی تکمیل ظرفیت است'
-                    : minAvailInRange + ' اتاق در این بازه موجود است'"></span>
-            </div>
-        </template>
-
-                <button type="button" @click="confirmDates()"
-                :disabled="!checkIn || !checkOut"
-                :style="(!checkIn || !checkOut) ? 'opacity:.5;cursor:not-allowed;' : ''"
-                class="btn-bnb"
-                style="width:100%;padding:14px;font-size:15px;border-radius:12px;margin-top:16px;">
-            <i class="bi bi-check-circle me-1"></i> تأیید
-        </button>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="button" @click="confirmDates()"
+                    :disabled="!checkIn || !checkOut"
+                    :style="(!checkIn || !checkOut) ? 'opacity:.5;cursor:not-allowed;' : ''"
+                    class="btn-bnb"
+                    style="width:auto;min-width:140px;padding:14px 20px;font-size:15px;border-radius:12px;display:inline-flex;align-items:center;">
+                <i class="bi bi-check-circle me-1"></i> تأیید
+            </button>
+        </div>
     </div>
 
     {{-- Sticky bottom pay bar --}}
@@ -1394,14 +1372,21 @@ function mbbDrawer() {
                 const disabledByGap = this.calPhase === 1 && firstBlocker !== null && greg > firstBlocker;
 
                 let availInfo = '';
+                let roomCountDisplay = '';
                 if (avail && !past) {
-                    if (avail.is_blocked) availInfo = 'مسدود شده توسط میزبان';
-                    else if (avail.available_rooms <= 0) availInfo = 'تمام شد';
-                    else if (avail.available_rooms === 1) availInfo = '۱ اتاق باقیمانده';
-                    else availInfo = avail.available_rooms + ' اتاق موجود';
+                    if (avail.is_blocked) {
+                        availInfo = 'مسدود شده توسط میزبان';
+                        roomCountDisplay = 'مسدود';
+                    } else if (avail.available_rooms <= 0) {
+                        availInfo = 'تمام شد';
+                        roomCountDisplay = 'تمام';
+                    } else {
+                        availInfo = avail.available_rooms + ' اتاق موجود';
+                        roomCountDisplay = avail.available_rooms + ' اتاق';
+                    }
                 }
 
-                cells.push({ d, greg, past, isBlocked, isUnavailable, isLowAvail, hasAvailData, disabledByGap, availInfo });
+                cells.push({ d, greg, past, isBlocked, isUnavailable, isLowAvail, hasAvailData, disabledByGap, availInfo, roomCountDisplay });
             }
             return cells;
         },
