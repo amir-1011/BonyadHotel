@@ -25,20 +25,22 @@ if (!$chat_id) {
 }
 
 if ($text === '/start' || str_starts_with($text, '/start ')) {
+
+    $welcome = "به سامانه رزرواسیون هوشمند موسسه فرهنگی،ورزشی و توانبخشی ایثار خوش آمدید 🌷
+
+سامانه‌ای رسمی، امن و ساده برای رزرو آنلاین؛ با هدف ارائه دسترسی سریع‌تر به خدمات اقامتی، پشتیبانی قابل اعتماد و شرایط ویژه برای خانواده‌های معزز بنیاد شهید.
+برای دریافت پشتیبانی هوشمند و پاسخگویی سریع، می‌توانید از ربات زیر استفاده کنید:
+@bonyadyarbot
+لطفاً برای ادامه، وارد سامانه شوید";
+
     $keyboard = [
         'inline_keyboard' => [
             [
                 [
-                    'text' => 'Open Shop',
+                    'text' => 'ورود به سامانه رزرو',
                     'web_app' => [
                         'url' => 'https://bonyadyar.ir/miniapp/bale',
                     ],
-                ],
-            ],
-            [
-                [
-                    'text' => 'Open Site',
-                    'url' => 'https://bonyadyar.ir',
                 ],
             ],
         ],
@@ -46,7 +48,7 @@ if ($text === '/start' || str_starts_with($text, '/start ')) {
 
     $data = [
         'chat_id' => $chat_id,
-        'text' => 'Open the shop:',
+        'text' => $welcome,
         'reply_markup' => json_encode($keyboard, JSON_UNESCAPED_UNICODE),
     ];
 
@@ -56,27 +58,18 @@ if ($text === '/start' || str_starts_with($text, '/start ')) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
-    $error = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
     curl_close($ch);
+
 } elseif (is_array($contact)) {
-    $phone = $contact['phone_number'] ?? '';
 
     $keyboard = [
         'inline_keyboard' => [
             [
                 [
-                    'text' => 'Open Shop',
+                    'text' => 'ورود به سامانه رزرو',
                     'web_app' => [
                         'url' => 'https://bonyadyar.ir/miniapp/bale',
                     ],
-                ],
-            ],
-            [
-                [
-                    'text' => 'Open Site',
-                    'url' => 'https://bonyadyar.ir',
                 ],
             ],
         ],
@@ -84,7 +77,7 @@ if ($text === '/start' || str_starts_with($text, '/start ')) {
 
     $data = [
         'chat_id' => $chat_id,
-        'text' => 'Phone received. You can continue from the shop.',
+        'text' => "شماره تلفن شما دریافت شد. اکنون می‌توانید وارد سامانه رزرو شوید.",
         'reply_markup' => json_encode($keyboard, JSON_UNESCAPED_UNICODE),
     ];
 
@@ -94,9 +87,6 @@ if ($text === '/start' || str_starts_with($text, '/start ')) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
-    $error = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
     curl_close($ch);
 }
 

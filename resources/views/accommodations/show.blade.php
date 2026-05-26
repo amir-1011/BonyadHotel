@@ -1,9 +1,8 @@
-@extends('layouts.app')
 
-@section('title', $accommodation->name)
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" />
+<link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}"></noscript>
 <style>
 /* ── Photo grid ─────────────────────────────────────── */
 .bnb-photo-grid {
@@ -94,10 +93,10 @@
         display: none !important;
     }
 }
-.bnb-mobile-slider { display: none; }
+.bnb-mobile-slider { display: none !important; }
 @media (max-width: 767px) {
     .bnb-mobile-slider { 
-        display: block; 
+        display: block !important; 
         margin: 0 -16px; 
         position: relative;
         margin-top: -64px; /* Pull up to touch the ceiling under transparent nav */
@@ -109,6 +108,23 @@
     }
     .bnb-mobile-slider .swiper-pagination-bullet-active {
         background: #fff;
+    }
+}
+@media (max-width: 767px) {
+    #sec-360 .tour-360-wrapper {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        height: 320px !important;
+        overflow: hidden;
+    }
+    #sec-360 .tour-360-wrapper iframe {
+        width: 74.07% !important;
+        height: 237px !important;
+        transform: scale(1.35) !important;
+        transform-origin: top center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
 }
 /* ── Page layout ─────────────────────────────────────── */
@@ -194,7 +210,8 @@
 .bnb-location-link { color: var(--bnb-gray); text-decoration: underline; font-weight: 500; transition: color 0.2s; }
 .bnb-location-link:hover { color: var(--bnb-dark); }
 </style>
-<link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}"></noscript>
 <style>
 /* ── Availability Calendar Enhancements ──────────────── */
 .bnb-cal-square-grid {
@@ -289,10 +306,13 @@
     animation: bnb-spin 0.7s linear infinite;
     flex-shrink: 0;
 }
+/* SweetAlert2 must appear above drawer (z-index 1071) */
+.swal2-container { z-index: 9999 !important; }
 </style>
 @endpush
 
-@section('content')
+<div>
+
 @php
     $allImages = collect($accommodation->images ?? [])->filter()->values();
     if ($accommodation->image && !$allImages->contains($accommodation->image)) {
@@ -321,14 +341,14 @@
 {{-- MOBILE SLIDER (Swiper) --}}
 <div class="bnb-mobile-slider swiper" id="mobile-zoom-gallery">
     <div class="swiper-wrapper">
-        @foreach($allImages as $img)
+        @foreach($allImages as $mIdx => $img)
             <div class="swiper-slide">
                 <a href="{{ asset('storage/' . $img) }}" 
                    data-pswp-width="{{ $imageSizes[$img]['width'] ?? 1200 }}" 
                    data-pswp-height="{{ $imageSizes[$img]['height'] ?? 800 }}" 
                    class="pswp-gallery-item-mobile"
                    onclick="event.preventDefault();">
-                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
+                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}"@if($mIdx > 0) loading="lazy" decoding="async"@endif>
                 </a>
             </div>
         @endforeach
@@ -346,7 +366,7 @@
                    data-pswp-height="{{ $imageSizes[$img]['height'] ?? 800 }}" 
                    class="pswp-gallery-item"
                    onclick="event.preventDefault();">
-                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}">
+                    <img src="{{ asset('storage/' . $img) }}" alt="{{ $accommodation->name }}"@if($index > 0) loading="lazy" decoding="async"@endif>
                 </a>
             </div>
         @endforeach
@@ -399,6 +419,7 @@
 <div class="bnb-sticky-tabs is-nav-sticky" id="stickyTabs">
     <a class="bnb-sticky-tab active" href="#sec-info">اطلاعات</a>
     <a class="bnb-sticky-tab" href="#sec-amenities">امکانات</a>
+    <a class="bnb-sticky-tab" href="#sec-360">نمای ۳۶۰°</a>
     @if($roomTypes->isNotEmpty())<a class="bnb-sticky-tab" href="#sec-rooms">اتاق‌ها</a>@endif
     <a class="bnb-sticky-tab" href="#sec-reviews">نظرات</a>
     @if($accommodation->lat && $accommodation->lng)<a class="bnb-sticky-tab" href="#sec-map">موقعیت</a>@endif
@@ -457,6 +478,29 @@
         </div>
         @endif
 
+        {{-- 360° Virtual Tour --}}
+        <div class="py-5 border-bottom" id="sec-360">
+            <h2 style="font-size:18px;font-weight:700;color:var(--bnb-dark);margin-bottom:16px;"><i class="bi bi-badge-vr me-2"></i>نمای ۳۶۰ درجه</h2>
+            <p style="font-size:13px;color:var(--bnb-gray);margin-bottom:16px;">با چرخاندن تصویر، فضای اقامتگاه را به‌صورت واقعی تجربه کنید.</p>
+            <div class="tour-360-wrapper" style="width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--bnb-border);">
+                <div id="tour360placeholder" onclick="loadTour360(this)"
+                     style="cursor:pointer;width:100%;height:500px;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;user-select:none;">
+                    <div style="width:120px;height:120px;background:rgba(255,255,255,0.14);border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.35);transition:transform .2s;">
+                        <i class="bi bi-badge-vr" style="font-size:3.2rem;"></i>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:20px;font-weight:700;margin-bottom:8px;">تور مجازی ۳۶۰ درجه</div>
+                        <div style="font-size:15px;opacity:.8;">برای مشاهده کلیک کنید</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:10px 22px;font-size:14px;font-weight:600;">
+                        <i class="bi bi-fullscreen" style="font-size:1.2rem;"></i>
+                        <span>پشتیبانی از نمایش تمام‌صفحه</span>
+                    </div>
+                    <div style="font-size:12px;opacity:.5;"><i class="bi bi-volume-mute me-1"></i>صدا پس از کلیک پخش می‌شود</div>
+                </div>
+            </div>
+        </div>
+
         {{-- Room Types --}}
         @if($roomTypes->isNotEmpty())
         <div class="py-5 border-bottom" id="sec-rooms"
@@ -470,12 +514,12 @@
             <p style="font-size:13px;color:var(--bnb-gray);margin-bottom:20px;">پس از انتخاب تاریخ در ویجت رزرو، اتاق موردنظر را رزرو کنید.</p>
             @foreach($roomTypes as $roomType)
             @if($roomType->rates->isNotEmpty())
-            <div class="bnb-room-card" data-aos="fade-up"
+            <div class="bnb-room-card"
                  :class="{ 'rt-cap-exceeded': needsHatch({{ $roomType->capacity }}, {{ $roomType->room_count }}, {{ $roomType->id }}) }">
                 <div style="display:flex;gap:16px;padding:20px;border-bottom:1px solid var(--bnb-border);flex-wrap:wrap;">
                     @php $rtImages = collect($roomType->images ?? [])->filter()->values(); @endphp
                     @if($rtImages->count() > 0)
-                    <img src="{{ asset('storage/' . $rtImages[0]) }}" alt="{{ $roomType->name }}" style="width:140px;height:100px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+                    <img src="{{ asset('storage/' . $rtImages[0]) }}" alt="{{ $roomType->name }}" loading="lazy" decoding="async" style="width:140px;height:100px;object-fit:cover;border-radius:8px;flex-shrink:0;">
                     @endif
                     <div>
                         <div style="font-size:15px;font-weight:600;color:var(--bnb-dark);margin-bottom:8px;" data-rt-name="{{ $roomType->name }}">{{ $roomType->name }}</div>
@@ -542,15 +586,15 @@
                                 <input type="hidden" name="room_rate_id" value="{{ $rate->id }}">
                                 <input type="hidden" name="check_in" class="rt-check-in">
                                 <input type="hidden" name="check_out" class="rt-check-out">
-                                <input type="hidden" name="guests" value="{{ $roomType->capacity }}">
+                                <input type="hidden" name="guests" class="rt-guests" value="1">
                                 @php
                                     $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
                                     $btnOrigPrice = $rate->price_per_night;
                                 @endphp
-                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }}, {{ $roomType->id }})">رزرو</button>
+                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }}, {{ $roomType->id }}, {{ $roomType->capacity }})">رزرو</button>
                             </form>
                             @else
-                            <a href="{{ route('auth.mobile') }}" class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap; width: 100%; text-align: center;">ورود برای رزرو</a>
+                            <a href="{{ route('auth.mobile') }}" wire:navigate class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap; width: 100%; text-align: center;">ورود برای رزرو</a>
                             @endauth
                         </div>
                     </div>
@@ -574,7 +618,6 @@
             
             <h2 class="h5 fw-bold text-dark mb-4">نظرات مهمانان</h2>
             
-            @if(session('status'))<div class="alert alert-success border-0 shadow-sm mb-4">{{ session('status') }}</div>@endif
             @if($errors->has('rating'))<div class="alert alert-danger border-0 shadow-sm mb-4">{{ $errors->first('rating') }}</div>@endif
             
             @auth
@@ -609,7 +652,7 @@
 
             <div class="row g-4">
                 @forelse($reviews as $review)
-                <div class="col-12 col-md-6" data-aos="fade-up">
+                <div class="col-12 col-md-6">
                     <div class="card h-100 border-0 shadow-sm rounded-4">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
@@ -798,10 +841,10 @@
                     @if($roomTypes->isNotEmpty())
                     <a href="#sec-rooms" class="btn-bnb d-block text-decoration-none text-center mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">مشاهده اتاق‌ها و رزرو</a>
                     @else
-                    <button type="button" @click="submitBooking()" class="btn-bnb w-100 mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">ثبت رزرو</button>
+                    <button type="button" data-async-btn @click="submitBooking()" class="btn-bnb w-100 mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));">ثبت رزرو</button>
                     @endif
                 @else
-                <a href="{{ route('auth.mobile') }}" class="btn-bnb d-block text-decoration-none text-center mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));"><i class="bi bi-phone me-1"></i>ورود برای رزرو</a>
+                <a href="{{ route('auth.mobile') }}" wire:navigate class="btn-bnb d-block text-decoration-none text-center mt-3" style="background:linear-gradient(to left, #E31C5F, var(--bnb-red));"><i class="bi bi-phone me-1"></i>ورود برای رزرو</a>
                 @endauth
             </form>
             <div class="bnb-price-breakdown" :class="checkIn && checkOut ? '' : 'd-none'">
@@ -921,6 +964,15 @@
                         <template x-if="cell && !cell.past && cell.roomCountDisplay">
                             <div class="cs" x-text="cell.roomCountDisplay"></div>
                         </template>
+                        <template x-if="cell && !cell.past && cell.discountPct">
+                            <div style="position:absolute;top:1px;right:2px;font-size:7px;background:#dc2626;color:#fff;border-radius:2px;padding:0 2px;line-height:1.4;font-weight:700;" x-text="cell.discountPct + '%'"></div>
+                        </template>
+                        <template x-if="cell && !cell.past && cell.priceLabel">
+                            <div style="font-size:7px;opacity:.85;line-height:1;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;" x-text="cell.priceLabel"></div>
+                        </template>
+                        <template x-if="cell && !cell.past && cell.effectivePrice">
+                            <div style="font-size:9px;font-weight:700;line-height:1;margin-top:1px;" x-text="cell.effectivePrice.toLocaleString('fa-IR')"></div>
+                        </template>
                     </button>
                 </template>
             </div>
@@ -948,6 +1000,66 @@
             </div>
         </div>
 
+        {{-- Dynamic price breakdown (shown when dates selected) --}}
+        <div x-show="checkIn && checkOut && hasDynamicPricing" style="margin:-4px 0 14px;border:1px solid var(--bnb-border);border-radius:10px;overflow:hidden;">
+            <div style="padding:7px 12px;background:#f9fafb;font-size:11px;font-weight:700;color:var(--bnb-gray);border-bottom:1px solid var(--bnb-border);display:flex;align-items:center;justify-content:space-between;">
+                <span>قیمت به تفکیک شب</span>
+                @auth
+                @if(auth()->user()->discount_percentage > 0)
+                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ auth()->user()->discount_percentage }}٪ تخفیف</span>
+                @endif
+                @endauth
+            </div>
+            <template x-for="(p, i) in dynamicNightPrices" :key="i">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;font-size:12px;border-bottom:1px solid #f3f4f6;">
+                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                        <span style="font-weight:600;" x-text="new persianDate(new Date(p.date + 'T12:00:00')).format('DD MMM')"></span>
+                        <template x-if="p.label">
+                            <span :style="p.hostDiscountPct > 0 ? 'font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;' : 'font-size:10px;background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 5px;font-weight:600;'"
+                                  x-text="p.label + (p.hostDiscountPct > 0 ? ' · ' + p.hostDiscountPct + '%' : '')"></span>
+                        </template>
+                        <template x-if="!p.label && p.hostDiscountPct > 0">
+                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف میزبان ' + p.hostDiscountPct + '%'"></span>
+                        </template>
+                        @auth
+                        @if(auth()->user()->discount_percentage > 0)
+                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
+                        @endif
+                        @endauth
+                    </div>
+                    <div style="text-align:left;white-space:nowrap;">
+                        <template x-if="p.baseRate > p.price">
+                            <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="p.baseRate.toLocaleString('fa-IR')"></span>
+                        </template>
+                        @auth
+                        @if(auth()->user()->discount_percentage > 0)
+                        <template x-if="p.hostEffective < p.baseRate && p.price < p.hostEffective">
+                            <span style="font-size:10px;text-decoration:line-through;color:#f97316;margin-left:4px;" x-text="p.hostEffective.toLocaleString('fa-IR')"></span>
+                        </template>
+                        @endif
+                        @endauth
+                        <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ت'"></span>
+                    </div>
+                </div>
+            </template>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;font-weight:700;background:#f9fafb;">
+                <span>جمع کل</span>
+                <div style="display:flex;align-items:baseline;gap:6px;">
+                    <template x-if="dynamicOriginalTotal > dynamicTotal">
+                        <span style="font-size:11px;text-decoration:line-through;color:var(--bnb-gray);" x-text="dynamicOriginalTotal.toLocaleString('fa-IR')"></span>
+                    </template>
+                    @auth
+                    @if(auth()->user()->discount_percentage > 0)
+                    <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
+                        <span style="font-size:11px;text-decoration:line-through;color:#f97316;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR')"></span>
+                    </template>
+                    @endif
+                    @endauth
+                    <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                </div>
+            </div>
+        </div>
+
         {{-- Confirm dates button --}}
         <div style="display:flex;justify-content:flex-end;margin-top:16px;">
             <button type="button" @click="confirmDates()"
@@ -969,14 +1081,21 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:600px;margin:0 auto;">
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
-                    <template x-if="originalPrice > 0 && originalPrice !== pricePerNight">
-                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="(nights * originalPrice).toLocaleString('fa-IR') + ' تومان'"></span>
+                    <template x-if="dynamicOriginalTotal > dynamicTotal">
+                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                     </template>
-                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="(nights * pricePerNight).toLocaleString('fa-IR') + ' تومان'"></span>
+                    @auth
+                    @if(auth()->user()->discount_percentage > 0)
+                    <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
+                        <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    </template>
+                    @endif
+                    @endauth
+                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
                 <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر'"></div>
             </div>
-            <button type="button" @click="pay()"
+            <button type="button" data-async-btn @click="pay()"
                     class="btn-bnb"
                     style="padding:12px 28px;border-radius:12px;font-size:14px;white-space:nowrap;flex-shrink:0;">
                 <i class="bi bi-credit-card me-1"></i> پرداخت
@@ -986,10 +1105,11 @@
 
 </div>
 
-@endsection
+
+</div>
 
 @push('scripts')
-<script src="{{ asset('vendor/swiper/swiper-bundle.min.js') }}"></script>
+<script src="{{ asset('vendor/swiper/swiper-bundle.min.js') }}" defer></script>
 <script type="module">
 import PhotoSwipeLightbox from '{{ asset("vendor/photoswipe/photoswipe-lightbox.esm.min.js") }}';
 const lighthouse = new PhotoSwipeLightbox({
@@ -1104,15 +1224,32 @@ function roomsSection() {
 }
 </script>
 <script>
-function reserveRoom(btn, pricePerNight, origPrice, roomTypeId) {
+function loadTour360(placeholder) {
+    var wrapper = placeholder.parentElement;
+    var iframe = document.createElement('iframe');
+    iframe.src = 'https://360nama.com/virtualtour/realestate-tour/pasdaran-2/';
+    var scale = 1.35;
+    var pct = (100 / scale).toFixed(4) + '%';
+    var hpx = Math.round(500 / scale) + 'px';
+    iframe.style.cssText = 'display:block;width:' + pct + ';height:' + hpx + ';border:none;transform:scale(' + scale + ');transform-origin:top center;margin-left:auto;margin-right:auto;';
+    iframe.allowFullscreen = true;
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('allow', 'fullscreen; gyroscope; accelerometer; xr-spatial-tracking');
+    iframe.title = 'نمای ۳۶۰ درجه اقامتگاه';
+    wrapper.style.height = '500px';
+    wrapper.style.overflow = 'hidden';
+    placeholder.replaceWith(iframe);
+}
+function reserveRoom(btn, pricePerNight, origPrice, roomTypeId, roomCapacity) {
     var form  = btn.closest('form');
     var price = pricePerNight || 0;
-    var orig  = origPrice || price;    var rtId  = roomTypeId || null;
+    var orig  = origPrice || price;
+    var rtId  = roomTypeId || null;
+    var rtCap = roomCapacity || 1;
 
     // Read room-type meta from the card
     var card      = btn.closest('.bnb-room-card');
     var rtName    = card ? (card.querySelector('[data-rt-name]')?.dataset.rtName || '') : '';
-    var rtCap     = card ? (card.querySelector('[data-rt-cap]')?.dataset.rtCap || '') : '';
 
     var drawerEl = document.querySelector('[x-data="mbbDrawer()"]');
     if (drawerEl && typeof Alpine !== 'undefined') {
@@ -1295,6 +1432,10 @@ function mbbDrawer() {
         targetForm: null,
         pricePerNight: 0,
         originalPrice: 0,
+        // User's veteran/special-group discount injected from PHP
+        userDiscountPct: {{ auth()->check() ? (int) auth()->user()->discount_percentage : 0 }},
+        // Room capacity (guests per room) — used to compute rooms_needed for warning
+        roomTypeCapacityNum: 1,
         // Availability
         roomTypeId: null,
         roomTypeName: '',
@@ -1307,6 +1448,71 @@ function mbbDrawer() {
         get nights() {
             if (!this.checkIn || !this.checkOut) return 0;
             return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
+        },
+
+        get roomsNeeded() {
+            return Math.ceil(this.guests / Math.max(1, this.roomTypeCapacityNum));
+        },
+
+        get dynamicNightPrices() {
+            if (!this.checkIn || !this.checkOut) return [];
+            const prices = [];
+            const g = this.guests;
+            let d = new Date(this.checkIn + 'T12:00:00');
+            const end = new Date(this.checkOut + 'T12:00:00');
+            while (d < end) {
+                const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                const avail = this.availabilityData[key];
+                const baseRatePerPerson      = this.originalPrice || this.pricePerNight;
+                const hostEffectivePerPerson = (avail && avail.effective_price != null) ? avail.effective_price : baseRatePerPerson;
+                const hostDiscountPct        = (avail && avail.discount_percentage) ? avail.discount_percentage : 0;
+                const baseRate      = baseRatePerPerson * g;
+                const hostEffective = hostEffectivePerPerson * g;
+                const finalPrice    = this.userDiscountPct > 0
+                    ? Math.round(hostEffective * (1 - this.userDiscountPct / 100))
+                    : hostEffective;
+                prices.push({
+                    date: key,
+                    baseRate,
+                    hostEffective,
+                    hostDiscountPct,
+                    price: finalPrice,
+                    label: (avail && avail.price_label) ? avail.price_label : '',
+                    discount: hostDiscountPct,
+                    origPrice: baseRate,
+                });
+                d.setDate(d.getDate() + 1);
+            }
+            return prices;
+        },
+
+        get dynamicTotal() {
+            const prices = this.dynamicNightPrices;
+            const g = this.guests;
+            if (!prices.length) {
+                const base = this.userDiscountPct > 0
+                    ? Math.round((this.originalPrice || this.pricePerNight) * (1 - this.userDiscountPct / 100))
+                    : (this.originalPrice || this.pricePerNight);
+                return this.nights * base * g;
+            }
+            return prices.reduce((s, p) => s + p.price, 0);
+        },
+
+        get dynamicAfterHostTotal() {
+            const prices = this.dynamicNightPrices;
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * this.guests;
+            return prices.reduce((s, p) => s + p.hostEffective, 0);
+        },
+
+        get dynamicOriginalTotal() {
+            const prices = this.dynamicNightPrices;
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * this.guests;
+            return prices.reduce((s, p) => s + p.baseRate, 0);
+        },
+
+        get hasDynamicPricing() {
+            if (this.userDiscountPct > 0 && this.checkIn && this.checkOut) return true;
+            return this.dynamicNightPrices.some(p => p.hostDiscountPct > 0 || p.label);
         },
 
         // Minimum available rooms across the selected date range
@@ -1386,7 +1592,14 @@ function mbbDrawer() {
                     }
                 }
 
-                cells.push({ d, greg, past, isBlocked, isUnavailable, isLowAvail, hasAvailData, disabledByGap, availInfo, roomCountDisplay });
+                const rawEffective   = (avail && avail.effective_price != null) ? avail.effective_price : null;
+                const effectivePrice = rawEffective !== null && this.userDiscountPct > 0
+                    ? Math.round(rawEffective * (1 - this.userDiscountPct / 100))
+                    : rawEffective;
+                const discountPct    = (avail && avail.discount_percentage) ? avail.discount_percentage : 0;
+                const priceLabel     = (avail && avail.price_label) ? avail.price_label : '';
+
+                cells.push({ d, greg, past, isBlocked, isUnavailable, isLowAvail, hasAvailData, disabledByGap, availInfo, roomCountDisplay, effectivePrice, discountPct, priceLabel });
             }
             return cells;
         },
@@ -1517,12 +1730,55 @@ function mbbDrawer() {
 
         confirmDates() {
             if (!this.checkIn || !this.checkOut) return;
-            this.datesConfirmed = true;
-            this.drawerOpen = false;
-            // Notify rooms section to fetch availability for all room types
-            window.dispatchEvent(new CustomEvent('bnb-dates-set', {
-                detail: { checkIn: this.checkIn, checkOut: this.checkOut }
-            }));
+
+            const capacity  = this.roomTypeCapacityNum || 1;
+            const guests    = this.guests;
+            const rn        = Math.ceil(guests / capacity);
+            const totalBeds = rn * capacity;
+            const emptyBeds = totalBeds - guests;
+            const underCap  = this.roomTypeId && capacity > 1 && emptyBeds > 0;
+
+            const proceed = () => {
+                this.datesConfirmed = true;
+                this.drawerOpen = false;
+                window.dispatchEvent(new CustomEvent('bnb-dates-set', {
+                    detail: { checkIn: this.checkIn, checkOut: this.checkOut }
+                }));
+            };
+
+            if (underCap) {
+                _loadSwal().then(() => Swal.fire({
+                    title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
+                    html: `
+                        <div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
+                            <p style="margin:0 0 12px;">
+                                برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) است.
+                                <br>مجموع تخت‌های رزرو شده: <strong>${totalBeds} تخت</strong> — که <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> نیز در مبلغ نهایی محاسبه می‌شود.
+                            </p>
+                            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;">
+                                <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> پیشنهاد برای صرفه‌جویی:</div>
+                                <ul style="margin:0;padding-right:18px;color:#78350f;">
+                                    <li style="margin-bottom:4px;">اتاق با ظرفیت <strong>${guests % capacity === 0 ? capacity : guests % capacity} نفر</strong> (برای آخرین گروه) انتخاب کنید.</li>
+                                    <li>یا برای هر گروه به‌صورت جداگانه رزرو انجام دهید.</li>
+                                </ul>
+                            </div>
+                        </div>`,
+                    icon: 'warning',
+                    showConfirmButton: false,
+                    showCancelButton: true,
+                    cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
+                    cancelButtonColor: '#ff385c',
+                    customClass: { popup: 'swal-bnb-popup' },
+                    didOpen: () => {
+                        const popup = Swal.getPopup();
+                        if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
+                        const container = document.querySelector('.swal2-container');
+                        if (container) container.style.zIndex = '9999';
+                    }
+                }));
+            } else {
+                proceed();
+            }
         },
 
         pay() {
@@ -1530,7 +1786,7 @@ function mbbDrawer() {
             const form = this.targetForm;
             const ci = form.querySelector('.rt-check-in');
             const co = form.querySelector('.rt-check-out');
-            const g  = form.querySelector('input[name="guests"]');
+            const g  = form.querySelector('.rt-guests') || form.querySelector('input[name="guests"]');
             if (ci) ci.value = this.checkIn;
             if (co) co.value = this.checkOut;
             if (g)  g.value  = this.guests;
@@ -1538,12 +1794,13 @@ function mbbDrawer() {
         },
 
         openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap) {
-            this.targetForm       = form;
-            this.pricePerNight    = price;
-            this.originalPrice    = origPrice || price;
-            this.roomTypeName     = rtName || '';
-            this.roomTypeCapacity = rtCap || '';
-            this.datesConfirmed   = false;
+            this.targetForm          = form;
+            this.pricePerNight       = price;
+            this.originalPrice       = origPrice || price;
+            this.roomTypeName        = rtName || '';
+            this.roomTypeCapacity    = String(rtCap) || '';
+            this.roomTypeCapacityNum = parseInt(rtCap) || 1;
+            this.datesConfirmed      = false;
 
             // Always clear cached availability so new room type gets fresh data
             const roomChanged     = this.roomTypeId !== (roomTypeId || null);
@@ -1582,6 +1839,23 @@ function mbbDrawer() {
     };
 }
 
+// Lazy-load SweetAlert2 on demand (saves ~50KB on initial page load)
+var _swalLoaded = false;
+function _loadSwal() {
+    if (_swalLoaded || window.Swal) { _swalLoaded = true; return Promise.resolve(); }
+    return new Promise(function(resolve, reject) {
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '{{ asset("vendor/sweetalert2/sweetalert2.min.css") }}';
+        document.head.appendChild(link);
+        var script = document.createElement('script');
+        script.src = '{{ asset("vendor/sweetalert2/sweetalert2.min.js") }}';
+        script.onload = function() { _swalLoaded = true; resolve(); };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 function highlightStars(count) {
     document.querySelectorAll('#starSelector .bi').forEach(function(el, i) { el.className = 'bi bi-star' + (i < count ? '-fill' : ''); });
 }
@@ -1596,32 +1870,48 @@ if (starSelector) {
 }
 
 @if($accommodation->lat && $accommodation->lng)
-document.addEventListener('DOMContentLoaded', function() {
-    var detailMap = L.map('detailMap').setView([{{ $accommodation->lat }}, {{ $accommodation->lng }}], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(detailMap);
-    L.marker([{{ $accommodation->lat }}, {{ $accommodation->lng }}]).bindPopup('<strong>{{ $accommodation->name }}</strong>').addTo(detailMap).openPopup();
-});
+(function() {
+    var mapInit = false;
+    var obs = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting && !mapInit) {
+            mapInit = true;
+            obs.disconnect();
+            var detailMap = new L.Map('detailMap', {
+                key: 'web.75d28da947f74d85972934574838fa0e',
+                maptype: 'dreamy',
+                center: [{{ $accommodation->lat }}, {{ $accommodation->lng }}],
+                zoom: 14,
+            });
+            L.marker([{{ $accommodation->lat }}, {{ $accommodation->lng }}]).bindPopup('<strong>{{ $accommodation->name }}</strong>').addTo(detailMap).openPopup();
+        }
+    }, { rootMargin: '200px' });
+    var el = document.getElementById('detailMap');
+    if (el) obs.observe(el);
+})();
 @endif
 
+var _bnbScrollRAF = null;
 window.addEventListener('scroll', function() {
-    var sections = ['sec-info','sec-amenities','sec-rooms','sec-reviews','sec-map'];
-    var tabs = document.querySelectorAll('.bnb-sticky-tab');
-    var nav = document.getElementById('bnbNavbar');
-    // We use a more robust check for height
-    var navHeight = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
-    var tabsHeight = 50; // Approximated height of .bnb-sticky-tabs
-    var offset = navHeight + tabsHeight + 10;
-    
-    var active = 'sec-info';
-    sections.forEach(function(id) { 
-        var el = document.getElementById(id); 
-        if (el && window.scrollY >= el.offsetTop - offset) active = id; 
+    if (_bnbScrollRAF) return;
+    _bnbScrollRAF = requestAnimationFrame(function() {
+        _bnbScrollRAF = null;
+        var sections = ['sec-info','sec-amenities','sec-360','sec-rooms','sec-reviews','sec-map'];
+        var tabs = document.querySelectorAll('.bnb-sticky-tab');
+        var nav = document.getElementById('bnbNavbar');
+        var navHeight = (nav && nav.classList.contains('is-mini')) ? 64 : 80;
+        var tabsHeight = 50;
+        var offset = navHeight + tabsHeight + 10;
+        var active = 'sec-info';
+        sections.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && window.scrollY >= el.offsetTop - offset) active = id;
+        });
+        tabs.forEach(function(tab) {
+            tab.classList.remove('active');
+            if (tab.getAttribute('href') === '#' + active) tab.classList.add('active');
+        });
     });
-    tabs.forEach(function(tab) { 
-        tab.classList.remove('active'); 
-        if (tab.getAttribute('href') === '#' + active) tab.classList.add('active'); 
-    });
-});
+}, { passive: true });
 
 // Smooth scroll with correct offset for anchors
 document.querySelectorAll('.bnb-sticky-tab, .bnb-location-link, .bnb-rating-count').forEach(anchor => {
@@ -1653,8 +1943,7 @@ function toggleWishlist(btn, id) {
     @guest
     window.location.href = '{{ route('auth.mobile') }}';
     return;
-    @endguest
-
+    @else
     fetch('{{ url('/favorites') }}/' + id + '/toggle', {
         method: 'POST',
         headers: {
@@ -1675,6 +1964,7 @@ function toggleWishlist(btn, id) {
             _userFavorites = _userFavorites.filter(function(x){ return x !== id; });
         }
     });
+    @endguest
 }
 
 (function () {

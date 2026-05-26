@@ -1,11 +1,8 @@
-@extends('layouts.admin')
-@section('title', 'پروفایل کاربر')
-@section('page-title', 'جزئیات کاربر')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-warning"><i class="bi bi-pencil me-1"></i>ویرایش</a>
+    <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
+    <a wire:navigate href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-warning"><i class="bi bi-pencil me-1"></i>ویرایش</a>
     <h5 class="fw-bold mb-0">{{ $user->name ?? $user->mobile }}</h5>
 </div>
 
@@ -44,16 +41,13 @@
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small"><i class="bi bi-shield-check me-1"></i>تغییر نقش</div>
             <div class="card-body">
-                <form action="{{ route('admin.users.role', $user) }}" method="POST">
-                    @csrf
-                    <select name="role" class="form-select form-select-sm mb-2">
-                        <option value="">انتخاب نقش</option>
-                        <option value="super_admin" {{ $user->hasRole('super_admin') ? 'selected' : '' }}>super_admin</option>
-                        <option value="host" {{ $user->hasRole('host') ? 'selected' : '' }}>host</option>
-                        <option value="guest" {{ $user->hasRole('guest') ? 'selected' : '' }}>guest</option>
-                    </select>
-                    <button class="btn btn-sm btn-primary w-100">ذخیره نقش</button>
-                </form>
+                <select wire:model="selectedRole" class="form-select form-select-sm mb-2">
+                    <option value="">انتخاب نقش</option>
+                    <option value="super_admin">super_admin</option>
+                    <option value="host">host</option>
+                    <option value="guest">guest</option>
+                </select>
+                <button wire:click="assignRole" class="btn btn-sm btn-primary w-100">ذخیره نقش</button>
             </div>
         </div>
     </div>
@@ -108,4 +102,5 @@
         @endif
     </div>
 </div>
-@endsection
+
+</div>

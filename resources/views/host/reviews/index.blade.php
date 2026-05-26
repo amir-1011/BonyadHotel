@@ -1,8 +1,5 @@
-@extends('layouts.host')
-@section('title', 'نظرات مهمانان')
-@section('page-title', 'نظرات مهمانان')
+<div>
 
-@section('content')
 
 {{-- Stats Row --}}
 <div class="row g-3 mb-4">
@@ -63,33 +60,34 @@
 {{-- Filters --}}
 <div class="card shadow-sm mb-4">
     <div class="card-body py-2">
-        <form method="GET" class="row g-2 align-items-end">
+        <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
-                <select name="accommodation_id" class="form-select form-select-sm">
-                    <option value="">همه اقامتگاه‌ها</option>
+                <select wire:model.live="accommodationId" class="form-select form-select-sm">
+                    <option value="0">همه اقامتگاه‌ها</option>
                     @foreach($myAccommodations as $a)
-                    <option value="{{ $a->id }}" {{ request('accommodation_id') == $a->id ? 'selected' : '' }}>{{ $a->name }}</option>
+                    <option value="{{ $a->id }}">{{ $a->name }}</option>
                     @endforeach
                 </select>
             </div>
             <div class="col-6 col-md-2">
-                <select name="rating" class="form-select form-select-sm">
-                    <option value="">همه امتیازها</option>
+                <select wire:model.live="rating" class="form-select form-select-sm">
+                    <option value="0">همه امتیازها</option>
                     @for($i=5;$i>=1;$i--)
-                    <option value="{{ $i }}" {{ request('rating') == $i ? 'selected' : '' }}>{{ $i }} ستاره</option>
+                    <option value="{{ $i }}">{{ $i }} ستاره</option>
                     @endfor
                 </select>
             </div>
             <div class="col-6 col-md-2">
-                <select name="replied" class="form-select form-select-sm">
+                <select wire:model.live="replied" class="form-select form-select-sm">
                     <option value="">همه</option>
-                    <option value="0" {{ request('replied')==='0' ? 'selected' : '' }}>بی‌پاسخ</option>
-                    <option value="1" {{ request('replied')==='1' ? 'selected' : '' }}>پاسخ داده شده</option>
+                    <option value="0">بی‌پاسخ</option>
+                    <option value="1">پاسخ داده شده</option>
                 </select>
             </div>
-            <div class="col-6 col-md-2"><button class="btn btn-sm btn-success w-100">فیلتر</button></div>
-            <div class="col-6 col-md-2"><a href="{{ route('host.reviews.index') }}" class="btn btn-sm btn-outline-secondary w-100">پاک کردن</a></div>
-        </form>
+            <div class="col-6 col-md-2">
+                <input wire:model.live="search" type="text" class="form-control form-control-sm" placeholder="جستجو...">
+            </div>
+        </div>
     </div>
 </div>
 
@@ -118,12 +116,12 @@
                     <span class="text-muted small me-1">({{ $review->rating }}/۵)</span>
                 </div>
                 {{-- Accommodation badge --}}
-                <a href="{{ route('host.accommodations.edit', $review->accommodation) }}" class="badge bg-primary text-decoration-none">
+                <a wire:navigate href="{{ route('host.accommodations.edit', $review->accommodation) }}" class="badge bg-primary text-decoration-none">
                     <i class="bi bi-building me-1"></i>{{ Str::limit($review->accommodation->name ?? '', 25) }}
                 </a>
                 {{-- Booking link --}}
                 @if($review->booking_id)
-                <a href="{{ route('host.bookings.show', $review->booking_id) }}" class="badge bg-secondary text-decoration-none">
+                <a wire:navigate href="{{ route('host.bookings.show', $review->booking_id) }}" class="badge bg-secondary text-decoration-none">
                     <i class="bi bi-calendar-check me-1"></i>رزرو
                 </a>
                 @endif
@@ -152,50 +150,45 @@
             </div>
             <div>{{ $review->host_reply }}</div>
             <div class="mt-2 d-flex gap-2">
-                <button class="btn btn-sm btn-outline-success" onclick="toggleReplyForm({{ $review->id }})">
+                <button wire:click="startReply({{ $review->id }})" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-pencil me-1"></i>ویرایش پاسخ
                 </button>
-                <form action="{{ route('host.reviews.reply.delete', $review) }}" method="POST" onsubmit="return confirm('پاسخ حذف شود؟')">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash me-1"></i>حذف پاسخ
-                    </button>
-                </form>
+                <button wire:click="deleteReply({{ $review->id }})" data-swal-confirm="پاسخ حذف شود؟" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash me-1"></i>حذف پاسخ
+                </button>
             </div>
         </div>
         @endif
 
-        {{-- Reply form (hidden if already replied, shown if not) --}}
-        <div id="reply-form-{{ $review->id }}" {{ $review->host_reply ? 'style=display:none' : '' }}>
-            <form action="{{ route('host.reviews.reply', $review) }}" method="POST">
-                @csrf
+        {{-- Reply form (shown when this review is being replied to) --}}
+        @if($replyingTo === $review->id)
+        <div>
+            <form wire:submit.prevent="submitReply">
                 <div class="mb-2">
                     <label class="form-label fw-semibold small">
                         <i class="bi bi-reply-fill text-success me-1"></i>
                         {{ $review->host_reply ? 'ویرایش پاسخ' : 'ثبت پاسخ به مهمان' }}
                     </label>
-                    <textarea name="host_reply" class="form-control @error('host_reply') is-invalid @enderror" rows="3"
-                        placeholder="پاسخ خود را به این نظر بنویسید...">{{ old('host_reply', $review->host_reply) }}</textarea>
-                    @error('host_reply')
-                        <div class="invalid-feedback">{{ $message }}</div>
+                    <textarea wire:model="replyText" class="form-control" rows="3"
+                        placeholder="پاسخ خود را به این نظر بنویسید..."></textarea>
+                    @error('replyText')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-success btn-sm">
                         <i class="bi bi-send me-1"></i>ارسال پاسخ
                     </button>
-                    @if($review->host_reply)
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleReplyForm({{ $review->id }})">
+                    <button type="button" wire:click="$set('replyingTo', null)" class="btn btn-outline-secondary btn-sm">
                         انصراف
                     </button>
-                    @endif
                 </div>
             </form>
         </div>
-
-        {{-- Show reply form button (if already replied) --}}
-        @if(!$review->host_reply)
-        {{-- already shown by default --}}
+        @elseif(!$review->host_reply)
+        <button wire:click="startReply({{ $review->id }})" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-reply me-1"></i>ثبت پاسخ
+        </button>
         @endif
 
     </div>
@@ -213,7 +206,8 @@
 {{-- Pagination --}}
 <div class="mt-3">{{ $reviews->links() }}</div>
 
-@endsection
+
+</div>
 
 @push('scripts')
 <script>

@@ -1,30 +1,26 @@
 @extends('layouts.host')
-@section('title', 'مدیریت اتاق‌ها — ' . $accommodation->name)
-@section('page-title', 'مدیریت اتاق‌ها')
 
 @section('content')
+<div>
+
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
         <h5 class="fw-bold mb-0"><i class="bi bi-door-open me-2"></i>اتاق‌های {{ $accommodation->name }}</h5>
         <div class="text-muted small mt-1">
-            <a href="{{ route('host.accommodations.index') }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اقامتگاه‌ها</a>
+            <a wire:navigate href="{{ route('host.accommodations.index') }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اقامتگاه‌ها</a>
         </div>
     </div>
-    <a href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success btn-sm">
+    <a wire:navigate href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success btn-sm">
         <i class="bi bi-plus-lg me-1"></i>اتاق جدید
     </a>
 </div>
-
-@if(session('status'))
-    <div class="alert alert-success alert-dismissible fade show">{{ session('status') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-@endif
 
 @if($roomTypes->isEmpty())
 <div class="card shadow-sm text-center py-5">
     <div class="text-muted mb-3"><i class="bi bi-door-open fs-1"></i></div>
     <h6>هنوز اتاقی تعریف نشده است</h6>
     <p class="text-muted small">با تعریف انواع اتاق و تعرفه‌ها، مهمانان می‌توانند اتاق موردنظر را انتخاب کنند.</p>
-    <a href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success mt-2">تعریف اولین اتاق</a>
+    <a wire:navigate href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success mt-2">تعریف اولین اتاق</a>
 </div>
 @else
 <div class="row g-3">
@@ -90,13 +86,13 @@
                 </div>
             </div>
             <div class="card-footer bg-white d-flex gap-2 flex-wrap">
-                <a href="{{ route('host.room-types.edit', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-warning">
+                <a wire:navigate href="{{ route('host.room-types.edit', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-warning">
                     <i class="bi bi-pencil me-1"></i>ویرایش و مدیریت تعرفه‌ها
                 </a>
-                <a href="{{ route('host.room-types.blocked-dates', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-secondary">
+                <a wire:navigate href="{{ route('host.room-types.blocked-dates', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-calendar-x me-1"></i>مسدودسازی تاریخ
                 </a>
-                <a href="{{ route('host.room-types.daily-availability', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-primary">
+                <a wire:navigate href="{{ route('host.room-types.daily-availability', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-sliders me-1"></i>ظرفیت روزانه
                 </a>
                 <form action="{{ route('host.room-types.destroy', [$accommodation, $rt]) }}" method="POST"
@@ -110,4 +106,6 @@
     @endforeach
 </div>
 @endif
+
+</div>
 @endsection

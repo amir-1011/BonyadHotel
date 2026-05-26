@@ -1,6 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'تنظیم ظرفیت روزانه — ' . $roomType->name)
-@section('page-title', 'مدیریت ظرفیت روزانه')
+
 
 @push('styles')
 <style>
@@ -32,10 +31,24 @@
     background-image:repeating-linear-gradient(-45deg,transparent,transparent 4px,rgba(220,38,38,.12) 4px,rgba(220,38,38,.12) 5px);
 }
 .day-cal-cell.has-override::after { content:'✎'; position:absolute; top:1px; left:3px; font-size:8px; opacity:.7; }
+/* Price & interaction */
+.day-cal-cell.has-price-ovr { cursor:pointer; }
+.day-cal-cell.has-price-ovr:hover { filter:brightness(.92); transform:scale(1.06); z-index:1; transition:.1s; }
+.day-cal-cell.clickable { cursor:pointer; }
+.day-cal-cell.clickable:hover { filter:brightness(.92); }
+.price-badge { font-size:7px; font-weight:700; line-height:1; margin-top:1px; white-space:nowrap; color:inherit; }
+.disc-badge { position:absolute; top:1px; right:2px; font-size:7px; background:#dc2626; color:#fff; border-radius:2px; padding:0 2px; line-height:1.4; }
+.label-badge { font-size:7px; opacity:.8; margin-top:1px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+/* Weekday chips */
+.wd-chip { display:inline-flex; align-items:center; justify-content:center; width:32px; height:28px; border-radius:6px; border:1.5px solid #dee2e6; font-size:11px; font-weight:600; cursor:pointer; user-select:none; transition:.15s; }
+.wd-chip.active { background:#0d6efd; border-color:#0d6efd; color:#fff; }
 </style>
 @endpush
 
 @section('content')
+
+<div>
+
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
@@ -43,19 +56,12 @@
             <i class="bi bi-sliders me-2 text-primary"></i>تنظیم ظرفیت روزانه — {{ $roomType->name }}
         </h5>
         <div class="text-muted small">
-            <a href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت</a>
+            <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت</a>
             <span class="mx-1">·</span>{{ $accommodation->name }}
             <span class="mx-1">·</span>حداکثر ظرفیت کل: <strong>{{ $roomType->room_count }} اتاق</strong>
         </div>
     </div>
 </div>
-
-@if(session('status'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm">
-        <i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
 
 <div class="row g-4">
     <div class="col-lg-4">
@@ -96,13 +102,66 @@
                         <div class="form-text">صفر = بسته بودن کامل اتاق در آن بازه</div>
                         @error('available_count')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">قیمت سفارشی شب (اختیاری)</label>
+                        <div class="input-group">
+                            <input type="number" name="custom_price"
+                                   class="form-control @error('custom_price') is-invalid @enderror"
+                                   min="0" step="1000" placeholder="خالی = قیمت پایه تعریف‌شده"
+                                   value="{{ old('custom_price') }}">
+                            <span class="input-group-text">تومان</span>
+                        </div>
+                        @error('custom_price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">تخفیف %</label>
+                            <input type="number" name="discount_percentage"
+                                   class="form-control @error('discount_percentage') is-invalid @enderror"
+                                   min="0" max="100" placeholder="۰ تا ۱۰۰"
+                                   value="{{ old('discount_percentage') }}">
+                            @error('discount_percentage')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">برچسب قیمت</label>
+                            <input type="text" name="price_label"
+                                   class="form-control @error('price_label') is-invalid @enderror"
+                                   placeholder="پیک، نوروز، تابستان..."
+                                   maxlength="60" value="{{ old('price_label') }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">فیلتر روزهای هفته (اختیاری)</label>
+                        <div class="d-flex gap-1 flex-wrap mb-1" id="wdChips">
+                            @foreach([6=>'ش',7=>'ی',1=>'د',2=>'س',3=>'چ',4=>'پ',5=>'ج'] as $iso => $lbl)
+                                <div class="wd-chip" data-iso="{{ $iso }}" onclick="toggleWd(this)">{{ $lbl }}</div>
+                            @endforeach
+                        </div>
+                        <div class="d-flex gap-1 mb-1">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectAllWd()">همه</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectWeekend()">آخر هفته</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectWorkdays()">روزهای کاری</button>
+                        </div>
+                        <div id="wdHiddenInputs"></div>
+                        <div class="form-text">انتخاب نشده = اعمال روی همه روزهای بازه</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-lightning-charge me-1"></i>الگوهای سریع:</div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyPreset({weekdays:[4,5],label:'پیک'})">آخر هفته (پیک)</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="applyPreset({weekdays:[6,7,1,2,3],label:'آف‌پیک'})">روزهای کاری</button>
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="applyPreset({label:'نوروز',discount:10})">نوروز +۱۰%</button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="applyPreset({label:'تابستان'})">تابستان</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="applyPreset({label:'زمستان',discount:15})">زمستان +۱۵%</button>
+                        </div>
+                    </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">دلیل (اختیاری)</label>
                         <input type="text" name="reason" class="form-control"
                                placeholder="مثال: تعمیرات، نظافت عمیق..."
                                value="{{ old('reason') }}" maxlength="200">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100" onclick="syncHiddenWeekdays()">
                         <i class="bi bi-floppy me-2"></i>ذخیره تنظیمات
                     </button>
                 </form>
@@ -156,8 +215,14 @@
                             $avail    = $availabilityMap[$dateStr] ?? null;
                             $jDay     = Jalalian::fromCarbon(\Carbon\Carbon::parse($dateStr))->getDay();
                             $cellCls  = 'c-free'; $subtitle = ''; $hasOvr = false;
+                            $cellDisc = 0; $cellLabel = ''; $hasPriceOvr = false; $priceDisplay = '';
                             if ($avail) {
-                                $hasOvr = $avail['has_override'];
+                                $hasOvr     = $avail['has_override'];
+                                $hasPriceOvr = $avail['has_price_override'] ?? false;
+                                $cellDisc   = (int)($avail['discount_percentage'] ?? 0);
+                                $cellLabel  = $avail['price_label'] ?? '';
+                                $effPrice   = (int)($avail['effective_price'] ?? $avail['default_price'] ?? 0);
+                                if ($effPrice > 0 && $hasPriceOvr) $priceDisplay = number_format($effPrice/10, 0, '.', ','). 'ت';
                                 if ($avail['is_blocked'])                             { $cellCls = 'c-blocked'; $subtitle = 'مسدود'; }
                                 elseif ($hasOvr && $avail['total'] === 0)             { $cellCls = 'c-override-zero'; $subtitle = '۰ اتاق'; }
                                 elseif ($hasOvr)                                      { $cellCls = $avail['available_rooms'] <= 0 ? 'c-full' : 'c-override'; $subtitle = $avail['available_rooms'].'/'.$avail['total']; }
@@ -166,10 +231,21 @@
                                 else                                                  { $subtitle = $avail['total'].' اتاق'; }
                             }
                         @endphp
-                        <div class="day-cal-cell {{ $cellCls }} {{ $isPast ? 'past' : '' }} {{ $hasOvr ? 'has-override' : '' }}"
-                             title="{{ $dateStr }}{{ $avail ? ' — '.$avail['available_rooms'].' از '.$avail['total'].' آزاد'.($hasOvr?' (دستی)':'') : '' }}">
+                        <div class="day-cal-cell {{ $cellCls }} {{ $isPast ? 'past' : '' }} {{ $hasOvr ? 'has-override' : '' }} {{ !$isPast ? 'clickable' : '' }}"
+                             data-greg="{{ $dateStr }}"
+                             data-jalali="{{ Jalalian::fromCarbon(\Carbon\Carbon::parse($dateStr))->format('Y/m/d') }}"
+                             data-avail="{{ $avail['override_count'] ?? $roomType->room_count }}"
+                             data-price="{{ $avail['custom_price'] ?? '' }}"
+                             data-disc="{{ $cellDisc ?: '' }}"
+                             data-label="{{ $cellLabel }}"
+                             title="{{ $dateStr }}{{ $avail ? ' — '.$avail['available_rooms'].' از '.$avail['total'].' آزاد'.($hasOvr?' (دستی)':'') : '' }}"
+                             @if(!$isPast) onclick="openDayModal(this,'{{ route('admin.room-types.daily-availability.store', [$accommodation, $roomType]) }}')"
+                             @endif>
+                            @if($cellDisc > 0 && !$isPast)<div class="disc-badge">{{ $cellDisc }}%</div>@endif
                             <div class="cd">{{ $jDay }}</div>
                             @if($subtitle && !$isPast)<div class="cs">{{ $subtitle }}</div>@endif
+                            @if($cellLabel && !$isPast)<div class="label-badge">{{ $cellLabel }}</div>@endif
+                            @if($priceDisplay && !$isPast)<div class="price-badge">{{ $priceDisplay }}</div>@endif
                         </div>
                         @endfor
                     </div>
@@ -191,13 +267,16 @@
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
-                            <tr><th>تاریخ خورشیدی</th><th>اتاق موجود</th><th>دلیل</th><th class="text-end">عملیات</th></tr>
+                            <tr><th>تاریخ خورشیدی</th><th>اتاق موجود</th><th>قیمت سفارشی</th><th>تخفیف</th><th>برچسب</th><th>دلیل</th><th class="text-end">عملیات</th></tr>
                         </thead>
                         <tbody>
                         @foreach($overrides as $ov)
                         <tr>
                             <td class="fw-semibold">{{ \Morilog\Jalali\Jalalian::fromCarbon($ov->date)->format('Y/m/d') }}</td>
                             <td><span class="badge {{ $ov->available_count === 0 ? 'bg-danger' : 'bg-primary' }}">{{ $ov->available_count }} از {{ $roomType->room_count }}</span></td>
+                            <td class="text-muted small">{{ $ov->custom_price ? number_format($ov->custom_price / 10, 0, '.', ',').' ت' : '—' }}</td>
+                            <td class="text-muted small">{{ $ov->discount_percentage ? $ov->discount_percentage.'%' : '—' }}</td>
+                            <td class="text-muted small">{{ $ov->price_label ?: '—' }}</td>
                             <td class="text-muted">{{ $ov->reason ?: '—' }}</td>
                             <td class="text-end">
                                 <form action="{{ route('admin.room-types.daily-availability.destroy', [$accommodation, $roomType, $ov]) }}"
@@ -217,4 +296,73 @@
     </div>
 
 </div>
+
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+function toggleWd(el) { el.classList.toggle('active'); }
+function selectAllWd() { document.querySelectorAll('#wdChips .wd-chip').forEach(c => c.classList.remove('active')); }
+function selectWeekend() {
+    selectAllWd();
+    [4, 5].forEach(iso => {
+        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
+        if (el) el.classList.add('active');
+    });
+}
+function selectWorkdays() {
+    selectAllWd();
+    [6, 7, 1, 2, 3].forEach(iso => {
+        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
+        if (el) el.classList.add('active');
+    });
+}
+function syncHiddenWeekdays() {
+    const cont = document.getElementById('wdHiddenInputs');
+    if (!cont) return;
+    cont.innerHTML = '';
+    document.querySelectorAll('#wdChips .wd-chip.active').forEach(c => {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'weekdays[]';
+        inp.value = c.dataset.iso;
+        cont.appendChild(inp);
+    });
+}
+function applyPreset({ weekdays = [], label = '', discount = 0 } = {}) {
+    selectAllWd();
+    weekdays.forEach(iso => {
+        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
+        if (el) el.classList.add('active');
+    });
+    const lblEl = document.querySelector('[name=price_label]');
+    const discEl = document.querySelector('[name=discount_percentage]');
+    if (label && lblEl) lblEl.value = label;
+    if (discount && discEl) discEl.value = discount;
+}
+function openDayModal(cell, formAction) {
+    if (cell.classList.contains('past')) return;
+    const form = document.querySelector('form[action="' + formAction + '"]');
+    if (!form) return;
+    const jal = cell.dataset.jalali;
+    if (jal) {
+        form.querySelector('[name=date_from]').value = jal;
+        form.querySelector('[name=date_to]').value = jal;
+    }
+    const avail = cell.dataset.avail;
+    if (avail) form.querySelector('[name=available_count]').value = avail;
+    const priceEl = form.querySelector('[name=custom_price]');
+    const discEl  = form.querySelector('[name=discount_percentage]');
+    const lblEl   = form.querySelector('[name=price_label]');
+    if (priceEl) priceEl.value = cell.dataset.price || '';
+    if (discEl)  discEl.value  = cell.dataset.disc  || '';
+    if (lblEl)   lblEl.value   = cell.dataset.label || '';
+    // clear weekday chips (single-day edit)
+    selectAllWd();
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    form.querySelector('[name=date_from]').focus();
+}
+</script>
+@endpush

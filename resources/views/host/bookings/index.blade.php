@@ -1,34 +1,32 @@
-@extends('layouts.host')
-@section('title', 'رزروهای اقامتگاه')
-@section('page-title', 'رزروهای اقامتگاه')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2"></i>رزروها ({{ $bookings->total() }})</h5>
 </div>
 
 <div class="card shadow-sm mb-3">
     <div class="card-body py-2">
-        <form method="GET" class="row g-2">
+        <div class="row g-2">
             <div class="col-6 col-md-3">
-                <select name="status" class="form-select form-select-sm">
+                <select wire:model.live="status" class="form-select form-select-sm">
                     <option value="">همه وضعیت‌ها</option>
-                    <option value="pending" {{ request('status')=='pending'?'selected':'' }}>در انتظار</option>
-                    <option value="confirmed" {{ request('status')=='confirmed'?'selected':'' }}>تأیید شده</option>
-                    <option value="cancelled" {{ request('status')=='cancelled'?'selected':'' }}>لغو شده</option>
+                    <option value="pending">در انتظار</option>
+                    <option value="confirmed">تأیید شده</option>
+                    <option value="cancelled">لغو شده</option>
                 </select>
             </div>
             <div class="col-6 col-md-4">
-                <select name="accommodation_id" class="form-select form-select-sm">
-                    <option value="">همه اقامتگاه‌ها</option>
+                <select wire:model.live="accommodationId" class="form-select form-select-sm">
+                    <option value="0">همه اقامتگاه‌ها</option>
                     @foreach($myAccommodations as $a)
-                    <option value="{{ $a->id }}" {{ request('accommodation_id') == $a->id ? 'selected' : '' }}>{{ $a->name }}</option>
+                    <option value="{{ $a->id }}">{{ $a->name }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-3 col-md-2"><button class="btn btn-sm btn-primary w-100">فیلتر</button></div>
-            <div class="col-3 col-md-2"><a href="{{ route('host.bookings.index') }}" class="btn btn-sm btn-outline-secondary w-100">پاک</a></div>
-        </form>
+            <div class="col-3 col-md-2">
+                <input wire:model.live="search" type="text" class="form-control form-control-sm" placeholder="جستجو...">
+            </div>
+        </div>
     </div>
 </div>
 
@@ -51,18 +49,12 @@
                     <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                     <td>
                         <div class="d-flex gap-1">
-                            <a href="{{ route('host.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;"><i class="bi bi-eye"></i></a>
+                            <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;"><i class="bi bi-eye"></i></a>
                             @if($b->status === 'pending')
-                            <form action="{{ route('host.bookings.confirm', $b) }}" method="POST">
-                                @csrf
-                                <button class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check"></i></button>
-                            </form>
+                            <button wire:click="confirm({{ $b->id }})" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check"></i></button>
                             @endif
                             @if($b->status !== 'cancelled')
-                            <form action="{{ route('host.bookings.cancel', $b) }}" method="POST" onsubmit="return confirm('لغو شود؟')">
-                                @csrf
-                                <button class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x"></i></button>
-                            </form>
+                            <button wire:click="cancel({{ $b->id }})" data-swal-confirm="لغو شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x"></i></button>
                             @endif
                         </div>
                     </td>
@@ -75,4 +67,5 @@
     </div>
     <div class="card-footer bg-white">{{ $bookings->links() }}</div>
 </div>
-@endsection
+
+</div>

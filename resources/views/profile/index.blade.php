@@ -1,6 +1,4 @@
-@extends('layouts.app')
 
-@section('title', 'پروفایل من')
 
 @push('styles')
 <style>
@@ -135,8 +133,8 @@
 .prf-empty-icon { font-size: 46px; margin-bottom: 12px; }
 </style>
 @endpush
+<div>
 
-@section('content')
 <div class="container-xxl px-3 px-lg-4">
 <div class="prf-layout">
 
@@ -206,7 +204,7 @@
             <div class="prf-card-body" style="display:flex;flex-direction:column;gap:10px;">
 
                 @if(Auth::user()->hasRole('admin'))
-                <a href="{{ route('admin.dashboard') }}"
+                <a href="{{ route('admin.dashboard') }}" wire:navigate
                    style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bnb-bg-light);border-radius:10px;text-decoration:none;color:var(--bnb-dark);font-size:14px;font-weight:600;transition:background .15s;"
                    onmouseover="this.style.background='#ffe8ee'" onmouseout="this.style.background='var(--bnb-bg-light)'">
                     <i class="bi bi-shield-lock-fill" style="color:var(--bnb-red);font-size:17px;"></i>
@@ -214,7 +212,7 @@
                     <i class="bi bi-chevron-left ms-auto" style="font-size:11px;color:var(--bnb-gray);"></i>
                 </a>
                 @elseif(Auth::user()->hasRole('host'))
-                <a href="{{ route('host.dashboard') }}"
+                <a href="{{ route('host.dashboard') }}" wire:navigate
                    style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bnb-bg-light);border-radius:10px;text-decoration:none;color:var(--bnb-dark);font-size:14px;font-weight:600;transition:background .15s;"
                    onmouseover="this.style.background='#ffe8ee'" onmouseout="this.style.background='var(--bnb-bg-light)'">
                     <i class="bi bi-house-gear-fill" style="color:var(--bnb-red);font-size:17px;"></i>
@@ -279,7 +277,7 @@
                 </span>
                 <span class="prf-meta-chip"><i class="bi bi-moon"></i>{{ $booking->nights }} شب</span>
                 <span class="prf-meta-chip"><i class="bi bi-hash"></i>{{ $booking->tracking_code }}</span>
-                <a href="{{ route('bookings.show', $booking) }}"
+                <a href="{{ route('bookings.show', $booking) }}" wire:navigate
                    class="prf-meta-chip text-decoration-none"
                    style="color:var(--bnb-red);background:rgba(255,56,92,.07);font-weight:600;">
                     <i class="bi bi-eye"></i>جزئیات
@@ -291,7 +289,7 @@
             <div class="prf-empty-icon">📅</div>
             <p style="font-size:15px;font-weight:600;color:var(--bnb-dark);margin-bottom:6px;">رزروی ثبت نشده</p>
             <p style="font-size:13px;margin-bottom:20px;">هنوز هیچ رزروی انجام نداده‌اید.</p>
-            <a href="{{ route('home') }}" class="btn-bnb" style="display:inline-block;text-decoration:none;padding:10px 28px;">جستجوی اقامتگاه</a>
+            <a href="{{ route('home') }}" wire:navigate class="btn-bnb" style="display:inline-block;text-decoration:none;padding:10px 28px;">جستجوی اقامتگاه</a>
         </div>
         @endforelse
 
@@ -300,4 +298,5 @@
 
 </div>
 </div>
-@endsection
+
+</div>

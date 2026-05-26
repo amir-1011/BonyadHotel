@@ -1,15 +1,13 @@
-@extends('layouts.app')
+<div>
 
-@section('title', 'جزئیات رزرو')
 
-@section('content')
 <div class="container-xxl px-3 px-lg-4" style="padding-top:32px;padding-bottom:48px;">
 <div style="max-width:720px;margin:0 auto;">
 
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 style="font-size:22px;font-weight:700;color:var(--bnb-dark);margin:0;">جزئیات رزرو</h1>
-        <a href="{{ route('bookings.index') }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-arrow-right me-1"></i>رزروهای من</a>
+        <a href="{{ route('bookings.index') }}" wire:navigate class="bnb-filter-pill text-decoration-none"><i class="bi bi-arrow-right me-1"></i>رزروهای من</a>
     </div>
 
     {{-- Tracking code --}}
@@ -83,8 +81,6 @@
     {{-- Review section --}}
     @if($canReview)
     <div style="border:1px solid var(--bnb-border);border-radius:12px;padding:24px;" id="review-section">
-        @if(session('status'))<div class="bnb-alert bnb-alert-success mb-4"><i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}</div>@endif
-        @if($userReview)
         <h3 style="font-size:16px;font-weight:600;color:var(--bnb-dark);margin-bottom:16px;"><i class="bi bi-star-fill me-2" style="color:var(--bnb-dark);"></i>نظر ثبت‌شده شما</h3>
         <div style="background:var(--bnb-bg-light);border-radius:8px;padding:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -110,8 +106,8 @@
         </form>
         @endif
     </div>
-    @endif
 
 </div>
 </div>
-@endsection
+
+</div>

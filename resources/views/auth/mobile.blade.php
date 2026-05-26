@@ -1,8 +1,5 @@
-@extends('layouts.app')
 
-@section('title', 'ورود با شماره موبایل')
 
-@section('content')
 <div style="min-height:calc(100vh - 130px);display:flex;align-items:center;justify-content:center;padding:40px 16px;">
     <div style="width:100%;max-width:440px;">
         {{-- Logo --}}
@@ -47,4 +44,3 @@
         </div>
     </div>
 </div>
-@endsection

@@ -1,8 +1,5 @@
-@extends('layouts.admin')
-@section('title', 'مدیریت نظرات')
-@section('page-title', 'نظرات کاربران')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="fw-bold mb-0"><i class="bi bi-star me-2"></i>نظرات ({{ $reviews->total() }})</h5>
 </div>
@@ -33,7 +30,7 @@
                 <tr class="{{ $r->is_visible ? '' : 'table-secondary' }}">
                     <td>{{ $r->id }}</td>
                     <td class="small">
-                        <a href="{{ route('admin.users.show', $r->user) }}" class="text-decoration-none text-dark">
+                        <a wire:navigate href="{{ route('admin.users.show', $r->user) }}" class="text-decoration-none text-dark">
                             {{ $r->user->name ?? $r->user->mobile }}
                         </a>
                     </td>
@@ -42,7 +39,7 @@
                             {{ Str::limit($r->accommodation->name ?? '', 22) }}
                         </a>
                         <br>
-                        <a href="{{ route('admin.accommodations.edit', $r->accommodation) }}" class="text-muted" style="font-size:.7rem">
+                        <a wire:navigate href="{{ route('admin.accommodations.edit', $r->accommodation) }}" class="text-muted" style="font-size:.7rem">
                             <i class="bi bi-pencil me-1"></i>ویرایش اقامتگاه
                         </a>
                     </td>
@@ -52,22 +49,16 @@
                     <td class="small text-muted">{{ Str::limit($r->comment, 50) }}</td>
                     <td class="small text-muted">{{ $r->created_at->format('Y/m/d') }}</td>
                     <td>
-                        <form action="{{ route('admin.reviews.toggle', $r) }}" method="POST" class="d-inline">
-                            @csrf
-                            <button class="badge border-0 bg-{{ $r->is_visible ? 'success' : 'secondary' }}" type="submit" title="{{ $r->is_visible ? 'مخفی کردن' : 'نمایش دادن' }}">
+                        <button wire:click="toggle({{ $r->id }})" class="badge border-0 bg-{{ $r->is_visible ? 'success' : 'secondary' }}" title="{{ $r->is_visible ? 'مخفی کردن' : 'نمایش دادن' }}">
                                 {{ $r->is_visible ? 'نمایش' : 'مخفی' }}
                             </button>
-                        </form>
                     </td>
                     <td>
                         <div class="d-flex gap-1">
                             @if($r->booking_id)
-                            <a href="{{ route('admin.bookings.show', $r->booking_id) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزرو مربوطه"><i class="bi bi-calendar-check"></i></a>
+                            <a wire:navigate href="{{ route('admin.bookings.show', $r->booking_id) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزرو مربوطه"><i class="bi bi-calendar-check"></i></a>
                             @endif
-                            <form action="{{ route('admin.reviews.destroy', $r) }}" method="POST" onsubmit="return confirm('حذف شود؟')">
-                                @csrf @method('DELETE')
-                                <button class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>
-                            </form>
+                            <button wire:click="destroy({{ $r->id }})" data-swal-confirm="حذف شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>
@@ -79,4 +70,5 @@
     </div>
     <div class="card-footer bg-white">{{ $reviews->links() }}</div>
 </div>
-@endsection
+
+</div>

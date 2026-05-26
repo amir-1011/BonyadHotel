@@ -1,6 +1,5 @@
 @extends('layouts.host')
-@section('title', 'ویرایش اتاق — ' . $roomType->name)
-@section('page-title', 'ویرایش اتاق')
+
 
 @push('styles')
 <style>
@@ -10,15 +9,14 @@
 @endpush
 
 @section('content')
+
+<div>
+
 <div class="mb-3">
-    <a href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
+    <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
         <i class="bi bi-chevron-right me-1"></i>بازگشت به مدیریت اتاق‌های {{ $accommodation->name }}
     </a>
 </div>
-
-@if(session('status'))
-    <div class="alert alert-success alert-dismissible fade show">{{ session('status') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-@endif
 
 {{-- ── Room Type Edit Form ─────────────────────────────────────────────── --}}
 <div class="card shadow-sm mb-4">
@@ -32,7 +30,7 @@
                 <button type="submit" class="btn btn-warning">
                     <i class="bi bi-check-lg me-1"></i>ذخیره تغییرات
                 </button>
-                <a href="{{ route('host.room-types.index', $accommodation) }}" class="btn btn-outline-secondary">انصراف</a>
+                <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="btn btn-outline-secondary">انصراف</a>
             </div>
         </form>
     </div>
@@ -153,6 +151,9 @@
         @endif
     </div>
 </div>
+
+</div>
+
 @endsection
 
 @push('scripts')

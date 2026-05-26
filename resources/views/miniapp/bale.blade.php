@@ -1,3 +1,4 @@
+<div>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -257,11 +258,9 @@
 
             showMessage('ورود با موفقیت انجام شد. در حال انتقال...', 'success');
 
-            if (window.Bale?.WebApp?.close) {
-                setTimeout(() => window.Bale.WebApp.close(), 500);
-            }
-
-            window.location.href = payload.redirect || homeUrl;
+            setTimeout(() => {
+                window.location.href = payload.redirect || homeUrl;
+            }, 800);
         } catch (error) {
             showMessage('ارتباط با سرور برقرار نشد.', 'error');
             setLoading(false);
@@ -297,15 +296,26 @@
                 return;
             }
 
-            webApp.requestContact(async (shared, phone) => {
-                if (!shared) {
+            webApp.requestContact(async (sharedOrContact, maybePhone) => {
+                // Bale may call back as (contactObject) or (shared, phone)
+                let phone = null;
+
+                if (typeof sharedOrContact === 'object' && sharedOrContact !== null) {
+                    // Called as (contact) — contact object or null
+                    phone = sharedOrContact.phone_number ?? sharedOrContact.phoneNumber ?? null;
+                } else if (sharedOrContact === true || sharedOrContact === 1) {
+                    // Called as (shared=true, phone)
+                    phone = maybePhone ?? null;
+                } else {
+                    // shared=false or cancelled
                     showMessage('اشتراک شماره تلفن توسط کاربر لغو شد.', 'error');
                     manualWrap.style.display = 'block';
                     return;
                 }
 
                 if (!phone) {
-                    showMessage('شماره تلفن دریافت نشد.', 'error');
+                    showMessage('شماره تلفن دریافت نشد. لطفاً دستی وارد کنید.', 'error');
+                    manualWrap.style.display = 'block';
                     return;
                 }
 
@@ -327,3 +337,5 @@
 </script>
 </body>
 </html>
+
+</div>

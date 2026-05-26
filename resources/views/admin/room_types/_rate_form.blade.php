@@ -1,3 +1,4 @@
+<div>
 @php
 $rName        = old('name',                        $rate?->name ?? '');
 $rPrice       = old('price_per_night',             $rate?->price_per_night ?? '');
@@ -68,3 +69,5 @@ function toggleBfPrice(el, id) {
     if (wrap) wrap.style.display = el.checked ? 'none' : '';
 }
 </script>
+
+</div>

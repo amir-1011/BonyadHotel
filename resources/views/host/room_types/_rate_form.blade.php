@@ -1,3 +1,4 @@
+<div>
 {{-- Reusable rate form fields --}}
 @php
 $rName        = old('name',                        $rate?->name ?? '');
@@ -69,3 +70,5 @@ function toggleBfPrice(el, id) {
     if (wrap) wrap.style.display = el.checked ? 'none' : '';
 }
 </script>
+
+</div>

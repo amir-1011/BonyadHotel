@@ -1,3 +1,4 @@
+<div>
 {{-- Reusable review form partial --}}
 {{-- Variables: $bookingId, $currentRating (int), $currentComment (string) --}}
 <div class="mb-3">
@@ -21,6 +22,8 @@
 <button type="submit" class="btn btn-warning px-4">
     <i class="bi bi-send me-1"></i>ارسال نظر
 </button>
+
+</div>
 
 @push('scripts')
 <script>

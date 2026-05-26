@@ -1,3 +1,4 @@
+<div>
 @php
 $bedTypes = [
     'تخت دو‌نفره', 'دو تخت یک‌نفره', 'تخت کینگ', 'تخت کوئین',
@@ -141,10 +142,12 @@ $oldAmenities = old('amenities', $roomType?->amenities ?? []);
         <label class="form-label small fw-semibold mt-2">تصاویر جدید (اضافه کنید):</label>
         <input type="file" name="new_images[]" id="imagesInput" class="form-control" accept="image/*" multiple>
         @else
-        <input type="file" name="images[]" id="imagesInput" class="form-control" accept="image/*" multiple>
+        <input type="file" name="new_images[]" id="imagesInput" class="form-control" accept="image/*" multiple>
         @endif
 
         <div id="newImagesPreview" class="d-flex flex-wrap gap-2 mt-2"></div>
         <div class="form-text">فرمت‌های JPG, PNG, WebP — حداکثر ۴ مگابایت هر تصویر</div>
     </div>
+</div>
+
 </div>

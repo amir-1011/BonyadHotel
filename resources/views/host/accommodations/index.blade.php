@@ -1,11 +1,8 @@
-@extends('layouts.host')
-@section('title', 'اقامتگاه‌های من')
-@section('page-title', 'اقامتگاه‌های من')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="fw-bold mb-0"><i class="bi bi-building me-2"></i>اقامتگاه‌هایم</h5>
-    <a href="{{ route('host.accommodations.create') }}" class="btn btn-sm btn-success">
+    <a wire:navigate href="{{ route('host.accommodations.create') }}" class="btn btn-sm btn-success">
         <i class="bi bi-plus-lg me-1"></i>اقامتگاه جدید
     </a>
 </div>
@@ -14,7 +11,7 @@
     <div class="card shadow-sm text-center py-5">
         <div class="text-muted mb-3"><i class="bi bi-building fs-1"></i></div>
         <h6>هنوز اقامتگاهی ثبت نکرده‌اید</h6>
-        <a href="{{ route('host.accommodations.create') }}" class="btn btn-success mt-2">ثبت اولین اقامتگاه</a>
+        <a wire:navigate href="{{ route('host.accommodations.create') }}" class="btn btn-success mt-2">ثبت اولین اقامتگاه</a>
     </div>
 @else
 <div class="row g-3">
@@ -39,7 +36,7 @@
                         <div class="text-muted" style="font-size:.7rem">ظرفیت</div>
                     </div>
                     <div class="col-4">
-                        <a href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="text-decoration-none">
+                        <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="text-decoration-none">
                             <div class="fw-bold text-success">{{ $acc->bookings_count }}</div>
                             <div class="text-muted" style="font-size:.7rem">رزرو</div>
                         </a>
@@ -50,23 +47,21 @@
                 <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-sm btn-outline-secondary flex-fill" target="_blank">
                     <i class="bi bi-eye me-1"></i>نمایش
                 </a>
-                <a href="{{ route('host.room-types.index', $acc) }}" class="btn btn-sm btn-outline-info flex-fill">
+                <a wire:navigate href="{{ route('host.room-types.index', $acc) }}" class="btn btn-sm btn-outline-info flex-fill">
                     <i class="bi bi-door-open me-1"></i>اتاق‌ها
                 </a>
-                <a href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="btn btn-sm btn-outline-primary flex-fill">
+                <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="btn btn-sm btn-outline-primary flex-fill">
                     <i class="bi bi-calendar-check me-1"></i>رزروها
                 </a>
-                <a href="{{ route('host.accommodations.edit', $acc) }}" class="btn btn-sm btn-outline-warning flex-fill">
+                <a wire:navigate href="{{ route('host.accommodations.edit', $acc) }}" class="btn btn-sm btn-outline-warning flex-fill">
                     <i class="bi bi-pencil me-1"></i>ویرایش
                 </a>
-                <form action="{{ route('host.accommodations.destroy', $acc) }}" method="POST" onsubmit="return confirm('حذف شود؟')">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                </form>
+                <button wire:click="destroy({{ $acc->id }})" data-swal-confirm="حذف شود؟" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
             </div>
         </div>
     </div>
     @endforeach
 </div>
 @endif
-@endsection
+
+</div>

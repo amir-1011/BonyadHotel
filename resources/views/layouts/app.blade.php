@@ -1,19 +1,21 @@
 @php
-    $navLocations = \App\Models\Province::with('cities')->orderBy('name')->get()->flatMap(function($p) {
-        $items = [['type'=>'province','id'=>$p->id,'name'=>$p->name,'province'=>'','province_id'=>null]];
-        foreach ($p->cities as $c) {
-            $items[] = ['type'=>'city','id'=>$c->id,'name'=>$c->name,'province'=>$p->name,'province_id'=>$p->id];
-        }
-        return $items;
-    })->values()->toArray();
+    $navLocations = \Illuminate\Support\Facades\Cache::remember('nav_locations', 3600, function() {
+        return \App\Models\Province::with('cities')->orderBy('name')->get()->flatMap(function($p) {
+            $items = [['type'=>'province','id'=>$p->id,'name'=>$p->name,'province'=>'','province_id'=>null]];
+            foreach ($p->cities as $c) {
+                $items[] = ['type'=>'city','id'=>$c->id,'name'=>$c->name,'province'=>$p->name,'province_id'=>$p->id];
+            }
+            return $items;
+        })->values()->toArray();
+    });
 @endphp
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'ایثار — رزرو اقامتگاه')</title>
+    <title>@yield('title', isset($title) ? $title : 'ایثار — رزرو اقامتگاه')</title>
     <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
 
@@ -23,19 +25,19 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
     {{-- Vazirmatn Font (local) --}}
     <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
-    {{-- Leaflet.js (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
-    {{-- Persian Datepicker (Jalali/Shamsi calendar) (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
-    {{-- Select2 (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.rtl.min.css') }}">
-    {{-- Vite compiled CSS (Swiper + AOS + custom) --}}
+    {{-- Preload critical font weights --}}
+    <link rel="preload" href="{{ asset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ asset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
+    {{-- Vite compiled CSS (Swiper + custom) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     {{-- Search popup + x-cloak --}}
     <style>
     [x-cloak]{display:none!important}
+
+    /* Livewire progress bar above navbar */
+    #nprogress .bar { z-index: 9999 !important; }
+    #nprogress .peg  { z-index: 9999 !important; }
 
     /* ══ Expanded search bar ══════════════════════════════════ */
     .bnb-search-wrap {
@@ -237,9 +239,13 @@
     .bnb-cal-cell:not(:disabled):not(.cal-start):not(.cal-end):hover { background:#e8e8e8;border-radius:50%; }
     .bnb-cal-cell.cal-empty { cursor:default; }
     .bnb-cal-nights { display:inline-block;background:var(--bnb-dark);color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;margin-top:10px; }
+
+
     </style>
 
+    <link rel="stylesheet" href="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.css">
     @stack('styles')
+    @livewireStyles
 </head>
 <body class="bnb-page">
 
@@ -252,7 +258,7 @@
 
             {{-- Logo (right in RTL) --}}
             <div class="d-none d-md-flex" style="flex:0 0 auto;justify-content:flex-start;">
-            <a href="{{ route('home') }}" class="bnb-logo flex-shrink-0">
+            <a href="{{ route('home') }}" wire:navigate class="bnb-logo flex-shrink-0">
                 <img src="{{ asset('logo/site-logo.png') }}" alt="ایثار" style="height: 40px;">
                 <span class="d-none d-sm-inline" style="color:#009548;">ایثار</span>
             </a>
@@ -267,6 +273,14 @@
                     <span class="ms-main">کجا میری؟</span>
                     <span class="ms-sub">هر کجا · هر تاریخ · هر تعداد نفر</span>
                 </div>
+            </button>
+
+            {{-- ── Mobile Back Button ─────────────────────────────────────── --}}
+            <button type="button"
+                    class="btn btn-light d-flex d-md-none align-items-center justify-content-center ms-2 flex-shrink-0"
+                    onclick="history.back()"
+                    style="width:40px;height:40px;border-radius:50%;border:1px solid var(--bnb-border);background:#fff;padding:0;">
+                <i class="bi bi-arrow-left" style="font-size:18px;color:var(--bnb-dark);"></i>
             </button>
 
             {{-- ── Airbnb-style Interactive Search (Alpine.js) ───────────── --}}
@@ -513,11 +527,11 @@
             <div class="bnb-nav-right d-none d-md-flex" style="flex:0 0 auto;justify-content:flex-end;">
                 @auth
                     @if(Auth::user()->hasRole('super_admin'))
-                        <a href="{{ route('admin.dashboard') }}" class="bnb-become-host d-none d-lg-inline-block">
+                        <a href="{{ route('admin.dashboard') }}" wire:navigate class="bnb-become-host d-none d-lg-inline-block">
                             <i class="bi bi-shield-fill me-1"></i>مدیریت
                         </a>
                     @elseif(Auth::user()->hasRole('host'))
-                        <a href="{{ route('host.dashboard') }}" class="bnb-become-host d-none d-lg-inline-block">
+                        <a href="{{ route('host.dashboard') }}" wire:navigate class="bnb-become-host d-none d-lg-inline-block">
                             <i class="bi bi-house-heart me-1"></i>پنل میزبان
                         </a>
                     @else
@@ -548,13 +562,13 @@
                                 @endif
                             </li>
                             <li><hr class="dropdown-divider my-1"></li>
-                            <li><a class="dropdown-item py-2" href="{{ route('bookings.index') }}"><i class="bi bi-calendar-check me-2"></i>رزروهای من</a></li>
-                            <li><a class="dropdown-item py-2" href="{{ route('profile.index') }}"><i class="bi bi-person me-2"></i>پروفایل</a></li>
+                            <li><a class="dropdown-item py-2" href="{{ route('bookings.index') }}" wire:navigate><i class="bi bi-calendar-check me-2"></i>رزروهای من</a></li>
+                            <li><a class="dropdown-item py-2" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
                             @if(Auth::user()->hasRole('host'))
-                                <li><a class="dropdown-item py-2" href="{{ route('host.dashboard') }}"><i class="bi bi-house-heart me-2" style="color:var(--bnb-red);"></i>پنل میزبان</a></li>
+                                <li><a class="dropdown-item py-2" href="{{ route('host.dashboard') }}" wire:navigate><i class="bi bi-house-heart me-2" style="color:var(--bnb-red);"></i>پنل میزبان</a></li>
                             @endif
                             @if(Auth::user()->hasRole('super_admin'))
-                                <li><a class="dropdown-item py-2" href="{{ route('admin.dashboard') }}"><i class="bi bi-shield-fill me-2" style="color:var(--bnb-red);"></i>پنل مدیریت</a></li>
+                                <li><a class="dropdown-item py-2" href="{{ route('admin.dashboard') }}" wire:navigate><i class="bi bi-shield-fill me-2" style="color:var(--bnb-red);"></i>پنل مدیریت</a></li>
                             @endif
                             <li><hr class="dropdown-divider my-1"></li>
                             <li>
@@ -566,7 +580,7 @@
                                 </form>
                             </li>
                         @else
-                            <li><a class="dropdown-item py-2 fw-bold" href="{{ route('auth.mobile') }}"><i class="bi bi-phone me-2"></i>ورود / ثبت‌نام</a></li>
+                            <li><a class="dropdown-item py-2 fw-bold" href="{{ route('auth.mobile') }}" wire:navigate><i class="bi bi-phone me-2"></i>ورود / ثبت‌نام</a></li>
                             <li><a class="dropdown-item py-2" href="#"><i class="bi bi-house-add me-2"></i>میزبان شوید</a></li>
                         @endauth
                     </ul>
@@ -580,37 +594,16 @@
 {{-- ═══════════════════════════════════════════════════
      FLASH MESSAGES
 ═══════════════════════════════════════════════════ --}}
-@if(session('status') || session('success') || session('error') || $errors->any())
-<div class="container-xxl px-3 px-lg-4 pt-3">
-    @if(session('status') || session('success'))
-        <div class="bnb-alert bnb-alert-success">
-            <i class="bi bi-check-circle-fill"></i>
-            <span>{{ session('status') ?? session('success') }}</span>
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="bnb-alert bnb-alert-danger">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <span>{{ session('error') }}</span>
-        </div>
-    @endif
-    @if($errors->any())
-        <div class="bnb-alert bnb-alert-danger">
-            <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
-            <ul class="mb-0 mt-0 ps-3">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-</div>
-@endif
+{{-- Flash messages are shown as SweetAlert2 toasts via partials._swal --}}
 
 {{-- ═══════════════════════════════════════════════════
      MAIN CONTENT
 ═══════════════════════════════════════════════════ --}}
-@yield('content')
+@hasSection('content')
+    @yield('content')
+@else
+    {{ $slot ?? '' }}
+@endif
 
 {{-- ═══════════════════════════════════════════════════
      FOOTER
@@ -707,29 +700,29 @@
      MOBILE BOTTOM NAVIGATION  (only on small screens)
 ═══════════════════════════════════════════════════ --}}
 <nav class="bnb-bottom-nav d-flex d-md-none" aria-label="ناوبری پایین">
-    <a href="{{ route('home') }}"
+    <a href="{{ route('home') }}" wire:navigate
        class="bnb-bottom-nav-item {{ request()->routeIs('home') ? 'active' : '' }}">
         <i class="bi bi-search"></i>
         <span>کاوش</span>
     </a>
-    <a href="{{ route('favorites.index') }}"
+    <a href="{{ route('favorites.index') }}" wire:navigate
        class="bnb-bottom-nav-item {{ request()->routeIs('favorites.*') ? 'active' : '' }}">
         <i class="bi bi-heart{{ request()->routeIs('favorites.*') ? '-fill' : '' }}"></i>
         <span>علاقه‌مندی</span>
     </a>
     @auth
-        <a href="{{ route('bookings.index') }}"
+        <a href="{{ route('bookings.index') }}" wire:navigate
            class="bnb-bottom-nav-item {{ request()->routeIs('bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check"></i>
             <span>رزروها</span>
         </a>
-        <a href="{{ route('profile.index') }}"
+        <a href="{{ route('profile.index') }}" wire:navigate
            class="bnb-bottom-nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
             <i class="bi bi-person-circle"></i>
             <span>پروفایل</span>
         </a>
     @else
-        <a href="{{ route('auth.mobile') }}" class="bnb-bottom-nav-item">
+        <a href="{{ route('auth.mobile') }}" wire:navigate class="bnb-bottom-nav-item">
             <i class="bi bi-person-circle"></i>
             <span>ورود</span>
         </a>
@@ -912,49 +905,15 @@
 </div>{{-- end mobile search wrapper --}}
 
 {{-- JS Libraries --}}
+<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js"></script>
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
 <script src="{{ asset('vendor/select2/i18n/fa.js') }}"></script>
 <script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
 <script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
 
 <script>
-// ─── تبدیل اعداد لاتین به فارسی ────────────────────────────────────────────
-(function () {
-    var fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-    var SKIP = ['SCRIPT','STYLE','INPUT','TEXTAREA','SELECT','CODE','PRE'];
-    function convertNode(root) {
-        var walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, {
-            acceptNode: function(n) {
-                if (SKIP.indexOf(n.parentElement && n.parentElement.tagName) !== -1) return NodeFilter.FILTER_REJECT;
-                return /[0-9]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-            }
-        });
-        var nodes = [], node;
-        while ((node = walker.nextNode())) nodes.push(node);
-        nodes.forEach(function(n) {
-            n.nodeValue = n.nodeValue.replace(/[0-9]/g, function(d) { return fa[d]; });
-        });
-    }
-    document.addEventListener('DOMContentLoaded', function () {
-        convertNode();
-        new MutationObserver(function(mutations) {
-            mutations.forEach(function(m) {
-                m.addedNodes.forEach(function(added) {
-                    if (added.nodeType === 1) convertNode(added);
-                    else if (added.nodeType === 3 && /[0-9]/.test(added.nodeValue)) {
-                        var tag = added.parentElement && added.parentElement.tagName;
-                        if (SKIP.indexOf(tag) === -1)
-                            added.nodeValue = added.nodeValue.replace(/[0-9]/g, function(d){ return fa[d]; });
-                    }
-                });
-            });
-        }).observe(document.body, { childList: true, subtree: true });
-    });
-})();
-
 // ─── Shared Jalali inline range picker ───────────────────────────────────────
 function initJalaliRange(calSel, inSel, outSel, displaySel, initIn, initOut, onRangeSelected) {
     var phase = 0;
@@ -1127,10 +1086,12 @@ function bnbNavSearch() {
             this.mapOpen = true;
             this.$nextTick(() => {
                 if (this._map) { this._map.invalidateSize(); return; }
-                const map = L.map('navSearchMap', { zoomControl: true }).setView([32.4, 53.7], 5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap', maxZoom: 18
-                }).addTo(map);
+                const map = new L.Map('navSearchMap', {
+                    key: 'web.75d28da947f74d85972934574838fa0e',
+                    maptype: 'dreamy',
+                    center: [32.4, 53.7],
+                    zoom: 5,
+                });
                 map.on('click', (e) => {
                     const { lat, lng } = e.latlng;
                     // Remove old marker + circle
@@ -1270,13 +1231,17 @@ function bnbNavSearch() {
             if (this.checkOut)         p.set('check_out',   this.checkOut);
             if (this.guests > 1)       p.set('guests',      this.guests);
             this.close();
-            window.location.href = '/accommodations' + (p.toString() ? '?' + p.toString() : '');
+            if (window.Livewire) {
+                window.Livewire.navigate('/accommodations' + (p.toString() ? '?' + p.toString() : ''));
+            } else {
+                window.location.href = '/accommodations' + (p.toString() ? '?' + p.toString() : '');
+            }
         }
     };
 }
 
 // ══ Navbar Minimize logic ═════════════════════════════════════
-document.addEventListener('DOMContentLoaded', function() {
+function initNavbarScrollBehavior() {
     const navbar = document.getElementById('bnbNavbar');
     if (!navbar) return;
 
@@ -1298,14 +1263,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', (e) => {
         const searchWrap = document.querySelector('.bnb-search-wrap');
         if (searchWrap && !searchWrap.contains(e.target)) {
-            // Check if Alpine store/data 'open' is true and close it
-            const alpineData = Alpine.$data(document.querySelector('[x-data="bnbNavSearch()"]'));
-            if (alpineData && alpineData.open) {
-                alpineData.close();
+            const navEl = document.querySelector('[x-data="bnbNavSearch()"]');
+            if (navEl && window.Alpine) {
+                const alpineData = Alpine.$data(navEl);
+                if (alpineData && alpineData.open) alpineData.close();
             }
         }
     });
-});
+}
+document.addEventListener('DOMContentLoaded', initNavbarScrollBehavior);
+document.addEventListener('livewire:navigated', initNavbarScrollBehavior);
 
 // ══ Mobile Search Alpine Component ════════════════════════════
 function bnbMobileSearch() {
@@ -1379,10 +1346,12 @@ function bnbMobileSearch() {
             this.mapOpen = true;
             this.$nextTick(() => {
                 if (this._map) { this._map.invalidateSize(); return; }
-                const map = L.map('mobileSearchMap', { zoomControl: true }).setView([32.4, 53.7], 5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap', maxZoom: 18
-                }).addTo(map);
+                const map = new L.Map('mobileSearchMap', {
+                    key: 'web.75d28da947f74d85972934574838fa0e',
+                    maptype: 'dreamy',
+                    center: [32.4, 53.7],
+                    zoom: 5,
+                });
                 map.on('click', (e) => {
                     const { lat, lng } = e.latlng;
                     if (this._marker) map.removeLayer(this._marker);
@@ -1507,7 +1476,11 @@ function bnbMobileSearch() {
             if (this.checkOut)         p.set('check_out',   this.checkOut);
             if (this.guests > 1)       p.set('guests',      this.guests);
             this.close();
-            window.location.href = '/accommodations' + (p.toString() ? '?' + p.toString() : '');
+            if (window.Livewire) {
+                window.Livewire.navigate('/accommodations' + (p.toString() ? '?' + p.toString() : ''));
+            } else {
+                window.location.href = '/accommodations' + (p.toString() ? '?' + p.toString() : '');
+            }
         }
     };
 }
@@ -1521,6 +1494,9 @@ function bnbFooterToggle(btn) {
 }
 </script>
 
+@livewireScripts
 @stack('scripts')
+@include('partials._btn_loader')
+@include('partials._swal')
 </body>
 </html>

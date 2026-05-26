@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,6 +32,7 @@
         .badge { font-size: .75rem; }
     </style>
     @stack('styles')
+    @livewireStyles
 </head>
 <body>
 
@@ -48,26 +49,32 @@
     </div>
     <nav class="mt-2 pb-4">
         <div class="section-label">داشبورد</div>
-        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+        <a href="{{ route('admin.dashboard') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
             <i class="bi bi-speedometer2 me-2"></i> داشبورد
         </a>
 
         <div class="section-label">مدیریت</div>
-        <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.users.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
             <i class="bi bi-people me-2"></i> کاربران
         </a>
-        <a href="{{ route('admin.accommodations.index') }}" class="nav-link {{ request()->routeIs('admin.accommodations.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.accommodations.*') ? 'active' : '' }}">
             <i class="bi bi-building me-2"></i> اقامتگاه‌ها
         </a>
-        <a href="{{ route('admin.bookings.index') }}" class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.bookings.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check me-2"></i> رزروها
         </a>
-        <a href="{{ route('admin.reviews.index') }}" class="nav-link {{ request()->routeIs('admin.reviews.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.programs.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.programs.*') ? 'active' : '' }}">
+            <i class="bi bi-flag me-2"></i> برنامه‌ها و اردوها
+        </a>
+        <a href="{{ route('admin.programs.supportive-report') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}" style="padding-right:2rem;">
+            <i class="bi bi-heart-fill me-2 text-danger"></i> خدمات حمایتی
+        </a>
+        <a href="{{ route('admin.reviews.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.reviews.*') ? 'active' : '' }}">
             <i class="bi bi-star me-2"></i> نظرات
         </a>
 
         <div class="section-label">دسترسی سریع</div>
-        <a href="{{ route('home') }}" class="nav-link" target="_blank">
+        <a href="{{ route('home') }}" wire:navigate class="nav-link" target="_blank">
             <i class="bi bi-house me-2"></i> سایت اصلی
         </a>
         <form action="{{ route('auth.logout') }}" method="POST" class="d-inline">
@@ -93,33 +100,21 @@
     </div>
 
     <div class="p-3 p-lg-4">
-        @if(session('status'))
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
+        @hasSection('content')
+            @yield('content')
+        @else
+            {{ $slot ?? '' }}
         @endif
-        @if($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show">
-                <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-
-        @yield('content')
     </div>
 </div>
 
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
-<!-- <script>
-(function(){
-    var fa=['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-    var SK=['SCRIPT','STYLE','INPUT','TEXTAREA','SELECT'];
-    function cv(root){var w=document.createTreeWalker(root||document.body,NodeFilter.SHOW_TEXT,{acceptNode:function(n){return SK.indexOf(n.parentElement&&n.parentElement.tagName)!==-1?NodeFilter.FILTER_REJECT:/[0-9]/.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});var ns=[],n;while((n=w.nextNode()))ns.push(n);ns.forEach(function(n){n.nodeValue=n.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});});}
-    document.addEventListener('DOMContentLoaded',function(){cv();new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(a){if(a.nodeType===1)cv(a);else if(a.nodeType===3&&/[0-9]/.test(a.nodeValue)){var t=a.parentElement&&a.parentElement.tagName;if(SK.indexOf(t)===-1)a.nodeValue=a.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});}});});}).observe(document.body,{childList:true,subtree:true});});
-})();
-</script> -->
+<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
+@livewireScripts
 @stack('scripts')
+@include('partials._btn_loader')
+@include('partials._swal')
 </body>
 </html>

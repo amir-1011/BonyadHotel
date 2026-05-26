@@ -85,12 +85,32 @@ class BookingController extends Controller
 
         $pricePerNight = $roomRate ? $roomRate->price_per_night : $accommodation->price_per_night;
 
-        $user              = Auth::user();
-        $nights            = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
-        $basePrice         = $pricePerNight * $nights;
-        $discountPct       = $user->discount_percentage;
-        $discountAmount    = (int) ($basePrice * $discountPct / 100);
-        $totalPrice        = $basePrice - $discountAmount;
+        $user   = Auth::user();
+        $nights = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
+
+        // Build per-night base price by accounting for host's daily price overrides.
+        // availabilityMap returns effective_price (after host's custom_price + host's discount_percentage).
+        // We use this as the "base" per night, then apply the user's veteran/special discount on top.
+        $availMap  = $roomType ? $roomType->availabilityMap($checkIn, $checkOut) : [];
+        $basePrice = 0;
+        $cursor    = new \DateTime($checkIn);
+        $endDate   = new \DateTime($checkOut);
+        while ($cursor < $endDate) {
+            $dayKey     = $cursor->format('Y-m-d');
+            $dayData    = $availMap[$dayKey] ?? null;
+            // effective_price is already post-host-discount; fall back to rate price
+            $nightPrice = ($dayData && isset($dayData['effective_price']) && $dayData['effective_price'] !== null)
+                ? (int) $dayData['effective_price']
+                : $pricePerNight;
+            // Multiply by number of guests (price is per-person per-night)
+            $basePrice += $nightPrice * $guests;
+            $cursor->modify('+1 day');
+        }
+
+        // Apply user's veteran / special-group discount on top
+        $discountPct     = $user->discount_percentage;
+        $discountAmount  = (int) round($basePrice * $discountPct / 100);
+        $totalPrice      = $basePrice - $discountAmount;
 
         $booking = Booking::create([
             'user_id'             => $user->id,

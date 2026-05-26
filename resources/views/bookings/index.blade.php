@@ -1,12 +1,10 @@
-@extends('layouts.app')
+<div>
 
-@section('title', 'رزروهای من')
 
-@section('content')
 <div class="container-xxl px-3 px-lg-4" style="padding-top:32px;padding-bottom:48px;">
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 style="font-size:22px;font-weight:700;color:var(--bnb-dark);margin:0;">رزروهای من</h1>
-    <a href="{{ route('home') }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-plus-circle me-1"></i>رزرو جدید</a>
+    <a href="{{ route('home') }}" wire:navigate class="bnb-filter-pill text-decoration-none"><i class="bi bi-plus-circle me-1"></i>رزرو جدید</a>
 </div>
 
 @forelse($bookings as $booking)
@@ -38,7 +36,7 @@
                 </div>
             </div>
             <div style="border-top:1px solid var(--bnb-border);margin-top:16px;padding-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                <a href="{{ route('bookings.show', $booking) }}" class="bnb-filter-pill text-decoration-none"><i class="bi bi-eye me-1"></i>جزئیات</a>
+                <a href="{{ route('bookings.show', $booking) }}" wire:navigate class="bnb-filter-pill text-decoration-none"><i class="bi bi-eye me-1"></i>جزئیات</a>
                 @if($booking->status === 'confirmed' && $booking->check_out >= now()->toDateString())
                 <form action="{{ route('bookings.cancel', $booking) }}" method="POST" onsubmit="return confirm('آیا از لغو این رزرو مطمئن هستید؟')">
                     @csrf
@@ -50,7 +48,7 @@
                     <i class="bi bi-star me-1"></i>ثبت نظر
                 </button>
                 @elseif($isCompleted && $alreadyReviewed)
-                <a href="{{ route('accommodations.show', $booking->accommodation) }}#reviews" class="bnb-filter-pill text-decoration-none" style="color:green;border-color:green;"><i class="bi bi-star-fill me-1"></i>نظر ثبت شده</a>
+                <a href="{{ route('accommodations.show', $booking->accommodation) }}#reviews" wire:navigate class="bnb-filter-pill text-decoration-none" style="color:green;border-color:green;"><i class="bi bi-star-fill me-1"></i>نظر ثبت شده</a>
                 @endif
             </div>
 
@@ -99,13 +97,14 @@
         <div style="font-size:64px;margin-bottom:16px;">📅</div>
         <h5 style="color:var(--bnb-dark);font-weight:600;">هنوز رزروی ندارید</h5>
         <p style="color:var(--bnb-gray);">اقامتگاه موردنظرتان را پیدا کنید و اولین رزروتان را ثبت کنید!</p>
-        <a href="{{ route('home') }}" class="btn-bnb" style="display:inline-block;text-decoration:none;margin-top:8px;"><i class="bi bi-search me-1"></i>جستجو اقامتگاه</a>
+        <a href="{{ route('home') }}" wire:navigate class="btn-bnb" style="display:inline-block;text-decoration:none;margin-top:8px;"><i class="bi bi-search me-1"></i>جستجو اقامتگاه</a>
     </div>
 @endforelse
 
 <div class="mt-3">{{ $bookings->links() }}</div>
 </div>
-@endsection
+
+</div>
 
 @push('scripts')
 <style>

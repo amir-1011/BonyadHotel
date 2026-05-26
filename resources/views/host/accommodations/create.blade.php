@@ -1,68 +1,73 @@
-@extends('layouts.host')
-@section('title', 'اقامتگاه جدید')
-@section('page-title', 'اقامتگاه جدید')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{{ route('host.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
+    <a wire:navigate href="{{ route('host.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
     <h5 class="fw-bold mb-0">ثبت اقامتگاه جدید</h5>
 </div>
+
 <div class="card shadow-sm">
     <div class="card-body">
-        <form method="POST" action="{{ route('host.accommodations.store') }}" enctype="multipart/form-data">
-            @csrf
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <label class="form-label small fw-semibold">نام اقامتگاه</label>
-                    <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">نوع</label>
-                    <select name="type" class="form-select" required>
-                        @foreach(['hotel'=>'هتل','villa'=>'ویلا','apartment'=>'آپارتمان','hostel'=>'هاستل','traditional'=>'اقامتگاه سنتی'] as $v=>$l)
-                        <option value="{{ $v }}" {{ old('type') == $v ? 'selected' : '' }}>{{ $l }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-semibold">استان</label>
-                    <select name="province_id" id="province_id" class="form-select" required>
-                        <option value="">انتخاب کنید</option>
-                        @foreach($provinces as $prov)
-                        <option value="{{ $prov->id }}">{{ $prov->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-semibold">شهر</label>
-                    <select name="city_id" id="city_id" class="form-select" required>
-                        <option value="">ابتدا استان انتخاب کنید</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
-                    <input type="number" name="price_per_night" class="form-control" value="{{ old('price_per_night') }}" required min="0">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">ظرفیت (نفر)</label>
-                    <input type="number" name="capacity" class="form-control" value="{{ old('capacity', 2) }}" required min="1">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">اتاق‌ها</label>
-                    <input type="number" name="rooms" class="form-control" value="{{ old('rooms', 1) }}" required min="1">
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-semibold">آدرس</label>
-                    <input type="text" name="address" class="form-control" value="{{ old('address') }}">
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-semibold">توضیحات</label>
-                    <textarea name="description" class="form-control" rows="3">{{ old('description') }}</textarea>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-semibold">امکانات (هر خط یک مورد)</label>
-                    <textarea name="amenities_raw" class="form-control" rows="4" placeholder="Wi-Fi&#10;پارکینگ&#10;استخر">{{ old('amenities_raw') }}</textarea>
-                </div>
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label small fw-semibold">نام اقامتگاه</label>
+                <input wire:model="name" type="text" class="form-control @error('name') is-invalid @enderror">
+                @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">نوع</label>
+                <select wire:model="type" class="form-select @error('type') is-invalid @enderror">
+                    @foreach(['hotel'=>'هتل','villa'=>'ویلا','apartment'=>'آپارتمان','hostel'=>'هاستل','traditional'=>'اقامتگاه سنتی'] as $v=>$l)
+                    <option value="{{ $v }}">{{ $l }}</option>
+                    @endforeach
+                </select>
+                @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">استان</label>
+                <select wire:model.live="provinceId" class="form-select">
+                    <option value="0">انتخاب کنید</option>
+                    @foreach($provinces as $prov)
+                    <option value="{{ $prov->id }}">{{ $prov->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">شهر</label>
+                <select wire:model="cityId" class="form-select @error('cityId') is-invalid @enderror">
+                    <option value="0">{{ $provinceId ? 'انتخاب کنید' : 'ابتدا استان انتخاب کنید' }}</option>
+                    @foreach($cities as $city)
+                    <option value="{{ $city->id }}">{{ $city->name }}</option>
+                    @endforeach
+                </select>
+                @error('cityId')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
+                <input wire:model="pricePerNight" type="number" class="form-control @error('pricePerNight') is-invalid @enderror" min="0">
+                @error('pricePerNight')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">ظرفیت (نفر)</label>
+                <input wire:model="capacity" type="number" class="form-control @error('capacity') is-invalid @enderror" min="1">
+                @error('capacity')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">اتاق‌ها</label>
+                <input wire:model="rooms" type="number" class="form-control @error('rooms') is-invalid @enderror" min="1">
+                @error('rooms')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">آدرس</label>
+                <input wire:model="address" type="text" class="form-control">
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">توضیحات</label>
+                <textarea wire:model="description" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">امکانات (با کاما جدا کنید)</label>
+                <textarea wire:model="amenitiesRaw" class="form-control" rows="4" placeholder="Wi-Fi, پارکینگ, استخر"></textarea>
+            </div>
 
                 {{-- Map Picker --}}
                 <div class="col-12">
@@ -70,10 +75,10 @@
                     <div id="map-picker" style="height:320px;border-radius:10px;border:1px solid #dee2e6;"></div>
                     <div class="d-flex gap-3 mt-2">
                         <div class="flex-grow-1">
-                            <input type="number" step="any" name="lat" id="lat" class="form-control form-control-sm" placeholder="عرض جغرافیایی" value="{{ old('lat') }}">
+                            <input wire:model="lat" type="number" step="any" id="lat" class="form-control form-control-sm" placeholder="عرض جغرافیایی">
                         </div>
                         <div class="flex-grow-1">
-                            <input type="number" step="any" name="lng" id="lng" class="form-control form-control-sm" placeholder="طول جغرافیایی" value="{{ old('lng') }}">
+                            <input wire:model="lng" type="number" step="any" id="lng" class="form-control form-control-sm" placeholder="طول جغرافیایی">
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearMarker()">
                             <i class="bi bi-x-circle me-1"></i>پاک‌کردن
@@ -85,8 +90,8 @@
                 {{-- Image Upload --}}
                 <div class="col-12">
                     <label class="form-label small fw-semibold"><i class="bi bi-images me-1"></i>تصاویر اقامتگاه <span class="text-muted fw-normal">(حداکثر ۸ عکس، هر کدام تا ۴ مگابایت)</span></label>
-                    <input type="file" name="images[]" id="image-input" class="form-control" accept="image/*" multiple>
-                    <div id="image-preview" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    <input wire:model="images" type="file" id="image-input" class="form-control" accept="image/*" multiple>
+                    @error('images.*')<div class="text-danger small">{{ $message }}</div>@enderror
                 </div>
 
                 <div class="col-12">
@@ -95,20 +100,25 @@
                     </div>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-success px-4">ثبت اقامتگاه</button>
+                    <button wire:click="store" wire:loading.attr="disabled" class="btn btn-success px-4">
+                        <span wire:loading wire:target="store" class="spinner-border spinner-border-sm me-1"></span>
+                        ثبت اقامتگاه
+                    </button>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
 </div>
-@endsection
+
+</div>
+
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.css">
 @endpush
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js"></script>
 <script>
 // ── Province → City AJAX ──────────────────────────────────────────────────────
 document.getElementById('province_id')?.addEventListener('change', function(){
@@ -123,10 +133,12 @@ var initLat = parseFloat(document.getElementById('lat').value) || 32.4279;
 var initLng = parseFloat(document.getElementById('lng').value) || 53.6880;
 var hasInit = document.getElementById('lat').value !== '';
 
-var map = L.map('map-picker').setView([initLat, initLng], hasInit ? 13 : 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-}).addTo(map);
+var map = new L.Map('map-picker', {
+    key: 'web.75d28da947f74d85972934574838fa0e',
+    maptype: 'dreamy',
+    center: [initLat, initLng],
+    zoom: hasInit ? 13 : 5,
+});
 
 var marker = null;
 if (hasInit) {
@@ -138,8 +150,8 @@ if (hasInit) {
 map.on('click', function(e) {
     var lat = e.latlng.lat.toFixed(6);
     var lng = e.latlng.lng.toFixed(6);
-    document.getElementById('lat').value = lat;
-    document.getElementById('lng').value = lng;
+    @this.set('lat', lat);
+    @this.set('lng', lng);
     if (marker) { marker.setLatLng(e.latlng); }
     else {
         marker = L.marker(e.latlng, {draggable: true}).addTo(map);
@@ -150,8 +162,8 @@ map.on('click', function(e) {
 
 function updateFromMarker(e) {
     var pos = e.target.getLatLng();
-    document.getElementById('lat').value = pos.lat.toFixed(6);
-    document.getElementById('lng').value = pos.lng.toFixed(6);
+    @this.set('lat', pos.lat.toFixed(6));
+    @this.set('lng', pos.lng.toFixed(6));
     updateHint(pos.lat.toFixed(6), pos.lng.toFixed(6));
 }
 function updateHint(lat, lng) {
@@ -183,20 +195,5 @@ function clearMarker() {
     });
 });
 
-// ── Image preview ─────────────────────────────────────────────────────────────
-document.getElementById('image-input').addEventListener('change', function(){
-    var preview = document.getElementById('image-preview');
-    preview.innerHTML = '';
-    Array.from(this.files).slice(0,8).forEach(function(file){
-        var reader = new FileReader();
-        reader.onload = function(e){
-            var div = document.createElement('div');
-            div.style.cssText = 'position:relative;width:90px;height:90px;';
-            div.innerHTML = '<img src="'+e.target.result+'" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #dee2e6;">';
-            preview.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
-});
 </script>
 @endpush

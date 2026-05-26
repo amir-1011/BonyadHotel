@@ -32,6 +32,49 @@ class AdminBookingsExport implements FromQuery, WithHeadings, WithMapping
             });
         }
 
+        if (!empty($this->filters['accommodation_id'])) {
+            $query->where('accommodation_id', $this->filters['accommodation_id']);
+        }
+
+        if (!empty($this->filters['city_id'])) {
+            $query->whereHas('accommodation', fn($q) => $q->where('city_id', $this->filters['city_id']));
+        }
+
+        if (!empty($this->filters['check_in_from']) && ($d = $this->toGregorian($this->filters['check_in_from']))) {
+            $query->whereDate('check_in', '>=', $d);
+        }
+        if (!empty($this->filters['check_in_to']) && ($d = $this->toGregorian($this->filters['check_in_to']))) {
+            $query->whereDate('check_in', '<=', $d);
+        }
+        if (!empty($this->filters['check_out_from']) && ($d = $this->toGregorian($this->filters['check_out_from']))) {
+            $query->whereDate('check_out', '>=', $d);
+        }
+        if (!empty($this->filters['check_out_to']) && ($d = $this->toGregorian($this->filters['check_out_to']))) {
+            $query->whereDate('check_out', '<=', $d);
+        }
+
+        if (!empty($this->filters['nights_min'])) {
+            $query->where('nights', '>=', (int)$this->filters['nights_min']);
+        }
+        if (!empty($this->filters['nights_max'])) {
+            $query->where('nights', '<=', (int)$this->filters['nights_max']);
+        }
+
+        if (!empty($this->filters['price_min'])) {
+            $query->where('total_price', '>=', (int)$this->filters['price_min']);
+        }
+        if (!empty($this->filters['price_max'])) {
+            $query->where('total_price', '<=', (int)$this->filters['price_max']);
+        }
+
+        if (!empty($this->filters['guests_min'])) {
+            $query->where('guests', '>=', (int)$this->filters['guests_min']);
+        }
+
+        if (!empty($this->filters['has_discount'])) {
+            $query->where('discount_percentage', '>', 0);
+        }
+
         return $query;
     }
 
@@ -92,6 +135,22 @@ class AdminBookingsExport implements FromQuery, WithHeadings, WithMapping
             return Jalalian::fromCarbon(Carbon::parse($value))->format('Y/m/d H:i');
         } catch (\Throwable $e) {
             return (string) $value;
+        }
+    }
+
+    private function toGregorian(?string $jalali): ?string
+    {
+        if (!$jalali) return null;
+        try {
+            $normalized = strtr(trim($jalali), [
+                '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4',
+                '۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+                '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4',
+                '٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',
+            ]);
+            return Jalalian::fromFormat('Y/m/d', $normalized)->toCarbon()->toDateString();
+        } catch (\Throwable) {
+            return null;
         }
     }
 }

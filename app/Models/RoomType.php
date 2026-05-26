@@ -84,13 +84,16 @@ class RoomType extends Model
             ->flip()
             ->all();
 
-        // Daily capacity overrides: date → available_count
+        // Daily capacity overrides: date → override object
         $overrides = $this->dailyOverrides()
             ->whereBetween('date', [$from, $endExcl])
-            ->get(['date', 'available_count'])
+            ->get(['date', 'available_count', 'custom_price', 'discount_percentage', 'price_label'])
             ->keyBy(fn($o) => $o->date->format('Y-m-d'))
-            ->map(fn($o) => (int) $o->available_count)
             ->all();
+
+        // Default (cheapest) rate price for reference
+        $defaultRate = $this->rates()->orderBy('price_per_night')->first();
+        $defaultPrice = $defaultRate ? (int) $defaultRate->price_per_night : 0;
 
         $map    = [];
         $cursor = clone $start;
@@ -105,18 +108,38 @@ class RoomType extends Model
                     $booked += (int) ($b->rooms_consumed ?? 1);
                 }
             }
+            $ovr = $overrides[$dateStr] ?? null;
             // Daily override caps the effective total for that day
-            $effectiveTotal = array_key_exists($dateStr, $overrides)
-                ? min($overrides[$dateStr], $baseTotal)
+            $effectiveTotal = $ovr !== null
+                ? min((int) $ovr->available_count, $baseTotal)
                 : $baseTotal;
+
+            // Compute price for this day
+            $dayCustomPrice  = $ovr ? $ovr->custom_price : null;
+            $dayDiscount     = $ovr ? $ovr->discount_percentage : null;
+            $dayLabel        = $ovr ? $ovr->price_label : null;
+            $dayEffectivePrice = null;
+            if ($defaultPrice > 0) {
+                $base = $dayCustomPrice ?? $defaultPrice;
+                $dayEffectivePrice = ($dayDiscount > 0)
+                    ? (int) round($base * (1 - $dayDiscount / 100))
+                    : $base;
+            }
 
             $map[$dateStr] = [
                 'total'           => $effectiveTotal,
                 'booked'          => $booked,
                 'available_rooms' => max(0, $effectiveTotal - $booked),
                 'is_blocked'      => isset($blocked[$dateStr]),
-                'has_override'    => array_key_exists($dateStr, $overrides),
-                'override_count'  => $overrides[$dateStr] ?? null,
+                'has_override'    => $ovr !== null,
+                'override_count'  => $ovr ? (int) $ovr->available_count : null,
+                // Price fields
+                'default_price'        => $defaultPrice,
+                'custom_price'         => $dayCustomPrice,
+                'discount_percentage'  => $dayDiscount,
+                'price_label'          => $dayLabel,
+                'effective_price'      => $dayEffectivePrice,
+                'has_price_override'   => $ovr && ($dayCustomPrice !== null || $dayDiscount > 0),
             ];
             $cursor->modify('+1 day');
         }

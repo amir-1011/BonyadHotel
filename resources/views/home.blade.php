@@ -1,8 +1,14 @@
-@extends('layouts.app')
 
-@section('title', 'ایثار — رزرو اقامتگاه')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}"></noscript>
+<link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}"></noscript>
+<link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}"></noscript>
+<link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.rtl.min.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.rtl.min.css') }}"></noscript>
 <style>
 /* ── Hero search ──────────────────────────────────── */
 .home-hero {
@@ -156,11 +162,20 @@
 /* Map */
 #map { height: 280px; border-radius: var(--bnb-radius); }
 @media (min-width: 768px) { #map { height: 340px; } }
+/* City card hover via CSS (replaces onmouseover/onmouseout) */
+.home-city-card {
+    border: 1px solid var(--bnb-border);
+    border-radius: var(--bnb-radius);
+    padding: 20px;
+    text-align: center;
+    transition: box-shadow .2s;
+    background: #fff;
+}
+.home-city-card:hover { box-shadow: var(--bnb-shadow); }
 </style>
 @endpush
 
-@section('content')
-
+<div>
 {{-- ═══════════════════════════════════
      CATEGORY FILTERS
 ═══════════════════════════════════ --}}
@@ -180,6 +195,7 @@
             @endphp
             @foreach($cats as [$val, $label, $icon])
                 <a href="{{ route('accommodations.index', array_merge(request()->query(), $val ? ['type' => $val] : ['type' => ''])) }}"
+                   wire:navigate
                    class="home-cat {{ $activeType === $val ? 'active' : '' }}">
                     <span class="cat-emoji">{{ $icon }}</span>
                     <span>{{ $label }}</span>
@@ -233,7 +249,7 @@
             </div>
         </div>
     @else
-        <div class="discount-banner" data-aos="fade-up">
+        <div class="discount-banner">
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h5 class="fw-bold mb-2"><i class="bi bi-shield-check me-2"></i>تخفیف ویژه برای ایثارگران</h5>
@@ -243,11 +259,11 @@
                 </div>
                 <div class="col-md-4 mt-3 mt-md-0 text-md-end">
                     @guest
-                        <a href="{{ route('auth.mobile') }}" class="btn btn-light fw-bold" style="border-radius:20px;">
+                        <a href="{{ route('auth.mobile') }}" wire:navigate class="btn btn-light fw-bold" style="border-radius:20px;">
                             ورود و دریافت تخفیف
                         </a>
                     @else
-                        <a href="{{ route('profile.index') }}" class="btn btn-light fw-bold" style="border-radius:20px;">
+                        <a href="{{ route('profile.index') }}" wire:navigate class="btn btn-light fw-bold" style="border-radius:20px;">
                             مشاهده پروفایل
                         </a>
                     @endguest
@@ -281,14 +297,14 @@
 <div class="container-xxl px-3 px-lg-4 mt-5">
     <div class="bnb-section-header mb-3">
         <h2 class="bnb-section-title">اقامتگاه‌های پیشنهادی</h2>
-        <a href="{{ route('accommodations.index') }}" class="bnb-show-all">مشاهده همه</a>
+        <a href="{{ route('accommodations.index') }}" wire:navigate class="bnb-show-all">مشاهده همه</a>
     </div>
 
     @if($featured->isEmpty())
         <div class="text-center py-5" style="color:var(--bnb-gray);">
             <i class="bi bi-house" style="font-size:48px;display:block;margin-bottom:12px;"></i>
             <p>هنوز اقامتگاهی ثبت نشده است</p>
-            <a href="{{ route('accommodations.index') }}" class="btn-bnb" style="display:inline-block;padding:10px 24px;border-radius:8px;text-decoration:none;">جستجوی اقامتگاه</a>
+                    <a href="{{ route('accommodations.index') }}" wire:navigate class="btn-bnb" style="display:inline-block;padding:10px 24px;border-radius:8px;text-decoration:none;">جستجوی اقامتگاه</a>
         </div>
     @else
         <div class="bnb-grid">
@@ -300,12 +316,12 @@
                     $imgUrl = $coverImage ? asset('storage/' . $coverImage) : null;
                     $typeLabel = $acc->typeLabel();
                 @endphp
-                <div data-aos="fade-up" data-aos-delay="{{ ($loop->index % 4) * 60 }}">
-                    <a href="{{ route('accommodations.show', $acc) }}" class="text-decoration-none">
+                <div>
+                    <a href="{{ route('accommodations.show', $acc) }}" wire:navigate class="text-decoration-none">
                         <div class="bnb-card">
                             <div class="bnb-card-img-wrap">
                                 @if($imgUrl)
-                                    <img src="{{ $imgUrl }}" alt="{{ $acc->name }}" class="bnb-card-img" loading="lazy">
+                                    <img src="{{ $imgUrl }}" alt="{{ $acc->name }}" class="bnb-card-img" loading="lazy" decoding="async">
                                 @else
                                     <div class="bnb-card-img-placeholder">
                                         @if($acc->type === 'hotel') 🏨
@@ -376,15 +392,14 @@
 ═══════════════════════════════════ --}}
 @if($popularCities->isNotEmpty())
 <div class="container-xxl px-3 px-lg-4 mt-5 mb-4">
-    <h2 class="bnb-section-title mb-4" data-aos="fade-up">مقاصد محبوب</h2>
+    <h2 class="bnb-section-title mb-4">مقاصد محبوب</h2>
     <div class="row g-3">
         @foreach($popularCities->take(8) as $city)
-            <div class="col-6 col-md-3" data-aos="fade-up" data-aos-delay="{{ $loop->index * 50 }}">
+            <div class="col-6 col-md-3">
                 <a href="{{ route('accommodations.index', ['city_id' => $city->id]) }}"
+                   wire:navigate
                    class="text-decoration-none">
-                    <div style="border:1px solid var(--bnb-border);border-radius:var(--bnb-radius);padding:20px;text-align:center;transition:box-shadow .2s;background:#fff;"
-                         onmouseover="this.style.boxShadow='var(--bnb-shadow)'"
-                         onmouseout="this.style.boxShadow='none'">
+                    <div class="home-city-card">
                         <div style="font-size:32px;margin-bottom:8px;">🏙</div>
                         <div style="font-weight:600;color:var(--bnb-dark);font-size:14px;">{{ $city->name }}</div>
                         <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;">{{ $city->accommodations_count }} اقامتگاه</div>
@@ -396,12 +411,14 @@
 </div>
 @endif
 
-@endsection
+</div>
 
 @push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+
 // ─── Toggle expanded search sections ─────────────────────────────────────────
-function toggleExpanded(section) {
+window.toggleExpanded = function(section) {
     var ids = { location: 'hfExpandedLocation', dates: 'hfExpandedDates', map: 'hfExpandedMap' };
     Object.keys(ids).forEach(function(k) {
         var el = document.getElementById(ids[k]);
@@ -411,7 +428,7 @@ function toggleExpanded(section) {
             el.style.display = 'none';
         }
     });
-}
+};
 
 // ─── Province → City AJAX ─────────────────────────────────────────────────────
 $('#provinceSelect').on('change', function() {
@@ -427,40 +444,56 @@ $('#provinceSelect').on('change', function() {
     });
 });
 
-// ─── Select2 ──────────────────────────────────────────────────────────────────
-$('.select2-basic').select2({ theme: 'bootstrap-5', language: 'fa', width: '100%' });
+// ─── Select2 (only if visible - desktop search form) ─────────────────────────
+if (window.innerWidth >= 768) {
+    $('.select2-basic').select2({ theme: 'bootstrap-5', language: 'fa', width: '100%' });
+}
 
-// ─── Persian Jalali range picker ──────────────────────────────────────────────
-initJalaliRange('#homeCalEl', '#checkIn', '#checkOut', '#homeDateDisplay2');
+// ─── Persian Jalali range picker (only on desktop) ───────────────────────────
+if (window.innerWidth >= 768 && document.getElementById('homeCalEl')) {
+    initJalaliRange('#homeCalEl', '#checkIn', '#checkOut', '#homeDateDisplay2');
+}
 
-// ─── Leaflet Map ──────────────────────────────────────────────────────────────
-if (document.getElementById('map')) {
-var map = L.map('map').setView([32.4279, 53.6880], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-
-var mapMarker = null;
-var cities = {!! json_encode($citiesForMap) !!};
-
-map.on('click', function(e) {
-    var lat = e.latlng.lat, lng = e.latlng.lng;
-    $('#mapLat').val(lat.toFixed(6)); $('#mapLng').val(lng.toFixed(6));
-    if (mapMarker) map.removeLayer(mapMarker);
-    mapMarker = L.marker([lat, lng]).addTo(map);
-
-    var nearest = null, minDist = Infinity;
-    cities.forEach(function(c) {
-        if (!c.lat || !c.lng) return;
-        var d = Math.hypot(c.lat - lat, c.lng - lng);
-        if (d < minDist) { minDist = d; nearest = c; }
-    });
-    if (nearest && minDist < 2) {
-        $('#mapCityLabel').text(nearest.province + ' - ' + nearest.name);
-        $('#mapSelectedCity').removeClass('d-none');
-        $('input[name=city_id_map]').remove();
-        $('<input>').attr({ type: 'hidden', name: 'city_id', value: nearest.id }).appendTo('#searchForm');
+// ─── Leaflet Map (lazy via IntersectionObserver) ──────────────────────────────
+var mapEl = document.getElementById('map');
+if (mapEl) {
+    var _mapInited = false;
+    var mapCities = {!! json_encode($citiesForMap) !!};
+    function initHomeMap() {
+        if (_mapInited) return;
+        _mapInited = true;
+        var map = L.map('map').setView([32.4279, 53.6880], 5);
+        // tileLayer disabled in test mode (no external tile requests)
+        var mapMarker = null;
+        map.on('click', function(e) {
+            var lat = e.latlng.lat, lng = e.latlng.lng;
+            $('#mapLat').val(lat.toFixed(6)); $('#mapLng').val(lng.toFixed(6));
+            if (mapMarker) map.removeLayer(mapMarker);
+            mapMarker = L.marker([lat, lng]).addTo(map);
+            var nearest = null, minDist = Infinity;
+            mapCities.forEach(function(c) {
+                if (!c.lat || !c.lng) return;
+                var d = Math.hypot(c.lat - lat, c.lng - lng);
+                if (d < minDist) { minDist = d; nearest = c; }
+            });
+            if (nearest && minDist < 2) {
+                $('#mapCityLabel').text(nearest.province + ' - ' + nearest.name);
+                $('#mapSelectedCity').removeClass('d-none');
+                $('input[name=city_id_map]').remove();
+                $('<input>').attr({ type: 'hidden', name: 'city_id', value: nearest.id }).appendTo('#searchForm');
+            }
+        });
     }
-});
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function(entries, obs) {
+            if (entries[0].isIntersecting) { initHomeMap(); obs.disconnect(); }
+        }, { rootMargin: '200px' }).observe(mapEl);
+    } else {
+        initHomeMap(); // fallback for old browsers
+    }
 } // end map guard
+
+}); // end DOMContentLoaded
 
 // ─── Wishlist ───────────────────────────────────────────────────────────────
 @auth

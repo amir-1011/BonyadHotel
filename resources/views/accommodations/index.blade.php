@@ -1,8 +1,9 @@
-@extends('layouts.app')
 
-@section('title', 'جستجوی اقامتگاه')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.rtl.min.css') }}">
 <style>
 /* ── Results layout ─────────────────────────────────── */
 .results-wrap {
@@ -150,7 +151,8 @@
 </style>
 @endpush
 
-@section('content')
+<div>
+
 
 {{-- ═══════════════════════════════════
      FILTER BAR
@@ -165,6 +167,7 @@
             @php $types = ['' => 'همه انواع', 'hotel' => 'هتل', 'villa' => 'ویلا', 'apartment' => 'آپارتمان', 'hostel' => 'هاستل', 'traditional' => 'سنتی']; @endphp
             @foreach($types as $val => $label)
                 <a href="{{ route('accommodations.index', array_merge(request()->except('type','page'), $val ? ['type' => $val] : [])) }}"
+                   wire:navigate
                    class="bnb-filter-pill text-decoration-none {{ request('type', '') === $val ? 'active' : '' }}">
                     {{ $label }}
                 </a>
@@ -179,7 +182,7 @@
 
             {{-- Reset --}}
             @if(request()->hasAny(['province_id','city_id','check_in','check_out','guests','type','wheelchair']))
-                <a href="{{ route('accommodations.index') }}" class="bnb-filter-pill text-decoration-none ms-md-auto" style="color:var(--bnb-red);border-color:var(--bnb-red);">
+                <a href="{{ route('accommodations.index') }}" wire:navigate class="bnb-filter-pill text-decoration-none ms-md-auto" style="color:var(--bnb-red);border-color:var(--bnb-red);">
                     <i class="bi bi-x me-1"></i>پاک کردن فیلترها
                 </a>
             @endif
@@ -227,6 +230,7 @@
                 $rCount   = $acc->reviewCount();
             @endphp
             <a href="{{ route('accommodations.show', $acc) }}?check_in={{ request('check_in') }}&check_out={{ request('check_out') }}&guests={{ request('guests', 1) }}"
+               wire:navigate
                class="text-decoration-none d-block mb-4" data-aos="fade-up">
                 <div class="bnb-card accommodation-list-card">
                     {{-- Image --}}
@@ -318,7 +322,7 @@
                 <div style="font-size:64px;margin-bottom:16px;">🔍</div>
                 <h5 style="color:var(--bnb-dark);font-weight:600;">اقامتگاهی یافت نشد</h5>
                 <p style="color:var(--bnb-gray);">فیلترها را تغییر دهید یا جستجوی جدیدی انجام دهید</p>
-                <a href="{{ route('accommodations.index') }}" class="btn-bnb" style="display:inline-block;margin-top:8px;text-decoration:none;">پاک کردن فیلترها</a>
+                <a href="{{ route('accommodations.index') }}" wire:navigate class="btn-bnb" style="display:inline-block;margin-top:8px;text-decoration:none;">پاک کردن فیلترها</a>
             </div>
         @endforelse
 
@@ -343,7 +347,8 @@
     <button class="mobile-map-close" onclick="toggleMobileMap()">✕</button>
 </div>
 
-@endsection
+
+</div>
 
 @push('scripts')
 <script>
@@ -383,10 +388,13 @@ function initMap(containerId) {
     var mapEl = document.getElementById(containerId);
     if (!mapEl || mapEl._leafletMap) return;
 
-    var m = L.map(mapEl, { zoomControl: true }).setView([32.4279, 53.6880], 5);
+    var m = new L.Map(mapEl, {
+        key: 'web.75d28da947f74d85972934574838fa0e',
+        maptype: 'dreamy',
+        center: [32.4279, 53.6880],
+        zoom: 5,
+    });
     mapEl._leafletMap = m;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(m);
 
     var bounds = [];
     mapAccs.forEach(function(acc) {
@@ -412,9 +420,8 @@ function initMap(containerId) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    initMap('mapMain');
-});
+document.addEventListener('DOMContentLoaded', function() { initMap('mapMain'); });
+document.addEventListener('livewire:navigated', function() { initMap('mapMain'); });
 
 // ─── Mobile map toggle ────────────────────────────────────────────────────────
 function toggleMobileMap() {

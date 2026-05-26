@@ -1,10 +1,7 @@
-@extends('layouts.host')
-@section('title', 'جزئیات رزرو')
-@section('page-title', 'جزئیات رزرو')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{{ route('host.bookings.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
+    <a wire:navigate href="{{ route('host.bookings.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
     <h5 class="fw-bold mb-0">رزرو {{ $booking->tracking_code }}</h5>
     <span class="badge bg-{{ $booking->statusColor() }}">{{ $booking->statusLabel() }}</span>
 </div>
@@ -42,17 +39,12 @@
         @if($booking->status === 'pending')
         <div class="card shadow-sm mt-3">
             <div class="card-body d-flex gap-2">
-                <form action="{{ route('host.bookings.confirm', $booking) }}" method="POST" class="flex-fill">
-                    @csrf
-                    <button class="btn btn-success w-100"><i class="bi bi-check-circle me-1"></i>تأیید رزرو</button>
-                </form>
-                <form action="{{ route('host.bookings.cancel', $booking) }}" method="POST" class="flex-fill" onsubmit="return confirm('لغو شود؟')">
-                    @csrf
-                    <button class="btn btn-danger w-100"><i class="bi bi-x-circle me-1"></i>لغو رزرو</button>
-                </form>
+                <button wire:click="confirm()" class="btn btn-success flex-fill"><i class="bi bi-check-circle me-1"></i>تأیید رزرو</button>
+                <button wire:click="cancel()" data-swal-confirm="لغو شود؟" class="btn btn-danger flex-fill"><i class="bi bi-x-circle me-1"></i>لغو رزرو</button>
             </div>
         </div>
         @endif
     </div>
 </div>
-@endsection
+
+</div>

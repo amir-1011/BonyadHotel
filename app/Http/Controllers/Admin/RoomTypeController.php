@@ -165,11 +165,16 @@ class RoomTypeController extends Controller
     {
         $images = [];
 
-        if ($request->hasFile('images')) {
-            $images = app(ImageUploadService::class)->storeManyWebp($request->file('images', []), 'room-types');
+        foreach (['images', 'new_images'] as $field) {
+            if ($request->hasFile($field)) {
+                $images = array_merge(
+                    $images,
+                    app(ImageUploadService::class)->storeManyWebp($request->file($field, []), 'room-types')
+                );
+            }
         }
 
-        return $images;
+        return array_values($images);
     }
 
     private function mergeImages(Request $request, RoomType $roomType): array
@@ -185,11 +190,13 @@ class RoomTypeController extends Controller
 
         $images = array_values(array_intersect($existingImages, $keepImages));
 
-        if ($request->hasFile('new_images')) {
-            $images = array_merge(
-                $images,
-                app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'room-types')
-            );
+        foreach (['new_images', 'images'] as $field) {
+            if ($request->hasFile($field)) {
+                $images = array_merge(
+                    $images,
+                    app(ImageUploadService::class)->storeManyWebp($request->file($field, []), 'room-types')
+                );
+            }
         }
 
         return array_values($images);
@@ -293,10 +300,16 @@ class RoomTypeController extends Controller
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
         $raw = $request->validate([
-            'date_from'       => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'date_to'         => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'available_count' => ['required', 'integer', 'min:0', 'max:' . $roomType->room_count],
-            'reason'          => ['nullable', 'string', 'max:200'],
+            'date_from'           => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
+            'date_to'             => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
+            'available_count'     => ['required', 'integer', 'min:0', 'max:' . $roomType->room_count],
+            'reason'              => ['nullable', 'string', 'max:200'],
+            'custom_price'        => ['nullable', 'integer', 'min:0'],
+            'discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'price_label'         => ['nullable', 'string', 'max:60'],
+            // Weekdays filter: ISO-style (1=Mon … 6=Sat, 7=Sun) — empty means all days
+            'weekdays'            => ['nullable', 'array'],
+            'weekdays.*'          => ['integer', 'between:1,7'],
         ]);
 
         try {
@@ -316,23 +329,38 @@ class RoomTypeController extends Controller
             return back()->withErrors(['date_to' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.'])->withInput();
         }
 
-        $from   = new \DateTime($fromGreg);
-        $to     = new \DateTime($toGreg);
-        $count  = (int) $raw['available_count'];
-        $reason = $raw['reason'] ?? null;
-        $cursor = clone $from;
+        $from         = new \DateTime($fromGreg);
+        $to           = new \DateTime($toGreg);
+        $count        = (int) $raw['available_count'];
+        $reason       = $raw['reason'] ?? null;
+        $customPrice  = isset($raw['custom_price']) && $raw['custom_price'] !== '' ? (int) $raw['custom_price'] : null;
+        $discount     = isset($raw['discount_percentage']) && $raw['discount_percentage'] !== '' ? (int) $raw['discount_percentage'] : null;
+        $priceLabel   = $raw['price_label'] ?? null;
+        $weekdays     = !empty($raw['weekdays']) ? array_map('intval', $raw['weekdays']) : [];
+        $cursor       = clone $from;
 
         while ($cursor <= $to) {
+            // If weekdays filter is set, skip days not matching
+            if (!empty($weekdays) && !in_array((int) $cursor->format('N'), $weekdays)) {
+                $cursor->modify('+1 day');
+                continue;
+            }
             RoomTypeDailyOverride::updateOrCreate(
                 ['room_type_id' => $roomType->id, 'date' => $cursor->format('Y-m-d')],
-                ['available_count' => $count, 'reason' => $reason]
+                [
+                    'available_count'     => $count,
+                    'reason'              => $reason,
+                    'custom_price'        => $customPrice,
+                    'discount_percentage' => $discount,
+                    'price_label'         => $priceLabel,
+                ]
             );
             $cursor->modify('+1 day');
         }
 
         return redirect()
             ->route('admin.room-types.daily-availability', [$accommodation, $roomType])
-            ->with('status', 'تنظیم ظرفیت روزانه با موفقیت ذخیره شد.');
+            ->with('status', 'تنظیم ظرفیت/قیمت روزانه با موفقیت ذخیره شد.');
     }
 
     public function destroyDailyAvailability(Accommodation $accommodation, RoomType $roomType, RoomTypeDailyOverride $override)

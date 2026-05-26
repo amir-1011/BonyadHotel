@@ -1,6 +1,5 @@
 @extends('layouts.host')
-@section('title', 'اتاق جدید — ' . $accommodation->name)
-@section('page-title', 'تعریف اتاق جدید')
+
 
 @push('styles')
 <style>
@@ -10,8 +9,11 @@
 @endpush
 
 @section('content')
+
+<div>
+
 <div class="mb-3">
-    <a href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
+    <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
         <i class="bi bi-chevron-right me-1"></i>بازگشت به مدیریت اتاق‌های {{ $accommodation->name }}
     </a>
 </div>
@@ -26,11 +28,14 @@
                 <button type="submit" class="btn btn-success">
                     <i class="bi bi-check-lg me-1"></i>ذخیره اتاق
                 </button>
-                <a href="{{ route('host.room-types.index', $accommodation) }}" class="btn btn-outline-secondary">انصراف</a>
+                <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="btn btn-outline-secondary">انصراف</a>
             </div>
         </form>
     </div>
 </div>
+
+</div>
+
 @endsection
 
 @push('scripts')

@@ -1,6 +1,5 @@
 @extends('layouts.host')
-@section('title', 'مسدودسازی تاریخ — ' . $roomType->name)
-@section('page-title', 'مدیریت ظرفیت و تاریخ‌ها')
+
 
 @push('styles')
 <style>
@@ -52,6 +51,8 @@
 @endpush
 
 @section('content')
+<div>
+
 
 {{-- Breadcrumb --}}
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -60,7 +61,7 @@
             <i class="bi bi-calendar-x me-2 text-danger"></i>مسدودسازی تاریخ — {{ $roomType->name }}
         </h5>
         <div class="text-muted small">
-            <a href="{{ route('host.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اتاق‌ها</a>
+            <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اتاق‌ها</a>
             <span class="mx-1">·</span>
             <span>{{ $accommodation->name }}</span>
             <span class="mx-1">·</span>
@@ -68,13 +69,6 @@
         </div>
     </div>
 </div>
-
-@if(session('status'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm">
-        <i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
 
 <div class="row g-4">
 
@@ -278,6 +272,8 @@
             </div>
         </div>
     </div>
+
+</div>
 
 </div>
 @endsection

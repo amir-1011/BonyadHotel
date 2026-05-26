@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AssignHostsSeeder::class,
             BookingAndReviewSeeder::class,
             RichAccommodationSeeder::class,
+            ProgramSeeder::class,
         ]);
     }
 }

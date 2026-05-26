@@ -1,8 +1,5 @@
-@extends('layouts.app')
 
-@section('title', 'تکمیل پروفایل')
 
-@section('content')
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card p-4 mt-4">
@@ -87,4 +84,3 @@
         </div>
     </div>
 </div>
-@endsection

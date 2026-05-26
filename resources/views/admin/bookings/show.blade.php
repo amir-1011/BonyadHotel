@@ -1,10 +1,7 @@
-@extends('layouts.admin')
-@section('title', 'جزئیات رزرو')
-@section('page-title', 'جزئیات رزرو')
+<div>
 
-@section('content')
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{{ route('admin.bookings.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
+    <a wire:navigate href="{{ route('admin.bookings.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
     <h5 class="fw-bold mb-0">رزرو {{ $booking->tracking_code }}</h5>
     <span class="badge bg-{{ $booking->statusColor() }}">{{ $booking->statusLabel() }}</span>
 </div>
@@ -46,19 +43,17 @@
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small"><i class="bi bi-gear me-2"></i>تغییر وضعیت</div>
             <div class="card-body">
-                <form action="{{ route('admin.bookings.status', $booking) }}" method="POST">
-                    @csrf
-                    <div class="d-flex gap-2">
-                        <select name="status" class="form-select form-select-sm">
-                            <option value="pending" {{ $booking->status=='pending'?'selected':'' }}>در انتظار</option>
-                            <option value="confirmed" {{ $booking->status=='confirmed'?'selected':'' }}>تأیید شده</option>
-                            <option value="cancelled" {{ $booking->status=='cancelled'?'selected':'' }}>لغو شده</option>
-                        </select>
-                        <button class="btn btn-sm btn-primary">ذخیره</button>
-                    </div>
-                </form>
+                <div class="d-flex gap-2">
+                    <select wire:model="selectedStatus" class="form-select form-select-sm">
+                        <option value="pending">در انتظار</option>
+                        <option value="confirmed">تأیید شده</option>
+                        <option value="cancelled">لغو شده</option>
+                    </select>
+                    <button wire:click="updateStatus" class="btn btn-sm btn-primary">ذخیره</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
-@endsection
+
+</div>

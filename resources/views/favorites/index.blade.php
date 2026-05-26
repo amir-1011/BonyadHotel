@@ -1,6 +1,4 @@
-@extends('layouts.app')
 
-@section('title', 'علاقه‌مندی‌های من')
 
 @push('styles')
 <style>
@@ -203,7 +201,6 @@
 </style>
 @endpush
 
-@section('content')
 <div class="fav-page">
 
     {{-- Header --}}
@@ -226,7 +223,7 @@
             <p class="fav-empty-text">
                 در حین جستجو روی آیکون قلب روی هر اقامتگاه بزنید تا اینجا ذخیره شود.
             </p>
-            <a href="{{ route('accommodations.index') }}" class="btn-bnb" style="display:inline-block;text-decoration:none;">
+            <a href="{{ route('accommodations.index') }}" wire:navigate class="btn-bnb" style="display:inline-block;text-decoration:none;">
                 <i class="bi bi-search me-1"></i>جستجوی اقامتگاه
             </a>
         </div>
@@ -240,12 +237,12 @@
                 @endphp
                 <div class="fav-card" id="fav-card-{{ $acc->id }}" data-aos="fade-up">
                     {{-- Link overlay --}}
-                    <a href="{{ route('accommodations.show', $acc) }}" class="fav-card-link" aria-label="{{ $acc->name }}"></a>
+                    <a href="{{ route('accommodations.show', $acc) }}" wire:navigate class="fav-card-link" aria-label="{{ $acc->name }}"></a>
 
                     {{-- Image --}}
                     <div class="fav-img-wrap">
                         @if($cover)
-                            <img src="{{ asset('storage/' . $cover) }}" alt="{{ $acc->name }}" loading="lazy">
+                            <img src="{{ asset('storage/' . $cover) }}" alt="{{ $acc->name }}" loading="lazy" style="view-transition-name: acc-img-{{ $acc->id }}">
                         @else
                             <div class="fav-img-placeholder">
                                 @if($acc->type==='hotel') 🏨
@@ -273,7 +270,7 @@
                         <div class="fav-card-location">
                             {{ $acc->typeLabel() }} · {{ $acc->city->province->name ?? '' }}، {{ $acc->city->name ?? '' }}
                         </div>
-                        <div class="fav-card-name">{{ $acc->name }}</div>
+                        <div class="fav-card-name" style="view-transition-name: acc-title-{{ $acc->id }}">{{ $acc->name }}</div>
                         <div class="fav-card-meta">ظرفیت {{ $acc->capacity }} نفر · {{ $acc->rooms }} اتاق</div>
                         <div class="fav-card-footer">
                             <div class="fav-card-price">
@@ -295,7 +292,6 @@
     @endif
 
 </div>
-@endsection
 
 @push('scripts')
 <script>

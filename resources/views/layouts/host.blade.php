@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,6 +28,7 @@
         }
     </style>
     @stack('styles')
+    @livewireStyles
 </head>
 <body>
 
@@ -43,21 +44,26 @@
     </div>
     <nav class="mt-2 pb-4">
         <div class="section-label">داشبورد</div>
-        <a href="{{ route('host.dashboard') }}" class="nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
+        <a href="{{ route('host.dashboard') }}" wire:navigate class="nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
             <i class="bi bi-speedometer2 me-2"></i> داشبورد
         </a>
         <div class="section-label">مدیریت</div>
-        <a href="{{ route('host.accommodations.index') }}" class="nav-link {{ request()->routeIs('host.accommodations.*') ? 'active' : '' }}">
+        <a href="{{ route('host.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.accommodations.*') ? 'active' : '' }}">
             <i class="bi bi-building me-2"></i> اقامتگاه‌های من
         </a>
-        <a href="#" class="nav-link {{ request()->routeIs('host.room-types.*') ? 'active' : '' }}"
-           onclick="event.preventDefault();window.location='{{ route('host.accommodations.index') }}'">
+        <a href="{{ route('host.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.room-types.*') ? 'active' : '' }}">
             <i class="bi bi-door-open me-2"></i> مدیریت اتاق‌ها
         </a>
-        <a href="{{ route('host.bookings.index') }}" class="nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
+        <a href="{{ route('host.bookings.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check me-2"></i> رزروها
         </a>
-        <a href="{{ route('host.reviews.index') }}" class="nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
+        <a href="{{ route('host.programs.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.programs.*') ? 'active' : '' }}">
+            <i class="bi bi-flag me-2"></i> برنامه‌ها و اردوها
+        </a>
+        <a href="{{ route('host.programs.supportive-report') }}" wire:navigate class="nav-link {{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}" style="padding-right:2rem;">
+            <i class="bi bi-heart-fill me-2 text-danger"></i> گزارش خدمات حمایتی
+        </a>
+        <a href="{{ route('host.reviews.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
             <i class="bi bi-star me-2"></i> نظرات مهمانان
             @php
                 $pendingReplies = \App\Models\Review::whereIn('accommodation_id',
@@ -69,7 +75,7 @@
             @endif
         </a>
         <div class="section-label">دسترسی سریع</div>
-        <a href="{{ route('home') }}" class="nav-link" target="_blank">
+        <a href="{{ route('home') }}" wire:navigate class="nav-link" target="_blank">
             <i class="bi bi-house me-2"></i> سایت اصلی
         </a>
         <form action="{{ route('auth.logout') }}" method="POST">
@@ -90,28 +96,19 @@
         <span class="badge bg-success">میزبان</span>
     </div>
     <div class="p-3 p-lg-4">
-        @if(session('status'))
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
+        @hasSection('content')
+            @yield('content')
+        @else
+            {{ $slot ?? '' }}
         @endif
-        @if($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show">
-                <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-        @yield('content')
     </div>
 </div>
 
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
-<!-- <script>
-(function(){var fa=['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];var SK=['SCRIPT','STYLE','INPUT','TEXTAREA','SELECT'];function cv(r){var w=document.createTreeWalker(r||document.body,NodeFilter.SHOW_TEXT,{acceptNode:function(n){return SK.indexOf(n.parentElement&&n.parentElement.tagName)!==-1?NodeFilter.FILTER_REJECT:/[0-9]/.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});var ns=[],n;while((n=w.nextNode()))ns.push(n);ns.forEach(function(n){n.nodeValue=n.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});});}
-document.addEventListener('DOMContentLoaded',function(){cv();new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(a){if(a.nodeType===1)cv(a);else if(a.nodeType===3&&/[0-9]/.test(a.nodeValue)){var t=a.parentElement&&a.parentElement.tagName;if(SK.indexOf(t)===-1)a.nodeValue=a.nodeValue.replace(/[0-9]/g,function(d){return fa[d];});}});});}).observe(document.body,{childList:true,subtree:true});});})();
-</script> -->
+@livewireScripts
 @stack('scripts')
+@include('partials._btn_loader')
+@include('partials._swal')
 </body>
 </html>

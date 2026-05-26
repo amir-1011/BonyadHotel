@@ -1,8 +1,5 @@
-@extends('layouts.app')
 
-@section('title', 'تأیید کد OTP')
 
-@section('content')
 <div style="min-height:calc(100vh - 130px);display:flex;align-items:center;justify-content:center;padding:40px 16px;">
     <div style="width:100%;max-width:440px;">
         <div style="text-align:center;margin-bottom:28px;">
@@ -46,4 +43,3 @@
         </div>
     </div>
 </div>
-@endsection
