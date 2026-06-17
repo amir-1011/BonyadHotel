@@ -30,6 +30,7 @@ class BookingController extends Controller
             'guests'        => ['required', 'integer', 'min:1', 'max:' . $accommodation->capacity],
             'room_type_id'  => ['nullable', 'integer', 'exists:room_types,id'],
             'room_rate_id'  => ['nullable', 'integer', 'exists:room_rates,id'],
+            'extra_guests'  => ['nullable', 'integer', 'min:0', 'max:10'],
         ], [
             'check_in.required'        => 'تاریخ ورود الزامی است.',
             'check_in.after_or_equal'  => 'تاریخ ورود نمی‌تواند در گذشته باشد.',
@@ -70,13 +71,29 @@ class BookingController extends Controller
         // Check availability: prefer room-type-level check, fall back to accommodation-level
         if ($roomType) {
             // Policy: number of rooms needed = ceil(guests / room_type.capacity)
+            // But if extra_guests is provided and within allowed extra_capacity, reduce rooms by 1
             $guests      = (int) $request->input('guests', 1);
-            $roomsNeeded = (int) ceil($guests / max(1, (int) $roomType->capacity));
+            $extraGuests = (int) $request->input('extra_guests', 0);
+
+            // Validate extra_guests against room type's extra_capacity
+            if ($extraGuests > 0) {
+                $maxExtra = (int) ($roomType->extra_capacity ?? 0);
+                if ($maxExtra <= 0 || $extraGuests > $maxExtra) {
+                    return back()->withErrors(['check_in' => 'تعداد نفرات اضافه وارد شده بیش از ظرفیت کف‌خوابی این اتاق است.']);
+                }
+                // With extra guests, the "standard" guests reduce by extra_guests for room calculation
+                $standardGuests = $guests - $extraGuests;
+                $roomsNeeded    = max(1, (int) ceil($standardGuests / max(1, (int) $roomType->capacity)));
+            } else {
+                $roomsNeeded = (int) ceil($guests / max(1, (int) $roomType->capacity));
+            }
 
             if (!$roomType->isAvailable($checkIn, $checkOut, $roomsNeeded)) {
                 return back()->withErrors(['check_in' => 'متأسفانه ظرفیت کافی برای تعداد نفرات انتخابی در بازه تاریخ انتخابی شما وجود ندارد.']);
             }
         } else {
+            $guests      = (int) $request->input('guests', 1);
+            $extraGuests = 0;
             $roomsNeeded = 1;
             if (!$accommodation->isAvailable($checkIn, $checkOut)) {
                 return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
@@ -93,8 +110,15 @@ class BookingController extends Controller
         // We use this as the "base" per night, then apply the user's veteran/special discount on top.
         $availMap  = $roomType ? $roomType->availabilityMap($checkIn, $checkOut) : [];
         $basePrice = 0;
-        $cursor    = new \DateTime($checkIn);
-        $endDate   = new \DateTime($checkOut);
+        // Extra guests price: extra_guests × extra_capacity_price × nights (fixed price, no per-night override)
+        $extraGuestsTotal = 0;
+        if ($extraGuests > 0 && $roomType && $roomType->extra_capacity_price) {
+            $extraGuestsTotal = $extraGuests * (int) $roomType->extra_capacity_price * $nights;
+        }
+        $cursor  = new \DateTime($checkIn);
+        $endDate = new \DateTime($checkOut);
+        // Only charge standard rate for the standard guests (not extra floor guests)
+        $standardGuests = $guests - $extraGuests;
         while ($cursor < $endDate) {
             $dayKey     = $cursor->format('Y-m-d');
             $dayData    = $availMap[$dayKey] ?? null;
@@ -102,10 +126,11 @@ class BookingController extends Controller
             $nightPrice = ($dayData && isset($dayData['effective_price']) && $dayData['effective_price'] !== null)
                 ? (int) $dayData['effective_price']
                 : $pricePerNight;
-            // Multiply by number of guests (price is per-person per-night)
-            $basePrice += $nightPrice * $guests;
+            // Multiply by number of standard guests (price is per-person per-night)
+            $basePrice += $nightPrice * $standardGuests;
             $cursor->modify('+1 day');
         }
+        $basePrice += $extraGuestsTotal;
 
         // Apply user's veteran / special-group discount on top
         $discountPct     = $user->discount_percentage;
@@ -121,6 +146,8 @@ class BookingController extends Controller
             'check_out'           => $checkOut,
             'guests'              => $request->input('guests'),
             'rooms_consumed'      => $roomsNeeded,
+            'extra_guests'        => $extraGuests,
+            'extra_guests_price'  => $extraGuestsTotal,
             'nights'              => $nights,
             'base_price'          => $basePrice,
             'discount_percentage' => $discountPct,

@@ -92,10 +92,33 @@ class Dashboard extends Component
             ->selectRaw('accommodation_id, SUM(total_price) as total')->groupBy('accommodation_id')
             ->pluck('total', 'accommodation_id');
 
+        // ─ Geographic distribution of confirmed bookings (province + city)
+        $geoProvince = Booking::query()
+            ->where('bookings.status', 'confirmed')
+            ->join('accommodations', 'bookings.accommodation_id', '=', 'accommodations.id')
+            ->join('cities', 'accommodations.city_id', '=', 'cities.id')
+            ->join('provinces', 'cities.province_id', '=', 'provinces.id')
+            ->selectRaw('provinces.name as province, COUNT(*) as bookings, SUM(bookings.total_price) as revenue')
+            ->groupBy('provinces.name')
+            ->orderByDesc('bookings')
+            ->get();
+
+        $topCities = Booking::query()
+            ->where('bookings.status', 'confirmed')
+            ->join('accommodations', 'bookings.accommodation_id', '=', 'accommodations.id')
+            ->join('cities', 'accommodations.city_id', '=', 'cities.id')
+            ->join('provinces', 'cities.province_id', '=', 'provinces.id')
+            ->selectRaw('cities.name as city, provinces.name as province, COUNT(*) as bookings, SUM(bookings.total_price) as revenue')
+            ->groupBy('cities.name', 'provinces.name')
+            ->orderByDesc('bookings')
+            ->limit(8)
+            ->get();
+
         return view('admin.dashboard', compact(
             'stats', 'recentBookings', 'recentUsers', 'topAccommodations', 'monthlyRevenue',
             'accommodationsSales', 'sparklineData', 'sparklineDays',
-            'accTodayRevenue', 'accWeekRevenue', 'accMonthRevenue', 'accLastMonthRevenue'
+            'accTodayRevenue', 'accWeekRevenue', 'accMonthRevenue', 'accLastMonthRevenue',
+            'geoProvince', 'topCities'
         ));
     }
 

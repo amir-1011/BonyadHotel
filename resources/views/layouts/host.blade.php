@@ -10,92 +10,151 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/tailadmin/tailadmin.css') }}">
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; background: #f0fdf4; }
-        :root { --sidebar-w: 250px; }
-        #sidebar { width: var(--sidebar-w); min-height: 100vh; background: linear-gradient(180deg,#14532d 0%,#052e16 100%); position: fixed; top:0; right:0; z-index: 1040; transition: transform .3s; }
-        #sidebar .brand { padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,.1); }
-        #sidebar .nav-link { color: rgba(255,255,255,.75); padding: .6rem 1rem; border-radius: 8px; margin: 2px 8px; font-size: .9rem; }
-        #sidebar .nav-link:hover, #sidebar .nav-link.active { background: rgba(255,255,255,.12); color:#fff; }
-        #sidebar .section-label { font-size: .7rem; color: rgba(255,255,255,.4); padding: .5rem 1rem; margin-top: .5rem; }
-        #main-content { margin-right: var(--sidebar-w); min-height: 100vh; }
-        .topbar { background: #fff; border-bottom: 1px solid #d1fae5; padding: .75rem 1.5rem; }
-        .stat-card { border-radius: 14px; border: none; }
-        @media(max-width:991px){
-            #sidebar { transform: translateX(100%); }
-            #sidebar.show { transform: translateX(0); }
-            #main-content { margin-right: 0; }
-        }
+        body { font-family: 'Vazirmatn', sans-serif; }
     </style>
+    {{-- Anti-flash: apply saved theme before first paint --}}
+    <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
     @stack('styles')
     @livewireStyles
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="brand d-flex align-items-center gap-2">
-        <div style="background:rgba(255,255,255,.15);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
-            <i class="bi bi-house-heart-fill text-white"></i>
-        </div>
+@php
+    $pendingReplies = \App\Models\Review::whereIn('accommodation_id',
+        Auth::user()->accommodations()->pluck('id')
+    )->whereNull('host_reply')->count();
+@endphp
+
+{{-- ─── Sidebar ──────────────────────────────────────────────────────── --}}
+<aside id="sidebar" class="ta-sidebar">
+    <div class="ta-sidebar__brand">
+        <div class="ta-sidebar__logo"><i class="bi bi-house-heart-fill"></i></div>
         <div>
-            <div class="text-white fw-bold">پنل میزبان</div>
-            <div style="font-size:.7rem;color:rgba(255,255,255,.5)">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
+            <div class="ta-sidebar__title">پنل میزبان</div>
+            <div class="ta-sidebar__subtitle">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
         </div>
     </div>
-    <nav class="mt-2 pb-4">
-        <div class="section-label">داشبورد</div>
-        <a href="{{ route('host.dashboard') }}" wire:navigate class="nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
-            <i class="bi bi-speedometer2 me-2"></i> داشبورد
+
+    <nav class="ta-sidebar__nav">
+        <div class="ta-sidebar__section">منو</div>
+        <a href="{{ route('host.dashboard') }}" wire:navigate data-label="داشبورد"
+           class="ta-nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
+            <i class="bi bi-grid-1x2-fill"></i><span class="ta-nav-link__label">داشبورد</span>
         </a>
-        <div class="section-label">مدیریت</div>
-        <a href="{{ route('host.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.accommodations.*') ? 'active' : '' }}">
-            <i class="bi bi-building me-2"></i> اقامتگاه‌های من
+
+        {{-- اقامتگاه‌ها (شاخه) --}}
+        <div class="ta-nav-group {{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-building-fill"></i>
+                <span class="ta-nav-link__label">اقامتگاه‌ها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <ul class="ta-submenu">
+                <li><a href="{{ route('host.accommodations.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.accommodations.index') || request()->routeIs('host.accommodations.edit') || request()->routeIs('host.room-types.*') ? 'active' : '' }}">اقامتگاه‌های من</a></li>
+                <li><a href="{{ route('host.accommodations.create') }}" wire:navigate
+                       class="{{ request()->routeIs('host.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
+            </ul>
+        </div>
+
+        {{-- رزروها --}}
+        <a href="{{ route('host.bookings.index') }}" wire:navigate data-label="رزروها"
+           class="ta-nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
         </a>
-        <a href="{{ route('host.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.room-types.*') ? 'active' : '' }}">
-            <i class="bi bi-door-open me-2"></i> مدیریت اتاق‌ها
-        </a>
-        <a href="{{ route('host.bookings.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check me-2"></i> رزروها
-        </a>
-        <a href="{{ route('host.programs.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.programs.*') ? 'active' : '' }}">
-            <i class="bi bi-flag me-2"></i> برنامه‌ها و اردوها
-        </a>
-        <a href="{{ route('host.programs.supportive-report') }}" wire:navigate class="nav-link {{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}" style="padding-right:2rem;">
-            <i class="bi bi-heart-fill me-2 text-danger"></i> گزارش خدمات حمایتی
-        </a>
-        <a href="{{ route('host.reviews.index') }}" wire:navigate class="nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
-            <i class="bi bi-star me-2"></i> نظرات مهمانان
-            @php
-                $pendingReplies = \App\Models\Review::whereIn('accommodation_id',
-                    Auth::user()->accommodations()->pluck('id')
-                )->whereNull('host_reply')->count();
-            @endphp
+
+        {{-- برنامه‌ها (شاخه) --}}
+        <div class="ta-nav-group {{ request()->routeIs('host.programs.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-flag-fill"></i>
+                <span class="ta-nav-link__label">برنامه‌ها و اردوها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <ul class="ta-submenu">
+                <li><a href="{{ route('host.programs.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.programs.index') || request()->routeIs('host.programs.show') || request()->routeIs('host.programs.edit') ? 'active' : '' }}">لیست برنامه‌ها</a></li>
+                <li><a href="{{ route('host.programs.create') }}" wire:navigate
+                       class="{{ request()->routeIs('host.programs.create') ? 'active' : '' }}">افزودن برنامه</a></li>
+                <li><a href="{{ route('host.programs.supportive-report') }}" wire:navigate
+                       class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
+            </ul>
+        </div>
+
+        {{-- نظرات --}}
+        <a href="{{ route('host.reviews.index') }}" wire:navigate data-label="نظرات مهمانان"
+           class="ta-nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
+            <i class="bi bi-star-fill"></i><span class="ta-nav-link__label">نظرات مهمانان</span>
             @if($pendingReplies > 0)
-                <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">{{ $pendingReplies }}</span>
+                <span class="badge bg-warning">{{ $pendingReplies }}</span>
             @endif
         </a>
-        <div class="section-label">دسترسی سریع</div>
-        <a href="{{ route('home') }}" wire:navigate class="nav-link" target="_blank">
-            <i class="bi bi-house me-2"></i> سایت اصلی
+
+        <div class="ta-sidebar__section">دسترسی سریع</div>
+        <a href="{{ route('home') }}" target="_blank" data-label="سایت اصلی" class="ta-nav-link">
+            <i class="bi bi-house-door-fill"></i><span class="ta-nav-link__label">سایت اصلی</span>
         </a>
         <form action="{{ route('auth.logout') }}" method="POST">
             @csrf
-            <button type="submit" class="nav-link border-0 bg-transparent w-100 text-start">
-                <i class="bi bi-box-arrow-left me-2"></i> خروج
+            <button type="submit" class="ta-nav-link" data-label="خروج">
+                <i class="bi bi-box-arrow-right"></i><span class="ta-nav-link__label">خروج</span>
             </button>
         </form>
     </nav>
-</div>
+</aside>
+<div id="sidebarBackdrop" class="ta-backdrop" onclick="window.taToggleSidebar(false)"></div>
 
-<div id="main-content">
-    <div class="topbar d-flex align-items-center justify-content-between">
-        <button class="btn btn-sm btn-outline-secondary d-lg-none" onclick="document.getElementById('sidebar').classList.toggle('show')">
-            <i class="bi bi-list fs-5"></i>
-        </button>
-        <div class="text-muted small">@yield('page-title', 'داشبورد')</div>
-        <span class="badge bg-success">میزبان</span>
-    </div>
-    <div class="p-3 p-lg-4">
+{{-- ─── Main ─────────────────────────────────────────────────────────── --}}
+<div class="ta-main">
+    <header class="ta-topbar">
+        <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <button class="ta-hamburger d-lg-none" onclick="window.taToggleSidebar()">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <button class="ta-collapse-btn" type="button" title="جمع/باز کردن منو" onclick="window.taToggleCollapse()">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <div class="ta-search d-none d-md-block">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="جستجو یا تایپ دستور..." aria-label="جستجو">
+                <kbd>⌘ K</kbd>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 gap-lg-3">
+            <button class="ta-icon-btn ta-theme-btn" type="button" title="حالت تیره" onclick="window.taToggleTheme && window.taToggleTheme()">
+                <i class="bi bi-moon"></i>
+            </button>
+            <a href="{{ route('host.reviews.index') }}" wire:navigate class="ta-icon-btn" title="نظرات">
+                <i class="bi bi-bell"></i>
+                @if($pendingReplies > 0)<span class="ta-dot"></span>@endif
+            </a>
+            <div class="ta-user dropdown">
+                <div class="d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" role="button">
+                    <div class="ta-user__avatar">{{ mb_substr(Auth::user()->name ?? 'M', 0, 1) }}</div>
+                    <div class="d-none d-sm-block text-start">
+                        <div class="ta-user__name">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
+                        <div class="ta-user__role">میزبان</div>
+                    </div>
+                    <i class="bi bi-chevron-down text-muted d-none d-sm-block" style="font-size:.8rem"></i>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-start">
+                    <li><a class="dropdown-item" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
+                    <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-house-door me-2"></i>سایت اصلی</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="{{ route('auth.logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>خروج</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <div class="ta-page">
         @hasSection('content')
             @yield('content')
         @else
@@ -106,6 +165,61 @@
 
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script>
+    window.taToggleSidebar = function (force) {
+        var sb = document.getElementById('sidebar');
+        var bd = document.getElementById('sidebarBackdrop');
+        var show = typeof force === 'boolean' ? force : !sb.classList.contains('show');
+        sb.classList.toggle('show', show);
+        bd.classList.toggle('show', show);
+    };
+    window.taToggleGroup = function (btn) {
+        var group = btn.closest('.ta-nav-group');
+        if (!group) return;
+        var isOpen = group.classList.contains('open');
+        document.querySelectorAll('.ta-nav-group.open').forEach(function (g) {
+            if (g !== group) g.classList.remove('open');
+        });
+        group.classList.toggle('open', !isOpen);
+    };
+    window.taToggleCollapse = function () {
+        var collapsed = document.body.classList.toggle('ta-collapsed');
+        try { localStorage.setItem('ta-sidebar-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+    };
+    (function () {
+        try {
+            if (localStorage.getItem('ta-sidebar-collapsed') === '1') {
+                document.body.classList.add('ta-collapsed');
+            }
+        } catch (e) {}
+    })();
+    document.addEventListener('livewire:navigated', function () {
+        try {
+            document.body.classList.toggle('ta-collapsed', localStorage.getItem('ta-sidebar-collapsed') === '1');
+            // Re-apply theme (wire:navigate morphs <html> from server, wiping data-bs-theme)
+            var saved = localStorage.getItem('ta-theme');
+            document.documentElement.setAttribute('data-bs-theme', saved === 'dark' ? 'dark' : 'light');
+        } catch (e) {}
+        taSyncThemeBtn();
+    });
+    // ── Dark / Light theme ──
+    function taSyncThemeBtn() {
+        var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        document.querySelectorAll('.ta-theme-btn').forEach(function(btn) {
+            btn.title = dark ? 'حالت روشن' : 'حالت تیره';
+            var icon = btn.querySelector('i');
+            if (icon) icon.className = dark ? 'bi bi-sun' : 'bi bi-moon';
+        });
+    }
+    window.taToggleTheme = function () {
+        var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        var next = dark ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-bs-theme', next);
+        try { localStorage.setItem('ta-theme', next); } catch (e) {}
+        taSyncThemeBtn();
+    };
+    taSyncThemeBtn();
+</script>
 @livewireScripts
 @stack('scripts')
 @include('partials._btn_loader')

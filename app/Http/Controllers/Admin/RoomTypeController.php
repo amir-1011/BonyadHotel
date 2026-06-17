@@ -123,6 +123,8 @@ class RoomTypeController extends Controller
             'description'          => ['nullable', 'string', 'max:1000'],
             'bed_type'             => ['nullable', 'string', 'max:80'],
             'capacity'             => ['required', 'integer', 'min:1', 'max:20'],
+            'extra_capacity'       => ['nullable', 'integer', 'min:1', 'max:10'],
+            'extra_capacity_price' => ['nullable', 'integer', 'min:0'],
             'size_sqm'             => ['nullable', 'numeric', 'min:1', 'max:9999'],
             'smoking'              => ['nullable', 'boolean'],
             'has_private_bathroom' => ['nullable', 'boolean'],
@@ -136,9 +138,11 @@ class RoomTypeController extends Controller
             'is_active'            => ['nullable', 'boolean'],
         ]);
 
-        $data['smoking'] = $request->boolean('smoking');
+        $data['smoking']              = $request->boolean('smoking');
         $data['has_private_bathroom'] = $request->boolean('has_private_bathroom', true);
-        $data['is_active'] = $request->boolean('is_active', true);
+        $data['is_active']            = $request->boolean('is_active', true);
+        $data['extra_capacity']       = $request->input('extra_capacity') ? (int) $request->input('extra_capacity') : null;
+        $data['extra_capacity_price'] = $request->input('extra_capacity') ? (int) $request->input('extra_capacity_price') : null;
 
         return $data;
     }

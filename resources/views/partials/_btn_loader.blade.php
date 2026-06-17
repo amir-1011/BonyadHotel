@@ -9,7 +9,10 @@
 --}}
 <style>
 /* ─── Button Loading Spinner ──────────────────────────────────────────── */
-.btn-loading {
+.btn-loading,
+.btn-loading:hover,
+.btn-loading:focus,
+.btn-loading:active {
     position: relative !important;
     pointer-events: none !important;
     color: transparent !important;

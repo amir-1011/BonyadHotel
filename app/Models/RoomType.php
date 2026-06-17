@@ -8,7 +8,8 @@ class RoomType extends Model
 {
     protected $fillable = [
         'accommodation_id', 'name', 'description', 'bed_type',
-        'capacity', 'size_sqm', 'smoking', 'has_private_bathroom',
+        'capacity', 'extra_capacity', 'extra_capacity_price',
+        'size_sqm', 'smoking', 'has_private_bathroom',
         'images', 'amenities', 'room_count', 'sort_order', 'is_active',
     ];
 

@@ -10,96 +10,146 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/tailadmin/tailadmin.css') }}">
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; background: #f1f5f9; }
-        :root { --sidebar-w: 260px; }
-        #sidebar { width: var(--sidebar-w); min-height: 100vh; background: linear-gradient(180deg,#1e3a5f 0%,#0d2137 100%); position: fixed; top:0; right:0; z-index: 1040; transition: transform .3s; }
-        #sidebar .brand { padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,.1); }
-        #sidebar .nav-link { color: rgba(255,255,255,.75); padding: .6rem 1rem; border-radius: 8px; margin: 2px 8px; font-size: .9rem; }
-        #sidebar .nav-link:hover, #sidebar .nav-link.active { background: rgba(255,255,255,.12); color:#fff; }
-        #sidebar .nav-link i { width: 22px; text-align: center; }
-        #sidebar .section-label { font-size: .7rem; color: rgba(255,255,255,.4); text-transform: uppercase; padding: .5rem 1rem; margin-top: .5rem; letter-spacing: .5px; }
-        #main-content { margin-right: var(--sidebar-w); min-height: 100vh; }
-        .topbar { background: #fff; border-bottom: 1px solid #e2e8f0; padding: .75rem 1.5rem; }
-        .stat-card { border-radius: 14px; border: none; }
-        .stat-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
-        @media(max-width:991px){
-            #sidebar { transform: translateX(100%); }
-            #sidebar.show { transform: translateX(0); }
-            #main-content { margin-right: 0; }
-        }
-        .table th { font-size: .82rem; color: #64748b; font-weight: 600; }
-        .badge { font-size: .75rem; }
+        body { font-family: 'Vazirmatn', sans-serif; }
     </style>
+    {{-- Anti-flash: apply saved theme before first paint --}}
+    <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
     @stack('styles')
     @livewireStyles
 </head>
 <body>
 
-{{-- Sidebar --}}
-<div id="sidebar">
-    <div class="brand d-flex align-items-center gap-2">
-        <div style="background:rgba(255,255,255,.15);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
-            <i class="bi bi-shield-fill text-white"></i>
-        </div>
+{{-- ─── Sidebar ──────────────────────────────────────────────────────── --}}
+<aside id="sidebar" class="ta-sidebar">
+    <div class="ta-sidebar__brand">
+        <div class="ta-sidebar__logo"><i class="bi bi-buildings-fill"></i></div>
         <div>
-            <div class="text-white fw-bold">پنل مدیریت</div>
-            <div style="font-size:.7rem;color:rgba(255,255,255,.5)">سوپر ادمین</div>
+            <div class="ta-sidebar__title">سامانه رزرو</div>
+            <div class="ta-sidebar__subtitle">پنل مدیریت</div>
         </div>
     </div>
-    <nav class="mt-2 pb-4">
-        <div class="section-label">داشبورد</div>
-        <a href="{{ route('admin.dashboard') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-            <i class="bi bi-speedometer2 me-2"></i> داشبورد
+
+    <nav class="ta-sidebar__nav">
+        <div class="ta-sidebar__section">منو</div>
+        <a href="{{ route('admin.dashboard') }}" wire:navigate data-label="داشبورد"
+           class="ta-nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+            <i class="bi bi-grid-1x2-fill"></i><span class="ta-nav-link__label">داشبورد</span>
         </a>
 
-        <div class="section-label">مدیریت</div>
-        <a href="{{ route('admin.users.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-            <i class="bi bi-people me-2"></i> کاربران
-        </a>
-        <a href="{{ route('admin.accommodations.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.accommodations.*') ? 'active' : '' }}">
-            <i class="bi bi-building me-2"></i> اقامتگاه‌ها
-        </a>
-        <a href="{{ route('admin.bookings.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check me-2"></i> رزروها
-        </a>
-        <a href="{{ route('admin.programs.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.programs.*') ? 'active' : '' }}">
-            <i class="bi bi-flag me-2"></i> برنامه‌ها و اردوها
-        </a>
-        <a href="{{ route('admin.programs.supportive-report') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}" style="padding-right:2rem;">
-            <i class="bi bi-heart-fill me-2 text-danger"></i> خدمات حمایتی
-        </a>
-        <a href="{{ route('admin.reviews.index') }}" wire:navigate class="nav-link {{ request()->routeIs('admin.reviews.*') ? 'active' : '' }}">
-            <i class="bi bi-star me-2"></i> نظرات
+        {{-- کاربران --}}
+        <a href="{{ route('admin.users.index') }}" wire:navigate data-label="کاربران"
+           class="ta-nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+            <i class="bi bi-people-fill"></i><span class="ta-nav-link__label">کاربران</span>
         </a>
 
-        <div class="section-label">دسترسی سریع</div>
-        <a href="{{ route('home') }}" wire:navigate class="nav-link" target="_blank">
-            <i class="bi bi-house me-2"></i> سایت اصلی
+        {{-- اقامتگاه‌ها (شاخه) --}}
+        <div class="ta-nav-group {{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-building-fill"></i>
+                <span class="ta-nav-link__label">اقامتگاه‌ها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.accommodations.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.accommodations.index') || request()->routeIs('admin.accommodations.edit') || request()->routeIs('admin.room-types.*') ? 'active' : '' }}">لیست اقامتگاه‌ها</a></li>
+                <li><a href="{{ route('admin.accommodations.create') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
+            </ul>
+        </div>
+
+        {{-- رزروها --}}
+        <a href="{{ route('admin.bookings.index') }}" wire:navigate data-label="رزروها"
+           class="ta-nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
         </a>
-        <form action="{{ route('auth.logout') }}" method="POST" class="d-inline">
+
+        {{-- برنامه‌ها (شاخه) --}}
+        <div class="ta-nav-group {{ request()->routeIs('admin.programs.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-flag-fill"></i>
+                <span class="ta-nav-link__label">برنامه‌ها و اردوها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.programs.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.programs.index') || request()->routeIs('admin.programs.show') ? 'active' : '' }}">لیست برنامه‌ها</a></li>
+                <li><a href="{{ route('admin.programs.supportive-report') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
+            </ul>
+        </div>
+
+        {{-- نظرات --}}
+        <a href="{{ route('admin.reviews.index') }}" wire:navigate data-label="نظرات"
+           class="ta-nav-link {{ request()->routeIs('admin.reviews.*') ? 'active' : '' }}">
+            <i class="bi bi-star-fill"></i><span class="ta-nav-link__label">نظرات</span>
+        </a>
+
+        <div class="ta-sidebar__section">دسترسی سریع</div>
+        <a href="{{ route('home') }}" target="_blank" data-label="سایت اصلی" class="ta-nav-link">
+            <i class="bi bi-house-door-fill"></i><span class="ta-nav-link__label">سایت اصلی</span>
+        </a>
+        <form action="{{ route('auth.logout') }}" method="POST">
             @csrf
-            <button type="submit" class="nav-link border-0 bg-transparent w-100 text-start">
-                <i class="bi bi-box-arrow-left me-2"></i> خروج
+            <button type="submit" class="ta-nav-link" data-label="خروج">
+                <i class="bi bi-box-arrow-right"></i><span class="ta-nav-link__label">خروج</span>
             </button>
         </form>
     </nav>
-</div>
+</aside>
+<div id="sidebarBackdrop" class="ta-backdrop" onclick="window.taToggleSidebar(false)"></div>
 
-{{-- Main --}}
-<div id="main-content">
-    <div class="topbar d-flex align-items-center justify-content-between">
-        <button class="btn btn-sm btn-outline-secondary d-lg-none" onclick="document.getElementById('sidebar').classList.toggle('show')">
-            <i class="bi bi-list fs-5"></i>
-        </button>
-        <div class="text-muted small">@yield('page-title', 'داشبورد')</div>
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-danger">سوپر ادمین</span>
-            <span class="fw-semibold small">{{ Auth::user()->name ?? Auth::user()->mobile }}</span>
+{{-- ─── Main ─────────────────────────────────────────────────────────── --}}
+<div class="ta-main">
+    <header class="ta-topbar">
+        <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <button class="ta-hamburger d-lg-none" onclick="window.taToggleSidebar()">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <button class="ta-collapse-btn" type="button" title="جمع/باز کردن منو" onclick="window.taToggleCollapse()">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <div class="ta-search d-none d-md-block">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="جستجو یا تایپ دستور..." aria-label="جستجو">
+                <kbd>⌘ K</kbd>
+            </div>
         </div>
-    </div>
 
-    <div class="p-3 p-lg-4">
+        <div class="d-flex align-items-center gap-2 gap-lg-3">
+            <button class="ta-icon-btn ta-theme-btn" type="button" title="حالت تیره" onclick="window.taToggleTheme && window.taToggleTheme()">
+                <i class="bi bi-moon"></i>
+            </button>
+            <a href="{{ route('admin.bookings.index') }}" wire:navigate class="ta-icon-btn" title="اعلان‌ها">
+                <i class="bi bi-bell"></i>
+                <span class="ta-dot"></span>
+            </a>
+            <div class="ta-user dropdown">
+                <div class="d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" role="button">
+                    <div class="ta-user__avatar">{{ mb_substr(Auth::user()->name ?? 'A', 0, 1) }}</div>
+                    <div class="d-none d-sm-block text-start">
+                        <div class="ta-user__name">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
+                        <div class="ta-user__role">سوپر ادمین</div>
+                    </div>
+                    <i class="bi bi-chevron-down text-muted d-none d-sm-block" style="font-size:.8rem"></i>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-start">
+                    <li><a class="dropdown-item" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
+                    <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-house-door me-2"></i>سایت اصلی</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="{{ route('auth.logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>خروج</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <div class="ta-page">
         @hasSection('content')
             @yield('content')
         @else
@@ -112,6 +162,63 @@
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
 <script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
+<script>
+    window.taToggleSidebar = function (force) {
+        var sb = document.getElementById('sidebar');
+        var bd = document.getElementById('sidebarBackdrop');
+        var show = typeof force === 'boolean' ? force : !sb.classList.contains('show');
+        sb.classList.toggle('show', show);
+        bd.classList.toggle('show', show);
+    };
+    window.taToggleGroup = function (btn) {
+        var group = btn.closest('.ta-nav-group');
+        if (!group) return;
+        var isOpen = group.classList.contains('open');
+        // accordion: close siblings
+        document.querySelectorAll('.ta-nav-group.open').forEach(function (g) {
+            if (g !== group) g.classList.remove('open');
+        });
+        group.classList.toggle('open', !isOpen);
+    };
+    window.taToggleCollapse = function () {
+        var collapsed = document.body.classList.toggle('ta-collapsed');
+        try { localStorage.setItem('ta-sidebar-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+    };
+    // Restore collapsed state (runs on every wire:navigate page load)
+    (function () {
+        try {
+            if (localStorage.getItem('ta-sidebar-collapsed') === '1') {
+                document.body.classList.add('ta-collapsed');
+            }
+        } catch (e) {}
+    })();
+    document.addEventListener('livewire:navigated', function () {
+        try {
+            document.body.classList.toggle('ta-collapsed', localStorage.getItem('ta-sidebar-collapsed') === '1');
+            // Re-apply theme (wire:navigate morphs <html> from server, wiping data-bs-theme)
+            var saved = localStorage.getItem('ta-theme');
+            document.documentElement.setAttribute('data-bs-theme', saved === 'dark' ? 'dark' : 'light');
+        } catch (e) {}
+        taSyncThemeBtn();
+    });
+    // ── Dark / Light theme ──
+    function taSyncThemeBtn() {
+        var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        document.querySelectorAll('.ta-theme-btn').forEach(function(btn) {
+            btn.title = dark ? 'حالت روشن' : 'حالت تیره';
+            var icon = btn.querySelector('i');
+            if (icon) icon.className = dark ? 'bi bi-sun' : 'bi bi-moon';
+        });
+    }
+    window.taToggleTheme = function () {
+        var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        var next = dark ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-bs-theme', next);
+        try { localStorage.setItem('ta-theme', next); } catch (e) {}
+        taSyncThemeBtn();
+    };
+    taSyncThemeBtn();
+</script>
 @livewireScripts
 @stack('scripts')
 @include('partials._btn_loader')

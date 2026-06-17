@@ -65,6 +65,30 @@ $oldAmenities = old('amenities', $roomType?->amenities ?? []);
         @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
 
+    {{-- Extra capacity (کف‌خوابی) --}}
+    <div class="col-12">
+        <div class="card border-warning bg-warning-subtle p-3 mb-1">
+            <div class="fw-semibold mb-2"><i class="bi bi-person-add me-1 text-warning"></i>ظرفیت اضافه (کف‌خوابی / تخت اضافه)</div>
+            <div class="text-muted small mb-3">در صورتی که اتاق امکان پذیرش نفر اضافه (کف‌خوابی، مبل‌تخت‌خواب و...) را دارد، ظرفیت و قیمت آن را وارد کنید. با فعال بودن این گزینه، مهمانان می‌توانند هنگام رزرو نفر اضافه اضافه کنند.</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">حداکثر نفرات اضافه مجاز</label>
+                    <input type="number" name="extra_capacity" class="form-control @error('extra_capacity') is-invalid @enderror"
+                           value="{{ old('extra_capacity', $roomType?->extra_capacity) }}" min="1" max="10" placeholder="مثلاً: 2">
+                    <div class="form-text">خالی بگذارید اگر ندارد</div>
+                    @error('extra_capacity')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">قیمت هر نفر اضافه / شب (تومان)</label>
+                    <input type="number" name="extra_capacity_price" class="form-control @error('extra_capacity_price') is-invalid @enderror"
+                           value="{{ old('extra_capacity_price', $roomType?->extra_capacity_price) }}" min="0" placeholder="مثلاً: 200000">
+                    <div class="form-text">قیمت به ازای هر نفر اضافه در هر شب</div>
+                    @error('extra_capacity_price')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="col-md-4">
         <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" name="smoking" value="1" id="smokingCheck"

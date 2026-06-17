@@ -37,7 +37,7 @@
             <div><div style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::parse($booking->check_in))->format('Y/m/d') }}</div></div>
             <div><div style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::parse($booking->check_out))->format('Y/m/d') }}</div></div>
             <div><div style="font-size:12px;color:var(--bnb-gray);">مدت اقامت</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ $booking->nights }} شب</div></div>
-            <div><div style="font-size:12px;color:var(--bnb-gray);">تعداد مهمان</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ $booking->guests }} نفر</div></div>
+            <div><div style="font-size:12px;color:var(--bnb-gray);">تعداد مهمان</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ $booking->guests }} نفر@if($booking->extra_guests > 0) <span style="font-size:12px;color:#16a34a;font-weight:600;">(+ {{ $booking->extra_guests }} کف‌خواب)</span>@endif</div></div>
         </div>
     </div>
 
@@ -61,6 +61,9 @@
     <div style="border:1px solid var(--bnb-border);border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="font-size:12px;color:var(--bnb-gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">جزئیات مالی</div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span>قیمت پایه ({{ $booking->nights }} شب × {{ number_format($booking->accommodation->price_per_night) }} تومان)</span><span>{{ number_format($booking->base_price) }} تومان</span></div>
+        @if($booking->extra_guests > 0 && $booking->extra_guests_price > 0)
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:#16a34a;"><span><i class="bi bi-person-add me-1"></i>کف‌خوابی ({{ $booking->extra_guests }} نفر × {{ $booking->nights }} شب)</span><span>{{ number_format($booking->extra_guests_price) }} تومان</span></div>
+        @endif
         @if($booking->discount_percentage > 0)
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:var(--bnb-red);"><span>تخفیف {{ $booking->discount_percentage }}٪ ({{ $booking->user->veteranLabel() }})</span><span>− {{ number_format($booking->discount_amount) }} تومان</span></div>
         @endif

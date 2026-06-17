@@ -531,6 +531,12 @@
                         </div>
                         {{-- Dynamic badges --}}
                         <div class="d-flex flex-wrap gap-2 mt-1">
+                            {{-- Extra capacity badge (floor sleeping available) --}}
+                            @if($roomType->extra_capacity)
+                            <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">
+                                <i class="bi bi-person-add"></i> کف‌خوابی: تا {{ $roomType->extra_capacity }} نفر · {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                            </span>
+                            @endif
                             {{-- Rooms-needed warning: shows whenever guests exceed per-room capacity OR available rooms --}}
                             <template x-if="needsHatch({{ $roomType->capacity }}, {{ $roomType->room_count }}, {{ $roomType->id }})">
                                 <span class="rt-overcap-badge">
@@ -587,11 +593,13 @@
                                 <input type="hidden" name="check_in" class="rt-check-in">
                                 <input type="hidden" name="check_out" class="rt-check-out">
                                 <input type="hidden" name="guests" class="rt-guests" value="1">
+                                <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
                                 @php
                                     $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
                                     $btnOrigPrice = $rate->price_per_night;
                                 @endphp
-                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;" onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }}, {{ $roomType->id }}, {{ $roomType->capacity }})">رزرو</button>
+                                <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;"
+                                    onclick="reserveRoom(this, {{ $btnDiscPrice }}, {{ $btnOrigPrice }}, {{ $roomType->id }}, {{ $roomType->capacity }}, {{ (int)($roomType->extra_capacity ?? 0) }}, {{ (int)($roomType->extra_capacity_price ?? 0) }})">رزرو</button>
                             </form>
                             @else
                             <a href="{{ route('auth.mobile') }}" wire:navigate class="btn-bnb" style="text-decoration:none;display:block;white-space:nowrap; width: 100%; text-align: center;">ورود برای رزرو</a>
@@ -1058,6 +1066,13 @@
                     <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
             </div>
+            {{-- Extra guests line --}}
+            <template x-if="extraGuests > 0 && extraCapacityPrice > 0">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;background:#f0fdf4;border-top:1px solid #bbf7d0;">
+                    <span style="color:#15803d;font-weight:600;"><i class="bi bi-person-add me-1"></i><span x-text="extraGuests + ' نفر کف‌خواب'"></span></span>
+                    <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                </div>
+            </template>
         </div>
 
         {{-- Confirm dates button --}}
@@ -1093,7 +1108,7 @@
                     @endauth
                     <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
-                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر'"></div>
+                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر' + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
             </div>
             <button type="button" data-async-btn @click="pay()"
                     class="btn-bnb"
@@ -1240,12 +1255,14 @@ function loadTour360(placeholder) {
     wrapper.style.overflow = 'hidden';
     placeholder.replaceWith(iframe);
 }
-function reserveRoom(btn, pricePerNight, origPrice, roomTypeId, roomCapacity) {
+function reserveRoom(btn, pricePerNight, origPrice, roomTypeId, roomCapacity, extraCapacity, extraCapacityPrice) {
     var form  = btn.closest('form');
     var price = pricePerNight || 0;
     var orig  = origPrice || price;
     var rtId  = roomTypeId || null;
     var rtCap = roomCapacity || 1;
+    var extraCap   = parseInt(extraCapacity)   || 0;
+    var extraPrice = parseInt(extraCapacityPrice) || 0;
 
     // Read room-type meta from the card
     var card      = btn.closest('.bnb-room-card');
@@ -1254,7 +1271,7 @@ function reserveRoom(btn, pricePerNight, origPrice, roomTypeId, roomCapacity) {
     var drawerEl = document.querySelector('[x-data="mbbDrawer()"]');
     if (drawerEl && typeof Alpine !== 'undefined') {
         var drawer = Alpine.$data(drawerEl);
-        drawer.openForRoom(form, price, orig, rtId, rtName, rtCap);
+        drawer.openForRoom(form, price, orig, rtId, rtName, rtCap, extraCap, extraPrice);
     }
 }
 
@@ -1436,6 +1453,10 @@ function mbbDrawer() {
         userDiscountPct: {{ auth()->check() ? (int) auth()->user()->discount_percentage : 0 }},
         // Room capacity (guests per room) — used to compute rooms_needed for warning
         roomTypeCapacityNum: 1,
+        // Extra capacity (floor sleeping / کف‌خوابی)
+        extraCapacity: 0,         // max extra guests allowed for this room type
+        extraCapacityPrice: 0,    // price per extra guest per night (undiscounted)
+        extraGuests: 0,           // chosen extra guests for this booking
         // Availability
         roomTypeId: null,
         roomTypeName: '',
@@ -1457,7 +1478,8 @@ function mbbDrawer() {
         get dynamicNightPrices() {
             if (!this.checkIn || !this.checkOut) return [];
             const prices = [];
-            const g = this.guests;
+            // Standard guests (excluding extra floor-sleeping guests)
+            const g = Math.max(1, this.guests - this.extraGuests);
             let d = new Date(this.checkIn + 'T12:00:00');
             const end = new Date(this.checkOut + 'T12:00:00');
             while (d < end) {
@@ -1486,28 +1508,37 @@ function mbbDrawer() {
             return prices;
         },
 
+        // Total cost of extra guests (fixed price, no per-night override, but user discount applies)
+        get extraGuestsTotal() {
+            if (!this.extraGuests || !this.extraCapacityPrice || !this.nights) return 0;
+            const raw = this.extraGuests * this.extraCapacityPrice * this.nights;
+            return this.userDiscountPct > 0 ? Math.round(raw * (1 - this.userDiscountPct / 100)) : raw;
+        },
+
         get dynamicTotal() {
             const prices = this.dynamicNightPrices;
-            const g = this.guests;
+            const g = Math.max(1, this.guests - this.extraGuests);
             if (!prices.length) {
                 const base = this.userDiscountPct > 0
                     ? Math.round((this.originalPrice || this.pricePerNight) * (1 - this.userDiscountPct / 100))
                     : (this.originalPrice || this.pricePerNight);
-                return this.nights * base * g;
+                return this.nights * base * g + this.extraGuestsTotal;
             }
-            return prices.reduce((s, p) => s + p.price, 0);
+            return prices.reduce((s, p) => s + p.price, 0) + this.extraGuestsTotal;
         },
 
         get dynamicAfterHostTotal() {
             const prices = this.dynamicNightPrices;
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * this.guests;
-            return prices.reduce((s, p) => s + p.hostEffective, 0);
+            const g = Math.max(1, this.guests - this.extraGuests);
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsTotal;
+            return prices.reduce((s, p) => s + p.hostEffective, 0) + this.extraGuestsTotal;
         },
 
         get dynamicOriginalTotal() {
             const prices = this.dynamicNightPrices;
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * this.guests;
-            return prices.reduce((s, p) => s + p.baseRate, 0);
+            const g = Math.max(1, this.guests - this.extraGuests);
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsTotal;
+            return prices.reduce((s, p) => s + p.baseRate, 0) + this.extraGuestsTotal;
         },
 
         get hasDynamicPricing() {
@@ -1731,22 +1762,111 @@ function mbbDrawer() {
         confirmDates() {
             if (!this.checkIn || !this.checkOut) return;
 
-            const capacity  = this.roomTypeCapacityNum || 1;
-            const guests    = this.guests;
-            const rn        = Math.ceil(guests / capacity);
-            const totalBeds = rn * capacity;
-            const emptyBeds = totalBeds - guests;
-            const underCap  = this.roomTypeId && capacity > 1 && emptyBeds > 0;
+            const capacity     = this.roomTypeCapacityNum || 1;
+            const guests       = this.guests;
+            const extraCap     = this.extraCapacity || 0;
+            const extraPrice   = this.extraCapacityPrice || 0;
+            const nights       = this.nights;
+            // Standard rooms needed (ceil) without extra capacity
+            const rn           = Math.ceil(guests / capacity);
+            const totalBeds    = rn * capacity;
+            const emptyBeds    = totalBeds - guests;
+            // Remainder that would go on floor (guests that don't fill the last room)
+            const remainder    = guests % capacity;
+            // Can extra capacity solve the mismatch? (remainder fits within extra_capacity)
+            const canUseExtra  = this.roomTypeId && capacity > 1 && guests > capacity && remainder > 0 && extraCap >= remainder;
 
-            const proceed = () => {
+            const proceed = (extraG) => {
+                this.extraGuests    = extraG || 0;
                 this.datesConfirmed = true;
-                this.drawerOpen = false;
+                this.drawerOpen     = false;
                 window.dispatchEvent(new CustomEvent('bnb-dates-set', {
                     detail: { checkIn: this.checkIn, checkOut: this.checkOut }
                 }));
             };
 
-            if (underCap) {
+            if (canUseExtra) {
+                // Extra capacity CAN bridge the gap — offer the user the choice
+                const extraCost = remainder * extraPrice * nights;
+                const extraCostDisc = this.userDiscountPct > 0
+                    ? Math.round(extraCost * (1 - this.userDiscountPct / 100))
+                    : extraCost;
+                const roomsWithExtra = Math.floor(guests / capacity); // one fewer room needed
+                const htmlContent = `
+                    <div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
+                        <p style="margin:0 0 14px;">برای <strong>${guests} نفر</strong> با ظرفیت هر اتاق ${capacity} نفر:</p>
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <label style="display:flex;align-items:flex-start;gap:12px;background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-extra">
+                                <input type="radio" name="swal-cap-choice" value="extra" checked style="margin-top:4px;accent-color:#16a34a;">
+                                <div>
+                                    <div style="font-weight:700;color:#15803d;margin-bottom:4px;"><i class="bi bi-person-add"></i> کف‌خوابی (پیشنهادی)</div>
+                                    <div style="font-size:13px;color:#374151;"><strong>${roomsWithExtra > 0 ? roomsWithExtra : 1} اتاق</strong> + <strong>${remainder} نفر کف‌خواب</strong></div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: <strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} تومان</strong> (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
+                                </div>
+                            </label>
+                            <label style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-multi">
+                                <input type="radio" name="swal-cap-choice" value="multi" style="margin-top:4px;accent-color:#ea580c;">
+                                <div>
+                                    <div style="font-weight:700;color:#c2410c;margin-bottom:4px;"><i class="bi bi-layers"></i> رزرو چندتایی (بدون کف‌خوابی)</div>
+                                    <div style="font-size:13px;color:#374151;"><strong>${rn} اتاق</strong> — ${emptyBeds} تخت خالی محاسبه می‌شود</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هر رزرو را به‌صورت جداگانه ثبت کنید تا از تخت خالی جلوگیری شود.</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>`;
+                _loadSwal().then(() => Swal.fire({
+                    title: '<span style="font-family:var(--bnb-font);font-size:17px;"><i class="bi bi-people-fill text-success"></i> نحوه رزرو برای ' + guests + ' نفر</span>',
+                    html: htmlContent,
+                    showConfirmButton: true,
+                    confirmButtonText: '<i class="bi bi-check-circle me-1"></i> تأیید و ادامه',
+                    confirmButtonColor: '#16a34a',
+                    showCancelButton: true,
+                    cancelButtonText: '<i class="bi bi-x me-1"></i> انصراف',
+                    cancelButtonColor: '#6b7280',
+                    customClass: { popup: 'swal-bnb-popup' },
+                    didOpen: () => {
+                        const popup = Swal.getPopup();
+                        if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
+                        const container = document.querySelector('.swal2-container');
+                        if (container) container.style.zIndex = '9999';
+                    }
+                })).then((result) => {
+                    if (result.isConfirmed) {
+                        const choice = document.querySelector('input[name="swal-cap-choice"]:checked')?.value;
+                        if (choice === 'extra') {
+                            proceed(remainder);
+                        } else {
+                            // Show the multi-booking warning then close
+                            _loadSwal().then(() => Swal.fire({
+                                title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
+                                html: `<div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
+                                    <p style="margin:0 0 12px;">برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) است.<br>مجموع تخت‌های رزرو شده: <strong>${totalBeds} تخت</strong> — که <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> نیز در مبلغ نهایی محاسبه می‌شود.</p>
+                                    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;">
+                                        <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> پیشنهاد برای صرفه‌جویی:</div>
+                                        <ul style="margin:0;padding-right:18px;color:#78350f;">
+                                            <li style="margin-bottom:4px;">اتاق با ظرفیت <strong>${guests % capacity === 0 ? capacity : guests % capacity} نفر</strong> (برای آخرین گروه) انتخاب کنید.</li>
+                                            <li>یا برای هر گروه به‌صورت جداگانه رزرو انجام دهید.</li>
+                                        </ul>
+                                    </div>
+                                </div>`,
+                                icon: 'warning',
+                                showConfirmButton: false,
+                                showCancelButton: true,
+                                cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
+                                cancelButtonColor: '#ff385c',
+                                customClass: { popup: 'swal-bnb-popup' },
+                                didOpen: () => {
+                                    const popup = Swal.getPopup();
+                                    if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
+                                    const container = document.querySelector('.swal2-container');
+                                    if (container) container.style.zIndex = '9999';
+                                }
+                            }));
+                        }
+                    }
+                });
+            } else if (this.roomTypeId && capacity > 1 && emptyBeds > 0) {
+                // No extra capacity available — show the existing combined-booking warning
                 _loadSwal().then(() => Swal.fire({
                     title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
                     html: `
@@ -1777,29 +1897,34 @@ function mbbDrawer() {
                     }
                 }));
             } else {
-                proceed();
+                proceed(0);
             }
         },
 
         pay() {
             if (!this.checkIn || !this.checkOut || !this.targetForm) return;
             const form = this.targetForm;
-            const ci = form.querySelector('.rt-check-in');
-            const co = form.querySelector('.rt-check-out');
-            const g  = form.querySelector('.rt-guests') || form.querySelector('input[name="guests"]');
+            const ci  = form.querySelector('.rt-check-in');
+            const co  = form.querySelector('.rt-check-out');
+            const g   = form.querySelector('.rt-guests') || form.querySelector('input[name="guests"]');
+            const eg  = form.querySelector('.rt-extra-guests') || form.querySelector('input[name="extra_guests"]');
             if (ci) ci.value = this.checkIn;
             if (co) co.value = this.checkOut;
             if (g)  g.value  = this.guests;
+            if (eg) eg.value = this.extraGuests || 0;
             form.submit();
         },
 
-        openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap) {
+        openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap, extraCap, extraPrice) {
             this.targetForm          = form;
             this.pricePerNight       = price;
             this.originalPrice       = origPrice || price;
             this.roomTypeName        = rtName || '';
             this.roomTypeCapacity    = String(rtCap) || '';
             this.roomTypeCapacityNum = parseInt(rtCap) || 1;
+            this.extraCapacity       = parseInt(extraCap)   || 0;
+            this.extraCapacityPrice  = parseInt(extraPrice) || 0;
+            this.extraGuests         = 0;  // reset when switching rooms
             this.datesConfirmed      = false;
 
             // Always clear cached availability so new room type gets fresh data
