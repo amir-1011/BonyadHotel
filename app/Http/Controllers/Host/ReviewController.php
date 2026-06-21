@@ -11,7 +11,7 @@ class ReviewController extends Controller
 {
     public function index(Request $request)
     {
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
 
         $query = Review::whereIn('accommodation_id', $accIds)
             ->with('user', 'accommodation', 'booking')
@@ -31,7 +31,7 @@ class ReviewController extends Controller
         }
 
         $reviews = $query->paginate(20)->withQueryString();
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
 
         $stats = [
             'total'    => Review::whereIn('accommodation_id', $accIds)->count(),
@@ -46,7 +46,7 @@ class ReviewController extends Controller
     public function reply(Request $request, Review $review)
     {
         // Ensure review belongs to host's accommodation
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
         abort_if(!$accIds->contains($review->accommodation_id), 403);
 
         $request->validate([
@@ -63,7 +63,7 @@ class ReviewController extends Controller
 
     public function deleteReply(Review $review)
     {
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
         abort_if(!$accIds->contains($review->accommodation_id), 403);
 
         $review->update(['host_reply' => null, 'host_replied_at' => null]);

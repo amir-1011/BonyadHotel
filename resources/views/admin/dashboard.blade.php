@@ -22,6 +22,8 @@
          'trend'=>$confirmRate,'trendLabel'=>$confirmRate.'٪ تأیید','up'=>$confirmRate>=50],
         ['label'=>'درآمد کل (تومان)','value'=>number_format($stats['revenue']),'icon'=>'cash-stack','href'=>route('admin.bookings.index',['status'=>'confirmed']),
          'trend'=>$revGrowth,'trendLabel'=>($revGrowth!==null?abs($revGrowth).'٪ ماهانه':'—'),'up'=>($revGrowth??0)>=0],
+        ['label'=>'کیف پول کارمزد','value'=>number_format($stats['commission_wallet']),'icon'=>'wallet2','href'=>route('admin.commission-wallet'),
+         'trend'=>null,'trendLabel'=>config('platform_commission.percentage').'٪ تا سقف '.number_format(config('platform_commission.cap')),'up'=>true],
     ];
 @endphp
 
@@ -98,7 +100,7 @@
     <div class="ta-card__body">
         <div class="row g-4 align-items-stretch">
             <div class="col-12 col-lg-7">
-                <div id="iranMap" style="height:430px;border-radius:12px;overflow:hidden;background:#f9fafb;border:1px solid #e4e7ec"></div>
+                <div id="iranMap" wire:ignore style="height:430px;border-radius:12px;overflow:hidden;background:#f9fafb;border:1px solid #e4e7ec"></div>
             </div>
             <div class="col-12 col-lg-5">
                 <div class="d-flex align-items-baseline justify-content-between mb-3">
@@ -249,7 +251,7 @@
                                 </td>
                                 <td>
                                     <a wire:navigate href="{{ route('admin.users.show', $b->user) }}" class="text-decoration-none text-dark">
-                                        {{ $b->user->name ?? $b->user->mobile }}
+                                        {{ $b->bookerName() }}
                                     </a>
                                 </td>
                                 <td>
@@ -264,7 +266,7 @@
                                         <a wire:navigate href="{{ route('admin.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="جزئیات"><i class="bi bi-eye"></i></a>
                                         @if($b->status === 'pending')
                                         <button wire:click="updateBookingStatus({{ $b->id }}, 'confirmed')" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check-lg"></i></button>
-                                        <button wire:click="updateBookingStatus({{ $b->id }}, 'cancelled')" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x-lg"></i></button>
+                                        <button wire:click="updateBookingStatus({{ $b->id }}, 'cancelled')" data-swal-confirm="لغو شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x-lg"></i></button>
                                         @endif
                                     </div>
                                 </td>
@@ -340,16 +342,21 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
 <script>
 (function () {
+    const VENDOR_LEAFLET = @json(asset('vendor/leaflet/leaflet.js'));
+    const GEOJSON_URL = @json(asset('vendor/iran-map/provinces.min.geojson'));
+    let _iranMapInstance = null;
+    let _vendorLeafletLoading = false;
+
     // Iran bookings choropleth (province heatmap)
     const geoCounts = @json($geoData);
     const cityAccom = @json($cityAccommodations);
     const provinceAccom = @json($provinceAccommodations);
     const geoMax = {{ $geoMax }};
     const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+
     function heatColor(v) {
         if (!v) return '#eef1f6';
         const t = geoMax > 0 ? v / geoMax : 0;
@@ -359,7 +366,8 @@
         if (t > 0.2) return '#a4b6ff';
         return '#cdd8ff';
     }
-    const mapErrorHtml = (retryFn) => {
+
+    function mapErrorHtml(retryFn) {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:#98a2b3;font-size:.85rem';
         wrap.innerHTML = '<div>خطا در بارگذاری نقشه</div>';
@@ -372,18 +380,75 @@
         btn.onclick = retryFn;
         wrap.appendChild(btn);
         return wrap;
-    };
-    const mapEl = document.getElementById('iranMap');
-    if (mapEl && !window.L) {
-        mapEl.innerHTML = '';
-        mapEl.appendChild(mapErrorHtml(() => window.location.reload()));
     }
-    if (mapEl && window.L) {
+
+    function destroyIranMap() {
+        if (_iranMapInstance) {
+            try { _iranMapInstance.remove(); } catch (e) {}
+            _iranMapInstance = null;
+        }
+        const el = document.getElementById('iranMap');
+        if (el) {
+            el._leafletMap = null;
+            delete el.dataset.iranMapReady;
+        }
+    }
+
+    function ensureVendorLeaflet(callback) {
+        if (!document.getElementById('iranMap')) return;
+
+        const vendorSdk = document.getElementById('vendor-leaflet-sdk');
+        if (vendorSdk?.dataset.ready === '1' && window.L) {
+            callback();
+            return;
+        }
+
+        if (window.L && document.getElementById('neshan-sdk-accommodation')?.dataset.ready === '1') {
+            window.__neshanLeafletBackup = window.L;
+            delete window.L;
+        } else if (window.L && !vendorSdk) {
+            const marker = document.createElement('script');
+            marker.id = 'vendor-leaflet-sdk';
+            marker.dataset.ready = '1';
+            document.body.appendChild(marker);
+            callback();
+            return;
+        }
+
+        if (_vendorLeafletLoading) return;
+        _vendorLeafletLoading = true;
+
+        if (vendorSdk) vendorSdk.remove();
+
+        const script = document.createElement('script');
+        script.id = 'vendor-leaflet-sdk';
+        script.src = VENDOR_LEAFLET;
+        script.onload = function () {
+            script.dataset.ready = '1';
+            _vendorLeafletLoading = false;
+            callback();
+        };
+        script.onerror = function () { _vendorLeafletLoading = false; };
+        document.body.appendChild(script);
+    }
+
+    function initIranMapCore() {
+        const mapEl = document.getElementById('iranMap');
+        if (!mapEl || !window.L || !mapEl.isConnected || !mapEl.offsetWidth) return;
+        if (mapEl.dataset.iranMapReady === '1' && mapEl._leafletMap) {
+            _iranMapInstance = mapEl._leafletMap;
+            _iranMapInstance.invalidateSize();
+            return;
+        }
+
+        destroyIranMap();
+
         const map = L.map(mapEl, { zoomControl: true, attributionControl: false, scrollWheelZoom: false, zoomSnap: 0.1, zoomDelta: 0.5 });
+        mapEl._leafletMap = map;
+        _iranMapInstance = map;
         const provinceLayers = {};
         let geoLayer = null, homeBounds = null, selectedLayer = null;
 
-        // X control to return to the overview
         const CloseControl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function () {
@@ -497,7 +562,7 @@
             showCloseControl();
         }
 
-        fetch("{{ asset('vendor/iran-map/provinces.min.geojson') }}")
+        fetch(GEOJSON_URL)
             .then(r => r.json())
             .then(geo => {
                 geoLayer = L.geoJSON(geo, {
@@ -519,8 +584,8 @@
                 }).addTo(map);
                 homeBounds = geoLayer.getBounds();
                 map.fitBounds(homeBounds, { padding: [14, 14] });
+                mapEl.dataset.iranMapReady = '1';
 
-                // clickable city rows
                 document.querySelectorAll('.city-row').forEach(row => {
                     row.addEventListener('click', () => {
                         document.querySelectorAll('.city-row').forEach(r => r.style.background = 'transparent');
@@ -533,9 +598,22 @@
             })
             .catch(() => {
                 mapEl.innerHTML = '';
-                mapEl.appendChild(mapErrorHtml(() => window.location.reload()));
+                mapEl.appendChild(mapErrorHtml(() => initIranMap()));
             });
     }
+
+    function initIranMap() {
+        ensureVendorLeaflet(function () {
+            requestAnimationFrame(function () { requestAnimationFrame(initIranMapCore); });
+        });
+    }
+
+    document.addEventListener('livewire:navigating', function () {
+        destroyIranMap();
+        _vendorLeafletLoading = false;
+    });
+    document.addEventListener('livewire:navigated', initIranMap);
+    document.addEventListener('DOMContentLoaded', initIranMap);
 
     // ── Per-accommodation sparklines ──────────────────────────────────
     const sparklines = @json(
@@ -545,7 +623,7 @@
     );
     let chartsRendered = false;
     function renderSparklines() {
-        if (chartsRendered) return;
+        if (chartsRendered || !window.ApexCharts) return;
         chartsRendered = true;
         Object.entries(sparklines).forEach(([id, data]) => {
             const el = document.querySelector('#spark-' + id);
@@ -580,6 +658,8 @@
             renderSparklines();
         }
     }
+    document.getElementById('apexcharts-sdk')?.addEventListener('load', renderSparklines);
+    document.addEventListener('livewire:navigated', renderSparklines);
 })();
 </script>
 @endpush

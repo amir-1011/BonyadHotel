@@ -12,7 +12,8 @@ class AccommodationIndex extends Component
 {
     public function destroy(int $id): void
     {
-        $accommodation = Accommodation::where('host_id', Auth::id())->findOrFail($id);
+        abort_unless(Auth::user()->managesAccommodation($id), 403);
+        $accommodation = Accommodation::findOrFail($id);
         $accommodation->delete();
         session()->flash('status', 'اقامتگاه حذف شد.');
         $this->dispatch('toast', type: 'success', message: 'اقامتگاه حذف شد.');

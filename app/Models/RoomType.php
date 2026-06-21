@@ -68,14 +68,25 @@ class RoomType extends Model
         $end       = new \DateTime($to);
         $baseTotal = (int) $this->room_count;
 
-        // Active bookings overlapping the range
-        $bookings = $this->bookings()
+        $endExcl = (clone $end)->modify('-1 day')->format('Y-m-d');
+
+        // Room consumption from multi-room lines and legacy single-room bookings.
+        $bookingRoomLines = BookingRoom::query()
+            ->where('room_type_id', $this->id)
+            ->whereHas('booking', function ($q) use ($from, $to) {
+                $q->whereIn('status', ['confirmed', 'pending'])
+                    ->where('check_in', '<', $to)
+                    ->where('check_out', '>', $from);
+            })
+            ->with('booking:id,check_in,check_out')
+            ->get(['booking_id', 'rooms_consumed']);
+
+        $legacyBookings = $this->bookings()
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('check_in', '<', $to)
             ->where('check_out', '>', $from)
-            ->get(['check_in', 'check_out', 'rooms_consumed']);
-
-        $endExcl = (clone $end)->modify('-1 day')->format('Y-m-d');
+            ->whereDoesntHave('bookingRooms')
+            ->get(['id', 'check_in', 'check_out', 'rooms_consumed']);
 
         // Manually blocked dates
         $blocked = $this->blockedDates()
@@ -100,12 +111,22 @@ class RoomType extends Model
         $cursor = clone $start;
         while ($cursor < $end) {
             $dateStr = $cursor->format('Y-m-d');
-            $booked  = 0;
-            foreach ($bookings as $b) {
+            $booked = 0;
+            foreach ($bookingRoomLines as $line) {
+                $b = $line->booking;
+                if (!$b) {
+                    continue;
+                }
                 $ci = $b->check_in->format('Y-m-d');
                 $co = $b->check_out->format('Y-m-d');
                 if ($ci <= $dateStr && $co > $dateStr) {
-                    // Each booking may consume multiple rooms (multi-room policy)
+                    $booked += (int) ($line->rooms_consumed ?? 1);
+                }
+            }
+            foreach ($legacyBookings as $b) {
+                $ci = $b->check_in->format('Y-m-d');
+                $co = $b->check_out->format('Y-m-d');
+                if ($ci <= $dateStr && $co > $dateStr) {
                     $booked += (int) ($b->rooms_consumed ?? 1);
                 }
             }

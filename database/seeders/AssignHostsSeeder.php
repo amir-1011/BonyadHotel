@@ -18,7 +18,9 @@ class AssignHostsSeeder extends Seeder
 
         $accommodations = Accommodation::all();
         foreach ($accommodations as $i => $acc) {
-            $acc->update(['host_id' => $hosts[$i % $hosts->count()]->id]);
+            $host = $hosts[$i % $hosts->count()];
+            $acc->update(['host_id' => $host->id]);
+            $acc->grantHostAccess($host);
         }
 
         $this->command->info('Hosts assigned to accommodations.');

@@ -5,6 +5,9 @@ namespace App\Livewire\Host;
 use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\Province;
+use App\Livewire\Concerns\ManagesAccommodationContactInfo;
+use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Models\AccommodationType;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -15,6 +18,8 @@ use Livewire\WithFileUploads;
 class AccommodationEdit extends Component
 {
     use WithFileUploads;
+    use ManagesAccommodationContactInfo;
+    use ManagesAccommodationCatalog;
 
     public Accommodation $accommodation;
 
@@ -35,7 +40,7 @@ class AccommodationEdit extends Component
 
     public function mount(Accommodation $accommodation): void
     {
-        abort_if($accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
 
         $this->accommodation = $accommodation;
         $this->cityId        = $accommodation->city_id;
@@ -51,6 +56,7 @@ class AccommodationEdit extends Component
         $this->lng           = $accommodation->lng !== null ? (string) $accommodation->lng : '';
         $this->amenitiesRaw  = implode(', ', $accommodation->amenities ?? []);
         $this->keepImages    = $accommodation->images ?? [];
+        $this->loadContactInfoFrom($accommodation);
     }
 
     public function updatedProvinceId(): void
@@ -60,11 +66,11 @@ class AccommodationEdit extends Component
 
     protected function rules(): array
     {
-        return [
+        return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
-            'type'          => ['required', 'in:hotel,villa,apartment,hostel,traditional'],
+            'type'          => $this->accommodationTypeRule(),
             'pricePerNight' => ['required', 'integer', 'min:0'],
             'capacity'      => ['required', 'integer', 'min:1'],
             'rooms'         => ['required', 'integer', 'min:1'],
@@ -72,7 +78,7 @@ class AccommodationEdit extends Component
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
             'newImages.*'   => ['nullable', 'image', 'max:4096'],
-        ];
+        ], $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -90,6 +96,7 @@ class AccommodationEdit extends Component
     public function update(): void
     {
         $this->validate();
+        $this->validateContactInfo();
 
         $existingImages = $this->accommodation->images ?? [];
         foreach ($existingImages as $img) {
@@ -103,7 +110,7 @@ class AccommodationEdit extends Component
             $finalImages[] = $img->store('accommodations', 'public');
         }
 
-        $this->accommodation->update([
+        $this->accommodation->update(array_merge([
             'city_id'         => $this->cityId,
             'name'            => $this->name,
             'description'     => $this->description ?: null,
@@ -116,7 +123,7 @@ class AccommodationEdit extends Component
             'lng'             => $this->lng !== '' ? (float) $this->lng : null,
             'amenities'       => $this->parseAmenities($this->amenitiesRaw),
             'images'          => $finalImages,
-        ]);
+        ], $this->contactInfoAttributes()));
 
         session()->flash('status', 'اقامتگاه با موفقیت ویرایش شد.');
         $this->redirectRoute('host.accommodations.index', navigate: true);
@@ -130,6 +137,7 @@ class AccommodationEdit extends Component
             : City::where('province_id', $this->accommodation->city?->province_id ?? 0)->orderBy('name')->get();
         $accommodation = $this->accommodation;
         $keepImages    = $this->keepImages;
-        return view('host.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'keepImages'));
+        $accommodationTypes = AccommodationType::options();
+        return view('host.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'keepImages', 'accommodationTypes'));
     }
 }

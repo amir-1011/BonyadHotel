@@ -113,12 +113,14 @@
         <div class="card-header fw-semibold py-2"><i class="bi bi-gear me-1"></i> تغییر وضعیت</div>
         <div class="card-body">
             <div class="d-flex gap-2">
-                <select wire:model="newStatus" class="form-select form-select-sm">
+                <select wire:model.live="newStatus" class="form-select form-select-sm">
                     <option value="active">فعال</option>
                     <option value="completed">پایان‌یافته</option>
                     <option value="cancelled">لغو‌شده</option>
                 </select>
-                <button wire:click="updateStatus" class="btn btn-sm btn-primary">ثبت</button>
+                <button wire:click="updateStatus"
+                        class="btn btn-sm btn-primary"
+                        @if($newStatus === 'cancelled' && $program->status !== 'cancelled') data-swal-confirm="برنامه لغو شود؟" @endif>ثبت</button>
             </div>
         </div>
     </div>

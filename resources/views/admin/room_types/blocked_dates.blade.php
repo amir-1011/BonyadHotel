@@ -237,10 +237,9 @@
                             <td class="text-muted">{{ $bd->reason ?: '—' }}</td>
                             <td class="text-end">
                                 <form action="{{ route('admin.room-types.blocked-dates.destroy', [$accommodation, $roomType, $bd]) }}"
-                                      method="POST" class="d-inline"
-                                      onsubmit="return confirm('این تاریخ از مسدودی حذف شود؟')">
+                                      method="POST" class="d-inline">
                                     @csrf @method('DELETE')
-                                    <button class="btn btn-sm btn-outline-danger">
+                                    <button type="submit" data-swal-confirm="این تاریخ از مسدودی حذف شود؟" class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>

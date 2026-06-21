@@ -164,8 +164,7 @@
 
 
             {{-- Type filter --}}
-            @php $types = ['' => 'همه انواع', 'hotel' => 'هتل', 'villa' => 'ویلا', 'apartment' => 'آپارتمان', 'hostel' => 'هاستل', 'traditional' => 'سنتی']; @endphp
-            @foreach($types as $val => $label)
+            @foreach($accommodationTypes as $val => $label)
                 <a href="{{ route('accommodations.index', array_merge(request()->except('type','page'), $val ? ['type' => $val] : [])) }}"
                    wire:navigate
                    class="bnb-filter-pill text-decoration-none {{ request('type', '') === $val ? 'active' : '' }}">

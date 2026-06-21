@@ -53,9 +53,11 @@
             </button>
             <ul class="ta-submenu">
                 <li><a href="{{ route('admin.accommodations.index') }}" wire:navigate
-                       class="{{ request()->routeIs('admin.accommodations.index') || request()->routeIs('admin.accommodations.edit') || request()->routeIs('admin.room-types.*') ? 'active' : '' }}">لیست اقامتگاه‌ها</a></li>
+                       class="{{ request()->routeIs('admin.accommodations.index') || request()->routeIs('admin.accommodations.edit') || request()->routeIs('admin.accommodations.manual-booking') || request()->routeIs('admin.accommodations.import') || request()->routeIs('admin.room-types.*') ? 'active' : '' }}">لیست اقامتگاه‌ها</a></li>
                 <li><a href="{{ route('admin.accommodations.create') }}" wire:navigate
                        class="{{ request()->routeIs('admin.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
+                <li><a href="{{ route('admin.accommodations.import') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.accommodations.import') ? 'active' : '' }}">درون‌ریزی گروهی (CSV)</a></li>
             </ul>
         </div>
 
@@ -64,6 +66,24 @@
            class="ta-nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
         </a>
+
+        {{-- کیف پول کارمزد --}}
+        <a href="{{ route('admin.commission-wallet') }}" wire:navigate data-label="کیف پول کارمزد"
+           class="ta-nav-link {{ request()->routeIs('admin.commission-wallet*') ? 'active' : '' }}">
+            <i class="bi bi-wallet2"></i><span class="ta-nav-link__label">کیف پول کارمزد</span>
+        </a>
+
+        {{-- تنظیمات ایثارگری --}}
+        <a href="{{ route('admin.veteran-policy') }}" wire:navigate data-label="تنظیمات ایثارگری"
+           class="ta-nav-link {{ request()->routeIs('admin.veteran-policy') ? 'active' : '' }}">
+            <i class="bi bi-shield-check"></i><span class="ta-nav-link__label">تنظیمات ایثارگری</span>
+        </a>
+
+        {{-- استان‌ها، شهرها و انواع --}}
+        {{-- <a href="{{ route('admin.location-catalog') }}" wire:navigate data-label="استان و شهر"
+           class="ta-nav-link {{ request()->routeIs('admin.location-catalog') ? 'active' : '' }}">
+            <i class="bi bi-geo-alt-fill"></i><span class="ta-nav-link__label">استان‌ها و انواع</span>
+        </a> --}}
 
         {{-- برنامه‌ها (شاخه) --}}
         <div class="ta-nav-group {{ request()->routeIs('admin.programs.*') ? 'open' : '' }}">
@@ -87,9 +107,11 @@
         </a>
 
         <div class="ta-sidebar__section">دسترسی سریع</div>
+        @unless(config('staff_mode.enabled'))
         <a href="{{ route('home') }}" target="_blank" data-label="سایت اصلی" class="ta-nav-link">
             <i class="bi bi-house-door-fill"></i><span class="ta-nav-link__label">سایت اصلی</span>
         </a>
+        @endunless
         <form action="{{ route('auth.logout') }}" method="POST">
             @csrf
             <button type="submit" class="ta-nav-link" data-label="خروج">
@@ -113,7 +135,6 @@
             <div class="ta-search d-none d-md-block">
                 <i class="bi bi-search"></i>
                 <input type="text" placeholder="جستجو یا تایپ دستور..." aria-label="جستجو">
-                <kbd>⌘ K</kbd>
             </div>
         </div>
 
@@ -135,9 +156,11 @@
                     <i class="bi bi-chevron-down text-muted d-none d-sm-block" style="font-size:.8rem"></i>
                 </div>
                 <ul class="dropdown-menu dropdown-menu-start">
+                    @unless(config('staff_mode.enabled'))
                     <li><a class="dropdown-item" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
                     <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-house-door me-2"></i>سایت اصلی</a></li>
                     <li><hr class="dropdown-divider"></li>
+                    @endunless
                     <li>
                         <form action="{{ route('auth.logout') }}" method="POST">
                             @csrf
@@ -223,5 +246,6 @@
 @stack('scripts')
 @include('partials._btn_loader')
 @include('partials._swal')
+@include('partials._test_site_notice')
 </body>
 </html>

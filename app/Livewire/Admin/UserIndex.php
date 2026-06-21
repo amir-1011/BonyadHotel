@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use App\Support\AdminUserFilter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -30,7 +31,7 @@ class UserIndex extends Component
 
     public function assignRole(int $userId, string $role): void
     {
-        $allowed = ['user', 'host', 'super_admin'];
+        $allowed = Role::pluck('name')->all();
         if (!in_array($role, $allowed, true)) return;
 
         $user = User::findOrFail($userId);
@@ -49,23 +50,19 @@ class UserIndex extends Component
 
     public function render()
     {
+        $filter = AdminUserFilter::make([
+            'search' => $this->search,
+            'role'   => $this->role,
+        ]);
+
         $query = User::with('roles');
+        $filter->apply($query);
 
-        if ($this->search) {
-            $s = $this->search;
-            $query->where(fn($w) =>
-                $w->where('name', 'like', "%$s%")
-                    ->orWhere('mobile', 'like', "%$s%")
-                    ->orWhere('national_id', 'like', "%$s%")
-            );
-        }
-
-        if ($this->role) {
-            $query->role($this->role);
-        }
-
-        $users = $query->latest()->paginate(20);
+        $users = $query->paginate(20);
         $roles = Role::all();
-        return view('admin.users.index', compact('users', 'roles'));
+        $hasActiveFilters = $filter->hasActiveFilters();
+        $exportQuery = $filter->exportQuery();
+
+        return view('admin.users.index', compact('users', 'roles', 'hasActiveFilters', 'exportQuery'));
     }
 }

@@ -4,26 +4,27 @@ namespace App\Services;
 
 /**
  * Mock National ID Verification Service
- * 
+ *
  * For production, replace this with actual integration to Sabte Ahval or Basij API.
- * 
- * Test national IDs:
- *  - Starting with 111: خانواده شهید (50%)
- *  - Starting with 222: جانباز ۲۵ تا ۴۹ درصد (30%)
- *  - Starting with 333: جانباز ۵۰ تا ۶۹ درصد (40%)
- *  - Starting with 444: جانباز ۷۰ درصد و بالاتر (50%)
- *  - Starting with 555: خانواده آزاده (40%)
+ *
+ * Test national IDs (prefix):
+ *  - 111*: همسر شهید (martyr_spouse_dependents)
+ *  - 112*: فرزندان شهدا (martyr_children)
+ *  - 113*: والدین شهدا (martyr_parents_dependents)
+ *  - 222*: جانباز ۲۵–۴۹ (veteran_25_49_dependents)
+ *  - 333*: جانباز ۵۰–۶۹ (veteran_50_69_dependents)
+ *  - 444*: جانباز ۷۰+ (veteran_70_spouses)
+ *  - 555*: آزادگان (freed_prisoner_dependents)
  *  - All others: کاربر عادی (0%)
  */
 class NationalIdVerificationService
 {
-    public const DISCOUNT_MAP = [
-        'martyr_family'         => 50,
-        'veteran_25_49'         => 30,
-        'veteran_50_69'         => 40,
-        'veteran_70_plus'       => 50,
-        'freed_prisoner_family' => 40,
-    ];
+    /** @deprecated Use VeteranPolicyService::accommodationDiscount() */
+    public const DISCOUNT_MAP = [];
+
+    public function __construct(
+        private readonly VeteranPolicyService $veteranPolicy
+    ) {}
 
     public function verify(string $nationalId): array
     {
@@ -31,8 +32,8 @@ class NationalIdVerificationService
             return ['valid' => false, 'message' => 'کد ملی وارد شده معتبر نیست.'];
         }
 
-        $veteranType    = $this->detectVeteranType($nationalId);
-        $discount       = self::DISCOUNT_MAP[$veteranType] ?? 0;
+        $veteranType = $this->detectVeteranType($nationalId);
+        $discount = $this->veteranPolicy->accommodationDiscount($veteranType);
 
         return [
             'valid'        => true,
@@ -43,12 +44,10 @@ class NationalIdVerificationService
 
     private function isValidFormat(string $id): bool
     {
-        // Basic format: exactly 10 digits, not all same digit
         if (!preg_match('/^\d{10}$/', $id)) {
             return false;
         }
 
-        // Reject all-same-digit IDs (e.g. 0000000000, 1111111111)
         if (preg_match('/^(\d)\1{9}$/', $id)) {
             return false;
         }
@@ -60,13 +59,15 @@ class NationalIdVerificationService
     {
         $prefix = substr($id, 0, 3);
 
-        return match(true) {
-            str_starts_with($prefix, '111') => 'martyr_family',
-            str_starts_with($prefix, '222') => 'veteran_25_49',
-            str_starts_with($prefix, '333') => 'veteran_50_69',
-            str_starts_with($prefix, '444') => 'veteran_70_plus',
-            str_starts_with($prefix, '555') => 'freed_prisoner_family',
-            default                          => null,
+        return match (true) {
+            str_starts_with($prefix, '111') => 'martyr_spouse_dependents',
+            str_starts_with($prefix, '112') => 'martyr_children',
+            str_starts_with($prefix, '113') => 'martyr_parents_dependents',
+            str_starts_with($prefix, '222') => 'veteran_25_49_dependents',
+            str_starts_with($prefix, '333') => 'veteran_50_69_dependents',
+            str_starts_with($prefix, '444') => 'veteran_70_spouses',
+            str_starts_with($prefix, '555') => 'freed_prisoner_dependents',
+            default                         => null,
         };
     }
 }

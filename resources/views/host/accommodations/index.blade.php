@@ -7,6 +7,11 @@
     </a>
 </div>
 
+<x-tutorial-videos :videos="[
+    ['label' => 'ثبت اقامتگاه', 'file' => 'اقامتگاه.mp4'],
+    ['label' => 'رزرو دستی', 'file' => 'رزرو.mp4'],
+]" />
+
 @if($accommodations->isEmpty())
     <div class="card shadow-sm text-center py-5">
         <div class="text-muted mb-3"><i class="bi bi-building fs-1"></i></div>
@@ -46,6 +51,9 @@
             <div class="card-footer bg-white d-flex gap-2 flex-wrap">
                 <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-sm btn-outline-secondary flex-fill" target="_blank">
                     <i class="bi bi-eye me-1"></i>نمایش
+                </a>
+                <a wire:navigate href="{{ route('host.accommodations.manual-booking', $acc) }}" class="btn btn-sm btn-success flex-fill">
+                    <i class="bi bi-plus-circle me-1"></i>رزرو دستی
                 </a>
                 <a wire:navigate href="{{ route('host.room-types.index', $acc) }}" class="btn btn-sm btn-outline-info flex-fill">
                     <i class="bi bi-door-open me-1"></i>اتاق‌ها

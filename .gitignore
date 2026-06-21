@@ -15,6 +15,7 @@
 /node_modules
 /public_html/build
 /public_html/hot
+/public_html/videos
 /public_html/storage
 /public_html/vendor
 /storage/*.key

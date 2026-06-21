@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Livewire\Concerns;
+
+use Livewire\Attributes\Url;
+use Livewire\WithPagination;
+
+trait ManagesBookingFilters
+{
+    use WithPagination;
+
+    #[Url(as: 'search')]
+    public string $search = '';
+
+    #[Url(as: 'status')]
+    public string $status = '';
+
+    #[Url(as: 'accommodation_id')]
+    public string $accommodationId = '';
+
+    #[Url(as: 'city_id')]
+    public string $cityId = '';
+
+    #[Url(as: 'check_in_from')]
+    public string $checkInFrom = '';
+
+    #[Url(as: 'check_in_to')]
+    public string $checkInTo = '';
+
+    #[Url(as: 'check_out_from')]
+    public string $checkOutFrom = '';
+
+    #[Url(as: 'check_out_to')]
+    public string $checkOutTo = '';
+
+    #[Url(as: 'nights_min')]
+    public string $nightsMin = '';
+
+    #[Url(as: 'nights_max')]
+    public string $nightsMax = '';
+
+    #[Url(as: 'price_min')]
+    public string $priceMin = '';
+
+    #[Url(as: 'price_max')]
+    public string $priceMax = '';
+
+    #[Url(as: 'guests_min')]
+    public string $guestsMin = '';
+
+    #[Url(as: 'has_discount')]
+    public bool $hasDiscount = false;
+
+    #[Url(as: 'sort')]
+    public string $sort = 'created_at';
+
+    #[Url(as: 'dir')]
+    public string $dir = 'desc';
+
+    public string $draftSearch = '';
+
+    public string $draftStatus = '';
+
+    public string $draftAccommodationId = '';
+
+    public string $draftCityId = '';
+
+    public string $draftCheckInFrom = '';
+
+    public string $draftCheckInTo = '';
+
+    public string $draftCheckOutFrom = '';
+
+    public string $draftCheckOutTo = '';
+
+    public string $draftNightsMin = '';
+
+    public string $draftNightsMax = '';
+
+    public string $draftPriceMin = '';
+
+    public string $draftPriceMax = '';
+
+    public string $draftGuestsMin = '';
+
+    public bool $draftHasDiscount = false;
+
+    public function mountBookingFilters(): void
+    {
+        $this->syncDraftFromApplied();
+    }
+
+    public function applyFilters(): void
+    {
+        $this->search = trim($this->draftSearch);
+        $this->status = $this->draftStatus;
+        $this->accommodationId = $this->draftAccommodationId;
+        $this->cityId = $this->draftCityId;
+        $this->checkInFrom = $this->draftCheckInFrom;
+        $this->checkInTo = $this->draftCheckInTo;
+        $this->checkOutFrom = $this->draftCheckOutFrom;
+        $this->checkOutTo = $this->draftCheckOutTo;
+        $this->nightsMin = $this->draftNightsMin;
+        $this->nightsMax = $this->draftNightsMax;
+        $this->priceMin = $this->draftPriceMin;
+        $this->priceMax = $this->draftPriceMax;
+        $this->guestsMin = $this->draftGuestsMin;
+        $this->hasDiscount = $this->draftHasDiscount;
+
+        $this->resetPage();
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset([
+            'search', 'status', 'accommodationId', 'cityId',
+            'checkInFrom', 'checkInTo', 'checkOutFrom', 'checkOutTo',
+            'nightsMin', 'nightsMax', 'priceMin', 'priceMax', 'guestsMin',
+            'hasDiscount',
+        ]);
+        $this->sort = 'created_at';
+        $this->dir = 'desc';
+        $this->syncDraftFromApplied();
+        $this->resetPage();
+        $this->dispatch('booking-dates-sync', dates: $this->bookingDateSyncPayload());
+    }
+
+    public function sortBy(string $column): void
+    {
+        $sortable = ['id', 'check_in', 'check_out', 'nights', 'total_price', 'guests', 'created_at'];
+        if (!in_array($column, $sortable, true)) {
+            return;
+        }
+
+        if ($this->sort === $column) {
+            $this->dir = $this->dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sort = $column;
+            $this->dir = 'asc';
+        }
+
+        $this->resetPage();
+    }
+
+    /** @return array<string, mixed> */
+    protected function bookingFilterParams(): array
+    {
+        return [
+            'search'           => $this->search,
+            'status'           => $this->status,
+            'accommodation_id' => $this->accommodationId,
+            'city_id'          => $this->cityId,
+            'check_in_from'    => $this->checkInFrom,
+            'check_in_to'      => $this->checkInTo,
+            'check_out_from'   => $this->checkOutFrom,
+            'check_out_to'     => $this->checkOutTo,
+            'nights_min'       => $this->nightsMin,
+            'nights_max'       => $this->nightsMax,
+            'price_min'        => $this->priceMin,
+            'price_max'        => $this->priceMax,
+            'guests_min'       => $this->guestsMin,
+            'has_discount'     => $this->hasDiscount,
+            'sort'             => $this->sort,
+            'dir'              => $this->dir,
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected function bookingDateSyncPayload(): array
+    {
+        return [
+            'check_in_from'  => $this->draftCheckInFrom,
+            'check_in_to'    => $this->draftCheckInTo,
+            'check_out_from' => $this->draftCheckOutFrom,
+            'check_out_to'   => $this->draftCheckOutTo,
+        ];
+    }
+
+    protected function syncDraftFromApplied(): void
+    {
+        $this->draftSearch = $this->search;
+        $this->draftStatus = $this->status;
+        $this->draftAccommodationId = $this->accommodationId;
+        $this->draftCityId = $this->cityId;
+        $this->draftCheckInFrom = $this->checkInFrom;
+        $this->draftCheckInTo = $this->checkInTo;
+        $this->draftCheckOutFrom = $this->checkOutFrom;
+        $this->draftCheckOutTo = $this->checkOutTo;
+        $this->draftNightsMin = $this->nightsMin;
+        $this->draftNightsMax = $this->nightsMax;
+        $this->draftPriceMin = $this->priceMin;
+        $this->draftPriceMax = $this->priceMax;
+        $this->draftGuestsMin = $this->guestsMin;
+        $this->draftHasDiscount = $this->hasDiscount;
+    }
+
+    /** @return array{sort: string, dir: string} */
+    protected function resolvedBookingSort(): array
+    {
+        $sort = in_array($this->sort, ['id', 'check_in', 'check_out', 'nights', 'total_price', 'guests', 'created_at'], true)
+            ? $this->sort
+            : 'created_at';
+        $dir = $this->dir === 'asc' ? 'asc' : 'desc';
+
+        return compact('sort', 'dir');
+    }
+}

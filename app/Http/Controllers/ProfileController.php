@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Services\NationalIdVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ProfileController extends Controller
 {
@@ -16,18 +18,27 @@ class ProfileController extends Controller
     public function saveSetup(Request $request)
     {
         $user = Auth::user();
-        
+
+        $nationalId = preg_replace('/\D/', '', (string) $request->input('national_id', ''));
+        $request->merge(['national_id' => $nationalId ?: null]);
+
         // Make national_id required only if user doesn't have one yet
         $nationalIdRule = $user->national_id ? 'nullable' : 'required';
-        
+
         $request->validate([
             'name'        => ['required', 'string', 'min:2', 'max:100'],
-            'national_id' => [$nationalIdRule, 'digits:10'],
+            'national_id' => [
+                $nationalIdRule,
+                'nullable',
+                'digits:10',
+                Rule::unique('users', 'national_id')->ignore($user->id),
+            ],
         ], [
             'name.required'        => 'نام الزامی است.',
             'name.min'             => 'نام باید حداقل ۲ کاراکتر باشد.',
             'national_id.required' => 'کد ملی الزامی است.',
             'national_id.digits'   => 'کد ملی باید ۱۰ رقم باشد.',
+            'national_id.unique'   => $this->nationalIdDuplicateMessage($nationalId, $user->id),
         ]);
 
         $updateData = [
@@ -35,15 +46,15 @@ class ProfileController extends Controller
         ];
 
         // If national_id is provided, validate and update it
-        if ($request->filled('national_id')) {
+        if ($request->filled('national_id') && $nationalId !== $user->national_id) {
             $result = app(NationalIdVerificationService::class)
-                ->verify($request->input('national_id'));
+                ->verify($nationalId);
 
             if (!$result['valid']) {
                 return back()->withErrors(['national_id' => $result['message']]);
             }
 
-            $updateData['national_id'] = $request->input('national_id');
+            $updateData['national_id'] = $nationalId;
             $updateData['veteran_type'] = $result['veteran_type'];
             $updateData['discount_percentage'] = $result['discount'];
             $updateData['national_id_verified_at'] = now();
@@ -66,25 +77,49 @@ class ProfileController extends Controller
 
     public function verifyNationalId(Request $request)
     {
+        $user = Auth::user();
+        $nationalId = preg_replace('/\D/', '', (string) $request->input('national_id', ''));
+        $request->merge(['national_id' => $nationalId]);
+
         $request->validate([
-            'national_id' => ['required', 'digits:10'],
+            'national_id' => [
+                'required',
+                'digits:10',
+                Rule::unique('users', 'national_id')->ignore($user->id),
+            ],
+        ], [
+            'national_id.unique' => $this->nationalIdDuplicateMessage($nationalId, $user->id),
         ]);
 
-        $user   = Auth::user();
         $result = app(NationalIdVerificationService::class)
-            ->verify($request->input('national_id'));
+            ->verify($nationalId);
 
         if (!$result['valid']) {
             return back()->withErrors(['national_id' => $result['message']]);
         }
 
         $user->update([
-            'national_id'             => $request->input('national_id'),
+            'national_id'             => $nationalId,
             'veteran_type'            => $result['veteran_type'],
             'discount_percentage'     => $result['discount'],
             'national_id_verified_at' => now(),
         ]);
 
         return back()->with('status', 'کد ملی با موفقیت تأیید شد.');
+    }
+
+    private function nationalIdDuplicateMessage(string $nationalId, int $userId): string
+    {
+        $existing = User::query()
+            ->where('national_id', $nationalId)
+            ->where('id', '!=', $userId)
+            ->first();
+
+        if (!$existing) {
+            return 'این کد ملی قبلاً برای حساب دیگری ثبت شده است.';
+        }
+
+        return 'این کد ملی قبلاً برای حساب دیگری ثبت شده است. '
+            . 'اگر قبلاً با شماره دیگری ثبت‌نام کرده‌اید، لطفاً با همان شماره وارد شوید.';
     }
 }

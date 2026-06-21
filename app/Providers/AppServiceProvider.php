@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Booking;
+use App\Observers\BookingObserver;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
@@ -25,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        Booking::observe(BookingObserver::class);
 
         // Nginx blocks .js extension routes (serves static only, no PHP fallback)
         // Use an extensionless path so Nginx passes it through to Laravel/PHP

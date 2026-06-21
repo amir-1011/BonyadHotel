@@ -21,7 +21,7 @@ class RolesAndUsersSeeder extends Seeder
             [
                 'name'                => 'علی احمدی',
                 'national_id'         => '0012345678',
-                'veteran_type'        => 'veteran_70_plus',
+                'veteran_type'        => 'veteran_70_spouses',
                 'discount_percentage' => 70,
                 'mobile_verified_at'  => now(),
                 'national_id_verified_at' => now(),
@@ -31,8 +31,8 @@ class RolesAndUsersSeeder extends Seeder
 
         // ─── Hosts ─────────────────────────────────────────────────────────────
         $hostsData = [
-            ['mobile' => '09110000001', 'name' => 'سارا رضایی',   'veteran_type' => 'martyr_family',  'discount' => 50],
-            ['mobile' => '09110000002', 'name' => 'محمد کریمی',   'veteran_type' => 'freed_prisoner_family', 'discount' => 40],
+            ['mobile' => '09110000001', 'name' => 'سارا رضایی',   'veteran_type' => 'martyr_spouse_dependents',  'discount' => 50],
+            ['mobile' => '09110000002', 'name' => 'محمد کریمی',   'veteran_type' => 'freed_prisoner_dependents', 'discount' => 50],
             ['mobile' => '09110000003', 'name' => 'فاطمه موسوی',  'veteran_type' => null,              'discount' => 0],
         ];
 
@@ -55,13 +55,13 @@ class RolesAndUsersSeeder extends Seeder
 
         // ─── Guests ────────────────────────────────────────────────────────────
         $guestsData = [
-            ['mobile' => '09120000001', 'name' => 'رضا صادقی',       'veteran_type' => 'veteran_25_49',   'discount' => 25],
-            ['mobile' => '09120000002', 'name' => 'مریم حسینی',      'veteran_type' => 'veteran_50_69',   'discount' => 50],
-            ['mobile' => '09120000003', 'name' => 'حسن نوروزی',      'veteran_type' => 'martyr_family',   'discount' => 50],
-            ['mobile' => '09120000004', 'name' => 'زهرا قاسمی',      'veteran_type' => null,              'discount' => 0],
-            ['mobile' => '09120000005', 'name' => 'امیر تهرانی',     'veteran_type' => 'veteran_70_plus', 'discount' => 70],
-            ['mobile' => '09120000006', 'name' => 'نسرین شیرازی',    'veteran_type' => null,              'discount' => 0],
-            ['mobile' => '09120000007', 'name' => 'کاوه مشهدی',      'veteran_type' => 'freed_prisoner_family','discount' => 40],
+            ['mobile' => '09120000001', 'name' => 'رضا صادقی',       'veteran_type' => 'veteran_25_49_dependents',   'discount' => 40],
+            ['mobile' => '09120000002', 'name' => 'مریم حسینی',      'veteran_type' => 'veteran_50_69_dependents',   'discount' => 50],
+            ['mobile' => '09120000003', 'name' => 'حسن نوروزی',      'veteran_type' => 'martyr_spouse_dependents',   'discount' => 50],
+            ['mobile' => '09120000004', 'name' => 'زهرا قاسمی',      'veteran_type' => null,                         'discount' => 0],
+            ['mobile' => '09120000005', 'name' => 'امیر تهرانی',     'veteran_type' => 'veteran_70_spouses',         'discount' => 70],
+            ['mobile' => '09120000006', 'name' => 'نسرین شیرازی',    'veteran_type' => null,                         'discount' => 0],
+            ['mobile' => '09120000007', 'name' => 'کاوه مشهدی',      'veteran_type' => 'freed_prisoner_dependents',  'discount' => 50],
             ['mobile' => '09120000008', 'name' => 'لیلا اصفهانی',    'veteran_type' => null,              'discount' => 0],
         ];
 

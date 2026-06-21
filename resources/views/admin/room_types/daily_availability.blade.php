@@ -39,9 +39,6 @@
 .price-badge { font-size:7px; font-weight:700; line-height:1; margin-top:1px; white-space:nowrap; color:inherit; }
 .disc-badge { position:absolute; top:1px; right:2px; font-size:7px; background:#dc2626; color:#fff; border-radius:2px; padding:0 2px; line-height:1.4; }
 .label-badge { font-size:7px; opacity:.8; margin-top:1px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-/* Weekday chips */
-.wd-chip { display:inline-flex; align-items:center; justify-content:center; width:32px; height:28px; border-radius:6px; border:1.5px solid #dee2e6; font-size:11px; font-weight:600; cursor:pointer; user-select:none; transition:.15s; }
-.wd-chip.active { background:#0d6efd; border-color:#0d6efd; color:#fff; }
 </style>
 @endpush
 
@@ -130,38 +127,13 @@
                                    maxlength="60" value="{{ old('price_label') }}">
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">فیلتر روزهای هفته (اختیاری)</label>
-                        <div class="d-flex gap-1 flex-wrap mb-1" id="wdChips">
-                            @foreach([6=>'ش',7=>'ی',1=>'د',2=>'س',3=>'چ',4=>'پ',5=>'ج'] as $iso => $lbl)
-                                <div class="wd-chip" data-iso="{{ $iso }}" onclick="toggleWd(this)">{{ $lbl }}</div>
-                            @endforeach
-                        </div>
-                        <div class="d-flex gap-1 mb-1">
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectAllWd()">همه</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectWeekend()">آخر هفته</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:11px" onclick="selectWorkdays()">روزهای کاری</button>
-                        </div>
-                        <div id="wdHiddenInputs"></div>
-                        <div class="form-text">انتخاب نشده = اعمال روی همه روزهای بازه</div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="fw-semibold small mb-2"><i class="bi bi-lightning-charge me-1"></i>الگوهای سریع:</div>
-                        <div class="d-flex flex-wrap gap-1">
-                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyPreset({weekdays:[4,5],label:'پیک'})">آخر هفته (پیک)</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="applyPreset({weekdays:[6,7,1,2,3],label:'آف‌پیک'})">روزهای کاری</button>
-                            <button type="button" class="btn btn-outline-success btn-sm" onclick="applyPreset({label:'نوروز',discount:10})">نوروز +۱۰%</button>
-                            <button type="button" class="btn btn-outline-info btn-sm" onclick="applyPreset({label:'تابستان'})">تابستان</button>
-                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="applyPreset({label:'زمستان',discount:15})">زمستان +۱۵%</button>
-                        </div>
-                    </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">دلیل (اختیاری)</label>
                         <input type="text" name="reason" class="form-control"
                                placeholder="مثال: تعمیرات، نظافت عمیق..."
                                value="{{ old('reason') }}" maxlength="200">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100" onclick="syncHiddenWeekdays()">
+                    <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-floppy me-2"></i>ذخیره تنظیمات
                     </button>
                 </form>
@@ -222,7 +194,7 @@
                                 $cellDisc   = (int)($avail['discount_percentage'] ?? 0);
                                 $cellLabel  = $avail['price_label'] ?? '';
                                 $effPrice   = (int)($avail['effective_price'] ?? $avail['default_price'] ?? 0);
-                                if ($effPrice > 0 && $hasPriceOvr) $priceDisplay = number_format($effPrice/10, 0, '.', ','). 'ت';
+                                if ($effPrice > 0 && $hasPriceOvr) $priceDisplay = number_format($effPrice, 0, '.', ',') . 'ت';
                                 if ($avail['is_blocked'])                             { $cellCls = 'c-blocked'; $subtitle = 'مسدود'; }
                                 elseif ($hasOvr && $avail['total'] === 0)             { $cellCls = 'c-override-zero'; $subtitle = '۰ اتاق'; }
                                 elseif ($hasOvr)                                      { $cellCls = $avail['available_rooms'] <= 0 ? 'c-full' : 'c-override'; $subtitle = $avail['available_rooms'].'/'.$avail['total']; }
@@ -274,15 +246,15 @@
                         <tr>
                             <td class="fw-semibold">{{ \Morilog\Jalali\Jalalian::fromCarbon($ov->date)->format('Y/m/d') }}</td>
                             <td><span class="badge {{ $ov->available_count === 0 ? 'bg-danger' : 'bg-primary' }}">{{ $ov->available_count }} از {{ $roomType->room_count }}</span></td>
-                            <td class="text-muted small">{{ $ov->custom_price ? number_format($ov->custom_price / 10, 0, '.', ',').' ت' : '—' }}</td>
+                            <td class="text-muted small">{{ $ov->custom_price ? number_format($ov->custom_price, 0, '.', ',') . ' ت' : '—' }}</td>
                             <td class="text-muted small">{{ $ov->discount_percentage ? $ov->discount_percentage.'%' : '—' }}</td>
                             <td class="text-muted small">{{ $ov->price_label ?: '—' }}</td>
                             <td class="text-muted">{{ $ov->reason ?: '—' }}</td>
                             <td class="text-end">
                                 <form action="{{ route('admin.room-types.daily-availability.destroy', [$accommodation, $roomType, $ov]) }}"
-                                      method="POST" class="d-inline" onsubmit="return confirm('این تنظیم حذف شود؟')">
+                                      method="POST" class="d-inline">
                                     @csrf @method('DELETE')
-                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                    <button type="submit" data-swal-confirm="این تنظیم حذف شود؟" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                                 </form>
                             </td>
                         </tr>
@@ -303,45 +275,6 @@
 
 @push('scripts')
 <script>
-function toggleWd(el) { el.classList.toggle('active'); }
-function selectAllWd() { document.querySelectorAll('#wdChips .wd-chip').forEach(c => c.classList.remove('active')); }
-function selectWeekend() {
-    selectAllWd();
-    [4, 5].forEach(iso => {
-        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
-        if (el) el.classList.add('active');
-    });
-}
-function selectWorkdays() {
-    selectAllWd();
-    [6, 7, 1, 2, 3].forEach(iso => {
-        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
-        if (el) el.classList.add('active');
-    });
-}
-function syncHiddenWeekdays() {
-    const cont = document.getElementById('wdHiddenInputs');
-    if (!cont) return;
-    cont.innerHTML = '';
-    document.querySelectorAll('#wdChips .wd-chip.active').forEach(c => {
-        const inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = 'weekdays[]';
-        inp.value = c.dataset.iso;
-        cont.appendChild(inp);
-    });
-}
-function applyPreset({ weekdays = [], label = '', discount = 0 } = {}) {
-    selectAllWd();
-    weekdays.forEach(iso => {
-        const el = document.querySelector('#wdChips .wd-chip[data-iso="' + iso + '"]');
-        if (el) el.classList.add('active');
-    });
-    const lblEl = document.querySelector('[name=price_label]');
-    const discEl = document.querySelector('[name=discount_percentage]');
-    if (label && lblEl) lblEl.value = label;
-    if (discount && discEl) discEl.value = discount;
-}
 function openDayModal(cell, formAction) {
     if (cell.classList.contains('past')) return;
     const form = document.querySelector('form[action="' + formAction + '"]');
@@ -359,8 +292,6 @@ function openDayModal(cell, formAction) {
     if (priceEl) priceEl.value = cell.dataset.price || '';
     if (discEl)  discEl.value  = cell.dataset.disc  || '';
     if (lblEl)   lblEl.value   = cell.dataset.label || '';
-    // clear weekday chips (single-day edit)
-    selectAllWd();
     form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     form.querySelector('[name=date_from]').focus();
 }

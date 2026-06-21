@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\PlatformCommissionService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -15,6 +16,8 @@ class Dashboard extends Component
 {
     public function render()
     {
+        $commission = app(PlatformCommissionService::class);
+
         $stats = [
             'users'          => User::count(),
             'hosts'          => User::role('host')->count(),
@@ -25,6 +28,7 @@ class Dashboard extends Component
             'pending'        => Booking::where('status', 'pending')->count(),
             'cancelled'      => Booking::where('status', 'cancelled')->count(),
             'revenue'        => Booking::where('status', 'confirmed')->sum('total_price'),
+            'commission_wallet' => $commission->walletBalance(),
             'reviews'        => Review::count(),
         ];
 

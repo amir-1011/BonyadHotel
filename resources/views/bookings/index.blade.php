@@ -38,9 +38,9 @@
             <div style="border-top:1px solid var(--bnb-border);margin-top:16px;padding-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                 <a href="{{ route('bookings.show', $booking) }}" wire:navigate class="bnb-filter-pill text-decoration-none"><i class="bi bi-eye me-1"></i>جزئیات</a>
                 @if($booking->status === 'confirmed' && $booking->check_out >= now()->toDateString())
-                <form action="{{ route('bookings.cancel', $booking) }}" method="POST" onsubmit="return confirm('آیا از لغو این رزرو مطمئن هستید؟')">
+                <form action="{{ route('bookings.cancel', $booking) }}" method="POST">
                     @csrf
-                    <button type="submit" class="bnb-filter-pill" style="border-color:var(--bnb-red);color:var(--bnb-red);background:none;cursor:pointer;font-family:var(--bnb-font);"><i class="bi bi-x-circle me-1"></i>لغو</button>
+                    <button type="submit" data-swal-confirm="آیا از لغو این رزرو مطمئن هستید؟" class="bnb-filter-pill" style="border-color:var(--bnb-red);color:var(--bnb-red);background:none;cursor:pointer;font-family:var(--bnb-font);"><i class="bi bi-x-circle me-1"></i>لغو</button>
                 </form>
                 @endif
                 @if($isCompleted && !$alreadyReviewed)

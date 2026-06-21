@@ -6,7 +6,7 @@
     Exports:
       window.bnbToast(icon, message)            — floating toast
       window.bnbConfirm(message[, opts])        — returns Promise<SweetAlertResult>
-      attribute: data-swal-confirm="message"    — auto-intercepts wire:click / form buttons
+      attribute: data-swal-confirm="message"    — auto-intercepts wire:click / form buttons & submits
     ██████████████████████████████████████████████████████████
 --}}
 
@@ -83,11 +83,47 @@
         bnbConfirm(message).then(function (result) {
             if (!result.isConfirmed) return;
             btn._swalBypassed = true;
+            var form = btn.form || btn.closest('form');
+            if (form) form._swalBypassed = true;
             btn.click();
             /* restore flag after micro-task so next click is guarded again */
-            Promise.resolve().then(function () { delete btn._swalBypassed; });
+            Promise.resolve().then(function () {
+                delete btn._swalBypassed;
+                if (form) delete form._swalBypassed;
+            });
         });
     }, true /* capture phase */);
+
+    /* ── 3b. FORM SUBMIT INTERCEPTOR (Enter key / programmatic submit) ── */
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || form._swalBypassed) return;
+
+        var submitter = e.submitter;
+        var el = null;
+        if (submitter && submitter.matches('[data-swal-confirm]')) {
+            el = submitter;
+        } else if (form.matches('[data-swal-confirm]')) {
+            el = form;
+        }
+        if (!el) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        var message = el.dataset.swalConfirm || 'آیا از این عملیات مطمئن هستید؟';
+
+        bnbConfirm(message).then(function (result) {
+            if (!result.isConfirmed) return;
+            form._swalBypassed = true;
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(submitter || undefined);
+            } else {
+                form.submit();
+            }
+            Promise.resolve().then(function () { delete form._swalBypassed; });
+        });
+    }, true);
 
     /* ── 4. LIVEWIRE TOAST EVENTS ───────────────────────────── */
     /*
@@ -120,10 +156,18 @@
 
 @if($__swalStatus || $__swalError || $__swalWarning)
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    @if($__swalStatus)  bnbToast('success', @json($__swalStatus)); @endif
-    @if($__swalError)   bnbToast('error',   @json($__swalError));  @endif
-    @if($__swalWarning) bnbToast('warning', @json($__swalWarning));@endif
-});
+(function () {
+    function showSessionToasts() {
+        @if($__swalStatus)  bnbToast('success', @json($__swalStatus)); @endif
+        @if($__swalError)   bnbToast('error',   @json($__swalError));  @endif
+        @if($__swalWarning) bnbToast('warning', @json($__swalWarning));@endif
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showSessionToasts);
+    } else {
+        showSessionToasts();
+    }
+})();
 </script>
 @endif

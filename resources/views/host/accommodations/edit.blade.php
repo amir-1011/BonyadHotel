@@ -13,33 +13,8 @@
                 <input wire:model="name" type="text" class="form-control @error('name') is-invalid @enderror">
                 @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold">نوع</label>
-                <select wire:model="type" class="form-select @error('type') is-invalid @enderror">
-                    @foreach(['hotel'=>'هتل','villa'=>'ویلا','apartment'=>'آپارتمان','hostel'=>'هاستل','traditional'=>'اقامتگاه سنتی'] as $v=>$l)
-                    <option value="{{ $v }}">{{ $l }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-semibold">استان</label>
-                <select wire:model.live="provinceId" class="form-select">
-                    <option value="0">انتخاب کنید</option>
-                    @foreach($provinces as $prov)
-                    <option value="{{ $prov->id }}">{{ $prov->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-semibold">شهر</label>
-                <select wire:model="cityId" class="form-select @error('cityId') is-invalid @enderror">
-                    <option value="0">انتخاب کنید</option>
-                    @foreach($cities as $city)
-                    <option value="{{ $city->id }}">{{ $city->name }}</option>
-                    @endforeach
-                </select>
-                @error('cityId')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
+            @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
+            @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
             <div class="col-md-4">
                 <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
                 <input wire:model="pricePerNight" type="number" class="form-control @error('pricePerNight') is-invalid @enderror" min="0">
@@ -59,6 +34,9 @@
                 <label class="form-label small fw-semibold">آدرس</label>
                 <input wire:model="address" type="text" class="form-control">
             </div>
+
+            @include('components.accommodation.management-and-phones')
+
             <div class="col-12">
                 <label class="form-label small fw-semibold">توضیحات</label>
                 <textarea wire:model="description" class="form-control" rows="3"></textarea>
@@ -100,7 +78,7 @@
                     @foreach($keepImages as $img)
                     <div class="text-center" style="position:relative;width:110px;">
                         <img src="{{ asset('storage/' . $img) }}" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:2px solid #dee2e6;" alt="تصویر">
-                        <button type="button" wire:click="removeExistingImage('{{ $img }}')" class="btn btn-xs btn-danger" style="position:absolute;top:2px;left:2px;padding:.1rem .35rem;font-size:.75rem;" title="حذف">×</button>
+                        <button type="button" wire:click="removeExistingImage('{{ $img }}')" data-swal-confirm="این تصویر حذف شود؟" class="btn btn-xs btn-danger" style="position:absolute;top:2px;left:2px;padding:.1rem .35rem;font-size:.75rem;" title="حذف">×</button>
                     </div>
                     @endforeach
                 </div>

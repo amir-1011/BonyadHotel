@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Host;
 
 use App\Http\Controllers\Controller;
 use App\Models\Accommodation;
+use App\Models\AccommodationType;
+use Illuminate\Validation\Rule;
 use App\Models\Province;
 use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
@@ -42,21 +44,22 @@ class AccommodationController extends Controller
         }
         $data['images'] = $images;
 
-        Accommodation::create($data);
+        $accommodation = Accommodation::create($data);
+        $accommodation->grantHostAccess(Auth::user());
         return redirect()->route('host.accommodations.index')
             ->with('status', 'اقامتگاه ثبت شد و پس از تأیید مدیر نمایش داده می‌شود.');
     }
 
     public function edit(Accommodation $accommodation)
     {
-        abort_if($accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
         $provinces = Province::with('cities')->orderBy('name')->get();
         return view('host.accommodations.edit', compact('accommodation', 'provinces'));
     }
 
     public function update(Request $request, Accommodation $accommodation)
     {
-        abort_if($accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
         $data = $this->validated($request, $accommodation);
         $data['amenities'] = $this->parseAmenities($request->input('amenities_raw', ''));
 
@@ -86,7 +89,7 @@ class AccommodationController extends Controller
 
     public function destroy(Accommodation $accommodation)
     {
-        abort_if($accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
         $accommodation->delete();
         return redirect()->route('host.accommodations.index')
             ->with('status', 'اقامتگاه حذف شد.');
@@ -98,7 +101,7 @@ class AccommodationController extends Controller
             'city_id'         => ['required', 'exists:cities,id'],
             'name'            => ['required', 'string', 'max:200'],
             'description'     => ['nullable', 'string'],
-            'type'            => ['required', 'in:hotel,villa,apartment,hostel,traditional'],
+            'type'            => ['required', Rule::exists('accommodation_types', 'key')],
             'price_per_night' => ['required', 'integer', 'min:0'],
             'capacity'        => ['required', 'integer', 'min:1'],
             'rooms'           => ['required', 'integer', 'min:1'],

@@ -6,26 +6,71 @@ use Illuminate\Database\Eloquent\Model;
 
 class Accommodation extends Model
 {
+    public const MANAGEMENT_OUTSOURCED     = 'outsourced';
+    public const MANAGEMENT_SELF_GOVERNING = 'self_governing';
+
     protected $fillable = [
-        'city_id', 'host_id', 'name', 'description', 'type',
+        'city_id', 'host_id', 'name', 'description', 'type', 'management_status',
         'price_per_night', 'capacity', 'rooms',
-        'address', 'lat', 'lng', 'amenities', 'image', 'images', 'is_active',
+        'address', 'phone_numbers', 'lat', 'lng', 'amenities', 'image', 'images', 'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'amenities'   => 'array',
-            'images'      => 'array',
-            'is_active'   => 'boolean',
-            'lat'         => 'float',
-            'lng'         => 'float',
+            'amenities'     => 'array',
+            'phone_numbers' => 'array',
+            'images'        => 'array',
+            'is_active'     => 'boolean',
+            'lat'           => 'float',
+            'lng'           => 'float',
         ];
+    }
+
+    public static function managementStatusOptions(): array
+    {
+        return [
+            self::MANAGEMENT_OUTSOURCED     => 'برون‌سپاری',
+            self::MANAGEMENT_SELF_GOVERNING => 'خودگردان',
+        ];
+    }
+
+    public function managementStatusLabel(): ?string
+    {
+        return self::managementStatusOptions()[$this->management_status] ?? null;
     }
 
     public function host()
     {
         return $this->belongsTo(User::class, 'host_id');
+    }
+
+    public function hosts()
+    {
+        return $this->belongsToMany(User::class, 'accommodation_host')->withTimestamps();
+    }
+
+    public function isManagedBy(User $user): bool
+    {
+        return $this->hosts()->where('users.id', $user->id)->exists();
+    }
+
+    public function grantHostAccess(User $user): void
+    {
+        $this->hosts()->syncWithoutDetaching([$user->id]);
+
+        if (!$this->host_id) {
+            $this->update(['host_id' => $user->id]);
+        }
+    }
+
+    public function revokeHostAccess(User $user): void
+    {
+        $this->hosts()->detach($user->id);
+
+        if ((int) $this->host_id === (int) $user->id) {
+            $this->update(['host_id' => $this->hosts()->first()?->id]);
+        }
     }
 
     public function reviews()
@@ -88,14 +133,7 @@ class Accommodation extends Model
 
     public function typeLabel(): string
     {
-        return match($this->type) {
-            'hotel'       => 'هتل',
-            'villa'       => 'ویلا',
-            'apartment'   => 'آپارتمان',
-            'hostel'      => 'هاستل',
-            'traditional' => 'اقامتگاه سنتی',
-            default       => $this->type,
-        };
+        return AccommodationType::labelFor($this->type);
     }
 
     public function isAvailable(string $checkIn, string $checkOut): bool

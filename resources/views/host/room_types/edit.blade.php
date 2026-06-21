@@ -116,9 +116,9 @@
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <form action="{{ route('host.room-types.rates.destroy', [$accommodation, $roomType, $rate]) }}"
-                                      method="POST" onsubmit="return confirm('این تعرفه حذف شود؟')">
+                                      method="POST">
                                     @csrf @method('DELETE')
-                                    <button class="btn btn-xs btn-outline-danger" title="حذف">
+                                    <button type="submit" data-swal-confirm="این تعرفه حذف شود؟" class="btn btn-xs btn-outline-danger" title="حذف">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>

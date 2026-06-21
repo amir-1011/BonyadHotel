@@ -249,7 +249,7 @@
                         <td><code class="small">{{ $b->tracking_code }}</code></td>
                         <td>
                             <a wire:navigate href="{{ route('admin.users.show', $b->user) }}" class="text-decoration-none text-dark small">
-                                {{ $b->user->name ?? $b->user->mobile }}
+                                {{ $b->bookerName() }}
                             </a>
                         </td>
                         <td class="small text-muted">{{ $b->roomType->name ?? '—' }}</td>

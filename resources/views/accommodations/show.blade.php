@@ -243,7 +243,7 @@
 
 /* Calendar state colors similar to daily_availability */
 .bnb-cal-square-cell.cal-avail { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
-.bnb-cal-square-cell.cal-low-avail { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.bnb-cal-square-cell.cal-low-avail { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
 .bnb-cal-square-cell.cal-unavailable { 
     background: #f1f5f9; border-color: #cbd5e1; color: #94a3b8;
     background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 5px);
@@ -253,15 +253,79 @@
     background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(220,38,38,0.12) 4px, rgba(220,38,38,0.12) 5px);
 }
 
-/* Range Selection */
-.bnb-cal-square-cell.cal-start, .bnb-cal-square-cell.cal-end {
+/* Stay-night selection */
+.bnb-cal-square-cell.cal-end {
+    background: #fff !important;
+    border-color: var(--bnb-red) !important;
+    color: var(--bnb-red) !important;
+    box-shadow: inset 0 0 0 2px var(--bnb-red);
+}
+.bnb-cal-square-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end),
+.bnb-cal-square-cell.cal-range:not(.cal-start):not(.cal-last-night):not(.cal-end) {
+    background: rgba(255, 56, 92, 0.18) !important;
+    border-color: rgba(255, 56, 92, 0.45) !important;
+    color: #9f1239 !important;
+}
+.bnb-cal-square-cell.cal-hover-range:not(.cal-start):not(.cal-end) {
+    background: rgba(255, 56, 92, 0.1) !important;
+    color: #9f1239 !important;
+}
+.bnb-cal-square-cell.cal-start,
+.bnb-cal-square-cell.cal-last-night {
     background: var(--bnb-red) !important;
     border-color: var(--bnb-red) !important;
     color: #fff !important;
 }
-.bnb-cal-square-cell.cal-range {
-    background: rgba(255, 56, 92, 0.1) !important;
-    border-color: rgba(255, 56, 92, 0.2) !important;
+.bnb-cal-square-cell.cal-start .cd,
+.bnb-cal-square-cell.cal-start .cs,
+.bnb-cal-square-cell.cal-last-night .cd,
+.bnb-cal-square-cell.cal-last-night .cs {
+    color: #fff !important;
+    opacity: 1;
+}
+.bnb-cal-square-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end) .cd,
+.bnb-cal-square-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end) .cs,
+.bnb-cal-square-cell.cal-range:not(.cal-start):not(.cal-last-night) .cd,
+.bnb-cal-square-cell.cal-range:not(.cal-start):not(.cal-last-night) .cs {
+    color: #9f1239 !important;
+    opacity: 1;
+}
+.bnb-cal-square-cell.cal-end .cd,
+.bnb-cal-square-cell.cal-end .cs {
+    color: var(--bnb-red) !important;
+    opacity: 1;
+    font-weight: 700;
+}
+.bnb-cal-square-cell.cal-start .cal-meta,
+.bnb-cal-square-cell.cal-last-night .cal-meta {
+    color: #fff !important;
+    opacity: 1;
+}
+.bnb-cal-square-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-meta,
+.bnb-cal-square-cell.cal-range:not(.cal-start):not(.cal-last-night) .cal-meta {
+    color: #9f1239 !important;
+    opacity: 1;
+}
+.bnb-cal-square-cell.cal-end .cal-meta {
+    color: var(--bnb-red) !important;
+    opacity: 1;
+}
+.bnb-cal-square-cell .cal-day-check {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--bnb-red);
+    font-weight: 700;
+    z-index: 2;
+}
+.bnb-cal-square-cell.cal-start .cal-day-check,
+.bnb-cal-square-cell.cal-last-night .cal-day-check {
+    color: #fff;
+}
+.bnb-cal-square-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-day-check {
+    color: #9f1239;
 }
 
 .bnb-avail-legend {
@@ -534,7 +598,17 @@
                             {{-- Extra capacity badge (floor sleeping available) --}}
                             @if($roomType->extra_capacity)
                             <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">
-                                <i class="bi bi-person-add"></i> کف‌خوابی: تا {{ $roomType->extra_capacity }} نفر · {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                <i class="bi bi-person-add"></i> کف‌خوابی: تا {{ $roomType->extra_capacity }} نفر ·
+                                @auth
+                                    @if(Auth::user()->discount_percentage > 0)
+                                        @php $discExtraCapPrice = round($roomType->extra_capacity_price * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                                        <s style="opacity:.65;">{{ number_format($roomType->extra_capacity_price) }}</s> {{ number_format($discExtraCapPrice) }} تومان/نفر/شب
+                                    @else
+                                        {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                    @endif
+                                @else
+                                    {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                @endauth
                             </span>
                             @endif
                             {{-- Rooms-needed warning: shows whenever guests exceed per-room capacity OR available rooms --}}
@@ -594,6 +668,7 @@
                                 <input type="hidden" name="check_out" class="rt-check-out">
                                 <input type="hidden" name="guests" class="rt-guests" value="1">
                                 <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
+                                <input type="hidden" name="bill_full_rooms" class="rt-bill-full-rooms" value="0">
                                 @php
                                     $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
                                     $btnOrigPrice = $rate->price_per_night;
@@ -768,13 +843,13 @@
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                                 <div :style="checkIn ? 'background:var(--bnb-red);color:#fff;' : 'background:var(--bnb-bg-light);color:var(--bnb-gray);'"
                                      style="flex:1;border-radius:10px;padding:7px 10px;text-align:center;transition:all .2s;">
-                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">ورود</div>
+                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">ورود · اولین شب</div>
                                     <div style="font-weight:600;font-size:13px;" x-text="checkIn ? jalaliStr(checkIn) : 'انتخاب'"></div>
                                 </div>
                                 <i class="bi bi-arrow-left" style="color:var(--bnb-gray);flex-shrink:0;"></i>
                                 <div :style="checkOut ? 'background:var(--bnb-red);color:#fff;' : 'background:var(--bnb-bg-light);color:var(--bnb-gray);'"
                                      style="flex:1;border-radius:10px;padding:7px 10px;text-align:center;transition:all .2s;">
-                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">خروج</div>
+                                    <div style="font-size:10px;font-weight:600;opacity:.8;margin-bottom:2px;">خروج · روز پایان</div>
                                     <div style="font-weight:600;font-size:13px;" x-text="checkOut ? jalaliStr(checkOut) : 'انتخاب'"></div>
                                 </div>
                             </div>
@@ -797,13 +872,16 @@
                                         @mouseenter="cell && !cell.past && (calHover = cell.greg)"
                                         @mouseleave="calHover = null"
                                         :class="{
-                                            'bnb-cal-cell':true,
-                                            'cal-start':   cell && cell.greg === checkIn,
-                                            'cal-end':     cell && cell.greg === checkOut,
-                                            'cal-range':   calInRange(cell),
+                                            'bnb-cal-cell': true,
+                                            'cal-start':       cell && isCheckInDay(cell),
+                                            'cal-end':         cell && isCheckOutDay(cell),
+                                            'cal-last-night':  cell && isLastStayNight(cell),
+                                            'cal-range':       cell && calInRange(cell),
+                                            'cal-selected':    cell && isStayNight(cell),
                                             'cal-hover-range': calHoverRange(cell),
-                                            'cal-empty':   !cell
+                                            'cal-empty':       !cell
                                         }">
+                                        <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
                                         <span x-text="cell ? cell.d : ''"></span>
                                     </button>
                                 </template>
@@ -812,8 +890,8 @@
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
                                 <div>
                                     <span x-show="checkIn && checkOut" class="bnb-cal-nights" x-text="calNights + ' شب اقامت'"></span>
-                                    <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">حالا تاریخ خروج را انتخاب کنید</span>
-                                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
+                                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                                 </div>
                                 <div style="display:flex;gap:8px;">
                                     <button x-show="checkIn || checkOut" type="button"
@@ -909,12 +987,12 @@
         <div style="display:flex;gap:8px;margin-bottom:16px;">
             <div :style="checkIn ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : ''"
                  style="flex:1;border:1.5px solid var(--bnb-border);border-radius:10px;padding:9px 12px;text-align:center;">
-                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">ورود</div>
+                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">ورود · اولین شب</div>
                 <div style="font-size:13px;font-weight:600;" x-text="checkIn ? jalStr(checkIn) : 'انتخاب'"></div>
             </div>
             <div :style="checkOut ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : ''"
                  style="flex:1;border:1.5px solid var(--bnb-border);border-radius:10px;padding:9px 12px;text-align:center;">
-                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">خروج</div>
+                <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">خروج · روز پایان</div>
                 <div style="font-size:13px;font-weight:600;" x-text="checkOut ? jalStr(checkOut) : 'انتخاب'"></div>
             </div>
         </div>
@@ -956,30 +1034,39 @@
                     <button type="button"
                         :disabled="!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap"
                         @click.stop="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.disabledByGap && selectDay(cell)"
+                        @mouseenter="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && (calHover = cell.greg)"
+                        @mouseleave="calHover = null"
                         :title="cell && cell.availInfo ? cell.availInfo : ''"
                         class="bnb-cal-square-cell"
                         :class="{
-                            'cal-start':       cell && cell.greg === checkIn,
-                            'cal-end':         cell && cell.greg === checkOut,
-                            'cal-range':       cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
+                            'cal-start':       cell && isCheckInDay(cell),
+                            'cal-end':         cell && isCheckOutDay(cell),
+                            'cal-last-night':  cell && isLastStayNight(cell),
+                            'cal-range':       cell && calInRange(cell),
+                            'cal-selected':    cell && isStayNight(cell),
+                            'cal-hover-range': cell && calHoverRange(cell),
                             'cal-empty':       !cell,
                             'cal-unavailable': cell && !cell.past && cell.isUnavailable,
                             'cal-blocked':     cell && !cell.past && cell.isBlocked,
                             'cal-low-avail':   cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail,
                             'cal-avail':       cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData
                         }">
+                        <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
                         <div class="cd" x-text="cell ? cell.d : ''"></div>
-                        <template x-if="cell && !cell.past && cell.roomCountDisplay">
-                            <div class="cs" x-text="cell.roomCountDisplay"></div>
+                        <template x-if="cell && !cell.past && isCheckInDay(cell)">
+                            <div class="cs">ورود</div>
+                        </template>
+                        <template x-if="cell && !cell.past && isCheckOutDay(cell)">
+                            <div class="cs">خروج</div>
                         </template>
                         <template x-if="cell && !cell.past && cell.discountPct">
-                            <div style="position:absolute;top:1px;right:2px;font-size:7px;background:#dc2626;color:#fff;border-radius:2px;padding:0 2px;line-height:1.4;font-weight:700;" x-text="cell.discountPct + '%'"></div>
+                            <div style="position:absolute;top:1px;left:2px;font-size:7px;background:#dc2626;color:#fff;border-radius:2px;padding:0 2px;line-height:1.4;font-weight:700;" x-text="cell.discountPct + '%'"></div>
                         </template>
                         <template x-if="cell && !cell.past && cell.priceLabel">
-                            <div style="font-size:7px;opacity:.85;line-height:1;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;" x-text="cell.priceLabel"></div>
+                            <div class="cal-meta" style="font-size:7px;line-height:1;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;" x-text="cell.priceLabel"></div>
                         </template>
                         <template x-if="cell && !cell.past && cell.effectivePrice">
-                            <div style="font-size:9px;font-weight:700;line-height:1;margin-top:1px;" x-text="cell.effectivePrice.toLocaleString('fa-IR')"></div>
+                            <div class="cal-meta" style="font-size:9px;font-weight:700;line-height:1;margin-top:1px;" x-text="cell.effectivePrice.toLocaleString('fa-IR')"></div>
                         </template>
                     </button>
                 </template>
@@ -987,8 +1074,8 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <div>
                     <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
-                    <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
-                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید</span>
+                    <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                 </div>
                 <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
                     style="background:none;border:none;font-size:12px;color:var(--bnb-gray);text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);">پاک کردن</button>
@@ -1069,8 +1156,20 @@
             {{-- Extra guests line --}}
             <template x-if="extraGuests > 0 && extraCapacityPrice > 0">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;background:#f0fdf4;border-top:1px solid #bbf7d0;">
-                    <span style="color:#15803d;font-weight:600;"><i class="bi bi-person-add me-1"></i><span x-text="extraGuests + ' نفر کف‌خواب'"></span></span>
-                    <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="color:#15803d;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                        <i class="bi bi-person-add"></i><span x-text="extraGuests + ' نفر کف‌خواب'"></span>
+                        @auth
+                        @if(auth()->user()->discount_percentage > 0)
+                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
+                        @endif
+                        @endauth
+                    </span>
+                    <div style="text-align:left;white-space:nowrap;">
+                        <template x-if="userDiscountPct > 0 && extraGuestsOriginalTotal > extraGuestsTotal">
+                            <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="extraGuestsOriginalTotal.toLocaleString('fa-IR')"></span>
+                        </template>
+                        <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    </div>
                 </div>
             </template>
         </div>
@@ -1108,7 +1207,7 @@
                     @endauth
                     <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
-                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر' + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
+                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر' + (billFullRooms ? ' (رزرو ' + billableGuests + ' تخت)' : '') + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
             </div>
             <button type="button" data-async-btn @click="pay()"
                     class="btn-bnb"
@@ -1279,6 +1378,7 @@ function reserveRoom(btn, pricePerNight, origPrice, roomTypeId, roomCapacity, ex
 
 function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
     return {
+        ...bnbCalMixin(),
         checkIn:  initCheckIn  || '',
         checkOut: initCheckOut || '',
         guests:   parseInt(initGuests) || 1,
@@ -1291,8 +1391,7 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
         calHover: null,
 
         get calNights() {
-            if (!this.checkIn || !this.checkOut) return 0;
-            return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
+            return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
         },
 
         get calMonthLabel() {
@@ -1372,37 +1471,10 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
         },
 
         selectCalDay(cell) {
-            if (!cell || cell.past) return;
-            if (this.calPhase === 0) {
-                this.checkIn  = cell.greg;
-                this.checkOut = '';
-                this.calPhase = 1;
-                this.updateLabel();
-            } else {
-                if (cell.greg > this.checkIn) {
-                    this.checkOut = cell.greg;
-                    this.calPhase = 0;
-                    this.calHover = null;
-                    this.updateLabel();
-                    this.calOpen  = false;
-                } else {
-                    this.checkIn  = cell.greg;
-                    this.checkOut = '';
-                    this.updateLabel();
-                }
-            }
-        },
-
-        calInRange(cell) {
-            if (!cell || !this.checkIn || !this.checkOut) return false;
-            return cell.greg > this.checkIn && cell.greg < this.checkOut;
-        },
-
-        calHoverRange(cell) {
-            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover) return false;
-            if (this.calHover > this.checkIn)
-                return cell.greg > this.checkIn && cell.greg < this.calHover;
-            return false;
+            if (!this.applyStaySelection(cell)) return;
+            this.calHover = null;
+            this.updateLabel();
+            if (this.calPhase === 0) this.calOpen = false;
         },
 
         syncFromNav(detail) {
@@ -1438,6 +1510,7 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
 
 function mbbDrawer() {
     return {
+        ...bnbCalMixin(),
         drawerOpen: false,
         datesConfirmed: false,
         checkIn: '',
@@ -1446,6 +1519,7 @@ function mbbDrawer() {
         calYear: null,
         calMonth: null,
         calPhase: 0,
+        calHover: null,
         targetForm: null,
         pricePerNight: 0,
         originalPrice: 0,
@@ -1457,6 +1531,7 @@ function mbbDrawer() {
         extraCapacity: 0,         // max extra guests allowed for this room type
         extraCapacityPrice: 0,    // price per extra guest per night (undiscounted)
         extraGuests: 0,           // chosen extra guests for this booking
+        billFullRooms: false,     // charge for all beds in reserved rooms
         // Availability
         roomTypeId: null,
         roomTypeName: '',
@@ -1467,19 +1542,32 @@ function mbbDrawer() {
         loadedMonths: [],
 
         get nights() {
-            if (!this.checkIn || !this.checkOut) return 0;
-            return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
+            return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
         },
 
         get roomsNeeded() {
-            return Math.ceil(this.guests / Math.max(1, this.roomTypeCapacityNum));
+            return this.effectiveRoomsNeeded;
+        },
+
+        get effectiveRoomsNeeded() {
+            const cap = Math.max(1, this.roomTypeCapacityNum);
+            if (this.extraGuests > 0) {
+                return Math.max(1, Math.ceil((this.guests - this.extraGuests) / cap));
+            }
+            return Math.ceil(this.guests / cap);
+        },
+
+        get billableGuests() {
+            if (this.billFullRooms) {
+                return this.effectiveRoomsNeeded * Math.max(1, this.roomTypeCapacityNum);
+            }
+            return Math.max(1, this.guests - this.extraGuests);
         },
 
         get dynamicNightPrices() {
             if (!this.checkIn || !this.checkOut) return [];
             const prices = [];
-            // Standard guests (excluding extra floor-sleeping guests)
-            const g = Math.max(1, this.guests - this.extraGuests);
+            const g = this.billableGuests;
             let d = new Date(this.checkIn + 'T12:00:00');
             const end = new Date(this.checkOut + 'T12:00:00');
             while (d < end) {
@@ -1508,16 +1596,20 @@ function mbbDrawer() {
             return prices;
         },
 
-        // Total cost of extra guests (fixed price, no per-night override, but user discount applies)
-        get extraGuestsTotal() {
+        // Total cost of extra guests (fixed price, no per-night override)
+        get extraGuestsOriginalTotal() {
             if (!this.extraGuests || !this.extraCapacityPrice || !this.nights) return 0;
-            const raw = this.extraGuests * this.extraCapacityPrice * this.nights;
+            return this.extraGuests * this.extraCapacityPrice * this.nights;
+        },
+
+        get extraGuestsTotal() {
+            const raw = this.extraGuestsOriginalTotal;
             return this.userDiscountPct > 0 ? Math.round(raw * (1 - this.userDiscountPct / 100)) : raw;
         },
 
         get dynamicTotal() {
             const prices = this.dynamicNightPrices;
-            const g = Math.max(1, this.guests - this.extraGuests);
+            const g = this.billableGuests;
             if (!prices.length) {
                 const base = this.userDiscountPct > 0
                     ? Math.round((this.originalPrice || this.pricePerNight) * (1 - this.userDiscountPct / 100))
@@ -1529,16 +1621,16 @@ function mbbDrawer() {
 
         get dynamicAfterHostTotal() {
             const prices = this.dynamicNightPrices;
-            const g = Math.max(1, this.guests - this.extraGuests);
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsTotal;
-            return prices.reduce((s, p) => s + p.hostEffective, 0) + this.extraGuestsTotal;
+            const g = this.billableGuests;
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsOriginalTotal;
+            return prices.reduce((s, p) => s + p.hostEffective, 0) + this.extraGuestsOriginalTotal;
         },
 
         get dynamicOriginalTotal() {
             const prices = this.dynamicNightPrices;
-            const g = Math.max(1, this.guests - this.extraGuests);
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsTotal;
-            return prices.reduce((s, p) => s + p.baseRate, 0) + this.extraGuestsTotal;
+            const g = this.billableGuests;
+            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsOriginalTotal;
+            return prices.reduce((s, p) => s + p.baseRate, 0) + this.extraGuestsOriginalTotal;
         },
 
         get hasDynamicPricing() {
@@ -1565,16 +1657,20 @@ function mbbDrawer() {
             return n[this.calMonth] + ' ' + this.calYear;
         },
 
-        // Returns the first blocker (blocked/full) date that is STRICTLY AFTER `from`
-        _firstBlockerAfter(from) {
-            const dates = Object.keys(this.availabilityData).sort();
-            for (const d of dates) {
-                if (d > from) {
-                    const a = this.availabilityData[d];
-                    if (a && (a.is_blocked || a.available_rooms <= 0)) return d;
-                }
+        _isInvalidStayNight(greg) {
+            const avail = this.availabilityData[greg];
+            if (!avail) return false;
+            return avail.is_blocked || avail.available_rooms <= 0;
+        },
+
+        _hasInvalidNightInRange(fromNight, toNight) {
+            if (!fromNight || !toNight || toNight < fromNight) return true;
+            let d = fromNight;
+            while (d <= toNight) {
+                if (this._isInvalidStayNight(d)) return true;
+                d = window.bnbStayPicker.addDays(d, 1);
             }
-            return null;
+            return false;
         },
 
         get calDays() {
@@ -1585,11 +1681,6 @@ function mbbDrawer() {
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
             const offset = (6 - fdow + 7) % 7;
-
-            // First blocker after checkIn (for range constraint in phase 1)
-            const firstBlocker = (this.calPhase === 1 && this.checkIn)
-                ? this._firstBlockerAfter(this.checkIn)
-                : null;
 
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
@@ -1604,9 +1695,9 @@ function mbbDrawer() {
                 const isUnavailable= avail ? (!avail.is_blocked && avail.available_rooms <= 0) : false;
                 const isLowAvail   = avail ? (!avail.is_blocked && avail.available_rooms > 0 && avail.available_rooms < avail.total) : false;
 
-                // In phase 1 (picking checkout): dates after the first blocker are also disabled
-                // But: check_out = firstBlocker itself is ALLOWED (guest leaves that day, doesn't stay that night)
-                const disabledByGap = this.calPhase === 1 && firstBlocker !== null && greg > firstBlocker;
+                const disabledByGap = this.calPhase === 1 && this.checkIn && (
+                    greg < this.checkIn || this._hasInvalidNightInRange(this.checkIn, greg)
+                );
 
                 let availInfo = '';
                 let roomCountDisplay = '';
@@ -1735,20 +1826,8 @@ function mbbDrawer() {
 
         selectDay(cell) {
             if (!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap) return;
-            if (this.calPhase === 0) {
-                this.checkIn  = cell.greg;
-                this.checkOut = '';
-                this.calPhase = 1;
-            } else {
-                if (cell.greg > this.checkIn) {
-                    this.checkOut = cell.greg;
-                    this.calPhase = 0;
-                } else {
-                    // Clicked before or equal to checkIn → restart
-                    this.checkIn  = cell.greg;
-                    this.checkOut = '';
-                }
-            }
+            if (!this.applyStaySelection(cell, (from, to) => !this._hasInvalidNightInRange(from, to))) return;
+            this.calHover = null;
         },
 
         onBookClick() {
@@ -1757,6 +1836,92 @@ function mbbDrawer() {
             } else {
                 this.drawerOpen = true;
             }
+        },
+
+        _calcNightTotal(g) {
+            if (!this.checkIn || !this.checkOut || !g) return 0;
+            let total = 0;
+            let d = new Date(this.checkIn + 'T12:00:00');
+            const end = new Date(this.checkOut + 'T12:00:00');
+            while (d < end) {
+                const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                const avail = this.availabilityData[key];
+                const perPerson = (avail && avail.effective_price != null)
+                    ? avail.effective_price
+                    : (this.originalPrice || this.pricePerNight);
+                const hostEffective = perPerson * g;
+                total += this.userDiscountPct > 0
+                    ? Math.round(hostEffective * (1 - this.userDiscountPct / 100))
+                    : hostEffective;
+                d.setDate(d.getDate() + 1);
+            }
+            return total;
+        },
+
+        _swalEmptyBedsHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal) {
+            const savingsHint = guests % capacity === 0 ? capacity : guests % capacity;
+            return `<div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
+                <p style="margin:0 0 12px;">
+                    برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) دارید.
+                    <br>مجموع تخت‌های رزرو شده: <strong>${totalBeds} تخت</strong> — که <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> دارد.
+                </p>
+                <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#15803d;margin-bottom:6px;"><i class="bi bi-door-closed-fill"></i> رزرو کامل اتاق‌ها</div>
+                    <p style="margin:0 0 8px;color:#374151;">با پذیرش این گزینه، هزینه برای <strong>${totalBeds} تخت</strong> (${rn} اتاق کامل) محاسبه می‌شود.</p>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:14px;">
+                        <span style="color:#6b7280;">مبلغ نهایی:</span>
+                        <div>
+                            ${partialTotal < fullRoomTotal ? `<span style="font-size:12px;text-decoration:line-through;color:#9ca3af;margin-left:6px;">${partialTotal.toLocaleString('fa-IR')}</span>` : ''}
+                            <strong style="color:#15803d;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} تومان</strong>
+                        </div>
+                    </div>
+                </div>
+                <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;">
+                    <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> پیشنهاد برای صرفه‌جویی:</div>
+                    <ul style="margin:0;padding-right:18px;color:#78350f;">
+                        <li style="margin-bottom:4px;">اتاق با ظرفیت <strong>${savingsHint} نفر</strong> (برای آخرین گروه) انتخاب کنید.</li>
+                        <li>یا برای هر گروه به‌صورت جداگانه رزرو انجام دهید.</li>
+                    </ul>
+                </div>
+            </div>`;
+        },
+
+        _showEmptyBedsPopup(guests, rn, capacity, totalBeds, emptyBeds) {
+            const fullRoomTotal = this._calcNightTotal(totalBeds);
+            const partialTotal  = this._calcNightTotal(guests);
+            return _loadSwal().then(() => Swal.fire({
+                title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
+                html: this._swalEmptyBedsHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal),
+                icon: 'warning',
+                showConfirmButton: true,
+                confirmButtonText: '<i class="bi bi-check-circle me-1"></i> رزرو کامل اتاق‌ها و پرداخت',
+                confirmButtonColor: '#16a34a',
+                showCancelButton: true,
+                cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
+                cancelButtonColor: '#ff385c',
+                reverseButtons: true,
+                customClass: { popup: 'swal-bnb-popup' },
+                didOpen: () => {
+                    const popup = Swal.getPopup();
+                    if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
+                    const container = document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '9999';
+                }
+            })).then((result) => {
+                if (result.isConfirmed) {
+                    this._proceedBooking(0, true);
+                }
+            });
+        },
+
+        _proceedBooking(extraG, fullRoom) {
+            this.extraGuests    = extraG || 0;
+            this.billFullRooms  = !!fullRoom;
+            this.datesConfirmed = true;
+            this.drawerOpen     = false;
+            window.dispatchEvent(new CustomEvent('bnb-dates-set', {
+                detail: { checkIn: this.checkIn, checkOut: this.checkOut }
+            }));
         },
 
         confirmDates() {
@@ -1776,14 +1941,7 @@ function mbbDrawer() {
             // Can extra capacity solve the mismatch? (remainder fits within extra_capacity)
             const canUseExtra  = this.roomTypeId && capacity > 1 && guests > capacity && remainder > 0 && extraCap >= remainder;
 
-            const proceed = (extraG) => {
-                this.extraGuests    = extraG || 0;
-                this.datesConfirmed = true;
-                this.drawerOpen     = false;
-                window.dispatchEvent(new CustomEvent('bnb-dates-set', {
-                    detail: { checkIn: this.checkIn, checkOut: this.checkOut }
-                }));
-            };
+            const proceed = (extraG, fullRoom) => this._proceedBooking(extraG, fullRoom);
 
             if (canUseExtra) {
                 // Extra capacity CAN bridge the gap — offer the user the choice
@@ -1801,7 +1959,7 @@ function mbbDrawer() {
                                 <div>
                                     <div style="font-weight:700;color:#15803d;margin-bottom:4px;"><i class="bi bi-person-add"></i> کف‌خوابی (پیشنهادی)</div>
                                     <div style="font-size:13px;color:#374151;"><strong>${roomsWithExtra > 0 ? roomsWithExtra : 1} اتاق</strong> + <strong>${remainder} نفر کف‌خواب</strong></div>
-                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: <strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} تومان</strong> (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: ${this.userDiscountPct > 0 ? `<s style="opacity:.65;">${extraCost.toLocaleString('fa-IR')}</s> ` : ''}<strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} تومان</strong>${this.userDiscountPct > 0 ? ` <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;">${this.userDiscountPct}٪ تخفیف</span>` : ''} (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
                                 </div>
                             </label>
                             <label style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-multi">
@@ -1834,70 +1992,16 @@ function mbbDrawer() {
                     if (result.isConfirmed) {
                         const choice = document.querySelector('input[name="swal-cap-choice"]:checked')?.value;
                         if (choice === 'extra') {
-                            proceed(remainder);
+                            proceed(remainder, false);
                         } else {
-                            // Show the multi-booking warning then close
-                            _loadSwal().then(() => Swal.fire({
-                                title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
-                                html: `<div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
-                                    <p style="margin:0 0 12px;">برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) است.<br>مجموع تخت‌های رزرو شده: <strong>${totalBeds} تخت</strong> — که <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> نیز در مبلغ نهایی محاسبه می‌شود.</p>
-                                    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;">
-                                        <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> پیشنهاد برای صرفه‌جویی:</div>
-                                        <ul style="margin:0;padding-right:18px;color:#78350f;">
-                                            <li style="margin-bottom:4px;">اتاق با ظرفیت <strong>${guests % capacity === 0 ? capacity : guests % capacity} نفر</strong> (برای آخرین گروه) انتخاب کنید.</li>
-                                            <li>یا برای هر گروه به‌صورت جداگانه رزرو انجام دهید.</li>
-                                        </ul>
-                                    </div>
-                                </div>`,
-                                icon: 'warning',
-                                showConfirmButton: false,
-                                showCancelButton: true,
-                                cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
-                                cancelButtonColor: '#ff385c',
-                                customClass: { popup: 'swal-bnb-popup' },
-                                didOpen: () => {
-                                    const popup = Swal.getPopup();
-                                    if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
-                                    const container = document.querySelector('.swal2-container');
-                                    if (container) container.style.zIndex = '9999';
-                                }
-                            }));
+                            this._showEmptyBedsPopup(guests, rn, capacity, totalBeds, emptyBeds);
                         }
                     }
                 });
             } else if (this.roomTypeId && capacity > 1 && emptyBeds > 0) {
-                // No extra capacity available — show the existing combined-booking warning
-                _loadSwal().then(() => Swal.fire({
-                    title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
-                    html: `
-                        <div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
-                            <p style="margin:0 0 12px;">
-                                برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) است.
-                                <br>مجموع تخت‌های رزرو شده: <strong>${totalBeds} تخت</strong> — که <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> نیز در مبلغ نهایی محاسبه می‌شود.
-                            </p>
-                            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;">
-                                <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> پیشنهاد برای صرفه‌جویی:</div>
-                                <ul style="margin:0;padding-right:18px;color:#78350f;">
-                                    <li style="margin-bottom:4px;">اتاق با ظرفیت <strong>${guests % capacity === 0 ? capacity : guests % capacity} نفر</strong> (برای آخرین گروه) انتخاب کنید.</li>
-                                    <li>یا برای هر گروه به‌صورت جداگانه رزرو انجام دهید.</li>
-                                </ul>
-                            </div>
-                        </div>`,
-                    icon: 'warning',
-                    showConfirmButton: false,
-                    showCancelButton: true,
-                    cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
-                    cancelButtonColor: '#ff385c',
-                    customClass: { popup: 'swal-bnb-popup' },
-                    didOpen: () => {
-                        const popup = Swal.getPopup();
-                        if (popup) { popup.style.fontFamily = 'var(--bnb-font)'; popup.style.borderRadius = '18px'; popup.style.direction = 'rtl'; }
-                        const container = document.querySelector('.swal2-container');
-                        if (container) container.style.zIndex = '9999';
-                    }
-                }));
+                this._showEmptyBedsPopup(guests, rn, capacity, totalBeds, emptyBeds);
             } else {
-                proceed(0);
+                proceed(0, false);
             }
         },
 
@@ -1908,10 +2012,12 @@ function mbbDrawer() {
             const co  = form.querySelector('.rt-check-out');
             const g   = form.querySelector('.rt-guests') || form.querySelector('input[name="guests"]');
             const eg  = form.querySelector('.rt-extra-guests') || form.querySelector('input[name="extra_guests"]');
+            const bfr = form.querySelector('.rt-bill-full-rooms') || form.querySelector('input[name="bill_full_rooms"]');
             if (ci) ci.value = this.checkIn;
             if (co) co.value = this.checkOut;
             if (g)  g.value  = this.guests;
             if (eg) eg.value = this.extraGuests || 0;
+            if (bfr) bfr.value = this.billFullRooms ? '1' : '0';
             form.submit();
         },
 
@@ -1925,6 +2031,7 @@ function mbbDrawer() {
             this.extraCapacity       = parseInt(extraCap)   || 0;
             this.extraCapacityPrice  = parseInt(extraPrice) || 0;
             this.extraGuests         = 0;  // reset when switching rooms
+            this.billFullRooms       = false;
             this.datesConfirmed      = false;
 
             // Always clear cached availability so new room type gets fresh data

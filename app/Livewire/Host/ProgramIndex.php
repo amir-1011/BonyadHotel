@@ -25,7 +25,7 @@ class ProgramIndex extends Component
 
     public function destroy(int $id): void
     {
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
         $program = Program::whereIn('accommodation_id', $accIds)->findOrFail($id);
         $program->delete();
         session()->flash('status', 'برنامه حذف شد.');
@@ -35,7 +35,7 @@ class ProgramIndex extends Component
 
     public function render()
     {
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
         $query  = Program::whereIn('accommodation_id', $accIds)
             ->with('accommodation')->latest();
 
@@ -50,7 +50,7 @@ class ProgramIndex extends Component
         }
 
         $programs         = $query->paginate(20);
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
 
         return view('host.programs.index', compact('programs', 'myAccommodations'));
     }

@@ -1,4 +1,4 @@
-<div>
+<div id="program-form-root">
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('host.programs.show', $program) }}" class="btn btn-sm btn-outline-secondary" wire:navigate><i class="bi bi-arrow-right"></i></a>
@@ -35,16 +35,7 @@
                     <input type="text" wire:model="title" class="form-control @error('title') is-invalid @enderror" required>
                     @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">تاریخ شروع <span class="text-danger">*</span></label>
-                    <input type="date" wire:model="startDate" class="form-control @error('startDate') is-invalid @enderror" required>
-                    @error('startDate')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">تاریخ پایان <span class="text-danger">*</span></label>
-                    <input type="date" wire:model="endDate" class="form-control @error('endDate') is-invalid @enderror" required>
-                    @error('endDate')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                </div>
+                @include('host.programs._date_fields')
                 <div class="col-md-4">
                     <label class="form-label">تعداد نفرات <span class="text-danger">*</span></label>
                     <input type="number" wire:model="guestCount" class="form-control" min="1" required>
@@ -155,7 +146,7 @@
         </div>
     </div>
 
-    <button type="button" wire:click="update" wire:loading.attr="disabled" class="btn btn-warning w-100 fw-semibold">
+    <button type="button" wire:click="update" onclick="window.syncProgramDates && window.syncProgramDates()" wire:loading.attr="disabled" class="btn btn-warning w-100 fw-semibold">
         <span wire:loading.remove><i class="bi bi-check-circle me-1"></i> ذخیره تغییرات</span>
         <span wire:loading>در حال ذخیره...</span>
     </button>

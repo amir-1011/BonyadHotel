@@ -38,7 +38,7 @@
                     <div class="text-center" style="position:relative;width:110px;">
                         <img src="{{ asset('storage/' . $img) }}" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:2px solid {{ in_array($img, $keepImages) ? '#dee2e6' : '#dc3545' }};" alt="تصویر">
                         @if(in_array($img, $keepImages))
-                            <button wire:click="removeExistingImage('{{ $img }}')" type="button" class="btn btn-xs btn-danger" style="position:absolute;top:2px;right:2px;padding:1px 5px;font-size:.7rem;">×</button>
+                            <button wire:click="removeExistingImage('{{ $img }}')" type="button" data-swal-confirm="این تصویر حذف شود؟" class="btn btn-xs btn-danger" style="position:absolute;top:2px;right:2px;padding:1px 5px;font-size:.7rem;">×</button>
                         @else
                             <div class="text-danger small mt-1">حذف خواهد شد</div>
                         @endif

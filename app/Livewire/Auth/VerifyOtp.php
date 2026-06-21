@@ -3,7 +3,6 @@
 namespace App\Livewire\Auth;
 
 use App\Models\User;
-use App\Services\NationalIdVerificationService;
 use Ichtrojan\Otp\Otp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -44,18 +43,10 @@ class VerifyOtp extends Component
             }
         }
 
-        $defaultNationalId   = '4440000008';
-        $verificationService = app(NationalIdVerificationService::class);
-        $idVerification      = $verificationService->verify($defaultNationalId);
-
         $user = User::firstOrCreate(
             ['mobile' => $mobile],
             [
-                'mobile_verified_at'     => now(),
-                'national_id'            => $defaultNationalId,
-                'veteran_type'           => $idVerification['veteran_type'],
-                'discount_percentage'    => $idVerification['discount'],
-                'national_id_verified_at' => now(),
+                'mobile_verified_at' => now(),
             ]
         );
 

@@ -5,6 +5,9 @@ namespace App\Livewire\Host;
 use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\Province;
+use App\Livewire\Concerns\ManagesAccommodationContactInfo;
+use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Models\AccommodationType;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -14,6 +17,8 @@ use Livewire\WithFileUploads;
 class AccommodationCreate extends Component
 {
     use WithFileUploads;
+    use ManagesAccommodationContactInfo;
+    use ManagesAccommodationCatalog;
 
     public int    $provinceId       = 0;
     public int    $cityId          = 0;
@@ -29,6 +34,11 @@ class AccommodationCreate extends Component
     public string $amenitiesRaw    = '';
     public array  $images          = [];
 
+    public function mount(): void
+    {
+        $this->phoneNumbers = [$this->emptyPhoneRow()];
+    }
+
     public function updatedProvinceId(): void
     {
         $this->cityId = 0;
@@ -36,11 +46,11 @@ class AccommodationCreate extends Component
 
     protected function rules(): array
     {
-        return [
+        return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
-            'type'          => ['required', 'in:hotel,villa,apartment,hostel,traditional'],
+            'type'          => $this->accommodationTypeRule(),
             'pricePerNight' => ['required', 'integer', 'min:0'],
             'capacity'      => ['required', 'integer', 'min:1'],
             'rooms'         => ['required', 'integer', 'min:1'],
@@ -48,7 +58,7 @@ class AccommodationCreate extends Component
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
             'images.*'      => ['nullable', 'image', 'max:4096'],
-        ];
+        ], $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -59,13 +69,14 @@ class AccommodationCreate extends Component
     public function store(): void
     {
         $this->validate();
+        $this->validateContactInfo();
 
         $uploadedImages = [];
         foreach ($this->images as $img) {
             $uploadedImages[] = $img->store('accommodations', 'public');
         }
 
-        Accommodation::create([
+        $accommodation = Accommodation::create(array_merge([
             'city_id'         => $this->cityId,
             'host_id'         => Auth::id(),
             'name'            => $this->name,
@@ -80,7 +91,9 @@ class AccommodationCreate extends Component
             'is_active'       => false, // awaiting admin approval
             'amenities'       => $this->parseAmenities($this->amenitiesRaw),
             'images'          => $uploadedImages,
-        ]);
+        ], $this->contactInfoAttributes()));
+
+        $accommodation->grantHostAccess(Auth::user());
 
         session()->flash('status', 'اقامتگاه ثبت شد و پس از تأیید مدیر نمایش داده می‌شود.');
         $this->redirectRoute('host.accommodations.index', navigate: true);
@@ -92,6 +105,7 @@ class AccommodationCreate extends Component
         $cities = $this->provinceId
             ? City::where('province_id', $this->provinceId)->orderBy('name')->get()
             : collect();
-        return view('host.accommodations.create', compact('provinces', 'cities'));
+        $accommodationTypes = AccommodationType::options();
+        return view('host.accommodations.create', compact('provinces', 'cities', 'accommodationTypes'));
     }
 }

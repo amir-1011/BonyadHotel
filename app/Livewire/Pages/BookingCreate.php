@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Services\PlatformCommissionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
@@ -120,6 +121,9 @@ class BookingCreate extends Component
             'status'              => 'confirmed',
             'tracking_code'       => strtoupper(Str::random(10)),
         ]);
+
+        $booking->load('accommodation');
+        app(PlatformCommissionService::class)->syncBookingCommissions($booking, $user);
 
         session()->flash('status', 'رزرو شما با موفقیت ثبت شد.');
         $this->redirectRoute('bookings.show', $booking, navigate: true);

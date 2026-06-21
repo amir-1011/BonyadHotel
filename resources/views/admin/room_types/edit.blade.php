@@ -107,9 +107,9 @@
                                 <button class="btn btn-xs btn-outline-warning" title="ویرایش" type="button" data-bs-toggle="collapse" data-bs-target="#editRate{{ $rate->id }}">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <form action="{{ route('admin.room-types.rates.destroy', [$accommodation, $roomType, $rate]) }}" method="POST" onsubmit="return confirm('این تعرفه حذف شود؟')">
+                                <form action="{{ route('admin.room-types.rates.destroy', [$accommodation, $roomType, $rate]) }}" method="POST">
                                     @csrf @method('DELETE')
-                                    <button class="btn btn-xs btn-outline-danger" title="حذف">
+                                    <button type="submit" data-swal-confirm="این تعرفه حذف شود؟" class="btn btn-xs btn-outline-danger" title="حذف">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>

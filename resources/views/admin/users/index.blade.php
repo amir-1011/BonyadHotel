@@ -1,8 +1,23 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h5 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>کاربران ({{ $users->total() }})</h5>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ route('admin.users.export', $exportQuery) }}" class="btn btn-sm btn-success">
+            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+            @if($hasActiveFilters)
+            <span class="badge bg-white text-success ms-1">فیلترشده</span>
+            @endif
+        </a>
+        <a wire:navigate href="{{ route('admin.users.create-host') }}" class="btn btn-sm btn-success">
+            <i class="bi bi-person-plus me-1"></i>افزودن میزبان
+        </a>
+    </div>
 </div>
+
+<x-tutorial-videos :videos="[
+    ['label' => 'ساختن میزبان', 'file' => 'ساختن میزبان.mp4'],
+]" />
 
 {{-- Filters --}}
 <div class="card shadow-sm mb-3">
@@ -38,6 +53,7 @@
                     <th>نام</th>
                     <th>موبایل</th>
                     <th>نقش</th>
+                    <th>گروه ایثارگری</th>
                     <th>تخفیف</th>
                     <th>تاریخ ثبت</th>
                     <th>وضعیت</th>
@@ -60,6 +76,7 @@
                         @endforeach
                         @if($user->roles->isEmpty()) <span class="badge bg-light text-dark border">guest</span> @endif
                     </td>
+                    <td class="small">{{ $user->veteranLabel() }}</td>
                     <td>{{ $user->discount_percentage > 0 ? $user->discount_percentage.'%' : '—' }}</td>
                     <td class="small text-muted">@jalali($user->created_at)</td>
                     <td>

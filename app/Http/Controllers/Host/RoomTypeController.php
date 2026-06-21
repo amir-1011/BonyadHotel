@@ -21,13 +21,13 @@ class RoomTypeController extends Controller
     /** Ensure the accommodation belongs to the current host. */
     private function authorizeAccommodation(Accommodation $accommodation): void
     {
-        abort_if($accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
     }
 
     /** Ensure the room type belongs to one of the host's accommodations. */
     private function authorizeRoomType(RoomType $roomType): void
     {
-        abort_if($roomType->accommodation->host_id !== Auth::id(), 403);
+        abort_if(! $roomType->accommodation->isManagedBy(Auth::user()), 403);
     }
 
     // ─── Room Type CRUD ──────────────────────────────────────────────────────

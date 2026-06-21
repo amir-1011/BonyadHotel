@@ -41,7 +41,7 @@ class ReviewIndex extends Component
             'replyText' => ['required', 'string', 'max:1000'],
         ]);
 
-        $ids    = Auth::user()->accommodations()->pluck('id');
+        $ids    = Auth::user()->managedAccommodationIds();
         $review = Review::whereIn('accommodation_id', $ids)->findOrFail($this->replyingTo);
         $review->update(['host_reply' => $this->replyText, 'host_replied_at' => now()]);
 
@@ -53,7 +53,7 @@ class ReviewIndex extends Component
 
     public function deleteReply(int $reviewId): void
     {
-        $ids    = Auth::user()->accommodations()->pluck('id');
+        $ids    = Auth::user()->managedAccommodationIds();
         $review = Review::whereIn('accommodation_id', $ids)->findOrFail($reviewId);
         $review->update(['host_reply' => null, 'host_replied_at' => null]);
         session()->flash('status', 'پاسخ حذف شد.');
@@ -62,7 +62,7 @@ class ReviewIndex extends Component
 
     public function render()
     {
-        $ids   = Auth::user()->accommodations()->pluck('id');
+        $ids   = Auth::user()->managedAccommodationIds();
         $query = Review::whereIn('accommodation_id', $ids)->with('user', 'accommodation');
 
         if ($this->search) {
@@ -96,7 +96,7 @@ class ReviewIndex extends Component
             'avg'     => $allReviews->avg('rating'),
         ];
 
-        $myAccommodations = Auth::user()->accommodations()->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
         return view('host.reviews.index', compact('reviews', 'replyingTo', 'replyText', 'stats', 'myAccommodations'));
     }
 }

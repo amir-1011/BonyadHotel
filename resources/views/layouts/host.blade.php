@@ -22,9 +22,11 @@
 <body>
 
 @php
-    $pendingReplies = \App\Models\Review::whereIn('accommodation_id',
-        Auth::user()->accommodations()->pluck('id')
-    )->whereNull('host_reply')->count();
+    $hostUser = Auth::user();
+    $hostPerms = $hostUser->effectiveHostPermissions();
+    $pendingReplies = $hostUser->hasHostPanelAccess('reviews')
+        ? \App\Models\Review::whereIn('accommodation_id', $hostUser->managedAccommodationIds())->whereNull('host_reply')->count()
+        : 0;
 @endphp
 
 {{-- ─── Sidebar ──────────────────────────────────────────────────────── --}}
@@ -39,12 +41,14 @@
 
     <nav class="ta-sidebar__nav">
         <div class="ta-sidebar__section">منو</div>
+        @if($hostUser->hasHostPanelAccess('dashboard'))
         <a href="{{ route('host.dashboard') }}" wire:navigate data-label="داشبورد"
            class="ta-nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
             <i class="bi bi-grid-1x2-fill"></i><span class="ta-nav-link__label">داشبورد</span>
         </a>
+        @endif
 
-        {{-- اقامتگاه‌ها (شاخه) --}}
+        @if($hostUser->hasHostPanelAccess('accommodations'))
         <div class="ta-nav-group {{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-building-fill"></i>
@@ -58,14 +62,16 @@
                        class="{{ request()->routeIs('host.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
             </ul>
         </div>
+        @endif
 
-        {{-- رزروها --}}
+        @if($hostUser->hasHostPanelAccess('bookings'))
         <a href="{{ route('host.bookings.index') }}" wire:navigate data-label="رزروها"
            class="ta-nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
         </a>
+        @endif
 
-        {{-- برنامه‌ها (شاخه) --}}
+        @if($hostUser->hasHostPanelAccess('programs'))
         <div class="ta-nav-group {{ request()->routeIs('host.programs.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-flag-fill"></i>
@@ -81,8 +87,9 @@
                        class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
             </ul>
         </div>
+        @endif
 
-        {{-- نظرات --}}
+        @if($hostUser->hasHostPanelAccess('reviews'))
         <a href="{{ route('host.reviews.index') }}" wire:navigate data-label="نظرات مهمانان"
            class="ta-nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
             <i class="bi bi-star-fill"></i><span class="ta-nav-link__label">نظرات مهمانان</span>
@@ -90,11 +97,25 @@
                 <span class="badge bg-warning">{{ $pendingReplies }}</span>
             @endif
         </a>
+        @endif
+
+        @if($hostUser->hasHostPanelAccess('users'))
+        <a href="{{ route('host.users.index') }}" wire:navigate data-label="کاربران"
+           class="ta-nav-link {{ request()->routeIs('host.users.*') ? 'active' : '' }}">
+            <i class="bi bi-people-fill"></i><span class="ta-nav-link__label">کاربران</span>
+        </a>
+        @endif
 
         <div class="ta-sidebar__section">دسترسی سریع</div>
+        <a href="{{ route('host.profile') }}" wire:navigate data-label="پروفایل"
+           class="ta-nav-link {{ request()->routeIs('host.profile') ? 'active' : '' }}">
+            <i class="bi bi-person-circle"></i><span class="ta-nav-link__label">پروفایل</span>
+        </a>
+        @unless(config('staff_mode.enabled'))
         <a href="{{ route('home') }}" target="_blank" data-label="سایت اصلی" class="ta-nav-link">
             <i class="bi bi-house-door-fill"></i><span class="ta-nav-link__label">سایت اصلی</span>
         </a>
+        @endunless
         <form action="{{ route('auth.logout') }}" method="POST">
             @csrf
             <button type="submit" class="ta-nav-link" data-label="خروج">
@@ -118,7 +139,6 @@
             <div class="ta-search d-none d-md-block">
                 <i class="bi bi-search"></i>
                 <input type="text" placeholder="جستجو یا تایپ دستور..." aria-label="جستجو">
-                <kbd>⌘ K</kbd>
             </div>
         </div>
 
@@ -126,10 +146,12 @@
             <button class="ta-icon-btn ta-theme-btn" type="button" title="حالت تیره" onclick="window.taToggleTheme && window.taToggleTheme()">
                 <i class="bi bi-moon"></i>
             </button>
+            @if($hostUser->hasHostPanelAccess('reviews'))
             <a href="{{ route('host.reviews.index') }}" wire:navigate class="ta-icon-btn" title="نظرات">
                 <i class="bi bi-bell"></i>
                 @if($pendingReplies > 0)<span class="ta-dot"></span>@endif
             </a>
+            @endif
             <div class="ta-user dropdown">
                 <div class="d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" role="button">
                     <div class="ta-user__avatar">{{ mb_substr(Auth::user()->name ?? 'M', 0, 1) }}</div>
@@ -140,9 +162,11 @@
                     <i class="bi bi-chevron-down text-muted d-none d-sm-block" style="font-size:.8rem"></i>
                 </div>
                 <ul class="dropdown-menu dropdown-menu-start">
-                    <li><a class="dropdown-item" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
+                    <li><a class="dropdown-item" href="{{ route('host.profile') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
+                    @unless(config('staff_mode.enabled'))
                     <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-house-door me-2"></i>سایت اصلی</a></li>
                     <li><hr class="dropdown-divider"></li>
+                    @endunless
                     <li>
                         <form action="{{ route('auth.logout') }}" method="POST">
                             @csrf
@@ -165,6 +189,8 @@
 
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
 <script>
     window.taToggleSidebar = function (force) {
         var sb = document.getElementById('sidebar');
@@ -224,5 +250,6 @@
 @stack('scripts')
 @include('partials._btn_loader')
 @include('partials._swal')
+@include('partials._test_site_notice')
 </body>
 </html>

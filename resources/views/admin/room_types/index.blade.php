@@ -89,9 +89,9 @@
                 <a wire:navigate href="{{ route('admin.room-types.daily-availability', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-sliders me-1"></i>ظرفیت روزانه
                 </a>
-                <form action="{{ route('admin.room-types.destroy', [$accommodation, $rt]) }}" method="POST" onsubmit="return confirm('این اتاق و تمام تعرفه‌هایش حذف شود؟')">
+                <form action="{{ route('admin.room-types.destroy', [$accommodation, $rt]) }}" method="POST">
                     @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>حذف</button>
+                    <button type="submit" data-swal-confirm="این اتاق و تمام تعرفه‌هایش حذف شود؟" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>حذف</button>
                 </form>
             </div>
         </div>

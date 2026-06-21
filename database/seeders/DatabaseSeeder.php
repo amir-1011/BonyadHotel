@@ -10,12 +10,14 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ProvinceSeeder::class,
-            AccommodationSeeder::class,
+            // AccommodationSeeder::class,
             RolesAndUsersSeeder::class,
             AssignHostsSeeder::class,
-            BookingAndReviewSeeder::class,
+            // BookingAndReviewSeeder::class,
             RichAccommodationSeeder::class,
             ProgramSeeder::class,
+            VeteranPolicySeeder::class,
+            AccommodationTypeSeeder::class,
         ]);
     }
 }

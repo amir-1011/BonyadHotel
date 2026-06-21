@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Review;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Services\PlatformCommissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -31,6 +32,7 @@ class BookingController extends Controller
             'room_type_id'  => ['nullable', 'integer', 'exists:room_types,id'],
             'room_rate_id'  => ['nullable', 'integer', 'exists:room_rates,id'],
             'extra_guests'  => ['nullable', 'integer', 'min:0', 'max:10'],
+            'bill_full_rooms' => ['nullable', 'boolean'],
         ], [
             'check_in.required'        => 'تاریخ ورود الزامی است.',
             'check_in.after_or_equal'  => 'تاریخ ورود نمی‌تواند در گذشته باشد.',
@@ -74,6 +76,7 @@ class BookingController extends Controller
             // But if extra_guests is provided and within allowed extra_capacity, reduce rooms by 1
             $guests      = (int) $request->input('guests', 1);
             $extraGuests = (int) $request->input('extra_guests', 0);
+            $billFullRooms = $request->boolean('bill_full_rooms');
 
             // Validate extra_guests against room type's extra_capacity
             if ($extraGuests > 0) {
@@ -88,13 +91,24 @@ class BookingController extends Controller
                 $roomsNeeded = (int) ceil($guests / max(1, (int) $roomType->capacity));
             }
 
+            if ($billFullRooms) {
+                if ($extraGuests > 0) {
+                    return back()->withErrors(['check_in' => 'رزرو کامل اتاق با کف‌خوابی همزمان امکان‌پذیر نیست.']);
+                }
+                $capacity = max(1, (int) $roomType->capacity);
+                if ($guests >= $capacity && $guests % $capacity === 0) {
+                    return back()->withErrors(['check_in' => 'برای تعداد نفرات انتخابی نیازی به رزرو کامل اتاق نیست.']);
+                }
+            }
+
             if (!$roomType->isAvailable($checkIn, $checkOut, $roomsNeeded)) {
                 return back()->withErrors(['check_in' => 'متأسفانه ظرفیت کافی برای تعداد نفرات انتخابی در بازه تاریخ انتخابی شما وجود ندارد.']);
             }
         } else {
-            $guests      = (int) $request->input('guests', 1);
-            $extraGuests = 0;
-            $roomsNeeded = 1;
+            $guests        = (int) $request->input('guests', 1);
+            $extraGuests   = 0;
+            $billFullRooms = false;
+            $roomsNeeded   = 1;
             if (!$accommodation->isAvailable($checkIn, $checkOut)) {
                 return back()->withErrors(['check_in' => 'متأسفانه این اقامتگاه در بازه تاریخ انتخابی شما رزرو شده است.']);
             }
@@ -117,8 +131,12 @@ class BookingController extends Controller
         }
         $cursor  = new \DateTime($checkIn);
         $endDate = new \DateTime($checkOut);
-        // Only charge standard rate for the standard guests (not extra floor guests)
-        $standardGuests = $guests - $extraGuests;
+        // Charge per-person rate: full-room billing uses all beds in reserved rooms
+        if ($billFullRooms && $roomType) {
+            $billingGuests = $roomsNeeded * max(1, (int) $roomType->capacity);
+        } else {
+            $billingGuests = $guests - $extraGuests;
+        }
         while ($cursor < $endDate) {
             $dayKey     = $cursor->format('Y-m-d');
             $dayData    = $availMap[$dayKey] ?? null;
@@ -126,8 +144,8 @@ class BookingController extends Controller
             $nightPrice = ($dayData && isset($dayData['effective_price']) && $dayData['effective_price'] !== null)
                 ? (int) $dayData['effective_price']
                 : $pricePerNight;
-            // Multiply by number of standard guests (price is per-person per-night)
-            $basePrice += $nightPrice * $standardGuests;
+            // Multiply by billable guests (price is per-person per-night)
+            $basePrice += $nightPrice * $billingGuests;
             $cursor->modify('+1 day');
         }
         $basePrice += $extraGuestsTotal;
@@ -154,8 +172,12 @@ class BookingController extends Controller
             'discount_amount'     => $discountAmount,
             'total_price'         => $totalPrice,
             'status'              => 'confirmed',
+            'booking_source'      => 'online',
             'tracking_code'       => strtoupper(Str::random(10)),
         ]);
+
+        $booking->load('accommodation');
+        app(PlatformCommissionService::class)->syncBookingCommissions($booking, $user);
 
         return redirect()->route('bookings.show', $booking)
             ->with('status', 'رزرو شما با موفقیت ثبت شد.');

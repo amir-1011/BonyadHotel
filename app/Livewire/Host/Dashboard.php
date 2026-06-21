@@ -14,7 +14,7 @@ class Dashboard extends Component
     public function confirm(int $bookingId): void
     {
         $booking = Booking::findOrFail($bookingId);
-        abort_unless(Auth::user()->accommodations()->pluck('id')->contains($booking->accommodation_id), 403);
+        abort_unless(Auth::user()->managesAccommodation($booking->accommodation_id), 403);
         $booking->update(['status' => 'confirmed']);
         session()->flash('status', 'رزرو تأیید شد.');
         $this->dispatch('toast', type: 'success', message: 'رزرو تأیید شد.');
@@ -23,7 +23,7 @@ class Dashboard extends Component
     public function cancel(int $bookingId): void
     {
         $booking = Booking::findOrFail($bookingId);
-        abort_unless(Auth::user()->accommodations()->pluck('id')->contains($booking->accommodation_id), 403);
+        abort_unless(Auth::user()->managesAccommodation($booking->accommodation_id), 403);
         $booking->update(['status' => 'cancelled']);
         session()->flash('status', 'رزرو لغو شد.');
         $this->dispatch('toast', type: 'success', message: 'رزرو لغو شد.');
@@ -31,7 +31,7 @@ class Dashboard extends Component
     public function render()
     {
         $user             = Auth::user();
-        $accommodationIds = $user->accommodations()->pluck('id');
+        $accommodationIds = $user->managedAccommodationIds();
 
         $stats = [
             'accommodations'  => $accommodationIds->count(),

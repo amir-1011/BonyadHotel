@@ -26,7 +26,7 @@
                     <span class="text-muted">کد ملی</span><strong>{{ $user->national_id ?? '—' }}</strong>
                 </li>
                 <li class="list-group-item d-flex justify-content-between small">
-                    <span class="text-muted">نوع ایثارگر</span><strong>{{ $user->veteranLabel() }}</strong>
+                    <span class="text-muted">گروه ایثارگری</span><strong>{{ $user->veteranLabel() }}</strong>
                 </li>
                 <li class="list-group-item d-flex justify-content-between small">
                     <span class="text-muted">درصد تخفیف</span><strong>{{ $user->discount_percentage }}%</strong>

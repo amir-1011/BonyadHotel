@@ -231,12 +231,19 @@
     .bnb-cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:2px; }
     .bnb-cal-cell { position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:pointer;border:none;background:none;transition:background .1s,color .1s;color:var(--bnb-dark);font-family:var(--bnb-font); }
     .bnb-cal-cell:disabled { opacity:.3;cursor:default; }
-    .bnb-cal-cell.cal-start,.bnb-cal-cell.cal-end { background:var(--bnb-red)!important;color:#fff!important;border-radius:50%!important;z-index:1; }
-    .bnb-cal-cell.cal-range { background:#f0f0f0;border-radius:0;color:var(--bnb-dark); }
-    .bnb-cal-cell.cal-range-start { background:#f0f0f0;border-radius:0 50% 50% 0; }
-    .bnb-cal-cell.cal-range-end   { background:#f0f0f0;border-radius:50% 0 0 50%; }
-    .bnb-cal-cell.cal-hover-range { background:#f7f7f7;border-radius:0; }
-    .bnb-cal-cell:not(:disabled):not(.cal-start):not(.cal-end):hover { background:#e8e8e8;border-radius:50%; }
+    .bnb-cal-cell.cal-end { background:#fff!important;color:var(--bnb-red)!important;border:2px solid var(--bnb-red)!important;border-radius:50%!important;z-index:1;font-weight:700; }
+    .bnb-cal-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end),
+    .bnb-cal-cell.cal-range:not(.cal-start):not(.cal-last-night):not(.cal-end) {
+        background:rgba(255,56,92,.18)!important;color:#9f1239!important;font-weight:600;
+    }
+    .bnb-cal-cell.cal-hover-range:not(.cal-start):not(.cal-end) { background:rgba(255,56,92,.1)!important;color:#9f1239!important; }
+    .bnb-cal-cell.cal-start,
+    .bnb-cal-cell.cal-last-night { background:var(--bnb-red)!important;color:#fff!important;border-radius:50%!important;z-index:1;font-weight:700; }
+    .bnb-cal-cell .cal-day-check { position:absolute;top:2px;right:2px;font-size:8px;line-height:1;color:var(--bnb-red);font-weight:700; }
+    .bnb-cal-cell.cal-start .cal-day-check,
+    .bnb-cal-cell.cal-last-night .cal-day-check { color:#fff; }
+    .bnb-cal-cell.cal-selected:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-day-check { color:#9f1239; }
+    .bnb-cal-cell:not(:disabled):not(.cal-start):not(.cal-last-night):not(.cal-end):hover { background:#e8e8e8;border-radius:50%; }
     .bnb-cal-cell.cal-empty { cursor:default; }
     .bnb-cal-nights { display:inline-block;background:var(--bnb-dark);color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;margin-top:10px; }
 
@@ -455,14 +462,15 @@
                                     @mouseleave="calHover = null"
                                     :class="{
                                         'bnb-cal-cell':true,
-                                        'cal-start':   cell && cell.greg === checkIn,
-                                        'cal-end':     cell && cell.greg === checkOut,
-                                        'cal-range':   calInRange(cell),
-                                        'cal-range-start': cell && checkIn && checkOut && cell.greg === checkIn,
-                                        'cal-range-end':   cell && checkIn && checkOut && cell.greg === checkOut,
+                                        'cal-start':       cell && isCheckInDay(cell),
+                                        'cal-last-night':  cell && isLastStayNight(cell),
+                                        'cal-end':         cell && isCheckOutDay(cell),
+                                        'cal-range':       cell && calInRange(cell),
+                                        'cal-selected':    cell && isStayNight(cell),
                                         'cal-hover-range': calHoverRange(cell),
-                                        'cal-empty':   !cell
+                                        'cal-empty':       !cell
                                     }">
+                                    <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
                                     <span x-text="cell ? cell.d : ''"></span>
                                 </button>
                             </template>
@@ -473,8 +481,8 @@
                             <div>
                                 <span x-show="checkIn && checkOut" class="bnb-cal-nights"
                                       x-text="calNights + ' شب اقامت'"></span>
-                                <span x-show="checkIn && !checkOut" style="font-size:12px;color:var(--bnb-gray);">حالا تاریخ خروج را انتخاب کنید</span>
-                                <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">تاریخ ورود را انتخاب کنید</span>
+                                <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
+                                <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                             </div>
                             <div style="display:flex;gap:8px;">
                                 <button x-show="checkIn || checkOut" type="button"
@@ -849,13 +857,19 @@
                                 <button type="button"
                                     :disabled="!cell || cell.past"
                                     @click.stop="cell && !cell.past && selectDay(cell)"
+                                    @mouseenter="cell && !cell.past && (calHover = cell.greg)"
+                                    @mouseleave="calHover = null"
                                     :class="{
                                         'bnb-cal-cell': true,
-                                        'cal-start':  cell && cell.greg === checkIn,
-                                        'cal-end':    cell && cell.greg === checkOut,
-                                        'cal-range':  cell && checkIn && checkOut && cell.greg > checkIn && cell.greg < checkOut,
-                                        'cal-empty':  !cell
+                                        'cal-start':       cell && isCheckInDay(cell),
+                                        'cal-last-night':  cell && isLastStayNight(cell),
+                                        'cal-end':         cell && isCheckOutDay(cell),
+                                        'cal-range':       cell && calInRange(cell),
+                                        'cal-selected':    cell && isStayNight(cell),
+                                        'cal-hover-range': calHoverRange(cell),
+                                        'cal-empty':       !cell
                                     }">
+                                    <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
                                     <span x-text="cell ? cell.d : ''"></span>
                                 </button>
                             </template>
@@ -914,6 +928,111 @@
 <script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
 
 <script>
+// ─── Shared stay-night date picker helpers ───────────────────────────────────
+window.bnbStayPicker = {
+    addDays(greg, days) {
+        const d = new Date(greg + 'T12:00:00');
+        d.setDate(d.getDate() + days);
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+
+    nights(checkIn, checkOut) {
+        if (!checkIn || !checkOut) return 0;
+        return Math.round((new Date(checkOut + 'T12:00:00') - new Date(checkIn + 'T12:00:00')) / 86400000);
+    },
+
+    lastStayNight(checkIn, checkOut) {
+        if (!checkIn || !checkOut || checkOut <= checkIn) return '';
+        return this.addDays(checkOut, -1);
+    },
+
+    isStayNight(greg, checkIn, checkOut) {
+        return !!(checkIn && checkOut && greg >= checkIn && greg < checkOut);
+    },
+
+    isCheckInDay(greg, checkIn) {
+        return !!(checkIn && greg === checkIn);
+    },
+
+    isCheckOutDay(greg, checkOut) {
+        return !!(checkOut && greg === checkOut);
+    },
+
+    isLastStayNight(greg, checkIn, checkOut) {
+        const last = this.lastStayNight(checkIn, checkOut);
+        return !!(last && greg === last && greg !== checkIn);
+    },
+
+    calInRange(greg, checkIn, checkOut) {
+        const last = this.lastStayNight(checkIn, checkOut);
+        if (!last || greg <= checkIn || greg >= last) return false;
+        return greg > checkIn && greg < last;
+    },
+
+    calHoverRange(greg, checkIn, hoverGreg, calPhase) {
+        if (!greg || calPhase !== 1 || !checkIn || !hoverGreg || hoverGreg < checkIn) return false;
+        return greg >= checkIn && greg <= hoverGreg;
+    },
+
+    selectDay(cell, state) {
+        if (!cell || cell.past) return null;
+        const g = cell.greg;
+        if (state.calPhase === 0) {
+            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+        }
+        if (g < state.checkIn) {
+            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+        }
+        if (g === state.checkIn) {
+            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 0 };
+        }
+        return { checkIn: state.checkIn, checkOut: this.addDays(g, 1), calPhase: 0 };
+    }
+};
+
+function bnbCalMixin() {
+    return {
+        isStayNight(cell) {
+            return cell && window.bnbStayPicker.isStayNight(cell.greg, this.checkIn, this.checkOut);
+        },
+        isCheckInDay(cell) {
+            return cell && window.bnbStayPicker.isCheckInDay(cell.greg, this.checkIn);
+        },
+        isCheckOutDay(cell) {
+            return cell && window.bnbStayPicker.isCheckOutDay(cell.greg, this.checkOut);
+        },
+        isLastStayNight(cell) {
+            return cell && window.bnbStayPicker.isLastStayNight(cell.greg, this.checkIn, this.checkOut);
+        },
+        calInRange(cell) {
+            return cell && window.bnbStayPicker.calInRange(cell.greg, this.checkIn, this.checkOut);
+        },
+        calHoverRange(cell) {
+            return cell && window.bnbStayPicker.calHoverRange(cell.greg, this.checkIn, this.calHover, this.calPhase);
+        },
+        isHoverCheckoutDay(cell) {
+            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover < this.checkIn) return false;
+            return cell.greg === window.bnbStayPicker.addDays(this.calHover, 1);
+        },
+        applyStaySelection(cell, validateRange) {
+            const next = window.bnbStayPicker.selectDay(cell, {
+                checkIn: this.checkIn,
+                checkOut: this.checkOut,
+                calPhase: this.calPhase
+            });
+            if (!next) return false;
+            const lastNight = window.bnbStayPicker.addDays(next.checkOut, -1);
+            if (typeof validateRange === 'function' && !validateRange(next.checkIn, lastNight)) return false;
+            this.checkIn = next.checkIn;
+            this.checkOut = next.checkOut;
+            this.calPhase = next.calPhase;
+            return true;
+        }
+    };
+}
+
 // ─── Shared Jalali inline range picker ───────────────────────────────────────
 function initJalaliRange(calSel, inSel, outSel, displaySel, initIn, initOut, onRangeSelected) {
     var phase = 0;
@@ -968,6 +1087,7 @@ window.bnbLocations = @json($navLocations);
 
 function bnbNavSearch() {
     return {
+        ...bnbCalMixin(),
         open: false,
         step: 'where',          // 'where' | 'when' | 'who'
         // Location
@@ -1178,20 +1298,7 @@ function bnbNavSearch() {
         },
 
         get calNights() {
-            if (!this.checkIn || !this.checkOut) return 0;
-            return Math.round((new Date(this.checkOut) - new Date(this.checkIn)) / 86400000);
-        },
-
-        calInRange(cell) {
-            if (!cell || !this.checkIn || !this.checkOut) return false;
-            return cell.greg > this.checkIn && cell.greg < this.checkOut;
-        },
-
-        calHoverRange(cell) {
-            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover) return false;
-            if (this.calHover > this.checkIn)
-                return cell.greg > this.checkIn && cell.greg < this.calHover;
-            return false;
+            return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
         },
 
         calPrev() {
@@ -1205,21 +1312,8 @@ function bnbNavSearch() {
         },
 
         selectCalDay(cell) {
-            if (!cell || cell.past) return;
-            if (this.calPhase === 0) {
-                this.checkIn  = cell.greg;
-                this.checkOut = '';
-                this.calPhase = 1;
-            } else {
-                if (cell.greg > this.checkIn) {
-                    this.checkOut = cell.greg;
-                    this.calPhase = 0;
-                    this.calHover = null;
-                } else {
-                    this.checkIn  = cell.greg;
-                    this.checkOut = '';
-                }
-            }
+            if (!this.applyStaySelection(cell)) return;
+            this.calHover = null;
         },
 
         submit() {
@@ -1277,6 +1371,7 @@ document.addEventListener('livewire:navigated', initNavbarScrollBehavior);
 // ══ Mobile Search Alpine Component ════════════════════════════
 function bnbMobileSearch() {
     return {
+        ...bnbCalMixin(),
         open: false,
         step: 'where',
         // Location
@@ -1292,6 +1387,7 @@ function bnbMobileSearch() {
         calYear: null,
         calMonth: null,
         calPhase: 0,
+        calHover: null,
         // Map (Mobile)
         mapOpen: false,
         mapLat: null,
@@ -1455,16 +1551,8 @@ function bnbMobileSearch() {
         },
 
         selectDay(cell) {
-            if (!cell || cell.past) return;
-            if (this.calPhase === 0) {
-                this.checkIn  = cell.greg; this.checkOut = ''; this.calPhase = 1;
-            } else {
-                if (cell.greg > this.checkIn) {
-                    this.checkOut = cell.greg; this.calPhase = 0;
-                } else {
-                    this.checkIn = cell.greg; this.checkOut = '';
-                }
-            }
+            if (!this.applyStaySelection(cell)) return;
+            this.calHover = null;
         },
 
         submit() {

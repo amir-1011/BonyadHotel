@@ -12,7 +12,7 @@ class ProgramController extends Controller
 {
     private function myAccommodationIds()
     {
-        return Auth::user()->accommodations()->pluck('id');
+        return Auth::user()->managedAccommodationIds();
     }
 
     /* ── لیست برنامه‌ها ─────────────────────────────────────────────────── */
@@ -35,7 +35,7 @@ class ProgramController extends Controller
         }
 
         $programs = $query->paginate(20)->withQueryString();
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
 
         return view('host.programs.index', compact('programs', 'myAccommodations'));
     }
@@ -44,7 +44,7 @@ class ProgramController extends Controller
     public function create(Request $request)
     {
         $accIds = $this->myAccommodationIds();
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
 
         // اتاق‌های اقامتگاه انتخابی
         $roomTypes = collect();
@@ -133,7 +133,7 @@ class ProgramController extends Controller
         $accIds = $this->myAccommodationIds();
         abort_if(!$accIds->contains($program->accommodation_id), 403);
 
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
         $roomTypes = RoomType::where('accommodation_id', $program->accommodation_id)
             ->where('is_active', true)->get(['id', 'name', 'room_count']);
 

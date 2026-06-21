@@ -38,10 +38,12 @@ class AccommodationIndex extends Component
         $query = Accommodation::with('city.province', 'host');
 
         if ($this->search) {
-            $s = $this->search;
-            $query->where(fn($w) =>
-                $w->where('name', 'like', "%$s%")
-                    ->orWhereHas('city', fn($q) => $q->where('name', 'like', "%$s%"))
+            $s = trim($this->search);
+            $query->where(fn ($w) => $w
+                ->where('name', 'like', "%{$s}%")
+                ->orWhereHas('city', fn ($q) => $q->where('name', 'like', "%{$s}%"))
+                ->orWhereHas('host', fn ($q) => $q->where('name', 'like', "%{$s}%"))
+                ->orWhereHas('hosts', fn ($q) => $q->where('name', 'like', "%{$s}%"))
             );
         }
 

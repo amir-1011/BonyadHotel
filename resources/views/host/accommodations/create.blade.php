@@ -13,34 +13,8 @@
                 <input wire:model="name" type="text" class="form-control @error('name') is-invalid @enderror">
                 @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold">نوع</label>
-                <select wire:model="type" class="form-select @error('type') is-invalid @enderror">
-                    @foreach(['hotel'=>'هتل','villa'=>'ویلا','apartment'=>'آپارتمان','hostel'=>'هاستل','traditional'=>'اقامتگاه سنتی'] as $v=>$l)
-                    <option value="{{ $v }}">{{ $l }}</option>
-                    @endforeach
-                </select>
-                @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-semibold">استان</label>
-                <select wire:model.live="provinceId" class="form-select">
-                    <option value="0">انتخاب کنید</option>
-                    @foreach($provinces as $prov)
-                    <option value="{{ $prov->id }}">{{ $prov->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-semibold">شهر</label>
-                <select wire:model="cityId" class="form-select @error('cityId') is-invalid @enderror">
-                    <option value="0">{{ $provinceId ? 'انتخاب کنید' : 'ابتدا استان انتخاب کنید' }}</option>
-                    @foreach($cities as $city)
-                    <option value="{{ $city->id }}">{{ $city->name }}</option>
-                    @endforeach
-                </select>
-                @error('cityId')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
+            @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
+            @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
             <div class="col-md-4">
                 <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
                 <input wire:model="pricePerNight" type="number" class="form-control @error('pricePerNight') is-invalid @enderror" min="0">
@@ -60,6 +34,9 @@
                 <label class="form-label small fw-semibold">آدرس</label>
                 <input wire:model="address" type="text" class="form-control">
             </div>
+
+            @include('components.accommodation.management-and-phones')
+
             <div class="col-12">
                 <label class="form-label small fw-semibold">توضیحات</label>
                 <textarea wire:model="description" class="form-control" rows="3"></textarea>
@@ -72,7 +49,7 @@
                 {{-- Map Picker --}}
                 <div class="col-12">
                     <label class="form-label small fw-semibold"><i class="bi bi-geo-alt me-1"></i>موقعیت روی نقشه <span class="text-muted fw-normal">(اختیاری — روی نقشه کلیک کنید)</span></label>
-                    <div id="map-picker" style="height:320px;border-radius:10px;border:1px solid #dee2e6;"></div>
+                    <div id="map-picker" wire:ignore style="height:320px;border-radius:10px;border:1px solid #dee2e6;"></div>
                     <div class="d-flex gap-3 mt-2">
                         <div class="flex-grow-1">
                             <input wire:model="lat" type="number" step="any" id="lat" class="form-control form-control-sm" placeholder="عرض جغرافیایی">
@@ -118,7 +95,7 @@
 @endpush
 
 @push('scripts')
-<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js"></script>
+<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js" id="neshan-sdk-accommodation"></script>
 <script>
 // ── Province → City AJAX ──────────────────────────────────────────────────────
 document.getElementById('province_id')?.addEventListener('change', function(){
@@ -129,71 +106,101 @@ document.getElementById('province_id')?.addEventListener('change', function(){
 });
 
 // ── Leaflet Map Picker ────────────────────────────────────────────────────────
-var initLat = parseFloat(document.getElementById('lat').value) || 32.4279;
-var initLng = parseFloat(document.getElementById('lng').value) || 53.6880;
-var hasInit = document.getElementById('lat').value !== '';
+var _accommodationMap = null;
 
-var map = new L.Map('map-picker', {
-    key: 'web.75d28da947f74d85972934574838fa0e',
-    maptype: 'dreamy',
-    center: [initLat, initLng],
-    zoom: hasInit ? 13 : 5,
-});
-
-var marker = null;
-if (hasInit) {
-    marker = L.marker([initLat, initLng], {draggable: true}).addTo(map);
-    marker.on('dragend', updateFromMarker);
-    updateHint(initLat, initLng);
-}
-
-map.on('click', function(e) {
-    var lat = e.latlng.lat.toFixed(6);
-    var lng = e.latlng.lng.toFixed(6);
-    @this.set('lat', lat);
-    @this.set('lng', lng);
-    if (marker) { marker.setLatLng(e.latlng); }
-    else {
-        marker = L.marker(e.latlng, {draggable: true}).addTo(map);
-        marker.on('dragend', updateFromMarker);
+function destroyAccommodationMap() {
+    if (_accommodationMap) {
+        try { _accommodationMap.remove(); } catch (e) {}
+        _accommodationMap = null;
     }
-    updateHint(lat, lng);
-});
-
-function updateFromMarker(e) {
-    var pos = e.target.getLatLng();
-    @this.set('lat', pos.lat.toFixed(6));
-    @this.set('lng', pos.lng.toFixed(6));
-    updateHint(pos.lat.toFixed(6), pos.lng.toFixed(6));
-}
-function updateHint(lat, lng) {
-    document.getElementById('map-hint').innerHTML =
-        '<i class="bi bi-check-circle-fill text-success me-1"></i>موقعیت انتخاب شد: ' + lat + '، ' + lng;
-}
-function clearMarker() {
-    if (marker) { map.removeLayer(marker); marker = null; }
-    document.getElementById('lat').value = '';
-    document.getElementById('lng').value = '';
-    document.getElementById('map-hint').textContent = 'برای تعیین موقعیت، روی نقشه کلیک کنید.';
+    var el = document.getElementById('map-picker');
+    if (el) el._leafletMap = null;
 }
 
-// Update lat/lng inputs directly → move map
-['lat','lng'].forEach(function(id){
-    document.getElementById(id).addEventListener('change', function(){
-        var lat = parseFloat(document.getElementById('lat').value);
-        var lng = parseFloat(document.getElementById('lng').value);
-        if (!isNaN(lat) && !isNaN(lng)) {
-            var ll = L.latLng(lat, lng);
-            map.setView(ll, 13);
-            if (marker) marker.setLatLng(ll);
-            else {
-                marker = L.marker(ll, {draggable: true}).addTo(map);
-                marker.on('dragend', updateFromMarker);
-            }
-            updateHint(lat, lng);
-        }
+var leafletReady = function () {
+    var mapEl = document.getElementById('map-picker');
+    if (!mapEl || !window.L || !mapEl.isConnected || !mapEl.offsetWidth) return;
+    if (mapEl._leafletMap) { mapEl._leafletMap.invalidateSize(); return; }
+
+    destroyAccommodationMap();
+
+    var latInput = document.getElementById('lat');
+    var lngInput = document.getElementById('lng');
+    var initLat = parseFloat(latInput?.value) || 32.4279;
+    var initLng = parseFloat(lngInput?.value) || 53.6880;
+    var hasInit = latInput?.value !== '';
+
+    var map = new L.Map('map-picker', {
+        key: 'web.75d28da947f74d85972934574838fa0e',
+        maptype: 'dreamy',
+        center: [initLat, initLng],
+        zoom: hasInit ? 13 : 5,
     });
-});
+    mapEl._leafletMap = map;
+    _accommodationMap = map;
 
+    var marker = null;
+    if (hasInit) {
+        marker = L.marker([initLat, initLng], {draggable: true}).addTo(map);
+        marker.on('dragend', updateFromMarker);
+        updateHint(initLat, initLng);
+    }
+
+    map.on('click', function(e) {
+        var lat = e.latlng.lat.toFixed(6);
+        var lng = e.latlng.lng.toFixed(6);
+        @this.set('lat', lat);
+        @this.set('lng', lng);
+        if (marker) { marker.setLatLng(e.latlng); }
+        else {
+            marker = L.marker(e.latlng, {draggable: true}).addTo(map);
+            marker.on('dragend', updateFromMarker);
+        }
+        updateHint(lat, lng);
+    });
+
+    function updateFromMarker(e) {
+        var pos = e.target.getLatLng();
+        @this.set('lat', pos.lat.toFixed(6));
+        @this.set('lng', pos.lng.toFixed(6));
+        updateHint(pos.lat.toFixed(6), pos.lng.toFixed(6));
+    }
+    function updateHint(lat, lng) {
+        document.getElementById('map-hint').innerHTML =
+            '<i class="bi bi-check-circle-fill text-success me-1"></i>موقعیت انتخاب شد: ' + lat + '، ' + lng;
+    }
+    window.clearMarker = function () {
+        if (marker) { map.removeLayer(marker); marker = null; }
+        if (latInput) latInput.value = '';
+        if (lngInput) lngInput.value = '';
+        document.getElementById('map-hint').textContent = 'برای تعیین موقعیت، روی نقشه کلیک کنید.';
+    };
+
+    ['lat','lng'].forEach(function(id){
+        document.getElementById(id)?.addEventListener('change', function(){
+            var lat = parseFloat(latInput?.value);
+            var lng = parseFloat(lngInput?.value);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                var ll = L.latLng(lat, lng);
+                map.setView(ll, 13);
+                if (marker) marker.setLatLng(ll);
+                else {
+                    marker = L.marker(ll, {draggable: true}).addTo(map);
+                    marker.on('dragend', updateFromMarker);
+                }
+                updateHint(lat, lng);
+            }
+        });
+    });
+};
+
+function tryInitAccommodationMap() {
+    if (!window.L) return;
+    requestAnimationFrame(function () { requestAnimationFrame(leafletReady); });
+}
+tryInitAccommodationMap();
+document.getElementById('neshan-sdk-accommodation')?.addEventListener('load', tryInitAccommodationMap);
+document.addEventListener('livewire:navigating', destroyAccommodationMap);
+document.addEventListener('livewire:navigated', tryInitAccommodationMap);
 </script>
 @endpush

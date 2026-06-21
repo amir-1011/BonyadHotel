@@ -299,35 +299,41 @@ function removeFavorite(e, id) {
     e.preventDefault();
     e.stopPropagation();
 
-    fetch('/favorites/' + id + '/toggle', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-            'Accept': 'application/json'
-        }
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-        if (!data.favorited) {
-            var card = document.getElementById('fav-card-' + id);
-            if (card) {
-                card.classList.add('removing');
-                card.addEventListener('animationend', function() {
-                    card.remove();
-                    // Update subtitle count
-                    var remaining = document.querySelectorAll('#favGrid .fav-card').length;
-                    var subtitle = document.querySelector('.fav-subtitle');
-                    if (subtitle) {
-                        if (remaining === 0) {
-                            // Reload to show empty state
-                            window.location.reload();
-                        } else {
-                            subtitle.textContent = remaining + ' اقامتگاه ذخیره شده';
-                        }
-                    }
-                }, { once: true });
+    var confirmFn = window.bnbConfirm
+        ? window.bnbConfirm('از علاقه‌مندی‌ها حذف شود؟')
+        : Promise.resolve({ isConfirmed: confirm('از علاقه‌مندی‌ها حذف شود؟') });
+
+    confirmFn.then(function (result) {
+        if (!result.isConfirmed) return;
+
+        fetch('/favorites/' + id + '/toggle', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                'Accept': 'application/json'
             }
-        }
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (!data.favorited) {
+                var card = document.getElementById('fav-card-' + id);
+                if (card) {
+                    card.classList.add('removing');
+                    card.addEventListener('animationend', function() {
+                        card.remove();
+                        var remaining = document.querySelectorAll('#favGrid .fav-card').length;
+                        var subtitle = document.querySelector('.fav-subtitle');
+                        if (subtitle) {
+                            if (remaining === 0) {
+                                window.location.reload();
+                            } else {
+                                subtitle.textContent = remaining + ' اقامتگاه ذخیره شده';
+                            }
+                        }
+                    }, { once: true });
+                }
+            }
+        });
     });
 }
 </script>

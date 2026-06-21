@@ -23,7 +23,7 @@ class ProgramSupportiveReport extends Component
 
     public function render()
     {
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $accIds = Auth::user()->managedAccommodationIds();
 
         // Convert Jalali year to Gregorian range
         $jalaliStart = Jalalian::fromFormat('Y-m-d', $this->year . '-01-01');

@@ -12,7 +12,7 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $accommodationIds = $user->accommodations()->pluck('id');
+        $accommodationIds = $user->managedAccommodationIds();
 
         $stats = [
             'accommodations'  => $accommodationIds->count(),

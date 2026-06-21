@@ -4,6 +4,7 @@ namespace App\Livewire\Pages;
 
 use App\Models\Accommodation;
 use App\Models\City;
+use App\Models\AccommodationType;
 use App\Models\Province;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
@@ -129,6 +130,8 @@ class AccommodationIndex extends Component
             $accommodations = $query->latest()->paginate(12);
         }
 
-        return view('accommodations.index', compact('accommodations', 'provinces', 'cities'));
+        $accommodationTypes = ['' => 'همه انواع'] + AccommodationType::options()->all();
+
+        return view('accommodations.index', compact('accommodations', 'provinces', 'cities', 'accommodationTypes'));
     }
 }

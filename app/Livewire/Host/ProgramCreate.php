@@ -4,9 +4,11 @@ namespace App\Livewire\Host;
 
 use App\Models\Program;
 use App\Models\RoomType;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Morilog\Jalali\Jalalian;
 
 #[Layout('layouts.host', ['title' => 'ثبت برنامه جدید', 'pageTitle' => 'ثبت برنامه'])]
 class ProgramCreate extends Component
@@ -48,8 +50,8 @@ class ProgramCreate extends Component
             'title'                 => ['required', 'string', 'max:200'],
             'description'           => ['nullable', 'string', 'max:2000'],
             'programType'           => ['required', 'in:camp,event,other'],
-            'startDate'             => ['required', 'date'],
-            'endDate'               => ['required', 'date', 'after_or_equal:startDate'],
+            'startDate'             => ['required', 'string'],
+            'endDate'               => ['required', 'string'],
             'roomsAllocated'        => ['required', 'integer', 'min:1'],
             'guestCount'            => ['required', 'integer', 'min:1'],
             'employer'              => ['nullable', 'string', 'max:200'],
@@ -68,7 +70,23 @@ class ProgramCreate extends Component
     {
         $this->validate();
 
-        $accIds = Auth::user()->accommodations()->pluck('id');
+        $startGreg = $this->toGregorian($this->startDate);
+        $endGreg   = $this->toGregorian($this->endDate);
+
+        if (!$startGreg) {
+            $this->addError('startDate', 'تاریخ شروع معتبر نیست. فرمت: ۱۴۰۴/۰۱/۰۱');
+            return;
+        }
+        if (!$endGreg) {
+            $this->addError('endDate', 'تاریخ پایان معتبر نیست. فرمت: ۱۴۰۴/۰۱/۰۱');
+            return;
+        }
+        if ($endGreg < $startGreg) {
+            $this->addError('endDate', 'تاریخ پایان باید بعد از تاریخ شروع باشد.');
+            return;
+        }
+
+        $accIds = Auth::user()->managedAccommodationIds();
         if (!$accIds->contains($this->accommodationId)) {
             $this->addError('accommodationId', 'اقامتگاه مجاز نیست.');
             return;
@@ -79,8 +97,8 @@ class ProgramCreate extends Component
             'title'                   => $this->title,
             'description'             => $this->description ?: null,
             'program_type'            => $this->programType,
-            'start_date'              => $this->startDate,
-            'end_date'                => $this->endDate,
+            'start_date'              => $startGreg,
+            'end_date'                => $endGreg,
             'rooms_allocated'         => $this->roomsAllocated,
             'guest_count'             => $this->guestCount,
             'employer'                => $this->employer ?: null,
@@ -109,11 +127,11 @@ class ProgramCreate extends Component
 
     public function render()
     {
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
         $roomTypes        = collect();
 
         if ($this->accommodationId) {
-            $accIds = Auth::user()->accommodations()->pluck('id');
+            $accIds = Auth::user()->managedAccommodationIds();
             if ($accIds->contains($this->accommodationId)) {
                 $roomTypes = RoomType::where('accommodation_id', $this->accommodationId)
                     ->where('is_active', true)->get(['id', 'name', 'room_count']);
@@ -121,5 +139,25 @@ class ProgramCreate extends Component
         }
 
         return view('host.programs.create', compact('myAccommodations', 'roomTypes'));
+    }
+
+    private function toGregorian(?string $jalali): ?string
+    {
+        if (!$jalali) {
+            return null;
+        }
+
+        try {
+            $normalized = strtr(trim($jalali), [
+                '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+                '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+                '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+                '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            ]);
+
+            return Jalalian::fromFormat('Y/m/d', $normalized)->toCarbon()->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

@@ -5,6 +5,9 @@ namespace App\Livewire\Admin;
 use App\Models\Accommodation;
 use App\Models\Province;
 use App\Models\User;
+use App\Livewire\Concerns\ManagesAccommodationContactInfo;
+use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Models\AccommodationType;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -14,6 +17,8 @@ use Livewire\WithFileUploads;
 class AccommodationEdit extends Component
 {
     use WithFileUploads;
+    use ManagesAccommodationContactInfo;
+    use ManagesAccommodationCatalog;
 
     public Accommodation $accommodation;
 
@@ -54,16 +59,17 @@ class AccommodationEdit extends Component
         $this->amenitiesRaw   = implode(', ', $accommodation->amenities ?? []);
         $this->image          = $accommodation->image ?? '';
         $this->keepImages     = $accommodation->images ?? [];
+        $this->loadContactInfoFrom($accommodation);
     }
 
     protected function rules(): array
     {
-        return [
+        return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
             'hostId'        => ['nullable', 'exists:users,id'],
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
-            'type'          => ['required', 'in:hotel,villa,apartment,hostel,traditional'],
+            'type'          => $this->accommodationTypeRule(),
             'pricePerNight' => ['required', 'integer', 'min:0'],
             'capacity'      => ['required', 'integer', 'min:1'],
             'rooms'         => ['required', 'integer', 'min:1'],
@@ -72,7 +78,7 @@ class AccommodationEdit extends Component
             'lng'           => ['nullable', 'numeric'],
             'isActive'      => ['boolean'],
             'newImages.*'   => ['nullable', 'image', 'max:4096'],
-        ];
+        ], $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -95,6 +101,7 @@ class AccommodationEdit extends Component
     public function update(): void
     {
         $this->validate();
+        $this->validateContactInfo();
 
         // Delete removed images
         $existingImages = $this->accommodation->images ?? [];
@@ -112,7 +119,7 @@ class AccommodationEdit extends Component
             }
         }
 
-        $this->accommodation->update([
+        $this->accommodation->update(array_merge([
             'city_id'         => $this->cityId,
             'host_id'         => $this->hostId,
             'name'            => $this->name,
@@ -128,7 +135,11 @@ class AccommodationEdit extends Component
             'amenities'       => $this->parseAmenities($this->amenitiesRaw),
             'image'           => $this->image ?: null,
             'images'          => $finalImages,
-        ]);
+        ], $this->contactInfoAttributes()));
+
+        if ($this->hostId) {
+            $this->accommodation->grantHostAccess(User::find($this->hostId));
+        }
 
         session()->flash('status', 'اقامتگاه ویرایش شد.');
         $this->redirectRoute('admin.accommodations.index', navigate: true);
@@ -141,6 +152,7 @@ class AccommodationEdit extends Component
         $hosts         = User::role('host')->orderBy('name')->get();
         $accommodation = $this->accommodation;
         $keepImages    = $this->keepImages;
-        return view('admin.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'hosts', 'keepImages'));
+        $accommodationTypes = AccommodationType::options();
+        return view('admin.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'hosts', 'keepImages', 'accommodationTypes'));
     }
 }

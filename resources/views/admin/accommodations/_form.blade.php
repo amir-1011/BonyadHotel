@@ -5,33 +5,8 @@
         <input type="text" wire:model="name" class="form-control" required>
         @error('name') <div class="text-danger small">{{ $message }}</div> @enderror
     </div>
-    <div class="col-md-4">
-        <label class="form-label small fw-semibold">نوع</label>
-        <select wire:model="type" class="form-select" required>
-            @foreach(['hotel'=>'هتل','villa'=>'ویلا','apartment'=>'آپارتمان','hostel'=>'هاستل','traditional'=>'اقامتگاه سنتی'] as $v=>$l)
-            <option value="{{ $v }}">{{ $l }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label small fw-semibold">استان</label>
-        <select wire:model.live="provinceId" class="form-select">
-            <option value="0">انتخاب استان</option>
-            @foreach($provinces as $prov)
-            <option value="{{ $prov->id }}">{{ $prov->name }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label small fw-semibold">شهر</label>
-        <select wire:model="cityId" class="form-select" required>
-            <option value="0">ابتدا استان انتخاب کنید</option>
-            @foreach($cities as $c)
-            <option value="{{ $c->id }}">{{ $c->name }}</option>
-            @endforeach
-        </select>
-        @error('cityId') <div class="text-danger small">{{ $message }}</div> @enderror
-    </div>
+    @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
+    @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
     <div class="col-md-4">
         <label class="form-label small fw-semibold">قیمت/شب (ریال)</label>
         <input type="number" wire:model="pricePerNight" class="form-control" required min="0">
@@ -49,6 +24,8 @@
         <label class="form-label small fw-semibold">آدرس</label>
         <input type="text" wire:model="address" class="form-control">
     </div>
+
+    @include('components.accommodation.management-and-phones')
     <div class="col-md-6">
         <label class="form-label small fw-semibold">عرض جغرافیایی (lat)</label>
         <input type="number" step="any" wire:model="lat" class="form-control">

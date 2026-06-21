@@ -15,7 +15,7 @@ class ProgramShow extends Component
     public function mount(Program $program): void
     {
         abort_unless(
-            Auth::user()->accommodations()->where('id', $program->accommodation_id)->exists(),
+            Auth::user()->managesAccommodation($program->accommodation_id),
             403
         );
         $this->program = $program;

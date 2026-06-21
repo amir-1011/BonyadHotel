@@ -2,35 +2,23 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\AdminUsersExport;
 use App\Http\Controllers\Controller;
-use App\Services\NationalIdVerificationService;
 use App\Models\User;
+use App\Services\NationalIdVerificationService;
+use App\Support\VeteranGroups;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
+    public function export(Request $request)
     {
-        $query = User::with('roles')->latest();
+        $filters = $request->only(['search', 'role']);
 
-        if ($request->filled('search')) {
-            $q = $request->search;
-            $query->where(function ($w) use ($q) {
-                $w->where('name', 'like', "%$q%")
-                  ->orWhere('mobile', 'like', "%$q%")
-                  ->orWhere('national_id', 'like', "%$q%");
-            });
-        }
-
-        if ($request->filled('role')) {
-            $query->role($request->role);
-        }
-
-        $users = $query->paginate(20)->withQueryString();
-        $roles = Role::all();
-
-        return view('admin.users.index', compact('users', 'roles'));
+        return Excel::download(new AdminUsersExport($filters), 'users.xlsx');
     }
 
     public function show(User $user)
@@ -49,10 +37,14 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $veteranKeys = array_keys(VeteranGroups::options());
+
         $request->validate([
             'name'        => ['nullable', 'string', 'max:100'],
             'mobile'      => ['required', 'regex:/^09[0-9]{9}$/', 'unique:users,mobile,' . $user->id],
             'national_id' => ['nullable', 'digits:10', 'unique:users,national_id,' . $user->id],
+            'veteran_type'=> ['nullable', 'string', Rule::in($veteranKeys)],
+            'discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
             'role'        => ['nullable', 'string', 'exists:roles,name'],
         ], [
             'mobile.required'    => 'شماره موبایل الزامی است.',
@@ -83,6 +75,16 @@ class UserController extends Controller
             $data['veteran_type'] = $result['veteran_type'];
             $data['discount_percentage'] = $result['discount'];
             $data['national_id_verified_at'] = now();
+        } elseif ($request->has('veteran_type')) {
+            $veteranType = $request->input('veteran_type') ?: null;
+            $data['veteran_type'] = $veteranType;
+            $data['discount_percentage'] = $veteranType
+                ? (int) ($request->input('discount_percentage') ?? VeteranGroups::accommodationDiscount($veteranType))
+                : 0;
+
+            if (!$request->filled('national_id')) {
+                $data['national_id'] = $user->national_id;
+            }
         } else {
             $data['national_id'] = null;
             $data['veteran_type'] = null;
@@ -115,7 +117,6 @@ class UserController extends Controller
 
     public function toggleStatus(User $user)
     {
-        // We use national_id_verified_at as a "soft ban" mechanism — null = banned
         if ($user->mobile_verified_at) {
             $user->update(['mobile_verified_at' => null]);
             $msg = 'کاربر غیرفعال شد.';

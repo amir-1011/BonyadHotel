@@ -4,9 +4,11 @@ namespace App\Livewire\Host;
 
 use App\Models\Program;
 use App\Models\RoomType;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Morilog\Jalali\Jalalian;
 
 #[Layout('layouts.host', ['title' => 'ویرایش برنامه', 'pageTitle' => 'ویرایش برنامه'])]
 class ProgramEdit extends Component
@@ -36,7 +38,7 @@ class ProgramEdit extends Component
     public function mount(Program $program): void
     {
         abort_unless(
-            Auth::user()->accommodations()->where('id', $program->accommodation_id)->exists(),
+            Auth::user()->managesAccommodation($program->accommodation_id),
             403
         );
 
@@ -45,8 +47,12 @@ class ProgramEdit extends Component
         $this->title                 = $program->title;
         $this->description           = $program->description ?? '';
         $this->programType           = $program->program_type;
-        $this->startDate             = $program->start_date instanceof \DateTime ? $program->start_date->format('Y-m-d') : (string) $program->start_date;
-        $this->endDate               = $program->end_date instanceof \DateTime ? $program->end_date->format('Y-m-d') : (string) $program->end_date;
+        $this->startDate             = $program->start_date
+            ? Jalalian::fromCarbon(Carbon::parse($program->start_date))->format('Y/m/d')
+            : '';
+        $this->endDate               = $program->end_date
+            ? Jalalian::fromCarbon(Carbon::parse($program->end_date))->format('Y/m/d')
+            : '';
         $this->roomsAllocated        = $program->rooms_allocated;
         $this->guestCount            = $program->guest_count;
         $this->employer              = $program->employer ?? '';
@@ -71,8 +77,8 @@ class ProgramEdit extends Component
             'title'                 => ['required', 'string', 'max:200'],
             'description'           => ['nullable', 'string', 'max:2000'],
             'programType'           => ['required', 'in:camp,event,other'],
-            'startDate'             => ['required', 'date'],
-            'endDate'               => ['required', 'date', 'after_or_equal:startDate'],
+            'startDate'             => ['required', 'string'],
+            'endDate'               => ['required', 'string'],
             'roomsAllocated'        => ['required', 'integer', 'min:1'],
             'guestCount'            => ['required', 'integer', 'min:1'],
             'employer'              => ['nullable', 'string', 'max:200'],
@@ -92,12 +98,28 @@ class ProgramEdit extends Component
     {
         $this->validate();
 
+        $startGreg = $this->toGregorian($this->startDate);
+        $endGreg   = $this->toGregorian($this->endDate);
+
+        if (!$startGreg) {
+            $this->addError('startDate', 'تاریخ شروع معتبر نیست. فرمت: ۱۴۰۴/۰۱/۰۱');
+            return;
+        }
+        if (!$endGreg) {
+            $this->addError('endDate', 'تاریخ پایان معتبر نیست. فرمت: ۱۴۰۴/۰۱/۰۱');
+            return;
+        }
+        if ($endGreg < $startGreg) {
+            $this->addError('endDate', 'تاریخ پایان باید بعد از تاریخ شروع باشد.');
+            return;
+        }
+
         $this->program->update([
             'title'                   => $this->title,
             'description'             => $this->description ?: null,
             'program_type'            => $this->programType,
-            'start_date'              => $this->startDate,
-            'end_date'                => $this->endDate,
+            'start_date'              => $startGreg,
+            'end_date'                => $endGreg,
             'rooms_allocated'         => $this->roomsAllocated,
             'guest_count'             => $this->guestCount,
             'employer'                => $this->employer ?: null,
@@ -128,11 +150,31 @@ class ProgramEdit extends Component
 
     public function render()
     {
-        $myAccommodations = Auth::user()->accommodations()->orderBy('name')->get(['id', 'name']);
+        $myAccommodations = Auth::user()->managedAccommodationOptions();
         $roomTypes        = RoomType::where('accommodation_id', $this->accommodationId)
             ->where('is_active', true)->get(['id', 'name', 'room_count']);
 
         $program = $this->program;
         return view('host.programs.edit', compact('program', 'myAccommodations', 'roomTypes'));
+    }
+
+    private function toGregorian(?string $jalali): ?string
+    {
+        if (!$jalali) {
+            return null;
+        }
+
+        try {
+            $normalized = strtr(trim($jalali), [
+                '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+                '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+                '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+                '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            ]);
+
+            return Jalalian::fromFormat('Y/m/d', $normalized)->toCarbon()->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

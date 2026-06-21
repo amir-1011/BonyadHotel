@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\BaleWebAppService;
-use App\Services\NationalIdVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,17 +39,8 @@ class BaleMiniAppController extends Controller
         $user = User::firstOrNew(['mobile' => $mobile]);
 
         if (!$user->exists) {
-            // Default national ID with discount for new users
-            $defaultNationalId = '4440000008';
-            $verificationService = app(NationalIdVerificationService::class);
-            $idVerification = $verificationService->verify($defaultNationalId);
-
             $user->name = $name ?: null;
             $user->mobile_verified_at = now();
-            $user->national_id = $defaultNationalId;
-            $user->veteran_type = $idVerification['veteran_type'];
-            $user->discount_percentage = $idVerification['discount'];
-            $user->national_id_verified_at = now();
             $user->save();
         } else {
             $dirty = false;
