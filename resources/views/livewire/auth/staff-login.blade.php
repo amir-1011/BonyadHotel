@@ -1,4 +1,4 @@
-<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px;">
+<div class="staff-auth-shell">
     <div style="width:100%;max-width:440px;">
         <div style="text-align:center;margin-bottom:28px;">
             <div style="display:inline-flex;align-items:center;gap:10px;">
@@ -49,10 +49,16 @@
                 <form wire:submit="loginWithPassword">
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;">رمز عبور</label>
-                        <input type="password" wire:model="password"
-                               class="staff-auth-input @error('password') is-invalid @enderror"
-                               placeholder="رمز عبور خود را وارد کنید"
-                               autofocus>
+                        <div class="staff-auth-password-wrap" x-data="{ show: false }">
+                            <input :type="show ? 'text' : 'password'" wire:model="password"
+                                   class="staff-auth-input @error('password') is-invalid @enderror"
+                                   placeholder="رمز عبور خود را وارد کنید"
+                                   autofocus>
+                            <button type="button" class="staff-auth-password-toggle" tabindex="-1"
+                                    @click="show = !show" :title="show ? 'مخفی کردن' : 'نمایش'">
+                                <i class="bi" :class="show ? 'bi-eye-slash' : 'bi-eye'"></i>
+                            </button>
+                        </div>
                         @error('password')<div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ $message }}</div>@enderror
                     </div>
                     <button type="submit" class="staff-auth-btn" wire:loading.attr="disabled">
@@ -113,17 +119,29 @@
                 <form wire:submit="setPassword">
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;">رمز عبور جدید</label>
-                        <input type="password" wire:model="password"
-                               class="staff-auth-input @error('password') is-invalid @enderror"
-                               placeholder="حداقل ۶ کاراکتر"
-                               autofocus>
+                        <div class="staff-auth-password-wrap" x-data="{ show: false }">
+                            <input :type="show ? 'text' : 'password'" wire:model="password"
+                                   class="staff-auth-input @error('password') is-invalid @enderror"
+                                   placeholder="حداقل ۶ کاراکتر"
+                                   autofocus>
+                            <button type="button" class="staff-auth-password-toggle" tabindex="-1"
+                                    @click="show = !show" :title="show ? 'مخفی کردن' : 'نمایش'">
+                                <i class="bi" :class="show ? 'bi-eye-slash' : 'bi-eye'"></i>
+                            </button>
+                        </div>
                         @error('password')<div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ $message }}</div>@enderror
                     </div>
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;">تکرار رمز عبور</label>
-                        <input type="password" wire:model="password_confirmation"
-                               class="staff-auth-input"
-                               placeholder="رمز عبور را مجدداً وارد کنید">
+                        <div class="staff-auth-password-wrap" x-data="{ show: false }">
+                            <input :type="show ? 'text' : 'password'" wire:model="password_confirmation"
+                                   class="staff-auth-input"
+                                   placeholder="رمز عبور را مجدداً وارد کنید">
+                            <button type="button" class="staff-auth-password-toggle" tabindex="-1"
+                                    @click="show = !show" :title="show ? 'مخفی کردن' : 'نمایش'">
+                                <i class="bi" :class="show ? 'bi-eye-slash' : 'bi-eye'"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="staff-auth-btn" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="setPassword"><i class="bi bi-shield-check me-2"></i>ذخیره و ورود</span>

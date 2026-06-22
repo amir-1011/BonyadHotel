@@ -32,7 +32,7 @@
                         @endphp
                         <tr wire:key="es-{{ $row['id'] ?? $i }}">
                             <td><input type="text" wire:model="editableServices.{{ $i }}.name" class="form-control form-control-sm"></td>
-                            <td><input type="number" wire:model="editableServices.{{ $i }}.unit_price" class="form-control form-control-sm" min="0"></td>
+                            <td><x-money-input wire:model="editableServices.{{ $i }}.unit_price" class="form-control form-control-sm" min="0" /></td>
                             <td><input type="number" wire:model="editableServices.{{ $i }}.quantity" class="form-control form-control-sm" min="1"></td>
                             <td class="small text-muted">{{ number_format($subtotal) }}</td>
                             <td class="small text-danger">
@@ -79,7 +79,7 @@
                     </select>
                 </div>
                 <div class="col-md-4"><input type="text" wire:model="newServiceName" class="form-control form-control-sm" placeholder="نام خدمت"></div>
-                <div class="col-md-2"><input type="number" wire:model="newServicePrice" class="form-control form-control-sm" placeholder="قیمت" min="0"></div>
+                <div class="col-md-2"><x-money-input wire:model="newServicePrice" class="form-control form-control-sm" placeholder="قیمت" min="0" /></div>
                 <div class="col-md-1"><input type="number" wire:model="newServiceQty" class="form-control form-control-sm" min="1"></div>
                 <div class="col-md-2"><button type="button" wire:click="addServiceLine" class="btn btn-sm btn-success w-100">افزودن</button></div>
             </div>
@@ -102,19 +102,3 @@
         </div>
     </div>
 </div>
-
-@if($booking->guestDetails->isNotEmpty())
-<div class="card shadow-sm mt-3">
-    <div class="card-header bg-white fw-semibold small"><i class="bi bi-people me-2"></i>لیست مهمانان</div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
-            <thead class="table-light"><tr><th>#</th><th>نام</th><th>کد ملی</th><th>موبایل</th><th>نسبت</th></tr></thead>
-            <tbody>
-                @foreach($booking->guestDetails as $i => $g)
-                <tr><td>{{ $i+1 }}</td><td>{{ $g->full_name }}</td><td>{{ $g->national_id ?: '—' }}</td><td>{{ $g->mobile ?: '—' }}</td><td>{{ $g->relation ?: '—' }}</td></tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-@endif

@@ -116,6 +116,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Admin\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
         Route::post('/{roomType}/daily-availability',               [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
         Route::delete('/{roomType}/daily-availability/{override}',  [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
+        Route::delete('/{roomType}/weekly-price-rules/{weeklyRule}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyWeeklyPriceRule'])->name('weekly-price-rules.destroy');
     });
 
     // Bookings — export must come before {booking} wildcard
@@ -156,6 +157,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     // Accommodations
     Route::get('/accommodations',                      \App\Livewire\Host\AccommodationIndex::class)->name('accommodations.index');
     Route::get('/accommodations/create',               \App\Livewire\Host\AccommodationCreate::class)->name('accommodations.create');
+    Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Host\AccommodationController::class, 'salesReport'])->name('accommodations.report');
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Host\AccommodationEdit::class)->name('accommodations.edit');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Host\ManualBooking::class)->name('accommodations.manual-booking');
 
@@ -189,6 +191,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Host\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
         Route::post('/{roomType}/daily-availability',               [\App\Http\Controllers\Host\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
         Route::delete('/{roomType}/daily-availability/{override}',  [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
+        Route::delete('/{roomType}/weekly-price-rules/{weeklyRule}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyWeeklyPriceRule'])->name('weekly-price-rules.destroy');
     });
 
     // Programs — supportive-report and create must come before {program} wildcard

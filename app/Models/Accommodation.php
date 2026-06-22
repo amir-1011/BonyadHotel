@@ -11,20 +11,36 @@ class Accommodation extends Model
 
     protected $fillable = [
         'city_id', 'host_id', 'name', 'description', 'type', 'management_status',
-        'price_per_night', 'capacity', 'rooms',
+        'price_per_night', 'capacity', 'children_under_6_allocate_bed', 'children_under_6_discount_percentage', 'rooms',
         'address', 'phone_numbers', 'lat', 'lng', 'amenities', 'image', 'images', 'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'amenities'     => 'array',
-            'phone_numbers' => 'array',
-            'images'        => 'array',
-            'is_active'     => 'boolean',
-            'lat'           => 'float',
-            'lng'           => 'float',
+            'amenities'                     => 'array',
+            'phone_numbers'                 => 'array',
+            'images'                        => 'array',
+            'is_active'                     => 'boolean',
+            'children_under_6_allocate_bed' => 'boolean',
+            'lat'                           => 'float',
+            'lng'                           => 'float',
         ];
+    }
+
+    public function childrenUnder6AllocateBed(): bool
+    {
+        return (bool) ($this->children_under_6_allocate_bed ?? true);
+    }
+
+    public function childrenUnder6DiscountPercentage(): int
+    {
+        return max(0, min(100, (int) ($this->children_under_6_discount_percentage ?? 50)));
+    }
+
+    public function childrenUnder6PayMultiplier(): float
+    {
+        return (100 - $this->childrenUnder6DiscountPercentage()) / 100;
     }
 
     public static function managementStatusOptions(): array

@@ -62,6 +62,13 @@
     @endforeach
 </div>
 
+{{-- ── Occupancy calendar — full row ─────────────────────────────────── --}}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <livewire:occupancy-calendar panel="admin" />
+    </div>
+</div>
+
 {{-- ── Revenue statistics area chart ───────────────────────────────── --}}
 @php
     $faDigits = ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹'];
@@ -347,8 +354,12 @@
 (function () {
     const VENDOR_LEAFLET = @json(asset('vendor/leaflet/leaflet.js'));
     const GEOJSON_URL = @json(asset('vendor/iran-map/provinces.min.geojson'));
-    let _iranMapInstance = null;
+    const ns = window.__taIranMapDashboard = window.__taIranMapDashboard || {};
+    let _iranMapInstance = ns.instance || null;
     let _vendorLeafletLoading = false;
+    let _mapGeneration = ns.generation || 0;
+    let _geoFetchAbort = null;
+    let _mapInitScheduled = false;
 
     // Iran bookings choropleth (province heatmap)
     const geoCounts = @json($geoData);
@@ -383,14 +394,39 @@
     }
 
     function destroyIranMap() {
-        if (_iranMapInstance) {
-            try { _iranMapInstance.remove(); } catch (e) {}
-            _iranMapInstance = null;
+        _mapGeneration++;
+        ns.generation = _mapGeneration;
+
+        if (_geoFetchAbort) {
+            _geoFetchAbort.abort();
+            _geoFetchAbort = null;
         }
+
         const el = document.getElementById('iranMap');
+        if (el) {
+            el.style.pointerEvents = 'none';
+        }
+
+        const map = _iranMapInstance || el?._leafletMap;
+        if (map) {
+            try {
+                map.off();
+                map.remove();
+            } catch (e) {}
+        }
+
+        _iranMapInstance = null;
+        ns.instance = null;
+        delete ns.focusCity;
+        delete ns.focusProvinceByName;
+        delete ns.resetView;
+
         if (el) {
             el._leafletMap = null;
             delete el.dataset.iranMapReady;
+            delete el._leaflet_id;
+            el.replaceChildren();
+            el.style.pointerEvents = '';
         }
     }
 
@@ -432,20 +468,44 @@
         document.body.appendChild(script);
     }
 
+    function bindCityListOnce() {
+        if (ns.cityListBound) return;
+        const cityList = document.getElementById('cityList');
+        if (!cityList) return;
+        ns.cityListBound = true;
+        cityList.addEventListener('click', (e) => {
+            const row = e.target.closest('.city-row');
+            if (!row || !ns.focusCity) return;
+            document.querySelectorAll('.city-row').forEach(r => r.style.background = 'transparent');
+            row.style.background = '#eef2ff';
+            ns.focusCity(row.dataset.city, row.dataset.province);
+        });
+    }
+
     function initIranMapCore() {
         const mapEl = document.getElementById('iranMap');
-        if (!mapEl || !window.L || !mapEl.isConnected || !mapEl.offsetWidth) return;
-        if (mapEl.dataset.iranMapReady === '1' && mapEl._leafletMap) {
+        if (!mapEl || !window.L || !mapEl.isConnected) return;
+
+        if (!mapEl.offsetWidth) {
+            requestAnimationFrame(initIranMapCore);
+            return;
+        }
+
+        if (mapEl.dataset.iranMapReady === '1' && mapEl._leafletMap?._container?.isConnected && ns.focusCity) {
             _iranMapInstance = mapEl._leafletMap;
-            _iranMapInstance.invalidateSize();
+            ns.instance = _iranMapInstance;
+            try { _iranMapInstance.invalidateSize(); } catch (e) {}
+            bindCityListOnce();
             return;
         }
 
         destroyIranMap();
 
+        const generation = _mapGeneration;
         const map = L.map(mapEl, { zoomControl: true, attributionControl: false, scrollWheelZoom: false, zoomSnap: 0.1, zoomDelta: 0.5 });
         mapEl._leafletMap = map;
         _iranMapInstance = map;
+        ns.instance = map;
         const provinceLayers = {};
         let geoLayer = null, homeBounds = null, selectedLayer = null;
 
@@ -562,9 +622,14 @@
             showCloseControl();
         }
 
-        fetch(GEOJSON_URL)
-            .then(r => r.json())
+        _geoFetchAbort = new AbortController();
+        fetch(GEOJSON_URL, { signal: _geoFetchAbort.signal })
+            .then(r => {
+                if (!r.ok) throw new Error('geojson');
+                return r.json();
+            })
             .then(geo => {
+                if (generation !== _mapGeneration || !mapEl.isConnected || map !== mapEl._leafletMap) return;
                 geoLayer = L.geoJSON(geo, {
                     style: baseStyle,
                     onEachFeature: (f, lyr) => {
@@ -586,34 +651,55 @@
                 map.fitBounds(homeBounds, { padding: [14, 14] });
                 mapEl.dataset.iranMapReady = '1';
 
-                document.querySelectorAll('.city-row').forEach(row => {
-                    row.addEventListener('click', () => {
-                        document.querySelectorAll('.city-row').forEach(r => r.style.background = 'transparent');
-                        row.style.background = '#eef2ff';
-                        focusProvince(row.dataset.city, row.dataset.province);
-                    });
-                });
+                ns.focusCity = focusProvince;
+                ns.focusProvinceByName = focusProvinceByName;
+                ns.resetView = resetView;
+                bindCityListOnce();
+
                 const closeBtn = document.getElementById('cityDetailClose');
-                if (closeBtn) closeBtn.addEventListener('click', resetView);
+                if (closeBtn && !closeBtn.dataset.iranMapBound) {
+                    closeBtn.dataset.iranMapBound = '1';
+                    closeBtn.addEventListener('click', () => ns.resetView?.());
+                }
             })
-            .catch(() => {
-                mapEl.innerHTML = '';
+            .catch(err => {
+                if (err?.name === 'AbortError') return;
+                if (generation !== _mapGeneration || !mapEl.isConnected) return;
+                destroyIranMap();
                 mapEl.appendChild(mapErrorHtml(() => initIranMap()));
+            })
+            .finally(() => {
+                if (_geoFetchAbort?.signal.aborted) return;
+                _geoFetchAbort = null;
             });
     }
 
     function initIranMap() {
+        if (!document.getElementById('iranMap')) return;
+        if (_mapInitScheduled) return;
+        _mapInitScheduled = true;
         ensureVendorLeaflet(function () {
+            _mapInitScheduled = false;
             requestAnimationFrame(function () { requestAnimationFrame(initIranMapCore); });
         });
     }
 
-    document.addEventListener('livewire:navigating', function () {
+    function onDashboardNavigating() {
         destroyIranMap();
         _vendorLeafletLoading = false;
-    });
-    document.addEventListener('livewire:navigated', initIranMap);
-    document.addEventListener('DOMContentLoaded', initIranMap);
+        _mapInitScheduled = false;
+    }
+
+    if (!ns.listenersBound) {
+        ns.listenersBound = true;
+        document.addEventListener('livewire:navigating', onDashboardNavigating);
+        document.addEventListener('livewire:navigated', initIranMap);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initIranMap);
+        }
+    }
+
+    initIranMap();
 
     // ── Per-accommodation sparklines ──────────────────────────────────
     const sparklines = @json(

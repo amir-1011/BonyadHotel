@@ -204,6 +204,32 @@ class VeteranPolicyBookingTest extends TestCase
         $this->assertSame(2_500_000, $pricing['total_price']);
     }
 
+    public function test_manual_guest_discount_for_normal_rate_guest(): void
+    {
+        $pricingService = app(BookingPricingService::class);
+        $perGuestSlots = $pricingService->buildPerGuestSlotsFromGuestDetails(
+            [
+                ['excluded_from_veteran_discount' => false, 'manual_discount_percentage' => 20, 'manual_discount_reason' => 'همکاری'],
+                ['excluded_from_veteran_discount' => false, 'manual_discount_percentage' => '', 'manual_discount_reason' => ''],
+            ],
+            billingGuests: 2,
+            childrenUnder6: 0,
+            veteranType: null,
+            veteranDiscountPct: 0,
+        );
+
+        $pricing = $this->calculatePricing([
+            'veteran_type'    => null,
+            'guests'          => 2,
+            'nights'          => 1,
+            'per_guest_slots' => $perGuestSlots,
+        ]);
+
+        $this->assertSame(2_000_000, $pricing['room_subtotal']);
+        $this->assertSame(200_000, $pricing['manual_accommodation_discount_amount']);
+        $this->assertSame(1_800_000, $pricing['total_price']);
+    }
+
     public function test_children_under_6_with_separate_adults_count(): void
     {
         $pricing = $this->calculatePricing([
@@ -1074,6 +1100,7 @@ class VeteranPolicyBookingTest extends TestCase
             'national_id'     => $params['national_id'] ?? null,
             'user_id'         => $params['user_id'] ?? null,
             'non_veteran_discount_guests' => $params['non_veteran_discount_guests'] ?? 0,
+            'per_guest_slots'             => $params['per_guest_slots'] ?? null,
             'exclude_booking_id' => $params['exclude_booking_id'] ?? null,
         ]);
     }

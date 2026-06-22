@@ -890,7 +890,7 @@
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
                                 <div>
                                     <span x-show="checkIn && checkOut" class="bnb-cal-nights" x-text="calNights + ' شب اقامت'"></span>
-                                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
+                                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
                                     <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                                 </div>
                                 <div style="display:flex;gap:8px;">
@@ -1000,9 +1000,9 @@
         {{-- Inline Jalali Calendar --}}
         <div style="margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <button type="button" @click.stop="calNext()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&lsaquo;</button>
+                <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&lsaquo;</button>
                 <span style="font-size:14px;font-weight:700;" x-text="calMonthLabel"></span>
-                <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
+                <button type="button" @click.stop="calNext()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
             </div>
 
             {{-- Legend (only for room-type bookings) --}}
@@ -1025,7 +1025,7 @@
             </div>
 
             <div class="bnb-cal-square-grid" style="text-align:center;margin-bottom:4px;">
-                <template x-for="h in ['ج','پ','چ','س','د','ی','ش']">
+                <template x-for="h in ['ش','ی','د','س','چ','پ','ج']">
                     <span style="font-size:11px;color:var(--bnb-gray);padding:4px 0;" x-text="h"></span>
                 </template>
             </div>
@@ -1074,7 +1074,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <div>
                     <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
-                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید</span>
+                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
                     <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                 </div>
                 <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
@@ -1403,16 +1403,14 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
                 cells.push({ d, greg, past });
             }
@@ -1634,8 +1632,7 @@ function mbbDrawer() {
         },
 
         get hasDynamicPricing() {
-            if (this.userDiscountPct > 0 && this.checkIn && this.checkOut) return true;
-            return this.dynamicNightPrices.some(p => p.hostDiscountPct > 0 || p.label);
+            return !!(this.checkIn && this.checkOut && this.dynamicNightPrices.length);
         },
 
         // Minimum available rooms across the selected date range
@@ -1676,17 +1673,15 @@ function mbbDrawer() {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
 
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
 
                 const avail        = this.availabilityData[greg];
@@ -1696,7 +1691,11 @@ function mbbDrawer() {
                 const isLowAvail   = avail ? (!avail.is_blocked && avail.available_rooms > 0 && avail.available_rooms < avail.total) : false;
 
                 const disabledByGap = this.calPhase === 1 && this.checkIn && (
-                    greg < this.checkIn || this._hasInvalidNightInRange(this.checkIn, greg)
+                    greg < this.checkIn
+                    || (greg > this.checkIn && this._hasInvalidNightInRange(
+                        this.checkIn,
+                        window.bnbStayPicker.addDays(greg, -1)
+                    ))
                 );
 
                 let availInfo = '';
@@ -1773,8 +1772,7 @@ function mbbDrawer() {
         _gregYmForJalali(jYear, jMonth) {
             while (jMonth > 12) { jMonth -= 12; jYear++; }
             while (jMonth < 1)  { jMonth += 12; jYear--; }
-            const gd = new persianDate([jYear, jMonth, 1]).toDate();
-            return gd.getFullYear() + '-' + String(gd.getMonth() + 1).padStart(2, '0');
+            return window.bnbJalaliCal.toGregorianYm(jYear, jMonth);
         },
 
         async fetchAvailability(months) {

@@ -7,6 +7,7 @@ use App\Models\Accommodation;
 use App\Models\AccommodationType;
 use Illuminate\Validation\Rule;
 use App\Models\Province;
+use App\Services\AccommodationSalesReportService;
 use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -93,6 +94,13 @@ class AccommodationController extends Controller
         $accommodation->delete();
         return redirect()->route('host.accommodations.index')
             ->with('status', 'اقامتگاه حذف شد.');
+    }
+
+    public function salesReport(Accommodation $accommodation)
+    {
+        abort_if(! $accommodation->isManagedBy(Auth::user()), 403);
+
+        return view('host.accommodations.report', app(AccommodationSalesReportService::class)->build($accommodation));
     }
 
     private function validated(Request $request, ?Accommodation $accommodation = null): array

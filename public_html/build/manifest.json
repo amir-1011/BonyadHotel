@@ -9,9 +9,24 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-BCRt2i-W.js",
+    "file": "assets/app-ChZegqY-.js",
     "name": "app",
     "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "resources/js/money-input.js"
+    ]
+  },
+  "resources/js/money-input.js": {
+    "file": "assets/money-input-E2h_xETU.js",
+    "name": "money-input",
+    "src": "resources/js/money-input.js",
+    "isEntry": true
+  },
+  "resources/js/room-type-form.js": {
+    "file": "assets/room-type-form-A2SgvFzM.js",
+    "name": "room-type-form",
+    "src": "resources/js/room-type-form.js",
     "isEntry": true
   }
 }

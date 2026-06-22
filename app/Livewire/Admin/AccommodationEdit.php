@@ -31,6 +31,8 @@ class AccommodationEdit extends Component
     public int    $pricePerNight   = 0;
     public int    $capacity        = 1;
     public int    $rooms           = 1;
+    public bool   $childrenUnder6AllocateBed = true;
+    public int    $childrenUnder6DiscountPercentage = 50;
     public string $address         = '';
     public string $lat             = '';
     public string $lng             = '';
@@ -52,6 +54,8 @@ class AccommodationEdit extends Component
         $this->pricePerNight  = $accommodation->price_per_night ?? 0;
         $this->capacity       = $accommodation->capacity ?? 1;
         $this->rooms          = $accommodation->rooms ?? 1;
+        $this->childrenUnder6AllocateBed = $accommodation->childrenUnder6AllocateBed();
+        $this->childrenUnder6DiscountPercentage = $accommodation->childrenUnder6DiscountPercentage();
         $this->address        = $accommodation->address ?? '';
         $this->lat            = $accommodation->lat !== null ? (string) $accommodation->lat : '';
         $this->lng            = $accommodation->lng !== null ? (string) $accommodation->lng : '';
@@ -73,6 +77,8 @@ class AccommodationEdit extends Component
             'pricePerNight' => ['required', 'integer', 'min:0'],
             'capacity'      => ['required', 'integer', 'min:1'],
             'rooms'         => ['required', 'integer', 'min:1'],
+            'childrenUnder6AllocateBed' => ['boolean'],
+            'childrenUnder6DiscountPercentage' => ['required', 'integer', 'min:0', 'max:100'],
             'address'       => ['nullable', 'string'],
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
@@ -128,6 +134,8 @@ class AccommodationEdit extends Component
             'price_per_night' => $this->pricePerNight,
             'capacity'        => $this->capacity,
             'rooms'           => $this->rooms,
+            'children_under_6_allocate_bed' => $this->childrenUnder6AllocateBed,
+            'children_under_6_discount_percentage' => $this->childrenUnder6DiscountPercentage,
             'address'         => $this->address ?: null,
             'lat'             => $this->lat !== '' ? (float) $this->lat : null,
             'lng'             => $this->lng !== '' ? (float) $this->lng : null,

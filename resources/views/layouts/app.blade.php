@@ -481,7 +481,7 @@
                             <div>
                                 <span x-show="checkIn && checkOut" class="bnb-cal-nights"
                                       x-text="calNights + ' شب اقامت'"></span>
-                                <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
+                                <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید (یا همان روز ورود برای یک شب)</span>
                                 <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                             </div>
                             <div style="display:flex;gap:8px;">
@@ -972,24 +972,42 @@ window.bnbStayPicker = {
     },
 
     calHoverRange(greg, checkIn, hoverGreg, calPhase) {
-        if (!greg || calPhase !== 1 || !checkIn || !hoverGreg || hoverGreg < checkIn) return false;
-        return greg >= checkIn && greg <= hoverGreg;
+        if (!greg || calPhase !== 1 || !checkIn || !hoverGreg || hoverGreg <= checkIn) return false;
+        return greg >= checkIn && greg < hoverGreg;
     },
 
     selectDay(cell, state) {
         if (!cell || cell.past) return null;
         const g = cell.greg;
         if (state.calPhase === 0) {
-            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+            return { checkIn: g, checkOut: '', calPhase: 1 };
         }
         if (g < state.checkIn) {
-            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+            return { checkIn: g, checkOut: '', calPhase: 1 };
         }
         if (g === state.checkIn) {
             return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 0 };
         }
-        return { checkIn: state.checkIn, checkOut: this.addDays(g, 1), calPhase: 0 };
+        return { checkIn: state.checkIn, checkOut: g, calPhase: 0 };
     }
+};
+
+window.bnbJalaliCal = window.bnbJalaliCal || {
+    satFirstColumnForJsDow(jsGetDay) { return (jsGetDay + 1) % 7; },
+    monthStartOffset(jYear, jMonth) {
+        const greg = this.toGregorian(jYear, jMonth, 1);
+        return this.satFirstColumnForJsDow(new Date(greg + 'T12:00:00').getDay());
+    },
+    toGregorian(jYear, jMonth, jDay) {
+        const dt = new persianDate([jYear, jMonth, jDay]).toDate();
+        const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0);
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+    toGregorianYm(jYear, jMonth) {
+        return this.toGregorian(jYear, jMonth, 1).slice(0, 7);
+    },
 };
 
 function bnbCalMixin() {
@@ -1013,8 +1031,8 @@ function bnbCalMixin() {
             return cell && window.bnbStayPicker.calHoverRange(cell.greg, this.checkIn, this.calHover, this.calPhase);
         },
         isHoverCheckoutDay(cell) {
-            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover < this.checkIn) return false;
-            return cell.greg === window.bnbStayPicker.addDays(this.calHover, 1);
+            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover <= this.checkIn) return false;
+            return cell.greg === this.calHover;
         },
         applyStaySelection(cell, validateRange) {
             const next = window.bnbStayPicker.selectDay(cell, {
@@ -1023,8 +1041,10 @@ function bnbCalMixin() {
                 calPhase: this.calPhase
             });
             if (!next) return false;
-            const lastNight = window.bnbStayPicker.addDays(next.checkOut, -1);
-            if (typeof validateRange === 'function' && !validateRange(next.checkIn, lastNight)) return false;
+            if (next.checkOut) {
+                const lastNight = window.bnbStayPicker.addDays(next.checkOut, -1);
+                if (typeof validateRange === 'function' && !validateRange(next.checkIn, lastNight)) return false;
+            }
             this.checkIn = next.checkIn;
             this.checkOut = next.checkOut;
             this.calPhase = next.calPhase;
@@ -1272,23 +1292,14 @@ function bnbNavSearch() {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();          // 0=Sat … 6=Fri
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty   = now.year(), tm = now.month(), td = now.date();
-            // In RTL grid columns are: ج پ چ س د ی ش (left to right visually)
-            // col 0 = جمعه(6), col 6 = شنبه(0)  → offset = (6 - fdow) % 7? No.
-            // persianDate.day(): 0=Sat,1=Sun,2=Mon,3=Tue,4=Wed,5=Thu,6=Fri
-            // Grid cols L→R: ج(6) پ(5) چ(4) س(3) د(2) ی(1) ش(0)
-            // So col index for day = 6 - fdow
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt   = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-'
-                           + String(dt.getMonth()+1).padStart(2,'0') + '-'
-                           + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty)
                           || (this.calYear === ty && this.calMonth < tm)
                           || (this.calYear === ty && this.calMonth === tm && d < td);
@@ -1521,18 +1532,14 @@ function bnbMobileSearch() {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty   = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt   = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-'
-                           + String(dt.getMonth()+1).padStart(2,'0') + '-'
-                           + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty)
                           || (this.calYear === ty && this.calMonth < tm)
                           || (this.calYear === ty && this.calMonth === tm && d < td);

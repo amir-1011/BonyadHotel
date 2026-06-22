@@ -8,13 +8,14 @@ class BookingGuestDetail extends Model
 {
     protected $fillable = [
         'booking_id', 'sort_order', 'full_name', 'national_id', 'mobile', 'relation',
-        'excluded_from_veteran_discount', 'notes',
+        'excluded_from_veteran_discount', 'manual_discount_percentage', 'manual_discount_reason', 'notes',
     ];
 
     protected function casts(): array
     {
         return [
             'excluded_from_veteran_discount' => 'boolean',
+            'manual_discount_percentage'      => 'integer',
         ];
     }
 

@@ -96,11 +96,11 @@
 
                     <div class="col-6 col-md-2">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ از (تومان)</label>
-                        <input type="number" wire:model="draftPriceMin" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵۰۰۰۰۰">
+                        <x-money-input wire:model="draftPriceMin" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵۰۰,۰۰۰" />
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ تا (تومان)</label>
-                        <input type="number" wire:model="draftPriceMax" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵۰۰۰۰۰۰">
+                        <x-money-input wire:model="draftPriceMax" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵,۰۰۰,۰۰۰" />
                     </div>
 
                     <div class="col-6 col-md-2">

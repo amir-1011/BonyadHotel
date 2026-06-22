@@ -8,7 +8,10 @@ use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\RoomTypeBlockedDate;
 use App\Models\RoomTypeDailyOverride;
+use App\Models\RoomTypeWeeklyPriceRule;
+use App\Services\DailyAvailabilityService;
 use App\Services\ImageUploadService;
+use App\Support\JalaliCalendarGrid;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -60,7 +63,7 @@ class RoomTypeController extends Controller
         $roomType->update($data);
 
         return redirect()
-            ->route('admin.room-types.index', $accommodation)
+            ->route('admin.room-types.edit', [$accommodation, $roomType])
             ->with('status', 'نوع اتاق با موفقیت به‌روز شد.');
     }
 
@@ -138,13 +141,22 @@ class RoomTypeController extends Controller
             'is_active'            => ['nullable', 'boolean'],
         ]);
 
-        $data['smoking']              = $request->boolean('smoking');
-        $data['has_private_bathroom'] = $request->boolean('has_private_bathroom', true);
+        $data['smoking']              = $this->resolveHiddenBoolean($request, 'smoking', $roomType?->smoking ?? false);
+        $data['has_private_bathroom'] = $this->resolveHiddenBoolean($request, 'has_private_bathroom', $roomType?->has_private_bathroom ?? true);
         $data['is_active']            = $request->boolean('is_active', true);
         $data['extra_capacity']       = $request->input('extra_capacity') ? (int) $request->input('extra_capacity') : null;
         $data['extra_capacity_price'] = $request->input('extra_capacity') ? (int) $request->input('extra_capacity_price') : null;
 
         return $data;
+    }
+
+    private function resolveHiddenBoolean(Request $request, string $field, bool $default): bool
+    {
+        if (!$request->has($field)) {
+            return $default;
+        }
+
+        return $request->boolean($field);
     }
 
     private function validatedRate(Request $request): array
@@ -286,85 +298,50 @@ class RoomTypeController extends Controller
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $now = new \DateTime('today');
-        $end = (clone $now)->modify('+3 months');
+        [$fromGreg, $toGreg] = JalaliCalendarGrid::gregorianRangeForUpcomingMonths(3);
 
-        $availabilityMap = $roomType->availabilityMap($now->format('Y-m-d'), $end->format('Y-m-d'));
+        $availabilityMap = $roomType->availabilityMap($fromGreg, $toGreg);
+        $calendarMonths  = JalaliCalendarGrid::upcomingMonths(3);
 
         $overrides = $roomType->dailyOverrides()
             ->where('date', '>=', now()->toDateString())
             ->orderBy('date')
             ->get();
 
-        return view('admin.room_types.daily_availability', compact('accommodation', 'roomType', 'availabilityMap', 'overrides'));
+        $weeklyRules = $roomType->weeklyPriceRules()->get();
+
+        return view('admin.room_types.daily_availability', compact(
+            'accommodation', 'roomType', 'availabilityMap', 'overrides', 'weeklyRules', 'calendarMonths'
+        ));
     }
 
-    public function storeDailyAvailability(Request $request, Accommodation $accommodation, RoomType $roomType)
+    public function storeDailyAvailability(Request $request, Accommodation $accommodation, RoomType $roomType, DailyAvailabilityService $service)
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $raw = $request->validate([
-            'date_from'           => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'date_to'             => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'available_count'     => ['required', 'integer', 'min:0', 'max:' . $roomType->room_count],
-            'reason'              => ['nullable', 'string', 'max:200'],
-            'custom_price'        => ['nullable', 'integer', 'min:0'],
-            'discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'price_label'         => ['nullable', 'string', 'max:60'],
-            // Weekdays filter: ISO-style (1=Mon … 6=Sat, 7=Sun) — empty means all days
-            'weekdays'            => ['nullable', 'array'],
-            'weekdays.*'          => ['integer', 'between:1,7'],
-        ]);
+        $raw = $service->validateStoreRequest($request, $roomType);
+        $raw['is_permanent_weekly'] = $request->boolean('is_permanent_weekly');
 
-        try {
-            $split    = fn(string $s) => array_map('intval', preg_split('/[\/\-]/', $s));
-            [$fy, $fm, $fd] = $split($raw['date_from']);
-            [$ty, $tm, $td] = $split($raw['date_to']);
-            $fromGreg = (new Jalalian($fy, $fm, $fd))->toCarbon()->format('Y-m-d');
-            $toGreg   = (new Jalalian($ty, $tm, $td))->toCarbon()->format('Y-m-d');
-        } catch (\Exception $e) {
-            return back()->withErrors(['date_from' => 'تاریخ خورشیدی وارد شده معتبر نیست.'])->withInput();
-        }
+        $result = $service->store($roomType, $raw);
 
-        if ($fromGreg < now()->toDateString()) {
-            return back()->withErrors(['date_from' => 'تاریخ شروع نباید در گذشته باشد.'])->withInput();
-        }
-        if ($toGreg < $fromGreg) {
-            return back()->withErrors(['date_to' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.'])->withInput();
-        }
-
-        $from         = new \DateTime($fromGreg);
-        $to           = new \DateTime($toGreg);
-        $count        = (int) $raw['available_count'];
-        $reason       = $raw['reason'] ?? null;
-        $customPrice  = isset($raw['custom_price']) && $raw['custom_price'] !== '' ? (int) $raw['custom_price'] : null;
-        $discount     = isset($raw['discount_percentage']) && $raw['discount_percentage'] !== '' ? (int) $raw['discount_percentage'] : null;
-        $priceLabel   = $raw['price_label'] ?? null;
-        $weekdays     = !empty($raw['weekdays']) ? array_map('intval', $raw['weekdays']) : [];
-        $cursor       = clone $from;
-
-        while ($cursor <= $to) {
-            // If weekdays filter is set, skip days not matching
-            if (!empty($weekdays) && !in_array((int) $cursor->format('N'), $weekdays)) {
-                $cursor->modify('+1 day');
-                continue;
-            }
-            RoomTypeDailyOverride::updateOrCreate(
-                ['room_type_id' => $roomType->id, 'date' => $cursor->format('Y-m-d')],
-                [
-                    'available_count'     => $count,
-                    'reason'              => $reason,
-                    'custom_price'        => $customPrice,
-                    'discount_percentage' => $discount,
-                    'price_label'         => $priceLabel,
-                ]
-            );
-            $cursor->modify('+1 day');
+        if (!$result['ok']) {
+            return back()->withErrors($result['errors'] ?? [])->withInput();
         }
 
         return redirect()
             ->route('admin.room-types.daily-availability', [$accommodation, $roomType])
-            ->with('status', 'تنظیم ظرفیت/قیمت روزانه با موفقیت ذخیره شد.');
+            ->with('status', $result['message']);
+    }
+
+    public function destroyWeeklyPriceRule(Accommodation $accommodation, RoomType $roomType, RoomTypeWeeklyPriceRule $weeklyRule)
+    {
+        abort_if($weeklyRule->room_type_id !== $roomType->id, 404);
+
+        $weeklyRule->delete();
+
+        return redirect()
+            ->route('admin.room-types.daily-availability', [$accommodation, $roomType])
+            ->with('status', 'قانون هفتگی حذف شد.');
     }
 
     public function destroyDailyAvailability(Accommodation $accommodation, RoomType $roomType, RoomTypeDailyOverride $override)

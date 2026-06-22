@@ -314,4 +314,75 @@ class MultiRoomManualBookingTest extends TestCase
             ->assertSet('roomLines', fn ($lines) => count($lines) === 1)
             ->assertSet('totalGuests', 3);
     }
+
+    public function test_manual_discount_without_guest_name_is_snapshotted_and_persisted(): void
+    {
+        $checkIn = now()->addDays(20)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(2)->format('Y-m-d');
+
+        $booking = app(ManualBookingService::class)->create(
+            $this->accommodation,
+            [
+                'check_in'             => $checkIn,
+                'check_out'            => $checkOut,
+                'room_lines'           => [
+                    [
+                        'room_type_id'     => $this->roomTypeA->id,
+                        'room_rate_id'     => $this->rateA->id,
+                        'adults'           => 3,
+                        'children_under_6' => 0,
+                        'guests'           => 3,
+                        'extra_guests'     => 0,
+                        'bill_full_rooms'  => false,
+                    ],
+                ],
+                'guests'               => 3,
+                'children_under_6'     => 0,
+                'veteran_type'         => null,
+                'booker_national_id'   => '6677889900',
+                'guest_contact_name'   => 'رزرو‌کننده تست',
+                'guest_contact_mobile' => '09166778899',
+                'payment_method'       => 'cash',
+                'user_id'              => null,
+                'services'             => [],
+                'guest_details'        => [
+                    [
+                        'full_name' => 'رزرو‌کننده تست',
+                        'national_id' => '6677889900',
+                        'mobile' => '09166778899',
+                        'relation' => 'رزرو‌کننده',
+                        'excluded_from_veteran_discount' => false,
+                        'manual_discount_percentage' => '',
+                        'manual_discount_reason' => '',
+                    ],
+                    [
+                        'full_name' => '',
+                        'national_id' => '',
+                        'mobile' => '',
+                        'relation' => '',
+                        'excluded_from_veteran_discount' => false,
+                        'manual_discount_percentage' => '25',
+                        'manual_discount_reason' => 'همکاری ویژه',
+                    ],
+                ],
+            ],
+            $this->adminUser,
+        );
+
+        $booking->refresh()->load('guestDetails');
+
+        $this->assertIsArray($booking->guest_discount_snapshot);
+        $this->assertCount(1, $booking->guest_discount_snapshot);
+        $this->assertSame(1, $booking->guest_discount_snapshot[0]['sort_order']);
+        $this->assertSame(25, $booking->guest_discount_snapshot[0]['manual_discount_percentage']);
+        $this->assertSame('همکاری ویژه', $booking->guest_discount_snapshot[0]['manual_discount_reason']);
+
+        $guestTwo = $booking->guestDetails->firstWhere('sort_order', 1);
+        $this->assertNotNull($guestTwo);
+        $this->assertSame(25, $guestTwo->manual_discount_percentage);
+        $this->assertSame('همکاری ویژه', $guestTwo->manual_discount_reason);
+        $this->assertSame('مهمان 2', $guestTwo->full_name);
+
+        $this->assertCount(1, $booking->manualDiscountSlotsForDisplay()->filter(fn ($s) => $s->sort_order === 1));
+    }
 }

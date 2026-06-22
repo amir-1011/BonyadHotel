@@ -1,4 +1,4 @@
-﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0])
+﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null])
 @php $isManual = $mode === 'manual'; @endphp
 {{-- Quick-Book Drawer --}}
 <div data-bnb-drawer
@@ -55,9 +55,9 @@
         {{-- Inline Jalali Calendar --}}
         <div style="margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <button type="button" @click.stop="calNext()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&lsaquo;</button>
+                <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&lsaquo;</button>
                 <span style="font-size:14px;font-weight:700;" x-text="calMonthLabel"></span>
-                <button type="button" @click.stop="calPrev()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
+                <button type="button" @click.stop="calNext()" style="background:none;border:1px solid var(--bnb-border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">&rsaquo;</button>
             </div>
 
             {{-- Legend (only for room-type bookings) --}}
@@ -80,7 +80,7 @@
             </div>
 
             <div class="bnb-cal-square-grid" style="text-align:center;margin-bottom:4px;">
-                <template x-for="h in ['ج','پ','چ','س','د','ی','ش']">
+                <template x-for="h in ['ش','ی','د','س','چ','پ','ج']">
                     <span style="font-size:11px;color:var(--bnb-gray);padding:4px 0;" x-text="h"></span>
                 </template>
             </div>
@@ -129,7 +129,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <div>
                     <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
-                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">آخرین شب اقامت را انتخاب کنید</span>
+                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
                     <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                 </div>
                 <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
@@ -154,7 +154,15 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--bnb-border);">
             <div>
                 <div style="font-size:14px;font-weight:600;">کودک زیر ۶ سال</div>
-                <div style="font-size:12px;color:var(--bnb-gray);">۵۰٪ نرخ اقامت عادی</div>
+                <div style="font-size:12px;color:var(--bnb-gray);line-height:1.6;">
+                    <span x-text="childDiscountPct <= 0 ? 'بدون تخفیف نرخ اقامت' : (childDiscountPct >= 100 ? 'رایگان (شامل ۱۰۰ درصد تخفیف)' : ('شامل ' + childDiscountPct + ' درصد تخفیف'))"></span>
+                    <span> · </span>
+                    <span x-text="childAllocateBed ? 'تخت اختصاص داده می‌شود' : 'تخت اختصاص داده نمی‌شود'"></span>
+                    @if($isManual && $accommodationEditUrl)
+                    <span> · </span>
+                    <span>برای تغییر این سیاست <a href="{{ $accommodationEditUrl }}" wire:navigate style="color:inherit;text-decoration:underline;">اطلاعات اقامتگاه</a> را بزنید.</span>
+                    @endif
+                </div>
             </div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <button type="button" class="bnb-cnt-btn" @click.stop="childrenUnder6>0 && childrenUnder6--" :disabled="childrenUnder6<=0"><i class="bi bi-dash"></i></button>

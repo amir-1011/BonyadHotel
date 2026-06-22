@@ -290,7 +290,7 @@
                                     <input type="text" wire:model="services.{{ $i }}.name" class="form-control form-control-sm">
                                     <div class="text-muted" style="font-size:.7rem">{{ $service['key'] }}</div>
                                 </td>
-                                <td><input type="number" wire:model="services.{{ $i }}.default_price" min="0" class="form-control form-control-sm"></td>
+                                <td><x-money-input wire:model="services.{{ $i }}.default_price" min="0" class="form-control form-control-sm" /></td>
                                 <td><input type="number" wire:model="services.{{ $i }}.default_discount" min="0" max="100" class="form-control form-control-sm"></td>
                                 <td class="d-none"><input type="number" wire:model="services.{{ $i }}.min_discount" min="0" max="100" class="form-control form-control-sm" placeholder="—"></td>
                                 <td class="d-none"><input type="number" wire:model="services.{{ $i }}.max_discount" min="0" max="100" class="form-control form-control-sm" placeholder="—"></td>
@@ -328,7 +328,7 @@
                             مبلغ پایه (تومان) که هنگام انتخاب این خدمت در رزرو دستی پیشنهاد می‌شود.
                         </x-admin.column-help>
                     </label>
-                    <input type="number" wire:model="newServicePrice" min="0" class="form-control form-control-sm">
+                    <x-money-input wire:model="newServicePrice" min="0" class="form-control form-control-sm" />
                 </div>
                 <div class="col-md-3">
                     <button type="button" wire:click="addCustomService" class="btn btn-success btn-sm w-100">افزودن</button>

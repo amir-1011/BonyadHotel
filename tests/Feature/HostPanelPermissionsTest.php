@@ -79,4 +79,28 @@ class HostPanelPermissionsTest extends TestCase
 
         $this->assertSame(HostPermissions::defaults(), $host->effectiveHostPermissions());
     }
+
+    public function test_host_login_redirects_to_dashboard_when_dashboard_permission_is_granted(): void
+    {
+        $host = User::create([
+            'name'                   => 'میزبان',
+            'mobile'                 => '09100000006',
+            'host_panel_permissions' => ['bookings', 'dashboard', 'users'],
+        ]);
+        $host->assignRole('host');
+
+        $this->assertSame(route('host.dashboard'), $host->staffDashboardUrl());
+    }
+
+    public function test_host_login_skips_dashboard_when_dashboard_permission_is_missing(): void
+    {
+        $host = User::create([
+            'name'                   => 'میزبان',
+            'mobile'                 => '09100000007',
+            'host_panel_permissions' => ['bookings', 'users'],
+        ]);
+        $host->assignRole('host');
+
+        $this->assertSame(route('host.bookings.index'), $host->staffDashboardUrl());
+    }
 }

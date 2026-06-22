@@ -7,9 +7,9 @@
     </div>
     @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
     @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
-    <div class="col-md-4">
+    <div class="col-md-4 d-none">
         <label class="form-label small fw-semibold">قیمت/شب (ریال)</label>
-        <input type="number" wire:model="pricePerNight" class="form-control" required min="0">
+        <x-money-input wire:model="pricePerNight" class="form-control" required min="0" />
         @error('pricePerNight') <div class="text-danger small">{{ $message }}</div> @enderror
     </div>
     <div class="col-md-4">
@@ -20,6 +20,7 @@
         <label class="form-label small fw-semibold">اتاق‌ها</label>
         <input type="number" wire:model="rooms" class="form-control" required min="1">
     </div>
+    @include('components.accommodation.children-under-6-policy')
     <div class="col-12">
         <label class="form-label small fw-semibold">آدرس</label>
         <input type="text" wire:model="address" class="form-control">

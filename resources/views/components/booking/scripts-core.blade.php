@@ -1,4 +1,4 @@
-﻿@props(['accommodationId', 'defaultDiscountPct' => 0, 'includeCalMixin' => true])
+﻿@props(['accommodationId', 'defaultDiscountPct' => 0, 'includeCalMixin' => true, 'childAllocateBed' => true, 'childDiscountPct' => 50])
 <script>
 @if($includeCalMixin)
 // ─── Shared stay-night date picker helpers ───────────────────────────────────
@@ -45,24 +45,50 @@ window.bnbStayPicker = {
     },
 
     calHoverRange(greg, checkIn, hoverGreg, calPhase) {
-        if (!greg || calPhase !== 1 || !checkIn || !hoverGreg || hoverGreg < checkIn) return false;
-        return greg >= checkIn && greg <= hoverGreg;
+        if (!greg || calPhase !== 1 || !checkIn || !hoverGreg || hoverGreg <= checkIn) return false;
+        return greg >= checkIn && greg < hoverGreg;
     },
 
     selectDay(cell, state) {
         if (!cell || cell.past) return null;
         const g = cell.greg;
         if (state.calPhase === 0) {
-            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+            return { checkIn: g, checkOut: '', calPhase: 1 };
         }
         if (g < state.checkIn) {
-            return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 1 };
+            return { checkIn: g, checkOut: '', calPhase: 1 };
         }
         if (g === state.checkIn) {
             return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 0 };
         }
-        return { checkIn: state.checkIn, checkOut: this.addDays(g, 1), calPhase: 0 };
+        return { checkIn: state.checkIn, checkOut: g, calPhase: 0 };
     }
+};
+
+// ─── Jalali calendar grid helpers (headers: ش ی د س چ پ ج = Sat-first) ───────
+window.bnbJalaliCal = window.bnbJalaliCal || {
+    /** JS Date.getDay() / Carbon: 0=Sun … 6=Sat → column 0=Sat … 6=Fri (matches PHP JalaliCalendarGrid) */
+    satFirstColumnForJsDow(jsGetDay) {
+        return (jsGetDay + 1) % 7;
+    },
+
+    /** Grid offset for jalali month — same algorithm as App\Support\JalaliCalendarGrid */
+    monthStartOffset(jYear, jMonth) {
+        const greg = this.toGregorian(jYear, jMonth, 1);
+        return this.satFirstColumnForJsDow(new Date(greg + 'T12:00:00').getDay());
+    },
+
+  toGregorian(jYear, jMonth, jDay) {
+        const dt = new persianDate([jYear, jMonth, jDay]).toDate();
+        const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0);
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+
+    toGregorianYm(jYear, jMonth) {
+        return this.toGregorian(jYear, jMonth, 1).slice(0, 7);
+    },
 };
 
 function bnbCalMixin() {
@@ -86,8 +112,8 @@ function bnbCalMixin() {
             return cell && window.bnbStayPicker.calHoverRange(cell.greg, this.checkIn, this.calHover, this.calPhase);
         },
         isHoverCheckoutDay(cell) {
-            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover < this.checkIn) return false;
-            return cell.greg === window.bnbStayPicker.addDays(this.calHover, 1);
+            if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover <= this.checkIn) return false;
+            return cell.greg === this.calHover;
         },
         applyStaySelection(cell, validateRange) {
             const next = window.bnbStayPicker.selectDay(cell, {
@@ -96,8 +122,10 @@ function bnbCalMixin() {
                 calPhase: this.calPhase
             });
             if (!next) return false;
-            const lastNight = window.bnbStayPicker.addDays(next.checkOut, -1);
-            if (typeof validateRange === 'function' && !validateRange(next.checkIn, lastNight)) return false;
+            if (next.checkOut) {
+                const lastNight = window.bnbStayPicker.addDays(next.checkOut, -1);
+                if (typeof validateRange === 'function' && !validateRange(next.checkIn, lastNight)) return false;
+            }
             this.checkIn = next.checkIn;
             this.checkOut = next.checkOut;
             this.calPhase = next.calPhase;
@@ -214,6 +242,8 @@ function mbbDrawer() {
         pricePerNight: 0,
         originalPrice: 0,
         userDiscountPct: {{ (int) $defaultDiscountPct }},
+        childAllocateBed: {{ $childAllocateBed ? 'true' : 'false' }},
+        childDiscountPct: {{ (int) $childDiscountPct }},
         // Room capacity (guests per room) — used to compute rooms_needed for warning
         roomTypeCapacityNum: 1,
         // Extra capacity (floor sleeping / کف‌خوابی)
@@ -242,9 +272,20 @@ function mbbDrawer() {
             return Math.max(1, this.adults + this.childrenUnder6);
         },
 
+        get guestsForBeds() {
+            if (this.childAllocateBed) {
+                return this.totalGuests;
+            }
+            return Math.max(1, this.totalGuests - this.childrenUnder6);
+        },
+
+        get childPayMultiplier() {
+            return (100 - Math.max(0, Math.min(100, this.childDiscountPct))) / 100;
+        },
+
         get effectiveRoomsNeeded() {
             const cap = Math.max(1, this.roomTypeCapacityNum);
-            const total = this.totalGuests;
+            const total = this.guestsForBeds;
             if (this.extraGuests > 0) {
                 return Math.max(1, Math.ceil((total - this.extraGuests) / cap));
             }
@@ -267,8 +308,9 @@ function mbbDrawer() {
         },
 
         _nightAccommodationTotal(perPerson, billingGuests, childGuests) {
+            const childMult = this.childPayMultiplier;
             const fullRate = billingGuests - childGuests;
-            const raw = perPerson * fullRate + perPerson * 0.5 * childGuests;
+            const raw = perPerson * fullRate + perPerson * childMult * childGuests;
             return this.userDiscountPct > 0
                 ? Math.round(raw * (1 - this.userDiscountPct / 100))
                 : raw;
@@ -287,8 +329,8 @@ function mbbDrawer() {
                 const baseRatePerPerson      = this.originalPrice || this.pricePerNight;
                 const hostEffectivePerPerson = (avail && avail.effective_price != null) ? avail.effective_price : baseRatePerPerson;
                 const hostDiscountPct        = (avail && avail.discount_percentage) ? avail.discount_percentage : 0;
-                const baseRate      = baseRatePerPerson * (g - childG) + baseRatePerPerson * 0.5 * childG;
-                const hostEffective = hostEffectivePerPerson * (g - childG) + hostEffectivePerPerson * 0.5 * childG;
+                const baseRate      = baseRatePerPerson * (g - childG) + baseRatePerPerson * this.childPayMultiplier * childG;
+                const hostEffective = hostEffectivePerPerson * (g - childG) + hostEffectivePerPerson * this.childPayMultiplier * childG;
                 const finalPrice    = this._nightAccommodationTotal(hostEffectivePerPerson, g, childG);
                 prices.push({
                     date: key,
@@ -333,7 +375,7 @@ function mbbDrawer() {
             const childG = this.effectiveChildGuests;
             if (!prices.length) {
                 const perPerson = this.originalPrice || this.pricePerNight;
-                return this.nights * (perPerson * (g - childG) + perPerson * 0.5 * childG) + this.extraGuestsOriginalTotal;
+                return this.nights * (perPerson * (g - childG) + perPerson * this.childPayMultiplier * childG) + this.extraGuestsOriginalTotal;
             }
             return prices.reduce((s, p) => s + p.hostEffective, 0) + this.extraGuestsOriginalTotal;
         },
@@ -344,14 +386,13 @@ function mbbDrawer() {
             const childG = this.effectiveChildGuests;
             if (!prices.length) {
                 const perPerson = this.originalPrice || this.pricePerNight;
-                return this.nights * (perPerson * (g - childG) + perPerson * 0.5 * childG) + this.extraGuestsOriginalTotal;
+                return this.nights * (perPerson * (g - childG) + perPerson * this.childPayMultiplier * childG) + this.extraGuestsOriginalTotal;
             }
             return prices.reduce((s, p) => s + p.baseRate, 0) + this.extraGuestsOriginalTotal;
         },
 
         get hasDynamicPricing() {
-            if ((this.userDiscountPct > 0 || this.childrenUnder6 > 0) && this.checkIn && this.checkOut) return true;
-            return this.dynamicNightPrices.some(p => p.hostDiscountPct > 0 || p.label);
+            return !!(this.checkIn && this.checkOut && this.dynamicNightPrices.length);
         },
 
         // Minimum available rooms across the selected date range
@@ -392,17 +433,15 @@ function mbbDrawer() {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
 
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
 
                 const avail        = this.availabilityData[greg];
@@ -412,7 +451,11 @@ function mbbDrawer() {
                 const isLowAvail   = avail ? (!avail.is_blocked && avail.available_rooms > 0 && avail.available_rooms < avail.total) : false;
 
                 const disabledByGap = this.calPhase === 1 && this.checkIn && (
-                    greg < this.checkIn || this._hasInvalidNightInRange(this.checkIn, greg)
+                    greg < this.checkIn
+                    || (greg > this.checkIn && this._hasInvalidNightInRange(
+                        this.checkIn,
+                        window.bnbStayPicker.addDays(greg, -1)
+                    ))
                 );
 
                 let availInfo = '';
@@ -566,8 +609,7 @@ function mbbDrawer() {
         _gregYmForJalali(jYear, jMonth) {
             while (jMonth > 12) { jMonth -= 12; jYear++; }
             while (jMonth < 1)  { jMonth += 12; jYear--; }
-            const gd = new persianDate([jYear, jMonth, 1]).toDate();
-            return gd.getFullYear() + '-' + String(gd.getMonth() + 1).padStart(2, '0');
+            return window.bnbJalaliCal.toGregorianYm(jYear, jMonth);
         },
 
         async fetchAvailability(months) {
@@ -726,17 +768,18 @@ function mbbDrawer() {
 
             const capacity     = this.roomTypeCapacityNum || 1;
             const guests       = this.totalGuests;
+            const bedGuests    = this.guestsForBeds;
             const extraCap     = this.extraCapacity || 0;
             const extraPrice   = this.extraCapacityPrice || 0;
             const nights       = this.nights;
-            // Standard rooms needed (ceil) without extra capacity
-            const rn           = Math.ceil(guests / capacity);
+            // Standard rooms needed (ceil) without extra capacity — based on bed allocation policy
+            const rn           = Math.ceil(bedGuests / capacity);
             const totalBeds    = rn * capacity;
-            const emptyBeds    = totalBeds - guests;
+            const emptyBeds    = totalBeds - bedGuests;
             // Remainder that would go on floor (guests that don't fill the last room)
-            const remainder    = guests % capacity;
+            const remainder    = bedGuests % capacity;
             // Can extra capacity solve the mismatch? (remainder fits within extra_capacity)
-            const canUseExtra  = this.roomTypeId && capacity > 1 && guests > capacity && remainder > 0 && extraCap >= remainder;
+            const canUseExtra  = this.roomTypeId && capacity > 1 && bedGuests > capacity && remainder > 0 && extraCap >= remainder;
 
             const proceed = (extraG, fullRoom) => this._proceedBooking(extraG, fullRoom);
 
@@ -746,7 +789,7 @@ function mbbDrawer() {
                 const extraCostDisc = this.userDiscountPct > 0
                     ? Math.round(extraCost * (1 - this.userDiscountPct / 100))
                     : extraCost;
-                const roomsWithExtra = Math.floor(guests / capacity); // one fewer room needed
+                const roomsWithExtra = Math.floor(bedGuests / capacity); // one fewer room needed
                 const htmlContent = `
                     <div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
                         <p style="margin:0 0 14px;">برای <strong>${guests} نفر</strong> با ظرفیت هر اتاق ${capacity} نفر:</p>

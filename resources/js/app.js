@@ -1,4 +1,5 @@
 import './bootstrap';
+import './money-input';
 
 // ── Swiper ────────────────────────────────────────────────────────────────
 // Alpine.js is provided by Livewire 4 automatically — do NOT import here

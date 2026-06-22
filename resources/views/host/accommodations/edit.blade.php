@@ -15,9 +15,9 @@
             </div>
             @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
             @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
-            <div class="col-md-4">
+            <div class="col-md-4 d-none">
                 <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
-                <input wire:model="pricePerNight" type="number" class="form-control @error('pricePerNight') is-invalid @enderror" min="0">
+                <x-money-input wire:model="pricePerNight" class="form-control @error('pricePerNight') is-invalid @enderror" min="0" />
                 @error('pricePerNight')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-4">
@@ -30,6 +30,7 @@
                 <input wire:model="rooms" type="number" class="form-control @error('rooms') is-invalid @enderror" min="1">
                 @error('rooms')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
+            @include('components.accommodation.children-under-6-policy')
             <div class="col-12">
                 <label class="form-label small fw-semibold">آدرس</label>
                 <input wire:model="address" type="text" class="form-control">

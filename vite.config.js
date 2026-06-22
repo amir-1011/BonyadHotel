@@ -5,7 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
+            input: [
+                'resources/css/app.css',
+                'resources/js/app.js',
+                'resources/js/money-input.js',
+                'resources/js/room-type-form.js',
+            ],
             publicDirectory: 'public_html',
             refresh: true,
         }),

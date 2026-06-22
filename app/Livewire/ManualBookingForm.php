@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Accommodation;
+use App\Models\Booking;
 use App\Models\RoomRate;
 use App\Models\User;
 use App\Services\BookingPricingService;
@@ -55,10 +56,12 @@ class ManualBookingForm extends Component
     public string $guestContactMobile = '';
     public string $notes = '';
 
-    /** @var array<int, array{full_name:string, national_id:string, mobile:string, relation:string, excluded_from_veteran_discount:bool}> */
+    /** @var array<int, array{full_name:string, national_id:string, mobile:string, relation:string, excluded_from_veteran_discount:bool, manual_discount_percentage:string, manual_discount_reason:string}> */
     public array $guestDetails = [];
 
     public ?int $createdBookingId = null;
+
+    public ?Booking $createdBooking = null;
 
     public function mount(Accommodation $accommodation, string $panel = 'admin'): void
     {
@@ -93,7 +96,23 @@ class ManualBookingForm extends Component
     public function updatedVeteranType(): void
     {
         $this->refreshServiceDiscountOverrides();
+        $this->clearManualDiscountsForVeteranEligibleGuests();
         $this->dispatch('manual-booking-set-discount', pct: $this->discountPct);
+    }
+
+    public function updatedGuestDetails($value, $key): void
+    {
+        if (!str_contains($key, 'excluded_from_veteran_discount')) {
+            return;
+        }
+
+        [$index] = explode('.', $key);
+        $index = (int) $index;
+
+        if ($this->guestReceivesVeteranDiscount($index)) {
+            $this->guestDetails[$index]['manual_discount_percentage'] = '';
+            $this->guestDetails[$index]['manual_discount_reason'] = '';
+        }
     }
 
     /**
@@ -373,6 +392,8 @@ class ManualBookingForm extends Component
                 'mobile' => '',
                 'relation' => '',
                 'excluded_from_veteran_discount' => false,
+                'manual_discount_percentage' => '',
+                'manual_discount_reason' => '',
             ];
         }
         $this->guestDetails = array_slice($this->guestDetails, 0, $count);
@@ -439,8 +460,13 @@ class ManualBookingForm extends Component
         ));
 
         $this->syncBookerToGuestDetails();
+        $this->syncGuestDetailRows();
 
         if (!$this->validateNewBookerContacts()) {
+            return;
+        }
+
+        if (!$this->validateManualGuestDiscounts()) {
             return;
         }
 
@@ -464,6 +490,7 @@ class ManualBookingForm extends Component
             ], Auth::user());
 
             $this->createdBookingId = $booking->id;
+            $this->createdBooking = $booking;
             $this->step = 5;
             session()->flash('status', 'رزرو دستی با موفقیت ثبت شد.');
             $this->dispatch('toast', type: 'success', message: 'رزرو دستی با موفقیت ثبت شد.');
@@ -497,7 +524,83 @@ class ManualBookingForm extends Component
             'national_id'     => $this->primaryNationalId(),
             'user_id'         => $this->userId,
             'non_veteran_discount_guests' => $this->nonVeteranDiscountGuestCount(),
+            'per_guest_slots' => $this->perGuestSlotsForPricing(),
         ]);
+    }
+
+    public function guestReceivesVeteranDiscount(int $index): bool
+    {
+        return $this->veteranType
+            && $this->discountPct > 0
+            && empty($this->guestDetails[$index]['excluded_from_veteran_discount'] ?? false);
+    }
+
+    public function guestCanReceiveManualDiscount(int $index): bool
+    {
+        return !$this->guestReceivesVeteranDiscount($index);
+    }
+
+    /**
+     * @return array<int, array{is_child:bool, veteran_eligible:bool, manual_discount_pct:int}>
+     */
+    private function perGuestSlotsForPricing(): array
+    {
+        $billingGuests = max(1, $this->totalGuests - $this->totalExtraGuests);
+
+        return app(BookingPricingService::class)->buildPerGuestSlotsFromGuestDetails(
+            $this->guestDetails,
+            $billingGuests,
+            $this->totalChildrenUnder6,
+            $this->veteranType ?: null,
+            $this->discountPct,
+        );
+    }
+
+    private function clearManualDiscountsForVeteranEligibleGuests(): void
+    {
+        foreach ($this->guestDetails as $index => $guest) {
+            if ($this->guestReceivesVeteranDiscount($index)) {
+                $this->guestDetails[$index]['manual_discount_percentage'] = '';
+                $this->guestDetails[$index]['manual_discount_reason'] = '';
+            }
+        }
+    }
+
+    private function validateManualGuestDiscounts(): bool
+    {
+        $valid = true;
+
+        foreach ($this->guestDetails as $index => $guest) {
+            if (!$this->guestCanReceiveManualDiscount($index)) {
+                continue;
+            }
+
+            $pct = trim((string) ($guest['manual_discount_percentage'] ?? ''));
+            $reason = trim((string) ($guest['manual_discount_reason'] ?? ''));
+
+            if ($pct === '' || (int) $pct === 0) {
+                continue;
+            }
+
+            $pctInt = (int) $pct;
+            if ($pctInt < 1 || $pctInt > 100) {
+                $this->addError(
+                    "guestDetails.{$index}.manual_discount_percentage",
+                    'درصد تخفیف باید بین ۱ تا ۱۰۰ باشد.'
+                );
+                $valid = false;
+            }
+
+            if ($reason === '') {
+                $this->addError(
+                    "guestDetails.{$index}.manual_discount_reason",
+                    'ذکر دلیل تخفیف برای این مهمان الزامی است.'
+                );
+                $valid = false;
+            }
+        }
+
+        return $valid;
     }
 
     public function getDiscountPctProperty(): int
@@ -613,6 +716,8 @@ class ManualBookingForm extends Component
         if ($this->guestContactMobile) {
             $this->guestDetails[0]['mobile'] = $this->guestContactMobile;
         }
+
+        $this->guestDetails[0]['relation'] = 'رزرو‌کننده';
     }
 
     private function usageCheck(): array
@@ -813,6 +918,8 @@ class ManualBookingForm extends Component
                 'guestContactMobile' => ['required', 'string', 'max:15'],
                 'guestDetails.*.full_name' => ['nullable', 'string', 'max:120'],
                 'guestDetails.*.excluded_from_veteran_discount' => ['nullable', 'boolean'],
+                'guestDetails.*.manual_discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
+                'guestDetails.*.manual_discount_reason' => ['nullable', 'string', 'max:500'],
             ],
             default => [],
         };

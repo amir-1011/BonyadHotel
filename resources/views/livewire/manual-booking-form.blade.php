@@ -139,7 +139,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">قیمت واحد (تومان)</label>
-                    <input type="number" wire:model.live="services.{{ $i }}.unit_price" min="0" class="form-control form-control-sm">
+                    <x-money-input wire:model.live="services.{{ $i }}.unit_price" class="form-control form-control-sm" min="0" />
                 </div>
                 <div class="col-md-1">
                     <label class="form-label small">تعداد</label>
@@ -502,7 +502,11 @@
 
             <label class="form-label fw-semibold"><i class="bi bi-people me-1"></i>مهمانان ({{ $this->totalGuests }} نفر)</label>
             @foreach($guestDetails as $i => $guest)
-            @php $excluded = !empty($guest['excluded_from_veteran_discount']); @endphp
+            @php
+                $excluded = !empty($guest['excluded_from_veteran_discount']);
+                $canManualDiscount = $this->guestCanReceiveManualDiscount($i);
+                $manualPct = (int) ($guest['manual_discount_percentage'] ?? 0);
+            @endphp
             <div class="rounded p-3 mb-3 border-2 {{ $excluded ? 'border-warning bg-warning-subtle shadow-sm' : 'border bg-light' }}"
                  wire:key="guest-{{ $i }}"
                  style="border-width:{{ $excluded ? '2px' : '1px' }} !important; transition: background .15s, border-color .15s;">
@@ -523,6 +527,15 @@
                                     <i class="bi bi-tag-fill me-1"></i>تخفیف {{ $this->discountPct }}٪
                                 </span>
                             @endif
+                        @elseif($canManualDiscount)
+                            <span class="badge rounded-pill text-bg-secondary">
+                                <i class="bi bi-cash-coin me-1"></i>نرخ عادی
+                            </span>
+                        @endif
+                        @if($manualPct > 0)
+                            <span class="badge rounded-pill text-bg-info">
+                                <i class="bi bi-percent me-1"></i>تخفیف دستی {{ $manualPct }}٪
+                            </span>
                         @endif
                     </div>
                 </div>
@@ -546,6 +559,38 @@
                 </label>
                 @endif
 
+                @if($canManualDiscount)
+                <div class="border rounded-3 p-3 mb-3 bg-white">
+                    <div class="small fw-semibold mb-2">
+                        <i class="bi bi-sliders me-1 text-primary"></i>تخفیف دستی اقامت
+                    </div>
+                    <p class="text-muted mb-2" style="font-size:.78rem;">
+                        برای مهمانانی که شامل تخفیف ایثارگری نیستند، می‌توانید درصد تخفیف اقامت را با ذکر دلیل ثبت کنید.
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1">درصد تخفیف</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number"
+                                       wire:model.live="guestDetails.{{ $i }}.manual_discount_percentage"
+                                       class="form-control"
+                                       min="0" max="100" placeholder="۰">
+                                <span class="input-group-text">٪</span>
+                            </div>
+                            @error("guestDetails.{$i}.manual_discount_percentage")<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small mb-1">دلیل تخفیف @if($manualPct > 0)<span class="text-danger">*</span>@endif</label>
+                            <input type="text"
+                                   wire:model="guestDetails.{{ $i }}.manual_discount_reason"
+                                   class="form-control form-control-sm"
+                                   placeholder="مثلاً: همکاری قبلی، معرفی مدیر، ...">
+                            @error("guestDetails.{$i}.manual_discount_reason")<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <div class="row g-2">
                     <div class="col-md-4">
                         <input type="text" wire:model="guestDetails.{{ $i }}.full_name" class="form-control form-control-sm" placeholder="نام و نام خانوادگی"
@@ -560,8 +605,18 @@
                                @if($i === 0 && $bookerVerified) readonly @endif>
                     </div>
                     <div class="col-md-2">
-                        <input type="text" wire:model="guestDetails.{{ $i }}.relation" class="form-control form-control-sm"
-                               placeholder="{{ $i === 0 ? 'رزرو‌کننده' : 'نسبت' }}">
+                        @if($i === 0)
+                        <select wire:model="guestDetails.{{ $i }}.relation" class="form-select form-select-sm" disabled>
+                            <option value="رزرو‌کننده">رزرو‌کننده</option>
+                        </select>
+                        @else
+                        <select wire:model="guestDetails.{{ $i }}.relation" class="form-select form-select-sm">
+                            <option value="">— نسبت —</option>
+                            @foreach(['همسر', 'پدر', 'مادر', 'فرزند', 'خواهر', 'برادر', 'دوست', 'همکار', 'غیره'] as $rel)
+                            <option value="{{ $rel }}">{{ $rel }}</option>
+                            @endforeach
+                        </select>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -570,30 +625,29 @@
     </div>
     @endif
 
-    {{-- Step 5: Summary / Done --}}
+    {{-- Step 5: Success + full booking details --}}
     @if($step === 5)
-    <div class="card shadow-sm border-success mb-3">
-        <div class="card-body text-center py-5">
-            @if($createdBookingId)
-            <i class="bi bi-check-circle-fill text-success display-4"></i>
-            <h5 class="mt-3">رزرو با موفقیت ثبت شد</h5>
-            @if(!empty($pricing))
-            <p class="text-muted">مبلغ نهایی: <strong class="text-primary">{{ number_format($pricing['total_price'] ?? 0) }} تومان</strong></p>
+    <div class="alert alert-success d-flex align-items-center gap-3 mb-3">
+        <i class="bi bi-check-circle-fill fs-3"></i>
+        <div class="flex-grow-1">
+            <div class="fw-semibold">رزرو با موفقیت ثبت شد</div>
+            @if($createdBooking)
+            <div class="small text-muted">کد پیگیری: <code dir="ltr">{{ $createdBooking->tracking_code }}</code></div>
             @endif
-            <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
-                @if($pdfRoute)
-                <a href="{{ $pdfRoute }}" target="_blank" class="btn btn-success"><i class="bi bi-file-pdf me-1"></i>دانلود فیش PDF</a>
-                @endif
-                @if($bookingShowRoute)
-                <a href="{{ $bookingShowRoute }}" wire:navigate class="btn btn-outline-primary"><i class="bi bi-eye me-1"></i>مشاهده رزرو</a>
-                @endif
-            </div>
-            @else
-            <h5>بررسی نهایی</h5>
-            @include('components.booking.price-summary', ['pricing' => $pricing, 'discountPct' => $this->discountPct, 'veteranGroups' => $veteranGroups, 'veteranType' => $veteranType, 'paymentMethod' => $paymentMethod])
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            @if($pdfRoute)
+            <a href="{{ $pdfRoute }}" target="_blank" class="btn btn-sm btn-success"><i class="bi bi-file-pdf me-1"></i>PDF</a>
+            @endif
+            @if($bookingShowRoute)
+            <a href="{{ $bookingShowRoute }}" wire:navigate class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>صفحه رزرو</a>
             @endif
         </div>
     </div>
+
+    @if($createdBooking)
+        @include('components.booking.show-details', ['booking' => $createdBooking, 'panel' => $panel])
+    @endif
     @endif
 
     {{-- Live price breakdown --}}
@@ -635,7 +689,7 @@
             <div class="d-flex justify-content-between py-1 text-success">
                 <span class="text-muted">
                     تخفیف کودک زیر ۶ سال
-                    <span class="text-secondary">({{ $pricing['children_under_6'] }} نفر · ۵۰٪ نرخ)</span>
+                    <span class="text-secondary">({{ $pricing['children_under_6'] }} نفر · {{ $pricing['children_under_6_discount_percentage'] ?? $accommodation->childrenUnder6DiscountPercentage() }}٪ نرخ)</span>
                 </span>
                 <span>− {{ number_format($pricing['children_discount_amount']) }} ت</span>
             </div>
@@ -655,7 +709,16 @@
                     <br><span class="text-muted ms-3" style="font-size:.75rem">{{ $veteranLabel }}</span>
                     @endif
                 </span>
-                <span class="fw-semibold">− {{ number_format($accDiscountAmt) }} ت</span>
+                <span class="fw-semibold">− {{ number_format($pricing['veteran_accommodation_discount_amount'] ?? $accDiscountAmt) }} ت</span>
+            </div>
+            @endif
+
+            @if(($pricing['manual_accommodation_discount_amount'] ?? 0) > 0)
+            <div class="d-flex justify-content-between py-1 text-danger">
+                <span>
+                    <i class="bi bi-sliders me-1" style="font-size:.75rem"></i>تخفیف دستی اقامت (مهمانان نرخ عادی)
+                </span>
+                <span class="fw-semibold">− {{ number_format($pricing['manual_accommodation_discount_amount']) }} ت</span>
             </div>
             @endif
 

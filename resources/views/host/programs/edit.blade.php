@@ -68,15 +68,15 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">مبلغ کل (ریال) <span class="text-danger">*</span></label>
-                    <input type="number" wire:model="totalAmount" class="form-control" min="0" required>
+                    <x-money-input wire:model="totalAmount" class="form-control" min="0" required />
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">بیعانه (ریال)</label>
-                    <input type="number" wire:model="depositAmount" class="form-control" min="0">
+                    <x-money-input wire:model="depositAmount" class="form-control" min="0" />
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">مبلغ تخفیف (ریال)</label>
-                    <input type="number" wire:model="discountAmount" class="form-control" min="0">
+                    <x-money-input wire:model="discountAmount" class="form-control" min="0" />
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">درصد تخفیف</label>

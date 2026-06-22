@@ -186,6 +186,25 @@
 <script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
 <script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
 <script>
+window.bnbJalaliCal = window.bnbJalaliCal || {
+    satFirstColumnForJsDow(jsGetDay) { return (jsGetDay + 1) % 7; },
+    monthStartOffset(jYear, jMonth) {
+        const greg = this.toGregorian(jYear, jMonth, 1);
+        return this.satFirstColumnForJsDow(new Date(greg + 'T12:00:00').getDay());
+    },
+    toGregorian(jYear, jMonth, jDay) {
+        const dt = new persianDate([jYear, jMonth, jDay]).toDate();
+        const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0);
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+    toGregorianYm(jYear, jMonth) {
+        return this.toGregorian(jYear, jMonth, 1).slice(0, 7);
+    },
+};
+</script>
+<script>
     window.taToggleSidebar = function (force) {
         var sb = document.getElementById('sidebar');
         var bd = document.getElementById('sidebarBackdrop');
@@ -242,6 +261,8 @@
     };
     taSyncThemeBtn();
 </script>
+<script src="{{ Vite::asset('resources/js/money-input.js') }}"></script>
+<script src="{{ Vite::asset('resources/js/room-type-form.js') }}"></script>
 @livewireScripts
 @stack('scripts')
 @include('partials._btn_loader')

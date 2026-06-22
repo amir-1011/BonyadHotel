@@ -133,6 +133,10 @@ class User extends Authenticatable
             return route('admin.dashboard');
         }
 
+        if ($this->hasHostPanelAccess('dashboard')) {
+            return route('host.dashboard');
+        }
+
         $permissions = $this->effectiveHostPermissions();
         $first = $permissions[0] ?? 'dashboard';
 

@@ -44,6 +44,8 @@ class BookingPricingService
         $veteranType = $params['veteran_type'] ?? null;
         $accommodation = $params['accommodation'];
         $remainingExcluded = max(0, (int) ($params['non_veteran_discount_guests'] ?? 0));
+        $allGuestSlots = $params['per_guest_slots'] ?? null;
+        $guestSlotOffset = 0;
 
         $accommodationDiscountPct = isset($params['discount_percentage'])
             ? (int) $params['discount_percentage']
@@ -58,6 +60,7 @@ class BookingPricingService
             'room_subtotal' => 0,
             'children_discount_amount' => 0,
             'veteran_accommodation_discount_amount' => 0,
+            'manual_accommodation_discount_amount' => 0,
             'extra_guests_total' => 0,
             'room_lines' => [],
         ];
@@ -70,10 +73,16 @@ class BookingPricingService
             $extraGuests = max(0, (int) ($line['extra_guests'] ?? 0));
             $billFullRooms = (bool) ($line['bill_full_rooms'] ?? false);
 
-            $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType);
+            $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType, $childrenUnder6, $accommodation);
             $billingGuests = $this->billingGuests($guests, $extraGuests, $billFullRooms, $roomsNeeded, $roomType);
             $lineExcluded = min($remainingExcluded, $billingGuests);
             $remainingExcluded -= $lineExcluded;
+
+            $lineGuestSlots = null;
+            if (is_array($allGuestSlots) && count($allGuestSlots) > 0) {
+                $lineGuestSlots = array_slice($allGuestSlots, $guestSlotOffset, $billingGuests);
+                $guestSlotOffset += $billingGuests;
+            }
 
             $linePricing = $this->calculateSingleRoom([
                 'check_in'                    => $checkIn,
@@ -92,6 +101,7 @@ class BookingPricingService
                 'user_id'                     => $params['user_id'] ?? null,
                 'exclude_booking_id'          => $params['exclude_booking_id'] ?? null,
                 'non_veteran_discount_guests' => $lineExcluded,
+                'per_guest_slots'             => $lineGuestSlots,
             ]);
 
             $aggregated['nights'] = $linePricing['nights'];
@@ -102,6 +112,7 @@ class BookingPricingService
             $aggregated['room_subtotal'] += $linePricing['room_subtotal'];
             $aggregated['children_discount_amount'] += $linePricing['children_discount_amount'];
             $aggregated['veteran_accommodation_discount_amount'] += $linePricing['veteran_accommodation_discount_amount'];
+            $aggregated['manual_accommodation_discount_amount'] += $linePricing['manual_accommodation_discount_amount'] ?? 0;
             $aggregated['extra_guests_total'] += $linePricing['extra_guests_total'];
             $aggregated['room_lines'][] = array_merge($linePricing, [
                 'sort_order'      => $index,
@@ -126,7 +137,8 @@ class BookingPricingService
         $servicesDiscountAmount = collect($serviceLines)->sum('discount_amount');
 
         $accommodationSubtotal = $aggregated['room_subtotal'] + $aggregated['extra_guests_total'];
-        $accommodationDiscountAmount = $aggregated['veteran_accommodation_discount_amount'];
+        $accommodationDiscountAmount = $aggregated['veteran_accommodation_discount_amount']
+            + $aggregated['manual_accommodation_discount_amount'];
         $subtotal = $accommodationSubtotal + $servicesSubtotal;
         $totalDiscount = $accommodationDiscountAmount + $servicesDiscountAmount;
         $totalPrice = $subtotal - $totalDiscount;
@@ -145,10 +157,12 @@ class BookingPricingService
             'rooms_needed'                    => $aggregated['rooms_needed'],
             'billing_guests'                  => $aggregated['billing_guests'],
             'children_under_6'                => $aggregated['children_under_6'],
+            'children_under_6_discount_percentage' => $accommodation->childrenUnder6DiscountPercentage(),
             'non_veteran_discount_guests'     => $aggregated['non_veteran_discount_guests'],
             'room_subtotal'                   => $aggregated['room_subtotal'],
             'children_discount_amount'        => $aggregated['children_discount_amount'],
-            'veteran_accommodation_discount_amount' => $accommodationDiscountAmount,
+            'veteran_accommodation_discount_amount' => $aggregated['veteran_accommodation_discount_amount'],
+            'manual_accommodation_discount_amount'  => $aggregated['manual_accommodation_discount_amount'],
             'veteran_discount_nights'         => $veteranDiscountNights,
             'extra_guests_total'              => $aggregated['extra_guests_total'],
             'services_subtotal'               => $servicesSubtotal,
@@ -161,6 +175,45 @@ class BookingPricingService
             'service_lines'                   => $serviceLines,
             'room_lines'                      => $aggregated['room_lines'],
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $guestDetails
+     * @return array<int, array{is_child:bool, veteran_eligible:bool, manual_discount_pct:int}>
+     */
+    public function buildPerGuestSlotsFromGuestDetails(
+        array $guestDetails,
+        int $billingGuests,
+        int $childrenUnder6,
+        ?string $veteranType,
+        int $veteranDiscountPct,
+    ): array {
+        $billingGuests = max(1, $billingGuests);
+        $childrenUnder6 = min(max(0, $childrenUnder6), $billingGuests);
+        $adultCount = $billingGuests - $childrenUnder6;
+        $slots = [];
+
+        for ($i = 0; $i < $billingGuests; $i++) {
+            $guest = $guestDetails[$i] ?? [];
+            $excluded = !empty($guest['excluded_from_veteran_discount']);
+            $veteranEligible = $veteranType && $veteranDiscountPct > 0 && !$excluded;
+            $manualPct = 0;
+
+            if (!$veteranEligible) {
+                $raw = $guest['manual_discount_percentage'] ?? '';
+                if ($raw !== '' && $raw !== null) {
+                    $manualPct = max(0, min(100, (int) $raw));
+                }
+            }
+
+            $slots[] = [
+                'is_child'             => $i >= $adultCount,
+                'veteran_eligible'     => $veteranEligible,
+                'manual_discount_pct'  => $manualPct,
+            ];
+        }
+
+        return $slots;
     }
 
     /**
@@ -197,7 +250,8 @@ class BookingPricingService
         $veteranDiscountNights = $this->resolveVeteranDiscountNights($params, $nights, $veteranType);
         $pricePerNight = $roomRate ? $roomRate->price_per_night : $accommodation->price_per_night;
 
-        $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType);
+        $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType, $childrenUnder6, $accommodation);
+        $childDiscountPct = $accommodation->childrenUnder6DiscountPercentage();
 
         $extraGuestsTotal = 0;
         if ($extraGuests > 0 && $roomType && $roomType->extra_capacity_price) {
@@ -207,11 +261,19 @@ class BookingPricingService
         $billingGuests = $this->billingGuests($guests, $extraGuests, $billFullRooms, $roomsNeeded, $roomType);
         $childrenUnder6 = min($childrenUnder6, max(0, $billingGuests));
         $nonDiscountGuests = min($nonDiscountGuests, $billingGuests);
+        $perGuestSlots = $params['per_guest_slots'] ?? null;
+        if (is_array($perGuestSlots) && count($perGuestSlots) > 0) {
+            $perGuestSlots = array_slice($perGuestSlots, 0, $billingGuests);
+            $nonDiscountGuests = collect($perGuestSlots)
+                ->filter(fn ($slot) => empty($slot['veteran_eligible']))
+                ->count();
+        }
 
         $availMap = $roomType ? $roomType->availabilityMap($checkIn, $checkOut) : [];
         $roomSubtotal = 0;
-        $roomAfterVeteran = 0;
+        $roomAfterAllDiscounts = 0;
         $childrenDiscountAmount = 0;
+        $manualAccommodationDiscount = 0;
         $cursor = new \DateTime($checkIn);
         $endDate = new \DateTime($checkOut);
         $nightIndex = 0;
@@ -224,22 +286,35 @@ class BookingPricingService
                 : $pricePerNight;
 
             $nightVeteranPct = $nightIndex < $veteranDiscountNights ? $accommodationDiscountPct : 0;
-            $nightBreakdown = $this->accommodationNightBreakdown(
-                $nightPrice,
-                $billingGuests,
-                $childrenUnder6,
-                $nonDiscountGuests,
-                $nightVeteranPct,
-            );
+
+            if (is_array($perGuestSlots) && count($perGuestSlots) > 0) {
+                $nightBreakdown = $this->accommodationNightBreakdownPerGuest(
+                    $nightPrice,
+                    $perGuestSlots,
+                    $nightVeteranPct,
+                    $childDiscountPct,
+                );
+            } else {
+                $nightBreakdown = $this->accommodationNightBreakdown(
+                    $nightPrice,
+                    $billingGuests,
+                    $childrenUnder6,
+                    $nonDiscountGuests,
+                    $nightVeteranPct,
+                    $childDiscountPct,
+                );
+            }
 
             $roomSubtotal += $nightBreakdown['gross'];
-            $roomAfterVeteran += $nightBreakdown['net'];
+            $roomAfterAllDiscounts += $nightBreakdown['net'];
             $childrenDiscountAmount += $nightBreakdown['children_discount_amount'];
+            $manualAccommodationDiscount += $nightBreakdown['manual_discount_amount'] ?? 0;
             $nightIndex++;
             $cursor->modify('+1 day');
         }
 
-        $roomVeteranDiscount = $roomSubtotal - $roomAfterVeteran;
+        $roomTotalDiscount = $roomSubtotal - $roomAfterAllDiscounts;
+        $roomVeteranDiscount = max(0, $roomTotalDiscount - $manualAccommodationDiscount);
 
         $enrichedServices = $this->veteranPolicy->enrichServicesWithDiscounts($veteranType, $services);
         $serviceLines = $this->calculateServiceLines($enrichedServices, [
@@ -261,7 +336,8 @@ class BookingPricingService
                 $extraGuestsTotal * $accommodationDiscountPct / 100 * $discountEligibleRatio * $veteranDiscountNights / $nights
             )
             : 0;
-        $accommodationDiscountAmount = $roomVeteranDiscount + $extraVeteranDiscount;
+        $veteranAccommodationDiscount = $roomVeteranDiscount + $extraVeteranDiscount;
+        $accommodationDiscountAmount = $veteranAccommodationDiscount + $manualAccommodationDiscount;
 
         $subtotal = $accommodationSubtotal + $servicesSubtotal;
         $totalDiscount = $accommodationDiscountAmount + $servicesDiscountAmount;
@@ -276,10 +352,12 @@ class BookingPricingService
             'rooms_needed'                    => $roomsNeeded,
             'billing_guests'                  => $billingGuests,
             'children_under_6'                => $childrenUnder6,
+            'children_under_6_discount_percentage' => $childDiscountPct,
             'non_veteran_discount_guests'     => $nonDiscountGuests,
             'room_subtotal'                   => $roomSubtotal,
             'children_discount_amount'        => $childrenDiscountAmount,
-            'veteran_accommodation_discount_amount' => $accommodationDiscountAmount,
+            'veteran_accommodation_discount_amount' => $veteranAccommodationDiscount,
+            'manual_accommodation_discount_amount'  => $manualAccommodationDiscount,
             'veteran_discount_nights'           => $veteranDiscountNights,
             'extra_guests_total'              => $extraGuestsTotal,
             'services_subtotal'               => $servicesSubtotal,
@@ -390,21 +468,39 @@ class BookingPricingService
         return $lines;
     }
 
-    public function roomsNeeded(int $guests, int $extraGuests, ?RoomType $roomType): int
+    public function guestsForBedAllocation(int $guests, int $childrenUnder6, ?Accommodation $accommodation): int
     {
+        $guests = max(1, $guests);
+        $childrenUnder6 = max(0, min($childrenUnder6, $guests - 1));
+
+        if (!$accommodation || $accommodation->childrenUnder6AllocateBed()) {
+            return $guests;
+        }
+
+        return max(1, $guests - $childrenUnder6);
+    }
+
+    public function roomsNeeded(
+        int $guests,
+        int $extraGuests,
+        ?RoomType $roomType,
+        int $childrenUnder6 = 0,
+        ?Accommodation $accommodation = null,
+    ): int {
         if (!$roomType) {
             return 1;
         }
 
         $capacity = max(1, (int) $roomType->capacity);
+        $bedGuests = $this->guestsForBedAllocation($guests, $childrenUnder6, $accommodation);
 
         if ($extraGuests > 0) {
-            $standardGuests = $guests - $extraGuests;
+            $standardGuests = $bedGuests - $extraGuests;
 
             return max(1, (int) ceil($standardGuests / $capacity));
         }
 
-        return (int) ceil($guests / $capacity);
+        return (int) ceil($bedGuests / $capacity);
     }
 
     public function billingGuests(
@@ -447,7 +543,9 @@ class BookingPricingService
         int $childrenUnder6,
         int $nonDiscountGuests,
         int $veteranDiscountPct,
+        int $childDiscountPct = 50,
     ): array {
+        $childMultiplier = (100 - max(0, min(100, $childDiscountPct))) / 100;
         $nonDiscount = min(max(0, $nonDiscountGuests), $billingGuests);
         $children = min(max(0, $childrenUnder6), $billingGuests);
         $fullRate = $billingGuests - $children;
@@ -458,23 +556,74 @@ class BookingPricingService
         $discountAdults = $fullRate - $nonDiscountAdults;
 
         $gross = ($fullRate + $children) * $nightPrice;
-        $childrenDiscountAmount = (int) round($nightPrice * 0.5 * $children);
+        $childrenDiscountAmount = (int) round($nightPrice * (1 - $childMultiplier) * $children);
 
         $net = $nonDiscountAdults * $nightPrice
-            + (int) round($nightPrice * 0.5 * $nonDiscountChildren);
+            + (int) round($nightPrice * $childMultiplier * $nonDiscountChildren);
 
         if ($veteranDiscountPct > 0) {
             $net += (int) round($nightPrice * (100 - $veteranDiscountPct) / 100 * $discountAdults);
-            $net += (int) round($nightPrice * 0.5 * (100 - $veteranDiscountPct) / 100 * $discountChildren);
+            $net += (int) round($nightPrice * $childMultiplier * (100 - $veteranDiscountPct) / 100 * $discountChildren);
         } else {
             $net += $discountAdults * $nightPrice;
-            $net += (int) round($nightPrice * 0.5 * $discountChildren);
+            $net += (int) round($nightPrice * $childMultiplier * $discountChildren);
         }
 
         return [
             'gross'                    => $gross - $childrenDiscountAmount,
             'net'                      => $net,
             'children_discount_amount' => $childrenDiscountAmount,
+        ];
+    }
+
+    /**
+     * @param  array<int, array{is_child:bool, veteran_eligible:bool, manual_discount_pct:int}>  $guestSlots
+     * @return array{gross:int, net:int, children_discount_amount:int, manual_discount_amount:int}
+     */
+    private function accommodationNightBreakdownPerGuest(
+        int $nightPrice,
+        array $guestSlots,
+        int $veteranDiscountPct,
+        int $childDiscountPct = 50,
+    ): array {
+        $childMultiplier = (100 - max(0, min(100, $childDiscountPct))) / 100;
+        $gross = 0;
+        $net = 0;
+        $childrenDiscountAmount = 0;
+        $manualDiscountAmount = 0;
+
+        foreach ($guestSlots as $slot) {
+            $isChild = !empty($slot['is_child']);
+            $guestGross = $isChild
+                ? (int) round($nightPrice * $childMultiplier)
+                : $nightPrice;
+
+            if ($isChild) {
+                $childrenDiscountAmount += (int) round($nightPrice * (1 - $childMultiplier));
+            }
+
+            $gross += $guestGross;
+
+            $afterBase = $guestGross;
+            $veteranEligible = !empty($slot['veteran_eligible']);
+            $manualPct = max(0, min(100, (int) ($slot['manual_discount_pct'] ?? 0)));
+
+            if ($veteranEligible && $veteranDiscountPct > 0) {
+                $afterBase = (int) round($guestGross * (100 - $veteranDiscountPct) / 100);
+            } elseif ($manualPct > 0) {
+                $afterManual = (int) round($guestGross * (100 - $manualPct) / 100);
+                $manualDiscountAmount += $guestGross - $afterManual;
+                $afterBase = $afterManual;
+            }
+
+            $net += $afterBase;
+        }
+
+        return [
+            'gross'                    => $gross,
+            'net'                      => $net,
+            'children_discount_amount' => $childrenDiscountAmount,
+            'manual_discount_amount'   => $manualDiscountAmount,
         ];
     }
 }

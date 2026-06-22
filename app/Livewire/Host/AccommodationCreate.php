@@ -28,6 +28,8 @@ class AccommodationCreate extends Component
     public int    $pricePerNight   = 0;
     public int    $capacity        = 1;
     public int    $rooms           = 1;
+    public bool   $childrenUnder6AllocateBed = true;
+    public int    $childrenUnder6DiscountPercentage = 50;
     public string $address         = '';
     public string $lat             = '';
     public string $lng             = '';
@@ -54,6 +56,8 @@ class AccommodationCreate extends Component
             'pricePerNight' => ['required', 'integer', 'min:0'],
             'capacity'      => ['required', 'integer', 'min:1'],
             'rooms'         => ['required', 'integer', 'min:1'],
+            'childrenUnder6AllocateBed' => ['boolean'],
+            'childrenUnder6DiscountPercentage' => ['required', 'integer', 'min:0', 'max:100'],
             'address'       => ['nullable', 'string'],
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
@@ -85,6 +89,8 @@ class AccommodationCreate extends Component
             'price_per_night' => $this->pricePerNight,
             'capacity'        => $this->capacity,
             'rooms'           => $this->rooms,
+            'children_under_6_allocate_bed' => $this->childrenUnder6AllocateBed,
+            'children_under_6_discount_percentage' => $this->childrenUnder6DiscountPercentage,
             'address'         => $this->address ?: null,
             'lat'             => $this->lat !== '' ? (float) $this->lat : null,
             'lng'             => $this->lng !== '' ? (float) $this->lng : null,

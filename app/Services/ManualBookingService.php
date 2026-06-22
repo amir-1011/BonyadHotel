@@ -56,6 +56,15 @@ class ManualBookingService
             $totalGuests = collect($roomLinesInput)->sum('guests');
             $totalChildrenUnder6 = collect($roomLinesInput)->sum('children_under_6');
             $totalExtraGuests = collect($roomLinesInput)->sum('extra_guests');
+            $billingGuests = max(1, $totalGuests - $totalExtraGuests);
+            $veteranDiscountPct = VeteranGroups::accommodationDiscount($veteranType);
+            $perGuestSlots = $this->pricing->buildPerGuestSlotsFromGuestDetails(
+                $guestDetails,
+                $billingGuests,
+                $totalChildrenUnder6,
+                $veteranType,
+                $veteranDiscountPct,
+            );
 
             $pricingParams = [
                 'check_in'             => $data['check_in'],
@@ -70,6 +79,7 @@ class ManualBookingService
                 'national_id'          => $primaryNationalId,
                 'user_id'              => $guestUser->id,
                 'non_veteran_discount_guests' => min($totalGuests, $nonVeteranDiscountGuests),
+                'per_guest_slots'      => $perGuestSlots,
             ];
 
             if ($isMultiRoom || count($roomLinesInput) > 0) {
@@ -96,7 +106,7 @@ class ManualBookingService
                 }
                 $linePricing = $pricing['room_lines'][$i] ?? null;
                 $roomsNeeded = $linePricing['rooms_needed']
-                    ?? $this->pricing->roomsNeeded($line['guests'], $line['extra_guests'], $lineRoomType);
+                    ?? $this->pricing->roomsNeeded($line['guests'], $line['extra_guests'], $lineRoomType, $line['children_under_6'], $accommodation);
                 $consumptionByRoomType[$lineRoomType->id] = ($consumptionByRoomType[$lineRoomType->id] ?? 0) + $roomsNeeded;
             }
 
@@ -108,6 +118,13 @@ class ManualBookingService
             }
 
             $accommodationDiscountPct = VeteranGroups::accommodationDiscount($veteranType);
+            $billingGuests = max(1, $totalGuests - $totalExtraGuests);
+            $guestDiscountSnapshot = $this->buildGuestDiscountSnapshot(
+                $guestDetails,
+                $billingGuests,
+                $veteranType,
+                $data,
+            );
 
             $booking = Booking::create([
                 'user_id'               => $guestUser->id,
@@ -136,6 +153,7 @@ class ManualBookingService
                 'booking_source'        => 'manual',
                 'payment_method'        => $data['payment_method'] ?? null,
                 'notes'                 => $data['notes'] ?? null,
+                'guest_discount_snapshot' => $guestDiscountSnapshot,
                 'tracking_code'         => strtoupper(Str::random(10)),
             ]);
 
@@ -151,7 +169,7 @@ class ManualBookingService
                     'extra_guests'     => $line['extra_guests'],
                     'bill_full_rooms'  => $line['bill_full_rooms'],
                     'rooms_consumed'   => $linePricing['rooms_needed']
-                        ?? $this->pricing->roomsNeeded($line['guests'], $line['extra_guests'], $line['room_type']),
+                        ?? $this->pricing->roomsNeeded($line['guests'], $line['extra_guests'], $line['room_type'], $line['children_under_6'], $accommodation),
                     'sort_order'       => $i,
                 ]);
             }
@@ -171,21 +189,7 @@ class ManualBookingService
                 ]);
             }
 
-            foreach ($guestDetails as $i => $guest) {
-                if (empty(trim($guest['full_name'] ?? ''))) {
-                    continue;
-                }
-                BookingGuestDetail::create([
-                    'booking_id'  => $booking->id,
-                    'sort_order'  => $i,
-                    'full_name'   => trim($guest['full_name']),
-                    'national_id' => $guest['national_id'] ?? null,
-                    'mobile'      => $guest['mobile'] ?? null,
-                    'relation'    => $guest['relation'] ?? null,
-                    'excluded_from_veteran_discount' => !empty($guest['excluded_from_veteran_discount']),
-                    'notes'       => $guest['notes'] ?? null,
-                ]);
-            }
+            $this->persistGuestDetails($booking, $guestDetails, $billingGuests, $veteranType, $data);
 
             $booking = $booking->fresh(['services.serviceCatalog', 'guestDetails', 'bookingRooms.roomType', 'bookingRooms.roomRate', 'user', 'accommodation.city', 'roomType', 'roomRate']);
             $this->commission->syncBookingCommissions($booking, $createdBy);
@@ -373,6 +377,7 @@ class ManualBookingService
         // Always fetch fresh rows from the database so that any edits made
         // just before this call (e.g. saveServiceEdits) are reflected.
         $freshServices = $booking->services()->orderBy('sort_order')->get();
+        $guestDetails = $booking->guestDetails()->orderBy('sort_order')->get();
 
         $services = $freshServices->map(fn ($s) => [
             'name'               => $s->name,
@@ -386,6 +391,20 @@ class ManualBookingService
         ])->all();
 
         $bookingRooms = $booking->bookingRooms()->with(['roomType', 'roomRate'])->orderBy('sort_order')->get();
+        $billingGuests = max(1, (int) $booking->guests - (int) $booking->extra_guests);
+        $veteranDiscountPct = VeteranGroups::accommodationDiscount($booking->veteran_type_applied);
+        $guestDetailsArray = $guestDetails->map(fn ($g) => [
+            'excluded_from_veteran_discount' => $g->excluded_from_veteran_discount,
+            'manual_discount_percentage'     => $g->manual_discount_percentage,
+            'manual_discount_reason'         => $g->manual_discount_reason,
+        ])->all();
+        $perGuestSlots = $this->pricing->buildPerGuestSlotsFromGuestDetails(
+            $guestDetailsArray,
+            $billingGuests,
+            (int) ($booking->children_under_6 ?? 0),
+            $booking->veteran_type_applied,
+            $veteranDiscountPct,
+        );
 
         if ($bookingRooms->isNotEmpty()) {
             $roomLines = $bookingRooms->map(fn ($line) => [
@@ -413,6 +432,7 @@ class ManualBookingService
                 'non_veteran_discount_guests' => $booking->guestDetails()
                     ->where('excluded_from_veteran_discount', true)
                     ->count(),
+                'per_guest_slots'             => $perGuestSlots,
                 'room_lines'          => $roomLines,
             ];
         } else {
@@ -434,6 +454,7 @@ class ManualBookingService
                 'non_veteran_discount_guests' => $booking->guestDetails()
                     ->where('excluded_from_veteran_discount', true)
                     ->count(),
+                'per_guest_slots'             => $perGuestSlots,
             ];
         }
 
@@ -463,5 +484,189 @@ class ManualBookingService
 
         $booking->refresh()->load(['services.serviceCatalog', 'accommodation']);
         $this->commission->syncBookingCommissions($booking);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $guestDetails
+     * @param  array<string, mixed>  $data
+     */
+    private function persistGuestDetails(
+        Booking $booking,
+        array $guestDetails,
+        int $billingGuests,
+        ?string $veteranType,
+        array $data,
+    ): void {
+        for ($i = 0; $i < $billingGuests; $i++) {
+            $guest = $guestDetails[$i] ?? [];
+
+            if (!$this->shouldPersistGuestDetail($guest, $i, $veteranType, $data)) {
+                continue;
+            }
+
+            $fullName = trim($guest['full_name'] ?? '');
+            if ($fullName === '') {
+                $fullName = $i === 0
+                    ? trim($data['guest_contact_name'] ?? '') ?: 'رزرو‌کننده'
+                    : 'مهمان ' . ($i + 1);
+            }
+
+            BookingGuestDetail::create([
+                'booking_id'  => $booking->id,
+                'sort_order'  => $i,
+                'full_name'   => $fullName,
+                'national_id' => $guest['national_id'] ?? null,
+                'mobile'      => $guest['mobile'] ?? null,
+                'relation'    => $guest['relation'] ?? null,
+                'excluded_from_veteran_discount' => !empty($guest['excluded_from_veteran_discount']),
+                'manual_discount_percentage' => $this->normalizedManualDiscountPct($guest, $veteranType),
+                'manual_discount_reason'     => $this->normalizedManualDiscountReason($guest, $veteranType),
+                'notes'       => $guest['notes'] ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $guestDetails
+     * @param  array<string, mixed>  $data
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function buildGuestDiscountSnapshot(
+        array $guestDetails,
+        int $billingGuests,
+        ?string $veteranType,
+        array $data,
+    ): ?array {
+        $snapshot = [];
+
+        for ($i = 0; $i < $billingGuests; $i++) {
+            $guest = $guestDetails[$i] ?? [];
+            $excluded = !empty($guest['excluded_from_veteran_discount']);
+            $manualPct = $this->normalizedManualDiscountPct($guest, $veteranType);
+            $rawManualPct = $this->rawManualDiscountPct($guest);
+
+            if (!$excluded && !$manualPct && !$rawManualPct) {
+                continue;
+            }
+
+            $label = trim($guest['full_name'] ?? '');
+            if ($label === '') {
+                $label = $i === 0
+                    ? trim($data['guest_contact_name'] ?? '') ?: 'رزرو‌کننده'
+                    : 'مهمان ' . ($i + 1);
+            }
+
+            $reason = $this->normalizedManualDiscountReason($guest, $veteranType);
+            if (!$reason && $rawManualPct) {
+                $reason = trim((string) ($guest['manual_discount_reason'] ?? '')) ?: null;
+            }
+
+            $snapshot[] = [
+                'sort_order'                     => $i,
+                'label'                          => $label,
+                'excluded_from_veteran_discount' => $excluded,
+                'manual_discount_percentage'     => $manualPct ?? $rawManualPct,
+                'manual_discount_reason'         => $reason,
+            ];
+        }
+
+        return $snapshot === [] ? null : $snapshot;
+    }
+
+    /**
+     * @param  array<string, mixed>  $guest
+     */
+    private function rawManualDiscountPct(array $guest): ?int
+    {
+        $raw = $guest['manual_discount_percentage'] ?? null;
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $pct = max(0, min(100, (int) $raw));
+
+        return $pct > 0 ? $pct : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $guest
+     */
+    private function hasManualDiscountInput(array $guest): bool
+    {
+        return $this->rawManualDiscountPct($guest) !== null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $guest
+     * @param  array<string, mixed>  $data
+     */
+    private function shouldPersistGuestDetail(array $guest, int $index, ?string $veteranType, array $data): bool
+    {
+        if ($index === 0) {
+            return true;
+        }
+
+        if (trim($guest['full_name'] ?? '') !== '') {
+            return true;
+        }
+
+        if (!empty($guest['excluded_from_veteran_discount'])) {
+            return true;
+        }
+
+        if ($this->hasManualDiscountInput($guest)) {
+            return true;
+        }
+
+        if ($this->normalizedManualDiscountPct($guest, $veteranType)) {
+            return true;
+        }
+
+        if (trim($guest['national_id'] ?? '') !== '') {
+            return true;
+        }
+
+        if (trim($guest['mobile'] ?? '') !== '') {
+            return true;
+        }
+
+        return trim($guest['relation'] ?? '') !== '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $guest
+     */
+    private function normalizedManualDiscountPct(array $guest, ?string $veteranType = null): ?int
+    {
+        $veteranDiscountPct = VeteranGroups::accommodationDiscount($veteranType);
+        $excluded = !empty($guest['excluded_from_veteran_discount']);
+
+        if ($veteranType && $veteranDiscountPct > 0 && !$excluded) {
+            return null;
+        }
+
+        $raw = $guest['manual_discount_percentage'] ?? null;
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $pct = max(0, min(100, (int) $raw));
+
+        return $pct > 0 ? $pct : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $guest
+     */
+    private function normalizedManualDiscountReason(array $guest, ?string $veteranType = null): ?string
+    {
+        $pct = $this->normalizedManualDiscountPct($guest, $veteranType);
+        if (!$pct) {
+            return null;
+        }
+
+        $reason = trim((string) ($guest['manual_discount_reason'] ?? ''));
+
+        return $reason !== '' ? $reason : null;
     }
 }

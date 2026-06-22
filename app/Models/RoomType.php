@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RoomTypePriceResolver;
 use Illuminate\Database\Eloquent\Model;
 
 class RoomType extends Model
@@ -50,6 +51,11 @@ class RoomType extends Model
         return $this->hasMany(RoomTypeDailyOverride::class);
     }
 
+    public function weeklyPriceRules()
+    {
+        return $this->hasMany(RoomTypeWeeklyPriceRule::class)->orderBy('weekday');
+    }
+
     /** First image or null */
     public function coverImage(): ?string
     {
@@ -90,7 +96,8 @@ class RoomType extends Model
 
         // Manually blocked dates
         $blocked = $this->blockedDates()
-            ->whereBetween('date', [$from, $endExcl])
+            ->whereDate('date', '>=', $from)
+            ->whereDate('date', '<=', $endExcl)
             ->pluck('date')
             ->map(fn($d) => $d->format('Y-m-d'))
             ->flip()
@@ -98,9 +105,16 @@ class RoomType extends Model
 
         // Daily capacity overrides: date → override object
         $overrides = $this->dailyOverrides()
-            ->whereBetween('date', [$from, $endExcl])
-            ->get(['date', 'available_count', 'custom_price', 'discount_percentage', 'price_label'])
-            ->keyBy(fn($o) => $o->date->format('Y-m-d'))
+            ->whereDate('date', '>=', $from)
+            ->whereDate('date', '<=', $endExcl)
+            ->get()
+            ->keyBy(fn (RoomTypeDailyOverride $o) => $o->date->toDateString())
+            ->all();
+
+        // Permanent weekly price rules: ISO weekday → rule
+        $weeklyRules = $this->weeklyPriceRules()
+            ->get(['weekday', 'custom_price', 'discount_percentage', 'price_label'])
+            ->keyBy('weekday')
             ->all();
 
         // Default (cheapest) rate price for reference
@@ -136,17 +150,33 @@ class RoomType extends Model
                 ? min((int) $ovr->available_count, $baseTotal)
                 : $baseTotal;
 
-            // Compute price for this day
-            $dayCustomPrice  = $ovr ? $ovr->custom_price : null;
-            $dayDiscount     = $ovr ? $ovr->discount_percentage : null;
-            $dayLabel        = $ovr ? $ovr->price_label : null;
-            $dayEffectivePrice = null;
-            if ($defaultPrice > 0) {
-                $base = $dayCustomPrice ?? $defaultPrice;
-                $dayEffectivePrice = ($dayDiscount > 0)
-                    ? (int) round($base * (1 - $dayDiscount / 100))
-                    : $base;
+            // Compute price — explicit daily price beats permanent weekly rule
+            $weeklyRule = $weeklyRules[(int) $cursor->format('N')] ?? null;
+            $dailyHasPrice = $ovr !== null && (
+                ($ovr->custom_price !== null && $ovr->custom_price > 0)
+                || ($ovr->discount_percentage !== null && $ovr->discount_percentage !== 0)
+                || filled($ovr->price_label)
+            );
+
+            if ($dailyHasPrice) {
+                $dayCustomPrice = $ovr->custom_price;
+                $dayDiscount    = $ovr->discount_percentage;
+                $dayLabel       = $ovr->price_label;
+                $priceSource    = 'daily';
+            } elseif ($weeklyRule !== null) {
+                $dayCustomPrice = $weeklyRule->custom_price;
+                $dayDiscount    = $weeklyRule->discount_percentage;
+                $dayLabel       = $weeklyRule->price_label;
+                $priceSource    = 'weekly';
+            } else {
+                $dayCustomPrice = null;
+                $dayDiscount    = null;
+                $dayLabel       = null;
+                $priceSource    = 'default';
             }
+            $dayEffectivePrice = $defaultPrice > 0
+                ? RoomTypePriceResolver::effectivePrice($defaultPrice, $dayCustomPrice, $dayDiscount)
+                : null;
 
             $map[$dateStr] = [
                 'total'           => $effectiveTotal,
@@ -161,7 +191,9 @@ class RoomType extends Model
                 'discount_percentage'  => $dayDiscount,
                 'price_label'          => $dayLabel,
                 'effective_price'      => $dayEffectivePrice,
-                'has_price_override'   => $ovr && ($dayCustomPrice !== null || $dayDiscount > 0),
+                'has_price_override'   => RoomTypePriceResolver::hasPriceAdjustment($dayCustomPrice, $dayDiscount),
+                'price_source'         => $priceSource,
+                'has_weekly_rule'      => !$dailyHasPrice && $weeklyRule !== null,
             ];
             $cursor->modify('+1 day');
         }

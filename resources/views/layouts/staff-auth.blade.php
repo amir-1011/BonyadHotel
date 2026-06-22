@@ -15,6 +15,52 @@
             background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
             min-height: 100vh;
         }
+        .staff-auth-shell {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 16px;
+        }
+        @media (max-width: 768px) and (orientation: portrait) {
+            body.staff-auth-page {
+                overflow: hidden;
+                position: fixed;
+                width: 100%;
+                height: 100%;
+            }
+            .staff-auth-shell {
+                position: fixed;
+                inset: 0;
+                align-items: flex-start;
+                padding-top: max(24px, env(safe-area-inset-top));
+                padding-bottom: max(24px, env(safe-area-inset-bottom));
+                overflow-y: auto;
+                overscroll-behavior: none;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+        .staff-auth-password-wrap {
+            position: relative;
+        }
+        .staff-auth-password-wrap .staff-auth-input {
+            padding-left: 44px;
+        }
+        .staff-auth-password-toggle {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #64748b;
+            padding: 4px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .staff-auth-password-toggle:hover { color: #334155; }
         .staff-auth-card {
             border: 1px solid #e2e8f0;
             border-radius: 12px;
@@ -69,7 +115,7 @@
     </style>
     @livewireStyles
 </head>
-<body>
+<body class="staff-auth-page">
     {{ $slot }}
     @livewireScripts
 </body>

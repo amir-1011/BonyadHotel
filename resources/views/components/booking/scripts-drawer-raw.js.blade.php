@@ -132,16 +132,14 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
                 cells.push({ d, greg, past });
             }
@@ -363,8 +361,7 @@ function mbbDrawer() {
         },
 
         get hasDynamicPricing() {
-            if (this.userDiscountPct > 0 && this.checkIn && this.checkOut) return true;
-            return this.dynamicNightPrices.some(p => p.hostDiscountPct > 0 || p.label);
+            return !!(this.checkIn && this.checkOut && this.dynamicNightPrices.length);
         },
 
         // Minimum available rooms across the selected date range
@@ -405,17 +402,15 @@ function mbbDrawer() {
         get calDays() {
             if (!this.calYear || typeof persianDate === 'undefined') return [];
             const pd   = new persianDate([this.calYear, this.calMonth, 1]);
-            const fdow = pd.day();
             const dim  = pd.daysInMonth();
             const now  = new persianDate();
             const ty = now.year(), tm = now.month(), td = now.date();
-            const offset = (6 - fdow + 7) % 7;
+            const offset = window.bnbJalaliCal.monthStartOffset(this.calYear, this.calMonth);
 
             let cells = [];
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
-                const dt = new persianDate([this.calYear, this.calMonth, d]).toDate();
-                const greg = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
                 const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
 
                 const avail        = this.availabilityData[greg];
@@ -502,8 +497,7 @@ function mbbDrawer() {
         _gregYmForJalali(jYear, jMonth) {
             while (jMonth > 12) { jMonth -= 12; jYear++; }
             while (jMonth < 1)  { jMonth += 12; jYear--; }
-            const gd = new persianDate([jYear, jMonth, 1]).toDate();
-            return gd.getFullYear() + '-' + String(gd.getMonth() + 1).padStart(2, '0');
+            return window.bnbJalaliCal.toGregorianYm(jYear, jMonth);
         },
 
         async fetchAvailability(months) {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RoomTypePriceResolver;
 use Illuminate\Database\Eloquent\Model;
 
 class RoomTypeDailyOverride extends Model
@@ -27,11 +28,11 @@ class RoomTypeDailyOverride extends Model
      */
     public function effectivePrice(int $basePrice): int
     {
-        $price = $this->custom_price ?? $basePrice;
-        if ($this->discount_percentage > 0) {
-            $price = (int) round($price * (1 - $this->discount_percentage / 100));
-        }
-        return $price;
+        return RoomTypePriceResolver::effectivePrice(
+            $basePrice,
+            $this->custom_price,
+            $this->discount_percentage,
+        );
     }
 
     public function roomType()

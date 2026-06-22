@@ -15,7 +15,7 @@ class Booking extends Model
         'nights', 'base_price', 'services_subtotal', 'discount_percentage',
         'veteran_type_applied', 'discount_amount', 'total_price',
         'status', 'tracking_code', 'booking_source', 'payment_method',
-        'notes', 'form_file_path',
+        'notes', 'guest_discount_snapshot', 'form_file_path',
     ];
 
     protected function casts(): array
@@ -24,6 +24,7 @@ class Booking extends Model
             'check_in'        => 'date',
             'check_out'       => 'date',
             'bill_full_rooms' => 'boolean',
+            'guest_discount_snapshot' => 'array',
         ];
     }
 
@@ -109,6 +110,186 @@ class Booking extends Model
     public function roomSubtotal(): int
     {
         return max(0, $this->base_price - $this->services_subtotal - $this->extra_guests_price);
+    }
+
+    public function servicesDiscountTotal(): int
+    {
+        return (int) $this->services->sum('discount_amount');
+    }
+
+    public function accommodationDiscountTotal(): int
+    {
+        return max(0, (int) $this->discount_amount - $this->servicesDiscountTotal());
+    }
+
+    public function billingGuests(): int
+    {
+        return max(1, (int) $this->guests - (int) $this->extra_guests);
+    }
+
+    public function bookerNationalId(): ?string
+    {
+        $fromGuest = $this->guestDetails->first()?->national_id;
+
+        return filled($fromGuest) ? $fromGuest : $this->user?->national_id;
+    }
+
+    public function bookingSourceLabel(): string
+    {
+        return match ($this->booking_source) {
+            'manual'  => 'رزرو دستی',
+            'online'  => 'آنلاین',
+            default   => $this->booking_source ?: '—',
+        };
+    }
+
+    public function veteranDiscountLabel(): string
+    {
+        if ($this->veteran_type_applied) {
+            return $this->veteranLabelApplied();
+        }
+
+        return $this->user?->veteranLabel() ?: 'عادی (بدون تخفیف ایثارگری)';
+    }
+
+    public function hasMultiRoomLines(): bool
+    {
+        return $this->bookingRooms->count() > 0;
+    }
+
+    /**
+     * Per-guest discount flags saved at booking time (independent of optional guest contact fields).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function guestDiscountSlots(): array
+    {
+        $snapshot = $this->guest_discount_snapshot;
+        if (!is_array($snapshot) || $snapshot === []) {
+            return [];
+        }
+
+        return collect($snapshot)
+            ->filter(fn ($slot) => is_array($slot))
+            ->sortBy(fn ($slot) => (int) ($slot['sort_order'] ?? 0))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Slots with manual discount from snapshot and/or persisted guest rows.
+     *
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public function manualDiscountSlotsForDisplay()
+    {
+        $byIndex = [];
+
+        foreach ($this->guestDiscountSlots() as $slot) {
+            $index = (int) ($slot['sort_order'] ?? 0);
+            if ((int) ($slot['manual_discount_percentage'] ?? 0) <= 0) {
+                continue;
+            }
+            $byIndex[$index] = (object) [
+                'sort_order'                 => $index,
+                'full_name'                  => $slot['label'] ?? ('مهمان ' . ($index + 1)),
+                'relation'                   => null,
+                'manual_discount_percentage' => (int) $slot['manual_discount_percentage'],
+                'manual_discount_reason'     => $slot['manual_discount_reason'] ?? null,
+                'from_snapshot'              => true,
+            ];
+        }
+
+        foreach ($this->guestDetails as $guest) {
+            if ((int) ($guest->manual_discount_percentage ?? 0) <= 0) {
+                continue;
+            }
+            $byIndex[$guest->sort_order] = (object) [
+                'sort_order'                 => $guest->sort_order,
+                'full_name'                  => $guest->full_name,
+                'relation'                   => $guest->relation,
+                'manual_discount_percentage' => (int) $guest->manual_discount_percentage,
+                'manual_discount_reason'     => $guest->manual_discount_reason,
+                'from_snapshot'              => false,
+            ];
+        }
+
+        return collect($byIndex)->sortKeys()->values();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public function excludedDiscountSlotsForDisplay()
+    {
+        $byIndex = [];
+
+        foreach ($this->guestDiscountSlots() as $slot) {
+            if (empty($slot['excluded_from_veteran_discount'])) {
+                continue;
+            }
+            $index = (int) ($slot['sort_order'] ?? 0);
+            $byIndex[$index] = (object) [
+                'sort_order'                 => $index,
+                'full_name'                  => $slot['label'] ?? ('مهمان ' . ($index + 1)),
+                'manual_discount_percentage' => (int) ($slot['manual_discount_percentage'] ?? 0) ?: null,
+                'manual_discount_reason'     => $slot['manual_discount_reason'] ?? null,
+            ];
+        }
+
+        foreach ($this->guestDetails->where('excluded_from_veteran_discount', true) as $guest) {
+            $byIndex[$guest->sort_order] = (object) [
+                'sort_order'                 => $guest->sort_order,
+                'full_name'                  => $guest->full_name,
+                'manual_discount_percentage' => $guest->manual_discount_percentage,
+                'manual_discount_reason'     => $guest->manual_discount_reason,
+            ];
+        }
+
+        return collect($byIndex)->sortKeys()->values();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object|\App\Models\BookingGuestDetail>
+     */
+    public function guestRowsForDisplay()
+    {
+        $rows = $this->guestDetails->keyBy('sort_order');
+        $merged = collect();
+
+        for ($i = 0; $i < $this->billingGuests(); $i++) {
+            if ($rows->has($i)) {
+                $merged->push($rows->get($i));
+
+                continue;
+            }
+
+            $slot = collect($this->guestDiscountSlots())->firstWhere('sort_order', $i);
+            if (!$slot) {
+                continue;
+            }
+
+            $hasDiscountData = !empty($slot['excluded_from_veteran_discount'])
+                || (int) ($slot['manual_discount_percentage'] ?? 0) > 0;
+
+            if (!$hasDiscountData) {
+                continue;
+            }
+
+            $merged->push((object) [
+                'sort_order'                     => $i,
+                'full_name'                      => $slot['label'] ?? ('مهمان ' . ($i + 1)),
+                'national_id'                    => null,
+                'mobile'                         => null,
+                'relation'                       => null,
+                'excluded_from_veteran_discount' => !empty($slot['excluded_from_veteran_discount']),
+                'manual_discount_percentage'     => (int) ($slot['manual_discount_percentage'] ?? 0) ?: null,
+                'manual_discount_reason'         => $slot['manual_discount_reason'] ?? null,
+                'discount_only'                  => true,
+            ]);
+        }
+
+        return $merged->values();
     }
 
     public function statusLabel(): string

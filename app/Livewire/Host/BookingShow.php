@@ -23,7 +23,8 @@ class BookingShow extends Component
         );
         $this->booking = $booking->load([
             'user', 'accommodation.city.province', 'roomType', 'roomRate',
-            'services', 'guestDetails', 'createdBy',
+            'services.serviceCatalog', 'guestDetails', 'createdBy',
+            'bookingRooms.roomType', 'bookingRooms.roomRate',
         ]);
         $this->bootBookingDetails($booking);
     }

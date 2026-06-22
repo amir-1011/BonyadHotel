@@ -1,13 +1,5 @@
 @extends('layouts.host')
 
-
-@push('styles')
-<style>
-.img-preview-box img { width:100px;height:80px;object-fit:cover;border-radius:8px; }
-.amenity-check label { cursor:pointer; }
-</style>
-@endpush
-
 @section('content')
 
 <div>
@@ -38,17 +30,3 @@
 
 @endsection
 
-@push('scripts')
-<script>
-document.getElementById('imagesInput')?.addEventListener('change', function () {
-    const box = document.getElementById('newImagesPreview');
-    box.innerHTML = '';
-    Array.from(this.files).forEach(f => {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(f);
-        img.style.cssText = 'width:100px;height:80px;object-fit:cover;border-radius:8px';
-        box.appendChild(img);
-    });
-});
-</script>
-@endpush
