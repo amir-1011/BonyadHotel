@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Accommodation;
 use App\Models\User;
 use App\Services\ManualBookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,10 +14,13 @@ class ManualBookingGuestUserTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Accommodation $accommodation;
+
     protected function setUp(): void
     {
         parent::setUp();
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
+        $this->accommodation = $this->createTestAccommodation();
     }
 
     public function test_new_guest_user_is_created_with_entered_national_id(): void
@@ -77,6 +81,6 @@ class ManualBookingGuestUserTest extends TestCase
         $method = new ReflectionMethod(ManualBookingService::class, 'resolveGuestUser');
         $method->setAccessible(true);
 
-        return $method->invoke($service, $data);
+        return $method->invoke($service, $data, $this->accommodation->id);
     }
 }

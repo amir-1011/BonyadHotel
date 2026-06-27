@@ -15,20 +15,29 @@
     $bookerGuest = $booking->guestDetails->first();
     $bookerManualDiscount = $manualDiscountGuests->firstWhere('sort_order', 0);
 
-    $roomSummary = $hasRoomLines
-        ? $roomLines->count() . ' اتاق · ' . $roomLines->sum('guests') . ' نفر'
-        : ($booking->roomType?->name ?? '—');
+    $roomSummary = $booking->roomLinesSummary();
 
     $guestSummary = $displayGuestRows->isNotEmpty()
         ? $displayGuestRows->count() . ' نفر ثبت‌شده'
         : ($booking->guests . ' نفر');
 
-    $discountSummary = $booking->veteran_type_applied
-        ? $booking->veteranLabelApplied() . ' · ' . $booking->discount_percentage . '٪'
+    $pricingBreakdown = app(\App\Services\BookingReceiptBreakdownService::class)->pricingForBooking($booking);
+    $accBreakdown = $pricingBreakdown['accommodation_discount_breakdown'] ?? [];
+    $veteranAccDiscount = (int) ($pricingBreakdown['veteran_accommodation_discount_amount'] ?? 0);
+    $discountDetailSummary = $booking->veteran_type_applied
+        ? $booking->veteranLabelApplied()
         : 'عادی';
-    if ($manualDiscountGuests->isNotEmpty()) {
-        $discountSummary .= ' · ' . $manualDiscountGuests->count() . ' تخفیف دستی';
+    if (count($accBreakdown) > 1) {
+        $discountDetailSummary .= ' · ' . collect($accBreakdown)->map(
+            fn ($row) => ($row['units'] ?? 0) . ' شب ' . ($row['discount_percentage'] ?? 0) . '٪'
+        )->join(' + ');
+    } elseif ($booking->veteran_type_applied) {
+        $discountDetailSummary .= ' · ' . $booking->discount_percentage . '٪ اقامت';
     }
+    if ($manualDiscountGuests->isNotEmpty()) {
+        $discountDetailSummary .= ' · ' . $manualDiscountGuests->count() . ' تخفیف دستی';
+    }
+    $discountSummary = $discountDetailSummary;
 
     $servicesCount = $booking->services->count();
     $hasNotes = $booking->notes || $booking->form_file_path;
@@ -149,7 +158,7 @@
 </div>
 
 {{-- ── Modals ── --}}
-@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'bookerGuest', 'bookerManualDiscount'); @endphp
+@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'bookerGuest', 'bookerManualDiscount', 'pricingBreakdown', 'accBreakdown', 'veteranAccDiscount'); @endphp
 
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-booking-' . $bid,

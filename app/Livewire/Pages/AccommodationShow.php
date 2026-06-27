@@ -84,8 +84,10 @@ class AccommodationShow extends Component
 
         $canReview  = false;
         $userReview = null;
+        $userAccommodationDiscount = 0;
 
         if (Auth::check()) {
+            $userAccommodationDiscount = Auth::user()->accommodationDiscountFor($this->accommodation->id);
             $canReview = Booking::where('user_id', Auth::id())
                 ->where('accommodation_id', $this->accommodation->id)
                 ->where('status', 'confirmed')
@@ -102,7 +104,7 @@ class AccommodationShow extends Component
         $title = $this->accommodation->name . ' | ایثار';
 
         return view('accommodations.show', compact(
-            'reviews', 'roomTypes', 'canReview', 'userReview', 'isFavorited', 'title'
+            'reviews', 'roomTypes', 'canReview', 'userReview', 'isFavorited', 'title', 'userAccommodationDiscount'
         ))->title($title);
     }
 }

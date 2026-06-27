@@ -21,6 +21,7 @@ class User extends Authenticatable
         'veteran_type',
         'discount_percentage',
         'host_panel_permissions',
+        'room_board_layout',
         'mobile_verified_at',
         'national_id_verified_at',
     ];
@@ -38,6 +39,7 @@ class User extends Authenticatable
             'national_id_verified_at'=> 'datetime',
             'discount_percentage'    => 'integer',
             'host_panel_permissions' => 'array',
+            'room_board_layout'      => 'array',
         ];
     }
 
@@ -143,9 +145,18 @@ class User extends Authenticatable
         return \App\Support\HostPermissions::landingRoute($first);
     }
 
-    public function veteranLabel(): string
+    public function veteranLabel(?int $accommodationId = null): string
     {
-        return VeteranGroups::label($this->veteran_type);
+        return VeteranGroups::label($this->veteran_type, $accommodationId);
+    }
+
+    public function accommodationDiscountFor(?int $accommodationId): int
+    {
+        if (!$this->veteran_type || !$accommodationId) {
+            return (int) $this->discount_percentage;
+        }
+
+        return VeteranGroups::accommodationDiscount($this->normalizedVeteranType(), $accommodationId);
     }
 
     public function normalizedVeteranType(): ?string

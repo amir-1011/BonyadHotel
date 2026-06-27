@@ -35,7 +35,7 @@ class AccommodationIndex extends Component
 
     public function render()
     {
-        $query = Accommodation::with('city.province', 'host');
+        $query = Accommodation::with('city.province', 'county', 'host');
 
         if ($this->search) {
             $s = trim($this->search);

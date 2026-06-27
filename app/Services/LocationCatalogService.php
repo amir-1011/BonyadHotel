@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\City;
+use App\Models\County;
 use App\Models\Province;
 
 class LocationCatalogService
@@ -95,5 +96,72 @@ class LocationCatalogService
     public function createProvince(string $name): Province
     {
         return Province::create(['name' => $this->normalizeFa($name)]);
+    }
+
+    public function findCountyId(string $provinceName, string $countyName): ?int
+    {
+        $provinceName = $this->normalizeFa($provinceName);
+        $countyName = $this->normalizeFa($countyName);
+
+        if ($provinceName === '' || $countyName === '') {
+            return null;
+        }
+
+        $province = $this->findProvince($provinceName);
+        if (!$province) {
+            return null;
+        }
+
+        return County::query()
+            ->where('province_id', $province->id)
+            ->where('name', $countyName)
+            ->value('id');
+    }
+
+    /**
+     * @return array{id:int, province_created:bool, county_created:bool, province_name:string, county_name:string}
+     */
+    public function resolveOrCreateCounty(string $provinceName, string $countyName): array
+    {
+        $provinceName = $this->normalizeFa($provinceName);
+        $countyName = $this->normalizeFa($countyName);
+
+        $provinceCreated = false;
+        $countyCreated = false;
+
+        $province = $this->findProvince($provinceName);
+        if (!$province) {
+            $province = Province::create(['name' => $provinceName]);
+            $provinceCreated = true;
+        }
+
+        $county = County::query()
+            ->where('province_id', $province->id)
+            ->where('name', $countyName)
+            ->first();
+
+        if (!$county) {
+            $county = County::create([
+                'province_id' => $province->id,
+                'name'        => $countyName,
+            ]);
+            $countyCreated = true;
+        }
+
+        return [
+            'id'               => $county->id,
+            'province_created' => $provinceCreated,
+            'county_created'   => $countyCreated,
+            'province_name'    => $province->name,
+            'county_name'      => $county->name,
+        ];
+    }
+
+    public function createCounty(int $provinceId, string $name): County
+    {
+        return County::create([
+            'province_id' => $provinceId,
+            'name'        => $this->normalizeFa($name),
+        ]);
     }
 }

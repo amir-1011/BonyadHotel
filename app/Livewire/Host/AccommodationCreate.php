@@ -4,6 +4,7 @@ namespace App\Livewire\Host;
 
 use App\Models\Accommodation;
 use App\Models\City;
+use App\Models\County;
 use App\Models\Province;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
@@ -22,6 +23,7 @@ class AccommodationCreate extends Component
 
     public int    $provinceId       = 0;
     public int    $cityId          = 0;
+    public int    $countyId        = 0;
     public string $name            = '';
     public string $description     = '';
     public string $type            = 'hotel';
@@ -41,15 +43,11 @@ class AccommodationCreate extends Component
         $this->phoneNumbers = [$this->emptyPhoneRow()];
     }
 
-    public function updatedProvinceId(): void
-    {
-        $this->cityId = 0;
-    }
-
     protected function rules(): array
     {
         return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
+            'countyId'      => $this->countyIdRules(),
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
             'type'          => $this->accommodationTypeRule(),
@@ -82,6 +80,7 @@ class AccommodationCreate extends Component
 
         $accommodation = Accommodation::create(array_merge([
             'city_id'         => $this->cityId,
+            'county_id'       => $this->normalizedCountyId(),
             'host_id'         => Auth::id(),
             'name'            => $this->name,
             'description'     => $this->description ?: null,
@@ -100,6 +99,7 @@ class AccommodationCreate extends Component
         ], $this->contactInfoAttributes()));
 
         $accommodation->grantHostAccess(Auth::user());
+        app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         session()->flash('status', 'اقامتگاه ثبت شد و پس از تأیید مدیر نمایش داده می‌شود.');
         $this->redirectRoute('host.accommodations.index', navigate: true);
@@ -111,7 +111,10 @@ class AccommodationCreate extends Component
         $cities = $this->provinceId
             ? City::where('province_id', $this->provinceId)->orderBy('name')->get()
             : collect();
+        $counties = $this->provinceId
+            ? County::where('province_id', $this->provinceId)->orderBy('name')->get()
+            : collect();
         $accommodationTypes = AccommodationType::options();
-        return view('host.accommodations.create', compact('provinces', 'cities', 'accommodationTypes'));
+        return view('host.accommodations.create', compact('provinces', 'cities', 'counties', 'accommodationTypes'));
     }
 }

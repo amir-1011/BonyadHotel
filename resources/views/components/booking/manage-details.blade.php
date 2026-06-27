@@ -24,16 +24,16 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($editableServices as $i => $row)
+                        @foreach($editableServices as $id => $row)
                         @php
                             $subtotal = (int)($row['unit_price'] ?? 0) * (int)($row['quantity'] ?? 1);
                             $discountAmt = (int)($row['discount_amount'] ?? 0);
                             $finalTotal = (int)($row['total'] ?? $subtotal);
                         @endphp
-                        <tr wire:key="es-{{ $row['id'] ?? $i }}">
-                            <td><input type="text" wire:model="editableServices.{{ $i }}.name" class="form-control form-control-sm"></td>
-                            <td><x-money-input wire:model="editableServices.{{ $i }}.unit_price" class="form-control form-control-sm" min="0" /></td>
-                            <td><input type="number" wire:model="editableServices.{{ $i }}.quantity" class="form-control form-control-sm" min="1"></td>
+                        <tr wire:key="es-{{ $id }}">
+                            <td><input type="text" wire:model="editableServices.{{ $id }}.name" class="form-control form-control-sm"></td>
+                            <td><x-money-input wire:model="editableServices.{{ $id }}.unit_price" class="form-control form-control-sm" min="0" /></td>
+                            <td><input type="number" wire:model="editableServices.{{ $id }}.quantity" class="form-control form-control-sm" min="1"></td>
                             <td class="small text-muted">{{ number_format($subtotal) }}</td>
                             <td class="small text-danger">
                                 @if($discountAmt > 0)
@@ -67,9 +67,15 @@
         {{-- Add service --}}
         <div class="border rounded p-3 bg-light mb-3">
             <div class="small fw-semibold mb-2">افزودن خدمت جدید</div>
-            @php $serviceCatalog = app(\App\Services\VeteranPolicyService::class)->activeServices(); @endphp
+            @php
+                $serviceCatalog = app(\App\Services\VeteranPolicyService::class)->forAccommodation($booking->accommodation_id)->activeServices();
+                $selectedNewCatalog = $newServiceCatalogId && $newServiceCatalogId !== 'custom'
+                    ? $serviceCatalog->firstWhere('id', (int) $newServiceCatalogId)
+                    : null;
+                $newCatalogVariants = $selectedNewCatalog?->variants ?? collect();
+            @endphp
             <div class="row g-2 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <select wire:model.live="newServiceCatalogId" class="form-select form-select-sm">
                         <option value="">— انتخاب —</option>
                         @foreach($serviceCatalog as $cat)
@@ -78,7 +84,18 @@
                         <option value="custom">سایر (دستی)</option>
                     </select>
                 </div>
-                <div class="col-md-4"><input type="text" wire:model="newServiceName" class="form-control form-control-sm" placeholder="نام خدمت"></div>
+                @if($newCatalogVariants->isNotEmpty())
+                <div class="col-md-2">
+                    <select wire:model.live="newServiceCatalogVariantId" class="form-select form-select-sm @error('newServiceCatalogVariantId') is-invalid @enderror">
+                        <option value="">— نوع —</option>
+                        @foreach($newCatalogVariants as $variant)
+                        <option value="{{ $variant->id }}">{{ $variant->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('newServiceCatalogVariantId')<div class="text-danger small">{{ $message }}</div>@enderror
+                </div>
+                @endif
+                <div class="col-md-{{ $newCatalogVariants->isNotEmpty() ? 3 : 4 }}"><input type="text" wire:model="newServiceName" class="form-control form-control-sm" placeholder="نام خدمت"></div>
                 <div class="col-md-2"><x-money-input wire:model="newServicePrice" class="form-control form-control-sm" placeholder="قیمت" min="0" /></div>
                 <div class="col-md-1"><input type="number" wire:model="newServiceQty" class="form-control form-control-sm" min="1"></div>
                 <div class="col-md-2"><button type="button" wire:click="addServiceLine" class="btn btn-sm btn-success w-100">افزودن</button></div>

@@ -10,6 +10,8 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\RoomTypeAmenityCatalogController;
+use App\Http\Controllers\RoomTypeCategoryCatalogController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Bale / Webhook (keep as controllers) ───────────────────────────────────
@@ -27,7 +29,15 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout')->
 // ─── Shared API endpoints (needed by admin/host manual booking) ─────────────
 Route::get('/api/provinces/{province}/cities',                       [AccommodationController::class, 'citiesByProvince'])->name('api.cities');
 Route::get('/api/room-types/{roomType}/availability',                [AvailabilityController::class, 'roomType'])->name('api.room-types.availability');
+Route::get('/api/room-types/{roomType}/physical-rooms',            [AvailabilityController::class, 'physicalRooms'])->name('api.room-types.physical-rooms');
 Route::get('/api/accommodations/{accommodation}/rooms-availability', [AvailabilityController::class, 'accommodationRooms'])->name('api.accommodations.rooms-availability');
+
+Route::middleware('auth')->group(function () {
+    Route::post('/api/room-type-amenities', [RoomTypeAmenityCatalogController::class, 'store'])->name('api.room-type-amenities.store');
+    Route::delete('/api/room-type-amenities/{roomTypeAmenity}', [RoomTypeAmenityCatalogController::class, 'destroy'])->name('api.room-type-amenities.destroy');
+    Route::post('/api/room-type-categories', [RoomTypeCategoryCatalogController::class, 'store'])->name('api.room-type-categories.store');
+    Route::delete('/api/room-type-categories/{roomTypeCategory}', [RoomTypeCategoryCatalogController::class, 'destroy'])->name('api.room-type-categories.destroy');
+});
 
 // ─── User-facing routes (redirected to /admin/login when STAFF_ONLY_MODE=true) ─
 Route::middleware('staff_mode.block')->group(function () {
@@ -95,6 +105,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     })->name('accommodations.import.sample');
     Route::get('/accommodations/create',               \App\Livewire\Admin\AccommodationCreate::class)->name('accommodations.create');
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Admin\AccommodationEdit::class)->name('accommodations.edit');
+    Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Admin\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Admin\ManualBooking::class)->name('accommodations.manual-booking');
     // Sales report (keep as controller — complex chart data)
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Admin\AccommodationController::class, 'salesReport'])->name('accommodations.report');
@@ -111,6 +122,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
         Route::put('/{roomType}/rates/{rate}',           [\App\Http\Controllers\Admin\RoomTypeController::class, 'updateRate'])->name('rates.update');
         Route::delete('/{roomType}/rates/{rate}',        [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
         Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Admin\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
+        Route::get('/{roomType}/blocked-dates/preview',      [\App\Http\Controllers\Admin\RoomTypeController::class, 'previewBlockedDate'])->name('blocked-dates.preview');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Admin\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
@@ -133,7 +145,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     // Reviews
     Route::get('/reviews', \App\Livewire\Admin\ReviewIndex::class)->name('reviews.index');
 
-    // Veteran policy settings
+    // Veteran policy settings (global — changes apply to all accommodations)
     Route::get('/veteran-policy', \App\Livewire\Admin\VeteranPolicySettings::class)->name('veteran-policy');
 
     // Location & type catalog (admin-only delete)
@@ -159,6 +171,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/accommodations/create',               \App\Livewire\Host\AccommodationCreate::class)->name('accommodations.create');
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Host\AccommodationController::class, 'salesReport'])->name('accommodations.report');
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Host\AccommodationEdit::class)->name('accommodations.edit');
+    Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Host\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Host\ManualBooking::class)->name('accommodations.manual-booking');
 
     // Bookings
@@ -186,6 +199,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
         Route::put('/{roomType}/rates/{rate}',        [\App\Http\Controllers\Host\RoomTypeController::class, 'updateRate'])->name('rates.update');
         Route::delete('/{roomType}/rates/{rate}',     [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyRate'])->name('rates.destroy');
         Route::get('/{roomType}/blocked-dates',              [\App\Http\Controllers\Host\RoomTypeController::class, 'blockedDates'])->name('blocked-dates');
+        Route::get('/{roomType}/blocked-dates/preview',      [\App\Http\Controllers\Host\RoomTypeController::class, 'previewBlockedDate'])->name('blocked-dates.preview');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Host\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Host\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');

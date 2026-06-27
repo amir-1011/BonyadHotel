@@ -10,6 +10,7 @@ class BookingRoom extends Model
         'booking_id',
         'room_type_id',
         'room_rate_id',
+        'room_id',
         'adults',
         'children_under_6',
         'guests',
@@ -39,5 +40,15 @@ class BookingRoom extends Model
     public function roomRate()
     {
         return $this->belongsTo(RoomRate::class);
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class);
+    }
+
+    public function physicalRoomLabel(): string
+    {
+        return $this->room?->name ?? '—';
     }
 }

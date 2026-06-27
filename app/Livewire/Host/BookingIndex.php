@@ -4,8 +4,9 @@ namespace App\Livewire\Host;
 
 use App\Livewire\Concerns\ManagesBookingFilters;
 use App\Models\Booking;
-use App\Models\City;
 use App\Support\AdminBookingFilter;
+use App\Support\BookingLocationFilterCatalog;
+use App\Support\BookingServiceFilterCatalog;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -55,17 +56,30 @@ class BookingIndex extends Component
         $countFiltered = (clone $query)->count();
         $bookings = $query->paginate(25);
 
+        $locationCatalog = app(BookingLocationFilterCatalog::class);
+        $provinces = $locationCatalog->provinces($accommodationIds);
+        $cities = $locationCatalog->cities($this->draftProvinceId, $accommodationIds);
+        $counties = $locationCatalog->counties($this->draftProvinceId, $accommodationIds);
+
+        $serviceCatalog = app(BookingServiceFilterCatalog::class);
+        $serviceCatalogs = $serviceCatalog->parentServices(
+            $this->draftAccommodationId,
+            $this->draftProvinceId,
+            $this->draftCityId,
+            $this->draftCountyId,
+            $accommodationIds,
+        );
+        $serviceVariants = $serviceCatalog->variants($this->draftServiceCatalogId);
+        $showServiceAccommodation = $serviceCatalog->shouldShowAccommodationInLabels($this->draftAccommodationId);
+
         $accommodations = Auth::user()->managedAccommodationOptions();
-        $cities = City::query()
-            ->whereHas('accommodations', fn ($q) => $q->whereIn('id', $accommodationIds))
-            ->orderBy('name')
-            ->get(['id', 'name']);
         $hasActiveFilters = $filter->hasActiveFilters();
         $exportQuery = $filter->exportQuery();
         extract($this->resolvedBookingSort());
 
         return view('host.bookings.index', compact(
-            'bookings', 'accommodations', 'cities',
+            'bookings', 'accommodations', 'provinces', 'cities', 'counties',
+            'serviceCatalogs', 'serviceVariants', 'showServiceAccommodation',
             'totalFiltered', 'countFiltered', 'sort', 'dir',
             'hasActiveFilters', 'exportQuery',
         ));

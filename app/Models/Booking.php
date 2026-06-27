@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\VeteranGroups;
+use App\Services\VeteranPolicyService;
 use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
@@ -13,7 +14,7 @@ class Booking extends Model
         'guests', 'children_under_6', 'guest_contact_name', 'guest_contact_mobile',
         'rooms_consumed', 'extra_guests', 'extra_guests_price', 'bill_full_rooms',
         'nights', 'base_price', 'services_subtotal', 'discount_percentage',
-        'veteran_type_applied', 'discount_amount', 'total_price',
+        'veteran_type_applied', 'secondary_veteran_type_applied', 'veteran_accommodation_group_usage', 'discount_amount', 'total_price',
         'status', 'tracking_code', 'booking_source', 'payment_method',
         'notes', 'guest_discount_snapshot', 'form_file_path',
     ];
@@ -25,6 +26,7 @@ class Booking extends Model
             'check_out'       => 'date',
             'bill_full_rooms' => 'boolean',
             'guest_discount_snapshot' => 'array',
+            'veteran_accommodation_group_usage' => 'array',
         ];
     }
 
@@ -95,7 +97,23 @@ class Booking extends Model
 
     public function veteranLabelApplied(): string
     {
-        return VeteranGroups::label($this->veteran_type_applied);
+        return VeteranGroups::labelsForTypes(
+            $this->veteranTypesApplied(),
+            $this->accommodation_id,
+        );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function veteranTypesApplied(): array
+    {
+        return app(VeteranPolicyService::class)
+            ->forAccommodation($this->accommodation_id)
+            ->normalizeVeteranTypes(
+                $this->veteran_type_applied,
+                $this->secondary_veteran_type_applied,
+            );
     }
 
     public function paymentMethodLabel(): string
@@ -155,6 +173,50 @@ class Booking extends Model
     public function hasMultiRoomLines(): bool
     {
         return $this->bookingRooms->count() > 0;
+    }
+
+    public function physicalRoomNamesSummary(): string
+    {
+        $lines = $this->relationLoaded('bookingRooms')
+            ? $this->bookingRooms
+            : ($this->exists ? $this->bookingRooms()->with('room')->get() : collect());
+
+        if ($lines->isNotEmpty()) {
+            $names = $lines->map(fn (BookingRoom $line) => $line->room?->name)->filter()->values();
+            if ($names->isNotEmpty()) {
+                return $names->join('، ');
+            }
+        }
+
+        return $this->roomType?->name ?? '—';
+    }
+
+    public function roomLinesSummary(): string
+    {
+        $lines = $this->relationLoaded('bookingRooms')
+            ? $this->bookingRooms
+            : ($this->exists ? $this->bookingRooms()->with('room')->get() : collect());
+
+        if ($lines->isEmpty()) {
+            $label = $this->physicalRoomNamesSummary();
+
+            return $this->roomType && $label !== ($this->roomType->name ?? '')
+                ? $this->roomType->name . ' · ' . $label
+                : ($label ?: '—');
+        }
+
+        $count = $lines->count();
+        $guests = $lines->sum('guests');
+        $physical = $lines
+            ->map(fn (BookingRoom $line) => $line->physicalRoomLabel())
+            ->filter(fn ($n) => $n !== '—')
+            ->values();
+
+        $base = $count . ' اتاق · ' . $guests . ' نفر';
+
+        return $physical->isNotEmpty()
+            ? $base . ' (' . $physical->join('، ') . ')'
+            : $base;
     }
 
     /**

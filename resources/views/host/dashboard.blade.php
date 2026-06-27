@@ -65,6 +65,11 @@
 @if($hostUser->hasHostPanelAccess('bookings'))
 <div class="row g-4 mb-4">
     <div class="col-12">
+        <livewire:room-status-board panel="host" />
+    </div>
+</div>
+<div class="row g-4 mb-4">
+    <div class="col-12">
         <livewire:occupancy-calendar panel="host" />
     </div>
 </div>
@@ -87,7 +92,7 @@
                             <div class="small">
                                 <div class="fw-semibold">{{ $b->bookerName() }}</div>
                                 <div class="text-muted" style="font-size:.72rem">{{ Str::limit($b->accommodation->name, 28) }}</div>
-                                <div class="text-muted" style="font-size:.72rem">{{ $b->roomType->name ?? '—' }} · {{ $b->rooms_consumed }} اتاق</div>
+                                <div class="text-muted" style="font-size:.72rem">{{ $b->roomLinesSummary() }}</div>
                             </div>
                             <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .45rem"><i class="bi bi-eye"></i></a>
                         </div>
@@ -419,7 +424,7 @@
                             {{ Str::limit($b->accommodation->name, 22) }}
                             @endif
                         </td>
-                        <td class="small text-muted">{{ $b->roomType->name ?? '—' }}</td>
+                        <td class="small text-muted">{{ $b->roomLinesSummary() }}</td>
                         <td class="small">@jalali($b->check_in)</td>
                         <td class="small">@jalali($b->check_out)</td>
                         <td class="small">{{ number_format($b->total_price) }} ت</td>

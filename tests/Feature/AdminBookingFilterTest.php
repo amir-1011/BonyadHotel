@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Livewire\Admin\BookingIndex;
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\BookingService;
+use App\Models\ServiceCatalog;
+use App\Models\ServiceCatalogVariant;
 use App\Models\User;
 use App\Support\AdminBookingFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -120,6 +123,86 @@ class AdminBookingFilterTest extends TestCase
         $this->assertFilterCount(1, ['city_id' => $this->cityAId]);
         $this->assertFilterCount(1, ['city_id' => $this->cityBId]);
         $this->assertFilterCount(2, ['city_id' => '']);
+    }
+
+    public function test_county_filter(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyAId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'شهرستان الف',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+        $countyBId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'شهرستان ب',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyAId]);
+        $this->accommodationB->update(['county_id' => $countyBId]);
+
+        $bookingA = $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'tracking_code'    => 'CNTYA00001',
+        ]);
+        $bookingB = $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'tracking_code'    => 'CNTYB00001',
+        ]);
+
+        $noCountyAcc = Accommodation::create([
+            'city_id'         => $this->cityAId,
+            'county_id'       => null,
+            'name'            => 'هتل بدون شهرستان',
+            'price_per_night' => 1_000_000,
+            'capacity'        => 10,
+            'rooms'           => 5,
+            'is_active'       => true,
+        ]);
+        $noCountyBooking = $this->createBooking([
+            'accommodation_id' => $noCountyAcc->id,
+            'tracking_code'    => 'CNTYN00001',
+        ]);
+
+        $this->assertFilterCount(1, ['county_id' => $countyAId]);
+        $this->assertSame([$bookingA->id], $this->filterIds(['county_id' => $countyAId]));
+        $this->assertFilterCount(1, ['county_id' => $countyBId]);
+        $this->assertSame([$bookingB->id], $this->filterIds(['county_id' => $countyBId]));
+        $this->assertNotContains($noCountyBooking->id, $this->filterIds(['county_id' => $countyAId]));
+        $this->assertFilterCount(3, ['county_id' => '']);
+    }
+
+    public function test_county_and_city_filters_combine(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'شهرستان مشترک',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyId]);
+        $this->accommodationB->update(['county_id' => $countyId]);
+
+        $match = $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'tracking_code'    => 'COMBCNTY01',
+        ]);
+        $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'tracking_code'    => 'COMBCNTY02',
+        ]);
+
+        $ids = $this->filterIds([
+            'city_id'   => $this->cityAId,
+            'county_id' => $countyId,
+        ]);
+
+        $this->assertSame([$match->id], $ids);
     }
 
     public function test_check_in_date_range_with_jalali_dates(): void
@@ -283,6 +366,283 @@ class AdminBookingFilterTest extends TestCase
             ->assertDontSee($confirmed->tracking_code);
     }
 
+    public function test_livewire_apply_county_filter(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'شمیرانات',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyId]);
+
+        $match = $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'tracking_code'    => 'LWCNTY0001',
+        ]);
+        $other = $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'tracking_code'    => 'LWCNTY0002',
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftCountyId', (string) $countyId)
+            ->call('applyFilters')
+            ->assertSet('countyId', (string) $countyId)
+            ->assertSee($match->tracking_code)
+            ->assertDontSee($other->tracking_code);
+    }
+
+    public function test_livewire_reset_filters_clears_county(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'ری',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyId]);
+        $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'tracking_code'    => 'LWRESETCT1',
+        ]);
+        $other = $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'tracking_code'    => 'LWRESETCT2',
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftCountyId', (string) $countyId)
+            ->call('applyFilters')
+            ->call('resetFilters')
+            ->assertSet('countyId', '')
+            ->assertSet('draftCountyId', '')
+            ->assertSee($other->tracking_code);
+    }
+
+    public function test_bookings_page_reads_county_url_filter(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'دماوند',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyId]);
+
+        $booking = $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'tracking_code'    => 'URLCNTYAAA',
+        ]);
+        $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'tracking_code'    => 'URLCNTYBBB',
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('admin.bookings.index', [
+            'county_id' => $countyId,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('URLCNTYAAA');
+        $response->assertDontSee('URLCNTYBBB');
+    }
+
+    public function test_admin_can_export_bookings_with_county_filter(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $countyId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'فیروزکوه',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $this->accommodationA->update(['county_id' => $countyId]);
+        $this->createBooking(['status' => 'confirmed', 'tracking_code' => 'EXPCNTY001']);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.bookings.export', ['county_id' => $countyId]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    public function test_service_parent_filter(): void
+    {
+        $poolA = $this->createService($this->accommodationA, 'pool_a', 'استخر');
+        $gymB = $this->createService($this->accommodationB, 'gym_b', 'بدنسازی');
+
+        $poolBooking = $this->createBookingWithService($this->accommodationA, $poolA, null, 'SRVPOOLAAA');
+        $this->createBookingWithService($this->accommodationB, $gymB, null, 'SRVGYMBBBB');
+        $this->createBooking(['tracking_code' => 'SRVNOSERVC']);
+
+        $this->assertFilterCount(1, ['service_catalog_id' => $poolA->id]);
+        $this->assertSame([$poolBooking->id], $this->filterIds(['service_catalog_id' => $poolA->id]));
+        $this->assertFilterCount(3, ['service_catalog_id' => '']);
+    }
+
+    public function test_service_variant_filter(): void
+    {
+        $pool = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $variantA = $this->createVariant($pool, 'type_a', 'استخر نشاط');
+        $variantB = $this->createVariant($pool, 'type_b', 'استخر پارک آبی');
+
+        $match = $this->createBookingWithService($this->accommodationA, $pool, $variantA, 'SRVVARAAAA');
+        $this->createBookingWithService($this->accommodationA, $pool, $variantB, 'SRVVARBBBB');
+
+        $this->assertFilterCount(1, [
+            'service_catalog_id'         => $pool->id,
+            'service_catalog_variant_id' => $variantA->id,
+        ]);
+        $this->assertSame([$match->id], $this->filterIds([
+            'service_catalog_id'         => $pool->id,
+            'service_catalog_variant_id' => $variantA->id,
+        ]));
+    }
+
+    public function test_service_filters_combine_with_accommodation(): void
+    {
+        $poolA = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $poolB = $this->createService($this->accommodationB, 'pool_b', 'استخر');
+
+        $match = $this->createBookingWithService($this->accommodationA, $poolA, null, 'SRVCOMBAAA');
+        $this->createBookingWithService($this->accommodationB, $poolB, null, 'SRVCOMBBBB');
+
+        $ids = $this->filterIds([
+            'accommodation_id'  => $this->accommodationA->id,
+            'service_catalog_id'=> $poolA->id,
+        ]);
+
+        $this->assertSame([$match->id], $ids);
+    }
+
+    public function test_livewire_service_cascade_resets_variant(): void
+    {
+        $pool = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $variant = $this->createVariant($pool, 'type_a', 'نوع الف');
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftServiceCatalogId', (string) $pool->id)
+            ->set('draftServiceCatalogVariantId', (string) $variant->id)
+            ->set('draftServiceCatalogId', '')
+            ->assertSet('draftServiceCatalogVariantId', '');
+    }
+
+    public function test_livewire_accommodation_change_resets_service_drafts(): void
+    {
+        $pool = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $variant = $this->createVariant($pool, 'type_a', 'نوع الف');
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftServiceCatalogId', (string) $pool->id)
+            ->set('draftServiceCatalogVariantId', (string) $variant->id)
+            ->set('draftAccommodationId', (string) $this->accommodationB->id)
+            ->assertSet('draftServiceCatalogId', '')
+            ->assertSet('draftServiceCatalogVariantId', '');
+    }
+
+    public function test_livewire_apply_service_filter(): void
+    {
+        $pool = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $variant = $this->createVariant($pool, 'type_a', 'نوع الف');
+
+        $match = $this->createBookingWithService($this->accommodationA, $pool, $variant, 'LWSRVFILTA');
+        $this->createBooking(['tracking_code' => 'LWSRVFILTB']);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftServiceCatalogId', (string) $pool->id)
+            ->set('draftServiceCatalogVariantId', (string) $variant->id)
+            ->call('applyFilters')
+            ->assertSee($match->tracking_code)
+            ->assertDontSee('LWSRVFILTB');
+    }
+
+    public function test_admin_can_export_bookings_with_service_filter(): void
+    {
+        $pool = $this->createService($this->accommodationA, 'pool', 'استخر');
+        $this->createBookingWithService($this->accommodationA, $pool, null, 'EXPSRVAAAA');
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.bookings.export', ['service_catalog_id' => $pool->id]));
+
+        $response->assertOk();
+    }
+
+    public function test_province_filter(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+
+        $this->createBooking(['accommodation_id' => $this->accommodationA->id, 'tracking_code' => 'PRVA000001']);
+        $this->createBooking(['accommodation_id' => $this->accommodationB->id, 'tracking_code' => 'PRVB000001']);
+
+        $this->assertFilterCount(2, ['province_id' => $provinceId]);
+        $this->assertFilterCount(2, ['province_id' => '']);
+    }
+
+    public function test_livewire_province_cascade_resets_city_and_county(): void
+    {
+        $provinceId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $otherProvinceId = DB::table('provinces')->insertGetId([
+            'name' => 'اصفهان', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $countyAId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => 'شهرستان الف',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftProvinceId', (string) $provinceId)
+            ->set('draftCityId', (string) $this->cityAId)
+            ->set('draftCountyId', (string) $countyAId)
+            ->set('draftProvinceId', (string) $otherProvinceId)
+            ->assertSet('draftCityId', '')
+            ->assertSet('draftCountyId', '');
+    }
+
+    public function test_livewire_province_change_updates_county_options(): void
+    {
+        $provinceAId = DB::table('cities')->where('id', $this->cityAId)->value('province_id');
+        $provinceBId = DB::table('provinces')->insertGetId([
+            'name' => 'گیلان', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $countyAId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceAId,
+            'name'        => 'شمیرانات',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+        $countyBId = DB::table('counties')->insertGetId([
+            'province_id' => $provinceBId,
+            'name'        => 'رشت',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftProvinceId', (string) $provinceAId)
+            ->assertSee('شمیرانات')
+            ->assertDontSee('رشت')
+            ->set('draftProvinceId', (string) $provinceBId)
+            ->assertSee('رشت')
+            ->assertDontSee('شمیرانات');
+    }
+
     public function test_livewire_reset_filters_clears_state(): void
     {
         $this->createBooking(['status' => 'pending', 'tracking_code' => 'LWRESET001']);
@@ -367,5 +727,53 @@ class AdminBookingFilterTest extends TestCase
         $query = Booking::query();
         AdminBookingFilter::make($filters)->apply($query, withSort: false);
         $this->assertSame($expected, $query->count(), 'Filter failed: '.json_encode($filters, JSON_UNESCAPED_UNICODE));
+    }
+
+    private function createService(Accommodation $accommodation, string $key, string $name): ServiceCatalog
+    {
+        return ServiceCatalog::create([
+            'accommodation_id' => $accommodation->id,
+            'key'              => $key,
+            'name'             => $name,
+            'default_price'    => 500_000,
+            'is_active'        => true,
+        ]);
+    }
+
+    private function createVariant(ServiceCatalog $service, string $key, string $name): ServiceCatalogVariant
+    {
+        return ServiceCatalogVariant::create([
+            'service_catalog_id' => $service->id,
+            'key'                => $key,
+            'name'               => $name,
+            'price'              => 500_000,
+            'is_active'          => true,
+        ]);
+    }
+
+    private function createBookingWithService(
+        Accommodation $accommodation,
+        ServiceCatalog $service,
+        ?ServiceCatalogVariant $variant,
+        string $trackingCode,
+    ): Booking {
+        $booking = $this->createBooking([
+            'accommodation_id' => $accommodation->id,
+            'tracking_code'    => $trackingCode,
+        ]);
+
+        BookingService::create([
+            'booking_id'                 => $booking->id,
+            'service_catalog_id'         => $service->id,
+            'service_catalog_variant_id' => $variant?->id,
+            'name'                       => $variant?->name ?? $service->name,
+            'unit_price'                 => $variant?->price ?? $service->default_price,
+            'quantity'                   => 1,
+            'free_units'                 => 0,
+            'total'                      => $variant?->price ?? $service->default_price,
+            'sort_order'                 => 1,
+        ]);
+
+        return $booking;
     }
 }

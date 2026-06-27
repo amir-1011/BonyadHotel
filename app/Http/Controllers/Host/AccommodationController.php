@@ -107,6 +107,7 @@ class AccommodationController extends Controller
     {
         return $request->validate([
             'city_id'         => ['required', 'exists:cities,id'],
+            'county_id'       => ['nullable', 'exists:counties,id'],
             'name'            => ['required', 'string', 'max:200'],
             'description'     => ['nullable', 'string'],
             'type'            => ['required', Rule::exists('accommodation_types', 'key')],

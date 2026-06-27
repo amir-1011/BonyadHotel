@@ -76,6 +76,32 @@
                         @else
                         <div class="mt-2 text-warning small"><i class="bi bi-exclamation-circle me-1"></i>هنوز تعرفه‌ای تعریف نشده — برای نمایش در سایت باید حداقل یک تعرفه اضافه کنید.</div>
                         @endif
+
+                        @if($rt->rooms->isNotEmpty())
+                        <div class="mt-3">
+                            <div class="text-muted small mb-2"><i class="bi bi-grid-3x3-gap me-1"></i>اتاق‌های فیزیکی:</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach($rt->rooms as $room)
+                                <div class="border rounded px-2 py-1 bg-light" style="font-size:.72rem;min-width:100px;">
+                                    <div class="fw-semibold">{{ $room->name }}</div>
+                                    @if($room->description)
+                                    <div class="text-muted text-truncate" style="max-width:140px;" title="{{ $room->description }}">{{ Str::limit($room->description, 40) }}</div>
+                                    @endif
+                                    @if($room->displayAmenities())
+                                    <div class="mt-1 d-flex flex-wrap gap-1">
+                                        @foreach(array_slice($room->displayAmenities(), 0, 3) as $a)
+                                        <span class="badge bg-white text-dark border">{{ $a }}</span>
+                                        @endforeach
+                                        @if(count($room->displayAmenities()) > 3)
+                                        <span class="badge bg-secondary-subtle text-secondary">+{{ count($room->displayAmenities()) - 3 }}</span>
+                                        @endif
+                                    </div>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>

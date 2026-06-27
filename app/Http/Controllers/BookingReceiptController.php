@@ -13,7 +13,18 @@ class BookingReceiptController extends Controller
     {
         $this->authorizeBooking($request, $booking);
 
-        $booking->load(['services', 'guestDetails', 'user', 'accommodation.city', 'roomType', 'roomRate', 'createdBy']);
+        $booking->load([
+            'services',
+            'guestDetails',
+            'user',
+            'accommodation.city',
+            'roomType',
+            'roomRate',
+            'createdBy',
+            'bookingRooms.roomType',
+            'bookingRooms.roomRate',
+            'bookingRooms.room',
+        ]);
 
         $filename = 'booking-' . $booking->tracking_code . '.pdf';
 

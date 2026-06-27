@@ -64,6 +64,9 @@
                 <a wire:navigate href="{{ route('host.accommodations.report', $acc) }}" class="btn btn-sm btn-primary flex-fill">
                     <i class="bi bi-graph-up-arrow me-1"></i>گزارش
                 </a>
+                <a wire:navigate href="{{ route('host.accommodations.veteran-policy', $acc) }}" class="btn btn-sm btn-outline-primary flex-fill">
+                    <i class="bi bi-shield-check me-1"></i>ایثارگری
+                </a>
                 <a wire:navigate href="{{ route('host.accommodations.edit', $acc) }}" class="btn btn-sm btn-outline-warning flex-fill">
                     <i class="bi bi-pencil me-1"></i>ویرایش
                 </a>

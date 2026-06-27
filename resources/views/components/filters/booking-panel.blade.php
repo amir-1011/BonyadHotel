@@ -1,8 +1,16 @@
 @props([
     'accommodations',
+    'provinces' => collect(),
     'cities',
+    'counties' => collect(),
+    'serviceCatalogs' => collect(),
+    'serviceVariants' => collect(),
+    'showServiceAccommodation' => true,
+    'draftProvinceId' => '',
+    'draftServiceCatalogId' => '',
     'hasActiveFilters' => false,
     'showCityFilter' => true,
+    'showCountyFilter' => true,
 ])
 
 <div class="card shadow-sm mb-3">
@@ -43,17 +51,73 @@
                         </select>
                     </div>
 
+                    <div class="col-12">
+                        <div class="small text-muted fw-semibold border-bottom pb-1 mb-1">
+                            <i class="bi bi-geo-alt me-1"></i>مکان اقامتگاه
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-2">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">استان</label>
+                        <select wire:model.live="draftProvinceId" class="form-select form-select-sm" wire:key="booking-filter-province">
+                            <option value="">همه استان‌ها</option>
+                            @foreach($provinces as $province)
+                                <option value="{{ $province->id }}">{{ $province->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     @if($showCityFilter)
-                    <div class="col-6 col-md-3">
+                    <div class="col-6 col-md-2">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">شهر</label>
-                        <select wire:model="draftCityId" class="form-select form-select-sm">
-                            <option value="">همه شهرها</option>
+                        <select wire:model.live="draftCityId" class="form-select form-select-sm" wire:key="booking-filter-city-{{ $draftProvinceId }}" @disabled(!$draftProvinceId)>
+                            <option value="">{{ $draftProvinceId ? 'همه شهرها' : 'ابتدا استان انتخاب کنید' }}</option>
                             @foreach($cities as $city)
                                 <option value="{{ $city->id }}">{{ $city->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     @endif
+
+                    @if($showCountyFilter)
+                    <div class="col-6 col-md-2">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">شهرستان</label>
+                        <select wire:model="draftCountyId" class="form-select form-select-sm" wire:key="booking-filter-county-{{ $draftProvinceId }}" @disabled(!$draftProvinceId)>
+                            <option value="">{{ $draftProvinceId ? 'همه شهرستان‌ها' : 'ابتدا استان انتخاب کنید' }}</option>
+                            @foreach($counties as $county)
+                                <option value="{{ $county->id }}">{{ $county->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    <div class="col-12">
+                        <div class="small text-muted fw-semibold border-bottom pb-1 mb-1">
+                            <i class="bi bi-diagram-3 me-1"></i>خدمات رزرو
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">خدمت والد</label>
+                        <select wire:model.live="draftServiceCatalogId" class="form-select form-select-sm" wire:key="booking-filter-service-{{ $draftProvinceId }}-{{ $draftServiceCatalogId }}">
+                            <option value="">همه خدمات</option>
+                            @foreach($serviceCatalogs as $svc)
+                                <option value="{{ $svc->id }}">
+                                    {{ $showServiceAccommodation ? ($svc->accommodation?->name . ' — ' . $svc->name) : $svc->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">زیرشاخه / نوع خدمت</label>
+                        <select wire:model="draftServiceCatalogVariantId" class="form-select form-select-sm" wire:key="booking-filter-variant-{{ $draftServiceCatalogId }}" @disabled(!$draftServiceCatalogId)>
+                            <option value="">{{ $draftServiceCatalogId ? 'همه انواع این خدمت' : 'ابتدا خدمت والد را انتخاب کنید' }}</option>
+                            @foreach($serviceVariants as $variant)
+                                <option value="{{ $variant->id }}">{{ $variant->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
                     <div class="col-6 col-md-2">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">ورود از</label>

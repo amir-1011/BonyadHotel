@@ -42,9 +42,29 @@
     </div>
 
     {{-- Room info --}}
-    @if($booking->roomType)
+    @if($booking->bookingRooms->isNotEmpty() || $booking->roomType)
     <div style="border:1px solid var(--bnb-border);border-radius:12px;padding:20px;margin-bottom:16px;">
-        <div style="font-size:12px;color:var(--bnb-gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">اتاق رزرو شده</div>
+        <div style="font-size:12px;color:var(--bnb-gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">اتاق‌های رزرو شده</div>
+        @if($booking->bookingRooms->isNotEmpty())
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            @foreach($booking->bookingRooms as $i => $line)
+            <div style="border:1px solid var(--bnb-border);border-radius:10px;padding:12px 14px;">
+                <div style="font-size:13px;font-weight:700;color:var(--bnb-dark);margin-bottom:6px;">
+                    {{ $line->roomType?->name ?? 'اتاق' }}
+                    @if($line->room)
+                    <span style="display:inline-block;background:rgba(13,110,253,.1);color:#0d6efd;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;margin-right:6px;">{{ $line->room->name }}</span>
+                    @endif
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+                    @if($line->roomRate)
+                    <div><div style="font-size:12px;color:var(--bnb-gray);">تعرفه</div><div>{{ $line->roomRate->name }}</div></div>
+                    @endif
+                    <div><div style="font-size:12px;color:var(--bnb-gray);">مهمان</div><div>{{ $line->guests }} نفر</div></div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        @else
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><div style="font-size:12px;color:var(--bnb-gray);">نوع اتاق</div><div style="font-size:14px;font-weight:600;color:var(--bnb-dark);">{{ $booking->roomType->name }}</div></div>
             <div><div style="font-size:12px;color:var(--bnb-gray);">نوع تخت</div><div style="font-size:14px;color:var(--bnb-dark);">{{ $booking->roomType->bed_type }}</div></div>
@@ -54,6 +74,7 @@
             <div><div style="font-size:12px;color:var(--bnb-gray);">سیاست لغو</div><div style="font-size:14px;color:var(--bnb-dark);">{{ $booking->roomRate->cancellationLabel() }}</div></div>
             @endif
         </div>
+        @endif
     </div>
     @endif
 

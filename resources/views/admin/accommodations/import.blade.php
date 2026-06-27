@@ -99,7 +99,7 @@
 
                 <p class="fw-semibold mb-1">اقامتگاه</p>
                 <ul class="mb-2 ps-3">
-                    <li>استان و شهر در صورت نبودن در فهرست، به‌صورت خودکار اضافه می‌شوند</li>
+                    <li>استان، شهر و شهرستان (اختیاری) در صورت نبودن در فهرست، به‌صورت خودکار اضافه می‌شوند</li>
                     <li>نوع: hotel, villa, apartment, hostel, traditional یا نام فارسی جدید</li>
                     <li>وضعیت اداره: outsourced یا self_governing</li>
                     <li>امکانات با <code>|</code> جدا شوند</li>

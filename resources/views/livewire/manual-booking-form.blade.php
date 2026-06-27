@@ -24,6 +24,11 @@
                 :room-types="$roomTypes"
                 mode="manual"
                 :default-discount-pct="$this->discountPct"
+                :prefill-room-type-id="$prefillRoomTypeId"
+                :prefill-room-rate-id="$prefillRoomRateId"
+                :prefill-room-id="$prefillRoomId"
+                :prefill-room-name="$prefillRoomName"
+                :prefill-focus-dates="$prefillFocusDates"
             />
 
             @error('checkIn')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
@@ -42,13 +47,19 @@
                 @php
                     $rt = $roomTypes->firstWhere('id', $line['room_type_id']);
                     $rate = $rt?->rates->firstWhere('id', $line['room_rate_id'] ?? 0);
-                    $lineGuests = (int) $line['adults'] + (int) ($line['children_under_6'] ?? 0);
+                    $lineGuests = (int) $line['adults'] + (int) ($line['children_under_6'] ?? 0) + (int) ($line['extra_guests'] ?? 0);
                 @endphp
                 <div class="alert alert-light border mb-2 small py-2" wire:key="room-line-{{ $i }}">
                     <div class="d-flex justify-content-between align-items-start gap-2">
                         <div>
                             <strong>{{ $rt?->name ?? 'اتاق' }}</strong>
                             @if($rate)<span class="text-muted"> — {{ $rate->name }}</span>@endif
+                            @if(!empty($line['room_name']))
+                            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle ms-1">{{ $line['room_name'] }}</span>
+                            @elseif(!empty($line['room_id']))
+                            @php $assignedRoom = $rt?->rooms?->firstWhere('id', $line['room_id']); @endphp
+                            @if($assignedRoom)<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle ms-1">{{ $assignedRoom->name }}</span>@endif
+                            @endif
                             <div class="mt-1 text-muted">
                                 {{ $line['adults'] }} بزرگسال
                                 @if(($line['children_under_6'] ?? 0) > 0) · {{ $line['children_under_6'] }} کودک زیر ۶ سال @endif
@@ -112,27 +123,54 @@
                 @endif
             </div>
             @endif
-            <p class="text-muted small">از فهرست خدمات انتخاب کنید یا «سایر (دستی)» را بزنید. پس از انتخاب، نام نمایشی خدمت را می‌توانید ویرایش کنید (مثلاً «استخر» → «استخر نشاط مشهد»).</p>
+            <p class="text-muted small">از فهرست خدمات انتخاب کنید. اگر خدمت انواع دارد (مثلاً استخر نشاط / پارک آبی)، نوع را هم انتخاب کنید. برای ورود دستی «سایر (دستی)» را بزنید.</p>
             @foreach($services as $i => $service)
             @php
                 $catalogId = $service['service_catalog_id'] ?? '';
                 $selectedCatalog = $catalogId && $catalogId !== 'custom'
                     ? $serviceCatalog->firstWhere('id', (int) $catalogId)
                     : null;
+                $activeVariants = $selectedCatalog?->variants?->where('is_active', true) ?? collect();
+                $hasVariants = $activeVariants->isNotEmpty();
+                $catalogMissingVariants = $selectedCatalog && !$hasVariants;
                 $hasVariableDiscount = $selectedCatalog && $selectedCatalog->min_discount !== null && $selectedCatalog->max_discount !== null;
             @endphp
             <div class="row g-2 align-items-end mb-3 border-bottom pb-3" wire:key="svc-{{ $i }}">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label small">انتخاب خدمت</label>
-                    <select wire:model.live="services.{{ $i }}.service_catalog_id" class="form-select form-select-sm">
+                    <select wire:model.live="services.{{ $i }}.service_catalog_id"
+                            class="form-select form-select-sm @error('services.'.$i.'.service_catalog_id') is-invalid @enderror">
                         <option value="">— انتخاب کنید —</option>
                         @foreach($serviceCatalog as $cat)
                         <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                         @endforeach
                         <option value="custom">سایر (دستی)</option>
                     </select>
+                    @error('services.'.$i.'.service_catalog_id')<div class="text-danger small">{{ $message }}</div>@enderror
                 </div>
+                @if($hasVariants)
                 <div class="col-md-3">
+                    <label class="form-label small">نوع خدمت</label>
+                    <select wire:model.live="services.{{ $i }}.service_catalog_variant_id" class="form-select form-select-sm @error('services.'.$i.'.service_catalog_variant_id') is-invalid @enderror">
+                        <option value="">— انتخاب نوع —</option>
+                        @foreach($activeVariants as $variant)
+                        <option value="{{ $variant->id }}">{{ $variant->name }} ({{ number_format($variant->price) }} تومان)</option>
+                        @endforeach
+                    </select>
+                    @error('services.'.$i.'.service_catalog_variant_id')<div class="text-danger small">{{ $message }}</div>@enderror
+                </div>
+                @elseif($catalogMissingVariants)
+                <div class="col-md-9">
+                    <div class="alert alert-warning small py-2 mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        برای «{{ $selectedCatalog->name }}» هنوز نوع و قیمت در
+                        <a href="{{ route($panel . '.accommodations.veteran-policy', $accommodation) }}" wire:navigate class="alert-link fw-semibold">تنظیمات ایثارگری</a>
+                        تعریف نشده است.
+                        از بخش <strong>خدمات</strong> در همان صفحه انواع این خدمت را اضافه کنید، یا «سایر (دستی)» را انتخاب کنید.
+                    </div>
+                </div>
+                @endif
+                <div class="col-md-{{ $hasVariants ? 3 : 4 }}">
                     <label class="form-label small">نام خدمت</label>
                     <input type="text" wire:model.live="services.{{ $i }}.name" class="form-control form-control-sm"
                            placeholder="نام خدمت">
@@ -233,13 +271,21 @@
 
             @if($bookerVerified)
             <hr>
-            <p class="text-muted small mb-2">گروه ایثارگری (قابل تغییر دستی در صورت نیاز):</p>
+            <p class="text-muted small mb-2">گروه ایثارگری (حداکثر ۲ گروه — قابل تغییر دستی در صورت نیاز):</p>
             @error('veteranType')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
+            @error('selectedVeteranTypes')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
             <div class="row g-2">
                 @foreach($veteranGroups as $key => $group)
+                @if($key === '') @continue @endif
                 <div class="col-md-6">
-                    <label class="d-flex align-items-center gap-2 border rounded p-3 {{ $veteranType === (string)$key ? 'border-primary bg-primary-subtle' : '' }}" style="cursor:pointer;">
-                        <input type="radio" wire:model.live="veteranType" value="{{ $key }}" class="form-check-input m-0">
+                    <label class="d-flex align-items-center gap-2 border rounded p-3 {{ in_array((string)$key, $selectedVeteranTypes, true) ? 'border-primary bg-primary-subtle' : '' }}" style="cursor:pointer;">
+                        <input
+                            type="checkbox"
+                            wire:model.live="selectedVeteranTypes"
+                            value="{{ $key }}"
+                            class="form-check-input m-0"
+                            @disabled(count($selectedVeteranTypes) >= 2 && !in_array((string)$key, $selectedVeteranTypes, true))
+                        >
                         <div>
                             <div class="fw-semibold">{{ $group['label'] }}</div>
                             <div class="small text-muted">{{ $group['discount'] }}٪ تخفیف اقامت</div>
@@ -248,6 +294,15 @@
                 </div>
                 @endforeach
             </div>
+            @if(count($selectedVeteranTypes) > 1)
+            <div class="alert alert-info py-2 small mt-2 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                مزایای هر دو گروه با اولویت تخفیف بیشتر محاسبه می‌شود.
+                @if(!empty($usageSummary['label']))
+                گروه‌های انتخاب‌شده: <strong>{{ $usageSummary['label'] }}</strong>
+                @endif
+            </div>
+            @endif
 
             @if(!empty($usageSummary))
             @php
@@ -271,13 +326,23 @@
                 $totalColor  = $totalPct  >= 100 ? 'danger' : ($totalPct  >= 67 ? 'warning' : 'primary');
 
                 // How many nights of this booking can receive veteran discount
-                $canBookNights = min($remainPeriod, $remainingTotal);
+                $combinedRemain = (int) ($usageSummary['combined_remaining_discounted_nights'] ?? 0);
+                $canBookNights = $combinedRemain > 0
+                    ? $combinedRemain
+                    : min($remainPeriod, $remainingTotal);
                 $requestedNights = 0;
                 if ($checkIn && $checkOut) {
                     $requestedNights = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
                 }
-                $discountedNights = min($canBookNights, $requestedNights);
+                $accUsage = $accommodationUsageCheck ?? [];
+                if (!empty($accUsage['discounted_nights']) && $requestedNights > 0) {
+                    $discountedNights = (int) $accUsage['discounted_nights'];
+                } else {
+                    $discountedNights = min($canBookNights, $requestedNights);
+                }
                 $fullRateNights = max(0, $requestedNights - $discountedNights);
+                $groupSummaries = $usageSummary['group_summaries'] ?? [];
+                $dualGroupCaps = count($groupSummaries) > 1;
             @endphp
             <div class="border rounded mt-3" style="font-size:.83rem; overflow:hidden">
 
@@ -289,13 +354,58 @@
                         <span class="badge bg-primary bg-opacity-10 text-primary">{{ $usageSummary['label'] }}</span>
                     </div>
                     <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                        <i class="bi bi-house me-1"></i>تخفیف اقامت: {{ $accDiscount }}٪
+                        <i class="bi bi-house me-1"></i>
+                        @if($dualGroupCaps)
+                            تخفیف اقامت: تا {{ $accDiscount }}٪ (چند گروه)
+                        @else
+                            تخفیف اقامت: {{ $accDiscount }}٪
+                        @endif
                     </span>
                 </div>
 
                 <div class="px-3 py-2">
 
                     {{-- ── Period cap (most restrictive) ── --}}
+                    @if($dualGroupCaps)
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-2">
+                            <i class="bi bi-calendar-range me-1 text-primary"></i>
+                            سقف دوره‌ای هر گروه ({{ $periodMonths }} ماه)
+                        </div>
+                        @foreach($groupSummaries as $groupSummary)
+                        @php
+                            $gUsed = (int) ($groupSummary['used_in_period'] ?? 0);
+                            $gMax = (int) ($groupSummary['max_nights_per_period'] ?? 3);
+                            $gRemain = (int) ($groupSummary['remaining_period'] ?? 0);
+                            $gPct = $gMax > 0 ? min(100, (int) round($gUsed / $gMax * 100)) : 0;
+                            $gColor = $gPct >= 100 ? 'danger' : ($gPct >= 67 ? 'warning' : 'success');
+                        @endphp
+                        <div class="mb-2 ps-1">
+                            <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                <span class="small fw-semibold">{{ $groupSummary['label'] ?? '' }}
+                                    <span class="text-muted fw-normal">({{ (int) ($groupSummary['accommodation_discount'] ?? 0) }}٪)</span>
+                                </span>
+                                <span class="text-{{ $gColor }} small fw-bold">{{ $gUsed }} / {{ $gMax }} شب</span>
+                            </div>
+                            <div class="progress" style="height:6px; border-radius:4px">
+                                <div class="progress-bar bg-{{ $gColor }}" style="width:{{ $gPct }}%"></div>
+                            </div>
+                            <div class="small text-muted mt-1">
+                                @if($gRemain > 0)
+                                    {{ $gRemain }} شب باقی‌مانده در این دوره
+                                @else
+                                    <span class="text-danger">سقف این گروه در دوره جاری تکمیل شده</span>
+                                @endif
+                            </div>
+                        </div>
+                        @endforeach
+                        @if($combinedRemain > 0)
+                        <div class="small text-muted">
+                            <i class="bi bi-layers me-1"></i>مجموع ظرفیت باقی‌مانده برای تخفیف اقامت: <strong>{{ $combinedRemain }} شب</strong>
+                        </div>
+                        @endif
+                    </div>
+                    @else
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-baseline mb-1">
                             <span class="fw-semibold">
@@ -322,6 +432,7 @@
                             <span class="text-muted">هر {{ $periodMonths }} ماه تجدید می‌شود</span>
                         </div>
                     </div>
+                    @endif
 
                     {{-- ── Total lifetime quota ── --}}
                     <div class="mb-2 d-none">
@@ -359,6 +470,16 @@
                                 از <strong>{{ $requestedNights }} شب</strong> این رزرو:
                                 <strong class="text-success">{{ $discountedNights }} شب</strong> با تخفیف ایثارگری و
                                 <strong>{{ $fullRateNights }} شب</strong> با نرخ عادی محاسبه می‌شود
+                                @if(!empty($accUsage['group_usage']))
+                                <br><span class="text-muted" style="font-size:.78rem">
+                                    @foreach($accUsage['group_usage'] as $gKey => $gUnits)
+                                        @php $gInfo = $veteranGroups[$gKey] ?? null; @endphp
+                                        @if($gInfo)
+                                            <span class="d-inline-block me-2">{{ $gUnits }} شب با {{ $gInfo['discount'] }}٪ ({{ $gInfo['label'] }})</span>
+                                        @endif
+                                    @endforeach
+                                </span>
+                                @endif
                             </span>
                         </div>
                         @elseif($discountedNights > 0)
@@ -657,9 +778,9 @@
         $accSubtotal     = $pricing['room_subtotal'] + ($pricing['extra_guests_total'] ?? 0);
         $accDiscountAmt  = $pricing['veteran_accommodation_discount_amount']
             ?? (int) round($accSubtotal * $accDiscountPct / 100);
+        $accDiscountBreakdown = $pricing['accommodation_discount_breakdown'] ?? [];
         $nonDiscountGuests = $pricing['non_veteran_discount_guests'] ?? 0;
         $svcLines        = $pricing['service_lines'] ?? [];
-        $veteranLabel    = $veteranType ? ($veteranGroups[$veteranType]['label'] ?? $veteranType) : null;
     @endphp
     <div class="card shadow-sm border-primary mb-3">
         <div class="card-header bg-primary bg-opacity-10 py-2 px-3 d-flex align-items-center gap-2">
@@ -695,21 +816,30 @@
             </div>
             @endif
 
-            @if($accDiscountPct > 0 && $accDiscountAmt > 0)
-            <div class="d-flex justify-content-between py-1 text-danger">
-                <span>
-                    <i class="bi bi-tag-fill me-1" style="font-size:.75rem"></i>تخفیف اقامت ({{ $accDiscountPct }}٪)
-                    @if(($pricing['veteran_discount_nights'] ?? 0) > 0 && ($pricing['veteran_discount_nights'] ?? 0) < ($pricing['nights'] ?? 0))
-                    <br><span class="text-muted ms-3" style="font-size:.75rem">فقط {{ $pricing['veteran_discount_nights'] }} شب از {{ $pricing['nights'] }} شب</span>
+            @if($accDiscountAmt > 0)
+            <div class="py-1 text-danger">
+                <div class="d-flex justify-content-between">
+                    <span>
+                        <i class="bi bi-tag-fill me-1" style="font-size:.75rem"></i>تخفیف اقامت
+                        @if(count($accDiscountBreakdown) <= 1)
+                            ({{ $accDiscountBreakdown[0]['discount_percentage'] ?? $accDiscountPct }}٪)
+                        @endif
+                        @if(($pricing['veteran_discount_nights'] ?? 0) > 0 && ($pricing['veteran_discount_nights'] ?? 0) < ($pricing['nights'] ?? 0))
+                        <br><span class="text-muted ms-3" style="font-size:.75rem">فقط {{ $pricing['veteran_discount_nights'] }} شب از {{ $pricing['nights'] }} شب</span>
+                        @endif
+                        @if($nonDiscountGuests > 0)
+                        <br><span class="text-muted ms-3" style="font-size:.75rem">{{ $nonDiscountGuests }} نفر بدون تخفیف ایثارگری</span>
+                        @endif
+                    </span>
+                    @if(empty($accDiscountBreakdown))
+                    <span class="fw-semibold">− {{ number_format($pricing['veteran_accommodation_discount_amount'] ?? $accDiscountAmt) }} ت</span>
                     @endif
-                    @if($nonDiscountGuests > 0)
-                    <br><span class="text-muted ms-3" style="font-size:.75rem">{{ $nonDiscountGuests }} نفر بدون تخفیف ایثارگری</span>
-                    @endif
-                    @if($veteranLabel)
-                    <br><span class="text-muted ms-3" style="font-size:.75rem">{{ $veteranLabel }}</span>
-                    @endif
-                </span>
-                <span class="fw-semibold">− {{ number_format($pricing['veteran_accommodation_discount_amount'] ?? $accDiscountAmt) }} ت</span>
+                </div>
+                <x-booking.accommodation-discount-breakdown
+                    :breakdown="$accDiscountBreakdown"
+                    :total="$pricing['veteran_accommodation_discount_amount'] ?? $accDiscountAmt"
+                    compact
+                />
             </div>
             @endif
 
@@ -726,43 +856,15 @@
             @if(count($svcLines) > 0)
             <div class="border-top mt-1 pt-1">
                 @foreach($svcLines as $line)
-                @php
-                    $lineSub      = $line['line_subtotal'];
-                    $lineDisc     = $line['discount_amount'];
-                    $lineFinal    = $line['line_total'];
-                    $freeEligible = $line['free_sessions_eligible'] ?? false;
-                    $freeUnits    = (int) ($line['free_units'] ?? 0);
-                    $paidUnits    = $line['quantity'] - $freeUnits;
-                @endphp
-                <div class="py-1">
+                <div class="py-1" wire:key="svc-preview-{{ $loop->index }}">
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">
                             {{ $line['name'] }}
                             <span class="text-secondary">({{ $line['quantity'] }} × {{ number_format($line['unit_price']) }})</span>
                         </span>
-                        <span>{{ number_format($lineSub) }} ت</span>
+                        <span>{{ number_format($line['line_subtotal']) }} ت</span>
                     </div>
-                    @if($lineDisc > 0)
-                    <div class="d-flex justify-content-between text-danger" style="padding-right:.5rem">
-                        <span>
-                            <i class="bi bi-tag-fill me-1" style="font-size:.75rem"></i>
-                            @if($freeEligible && $freeUnits > 0)
-                                {{ $freeUnits }} جلسه رایگان
-                                @if($paidUnits > 0)
-                                    + {{ $line['discount_percentage'] }}٪ ({{ $paidUnits }} جلسه)
-                                @endif
-                            @else
-                                تخفیف {{ $line['discount_percentage'] }}٪
-                            @endif
-                        </span>
-                        <span class="fw-semibold">− {{ number_format($lineDisc) }} ت</span>
-                    </div>
-                    @elseif($lineSub === 0)
-                    <div class="d-flex justify-content-between text-success" style="padding-right:.5rem">
-                        <span><i class="bi bi-gift-fill me-1" style="font-size:.75rem"></i>رایگان</span>
-                        <span>—</span>
-                    </div>
-                    @endif
+                    <x-booking.service-discount-breakdown :line="$line" compact />
                 </div>
                 @endforeach
             </div>

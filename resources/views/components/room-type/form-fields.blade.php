@@ -2,12 +2,13 @@
 @props(['roomType' => null])
 
 @php
-    $categories = config('room_types.categories', []);
-    $roomAmenities = config('room_types.amenities', []);
+    use App\Support\CatalogPermissions;
+
+    $categoryCatalog = app(\App\Services\RoomTypeCategoryCatalogService::class)->allOrdered();
+    $amenityCatalog = app(\App\Services\RoomTypeAmenityCatalogService::class)->allOrdered();
     $oldAmenities = old('amenities', $roomType?->amenities ?? []);
     $selectedCategory = old('bed_type', $roomType?->bed_type);
-    $customCategory = $selectedCategory && !in_array($selectedCategory, $categories, true) ? $selectedCategory : null;
-    $customAmenities = array_values(array_diff($oldAmenities, $roomAmenities));
+    $authUser = auth()->user();
 @endphp
 
 @if($errors->any())
@@ -16,7 +17,11 @@
 </div>
 @endif
 
-<div class="row g-4" data-room-type-form>
+<div class="row g-4" data-room-type-form
+     data-amenity-store-url="{{ route('api.room-type-amenities.store') }}"
+     data-amenity-destroy-url="{{ url('/api/room-type-amenities') }}"
+     data-category-store-url="{{ route('api.room-type-categories.store') }}"
+     data-category-destroy-url="{{ url('/api/room-type-categories') }}">
 
     {{-- ── اطلاعات اصلی ─────────────────────────────────────────────── --}}
     <div class="col-12">
@@ -37,14 +42,29 @@
                     <label class="form-label fw-semibold">نوع اتاق</label>
                     <select name="bed_type" data-room-category-select class="form-select @error('bed_type') is-invalid @enderror">
                         <option value="">— انتخاب کنید —</option>
-                        @foreach($categories as $cat)
-                        <option value="{{ $cat }}" @selected($selectedCategory === $cat)>{{ $cat }}</option>
+                        @foreach($categoryCatalog as $category)
+                        <option value="{{ $category->name }}" data-category-id="{{ $category->id }}" @selected($selectedCategory === $category->name)>{{ $category->name }}</option>
                         @endforeach
-                        @if($customCategory)
-                        <option value="{{ $customCategory }}" @selected(true)>{{ $customCategory }}</option>
-                        @endif
                     </select>
                     @error('bed_type')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                    <div data-room-categories-catalog class="rt-catalog-pills mt-2">
+                        @foreach($categoryCatalog as $category)
+                        <span class="rt-catalog-pill" data-category-id="{{ $category->id }}">
+                            <span class="rt-catalog-pill__label">{{ $category->name }}</span>
+                            @if(CatalogPermissions::canDelete($authUser, $category->created_by))
+                            <button type="button"
+                                    class="rt-catalog-pill__remove"
+                                    data-action="remove-room-category"
+                                    data-category-id="{{ $category->id }}"
+                                    data-category-name="{{ $category->name }}"
+                                    title="حذف از لیست سراسری"
+                                    aria-label="حذف {{ $category->name }} از لیست">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                            @endif
+                        </span>
+                        @endforeach
+                    </div>
                     <div class="mt-1">
                         <div data-room-category-add-panel class="d-none">
                             <div class="input-group input-group-sm">
@@ -150,26 +170,34 @@
                 <span>امکانات اتاق</span>
             </div>
             <div data-amenities-grid class="row g-2">
-                @foreach($roomAmenities as $a)
-                <div class="col-6 col-md-4 col-lg-3">
+                @foreach($amenityCatalog as $amenity)
+                <div class="col-6 col-md-4 col-lg-3" data-amenity-id="{{ $amenity->id }}">
                     <label class="rt-amenity-tile">
-                        <input type="checkbox" name="amenities[]" value="{{ $a }}"
-                               class="rt-amenity-input" id="am_{{ $loop->index }}"
-                               @checked(in_array($a, $oldAmenities, true))>
-                        <span class="rt-amenity-tile__label">{{ $a }}</span>
+                        <input type="checkbox" name="amenities[]" value="{{ $amenity->name }}"
+                               class="rt-amenity-input" id="am_{{ $amenity->id }}"
+                               @checked(in_array($amenity->name, $oldAmenities, true))>
+                        <span class="rt-amenity-tile__label">{{ $amenity->name }}</span>
                         <i class="bi bi-check-circle-fill rt-amenity-tile__check" aria-hidden="true"></i>
                     </label>
-                </div>
-                @endforeach
-                @foreach($customAmenities as $a)
-                <div class="col-6 col-md-4 col-lg-3">
-                    <label class="rt-amenity-tile">
-                        <input type="checkbox" name="amenities[]" value="{{ $a }}"
-                               class="rt-amenity-input" id="am_custom_{{ $loop->index }}"
-                               checked>
-                        <span class="rt-amenity-tile__label">{{ $a }}</span>
-                        <i class="bi bi-check-circle-fill rt-amenity-tile__check" aria-hidden="true"></i>
-                    </label>
+                    <button type="button"
+                            class="rt-amenity-apply-all"
+                            data-action="apply-amenity-to-all-rooms"
+                            data-amenity-name="{{ $amenity->name }}"
+                            title="اعمال روی همه اتاق‌های فیزیکی"
+                            aria-label="اعمال {{ $amenity->name }} روی همه اتاق‌های فیزیکی">
+                        <i class="bi bi-layers"></i>
+                    </button>
+                    @if(CatalogPermissions::canDelete($authUser, $amenity->created_by))
+                    <button type="button"
+                            class="rt-amenity-remove"
+                            data-action="remove-amenity"
+                            data-amenity-id="{{ $amenity->id }}"
+                            data-amenity-name="{{ $amenity->name }}"
+                            title="حذف از لیست سراسری"
+                            aria-label="حذف {{ $amenity->name }} از لیست">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    @endif
                 </div>
                 @endforeach
             </div>
@@ -293,6 +321,99 @@
 .rt-amenity-tile:has(.rt-amenity-input:checked) .rt-amenity-tile__label {
     font-weight: 600;
     color: var(--bs-success-text-emphasis, var(--bs-success));
+}
+.col-6.col-md-4.col-lg-3[data-amenity-id] {
+    position: relative;
+}
+.rt-amenity-remove {
+    position: absolute;
+    top: .35rem;
+    inset-inline-start: .35rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(var(--bs-danger-rgb), .12);
+    color: var(--bs-danger);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: .65rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity .15s, background .15s;
+}
+.col-6.col-md-4.col-lg-3[data-amenity-id]:hover .rt-amenity-remove,
+.col-6.col-md-4.col-lg-3[data-amenity-id]:hover .rt-amenity-apply-all,
+.rt-amenity-remove:focus-visible,
+.rt-amenity-apply-all:focus-visible {
+    opacity: 1;
+}
+.rt-amenity-remove:hover {
+    background: rgba(var(--bs-danger-rgb), .22);
+}
+.rt-amenity-apply-all {
+    position: absolute;
+    top: .35rem;
+    inset-inline-end: .35rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(var(--bs-primary-rgb), .12);
+    color: var(--bs-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: .7rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity .15s, background .15s;
+}
+.rt-amenity-apply-all:hover {
+    background: rgba(var(--bs-primary-rgb), .22);
+}
+.rt-catalog-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+.rt-catalog-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    font-size: .72rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    padding: .15rem .45rem .15rem .35rem;
+    background: var(--bs-body-bg);
+}
+.rt-catalog-pill__label {
+    line-height: 1.3;
+}
+.rt-catalog-pill__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(var(--bs-danger-rgb), .12);
+    color: var(--bs-danger);
+    padding: 0;
+    font-size: .6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.rt-catalog-pill__remove:hover {
+    background: rgba(var(--bs-danger-rgb), .22);
 }
 .rt-image-keep-label {
     position: relative;

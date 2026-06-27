@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Admin\AccommodationVeteranPolicySettings;
 use App\Livewire\Admin\VeteranPolicySettings;
+use App\Models\Accommodation;
 use App\Models\ServiceCatalog;
 use App\Models\User;
 use App\Models\VeteranGroup;
 use App\Services\BookingPricingService;
 use App\Services\NationalIdVerificationService;
+use App\Services\VeteranPolicyProvisioner;
 use App\Services\VeteranPolicyService;
-use Database\Seeders\VeteranPolicySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -19,10 +21,12 @@ class VeteranPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Accommodation $accommodation;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(VeteranPolicySeeder::class);
+        $this->accommodation = $this->createTestAccommodation();
     }
 
     public function test_seeder_creates_seven_veteran_groups(): void
@@ -34,7 +38,7 @@ class VeteranPolicyTest extends TestCase
 
     public function test_veteran_70_group_has_70_percent_accommodation_discount(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $this->assertSame(70, $policy->accommodationDiscount('veteran_70_spouses'));
         $this->assertSame('جانبازان ۷۰ درصد و همسران', $policy->groupByKey('veteran_70_spouses')?->label);
@@ -42,7 +46,7 @@ class VeteranPolicyTest extends TestCase
 
     public function test_legacy_veteran_keys_are_normalized(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $this->assertSame('veteran_70_spouses', $policy->normalizeKey('veteran_70_plus'));
         $this->assertSame(70, $policy->accommodationDiscount('veteran_70_plus'));
@@ -50,10 +54,10 @@ class VeteranPolicyTest extends TestCase
 
     public function test_conference_hall_discount_is_40_percent_for_all_groups(): void
     {
-        $policy = app(VeteranPolicyService::class);
-        $conference = ServiceCatalog::where('key', 'conference_hall')->firstOrFail();
+        $policy = $this->veteranPolicyFor($this->accommodation);
+        $conference = $this->veteranCatalog($this->accommodation, 'conference_hall');
 
-        foreach (VeteranGroup::all() as $group) {
+        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->get() as $group) {
             $rule = $policy->serviceDiscountRule($group->key, $conference->id);
             $this->assertSame(40, $rule['discount_percentage'], "Failed for group {$group->key}");
         }
@@ -61,8 +65,8 @@ class VeteranPolicyTest extends TestCase
 
     public function test_pool_is_free_eligible_for_70_percent_veterans(): void
     {
-        $policy = app(VeteranPolicyService::class);
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $policy = $this->veteranPolicyFor($this->accommodation);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
 
         $rule70 = $policy->serviceDiscountRule('veteran_70_spouses', $pool->id);
         $rule50 = $policy->serviceDiscountRule('veteran_50_69_dependents', $pool->id);
@@ -75,13 +79,9 @@ class VeteranPolicyTest extends TestCase
 
     public function test_pricing_applies_separate_accommodation_and_service_discounts(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $pricing = app(BookingPricingService::class);
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-
-        $accommodation = new \App\Models\Accommodation([
-            'price_per_night' => 1_000_000,
-        ]);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
 
         $result = $pricing->calculate([
             'check_in'     => now()->addDays(7)->format('Y-m-d'),
@@ -95,7 +95,7 @@ class VeteranPolicyTest extends TestCase
                 'unit_price'         => 200_000,
                 'quantity'           => 2,
             ]]),
-            'accommodation' => $accommodation,
+            'accommodation' => $this->accommodation,
             'room_type'     => null,
             'room_rate'     => null,
         ]);
@@ -113,10 +113,6 @@ class VeteranPolicyTest extends TestCase
     {
         $pricing = app(BookingPricingService::class);
 
-        $accommodation = new \App\Models\Accommodation([
-            'price_per_night' => 1_000_000,
-        ]);
-
         $checkIn = now()->addDays(7)->format('Y-m-d');
         $checkOut = now()->addDays(11)->format('Y-m-d');
 
@@ -127,7 +123,7 @@ class VeteranPolicyTest extends TestCase
             'extra_guests'    => 0,
             'veteran_type'    => 'veteran_70_spouses',
             'services'        => [],
-            'accommodation'   => $accommodation,
+            'accommodation'   => $this->accommodation,
             'room_type'       => null,
             'room_rate'       => null,
         ]);
@@ -141,7 +137,7 @@ class VeteranPolicyTest extends TestCase
 
     public function test_usage_limit_allows_exceeding_period_cap_with_partial_discount(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $check = $policy->checkAccommodationUsage(
             'veteran_70_spouses',
@@ -167,9 +163,11 @@ class VeteranPolicyTest extends TestCase
 
     public function test_pool_and_gym_can_have_different_weekly_free_session_quotas(): void
     {
-        $group = VeteranGroup::where('key', 'veteran_70_spouses')->firstOrFail();
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $gym = ServiceCatalog::where('key', 'gym')->firstOrFail();
+        $group = VeteranGroup::forAccommodation($this->accommodation->id)
+            ->where('key', 'veteran_70_spouses')
+            ->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $gym = $this->veteranCatalog($this->accommodation, 'gym');
 
         $poolDiscount = $group->serviceDiscounts()->where('service_catalog_id', $pool->id)->firstOrFail();
         $gymDiscount = $group->serviceDiscounts()->where('service_catalog_id', $gym->id)->firstOrFail();
@@ -177,8 +175,8 @@ class VeteranPolicyTest extends TestCase
         $poolDiscount->update(['free_sessions_eligible' => true, 'weekly_free_sessions' => 4]);
         $gymDiscount->update(['free_sessions_eligible' => true, 'weekly_free_sessions' => 2]);
 
-        app(VeteranPolicyService::class)->clearCache();
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
+        $policy->clearCache($this->accommodation->id);
 
         $poolRule = $policy->serviceDiscountRule('veteran_70_spouses', $pool->id);
         $gymRule = $policy->serviceDiscountRule('veteran_70_spouses', $gym->id);
@@ -203,23 +201,65 @@ class VeteranPolicyTest extends TestCase
         $admin->assignRole('super_admin');
         $this->actingAs($admin);
 
-        $serviceCount = ServiceCatalog::count();
+        $serviceCount = ServiceCatalog::forAccommodation($this->accommodation->id)->count();
 
-        Livewire::test(VeteranPolicySettings::class)
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
             ->set('newGroupLabel', 'گروه آزمایشی')
             ->set('newGroupAccommodationDiscount', 55)
             ->call('addCustomGroup')
             ->assertHasNoErrors();
 
-        $group = VeteranGroup::where('label', 'گروه آزمایشی')->first();
+        $group = VeteranGroup::forAccommodation($this->accommodation->id)
+            ->where('label', 'گروه آزمایشی')
+            ->first();
         $this->assertNotNull($group);
         $this->assertStringStartsWith('custom_group_', $group->key);
         $this->assertSame(55, $group->accommodation_discount);
         $this->assertSame($serviceCount, $group->serviceDiscounts()->count());
 
-        app(VeteranPolicyService::class)->clearCache();
-        $options = app(VeteranPolicyService::class)->optionsForUi();
+        $policy = $this->veteranPolicyFor($this->accommodation);
+        $policy->clearCache($this->accommodation->id);
+        $options = $policy->optionsForUi();
         $this->assertArrayHasKey($group->key, $options);
         $this->assertSame('گروه آزمایشی', $options[$group->key]['label']);
+    }
+
+    public function test_admin_global_settings_sync_group_discount_to_all_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000998',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->set('groups.0.accommodation_discount', 75)
+            ->call('saveGroups')
+            ->assertHasNoErrors();
+
+        foreach ([$this->accommodation, $secondAccommodation] as $accommodation) {
+            $group = VeteranGroup::forAccommodation($accommodation->id)
+                ->where('key', 'veteran_70_spouses')
+                ->firstOrFail();
+            $this->assertSame(75, $group->accommodation_discount);
+        }
+    }
+
+    public function test_veteran_label_resolves_without_accommodation_context(): void
+    {
+        $user = User::create([
+            'name'         => 'جانباز تست',
+            'mobile'       => '09100000111',
+            'national_id'  => '4441234567',
+            'veteran_type' => 'veteran_70_spouses',
+        ]);
+
+        $this->assertSame('جانبازان ۷۰ درصد و همسران', $user->veteranLabel());
+        $this->assertSame('جانبازان ۷۰ درصد و همسران', \App\Support\VeteranGroups::label('veteran_70_plus'));
     }
 }

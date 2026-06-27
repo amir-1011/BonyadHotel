@@ -2,7 +2,7 @@
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
             <h5 class="fw-bold mb-1">تنظیمات ایثارگری و خدمات</h5>
-            <p class="text-muted small mb-0">مدیریت درصد تخفیف اقامت، سقف استفاده و تخفیف هر خدمت بر اساس گروه ایثارگری</p>
+            <p class="text-muted small mb-0">مدیریت درصد تخفیف اقامت، سقف استفاده و تخفیف هر خدمت — تغییرات این صفحه روی <strong>همه {{ $accommodationCount }} اقامتگاه</strong> اعمال می‌شود.</p>
         </div>
     </div>
 
@@ -127,7 +127,7 @@
                         </thead>
                         <tbody>
                             @foreach($groups as $i => $group)
-                            <tr wire:key="grp-{{ $group['id'] }}">
+                            <tr wire:key="grp-{{ $group['key'] }}">
                                 <td>
                                     <input type="text" wire:model="groups.{{ $i }}.label" class="form-control form-control-sm">
                                     <div class="text-muted" style="font-size:.7rem">{{ $group['key'] }}</div>
@@ -148,10 +148,10 @@
                 <button type="submit" class="btn btn-primary btn-sm">ذخیره گروه‌ها</button>
             </div>
         </div>
-        <div class="alert alert-info small mt-3 mb-0">
+        {{-- <div class="alert alert-info small mt-3 mb-0">
             <strong>راهنما:</strong> سقف دوره یعنی حداکثر شب قابل استفاده در هر بازه (مثلاً ۳ شب در ۶ ماه).
             «شب/تکفل» یعنی ۶ شب به ازای هر نفر تحت تکفل. تعداد جلسات رایگان هفتگی در تب «تخفیف خدمات» تنظیم می‌شود.
-        </div>
+        </div> --}}
     </form>
 
     <div class="card shadow-sm mt-3">
@@ -193,118 +193,37 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-white fw-semibold">خدمات پیش‌فرض (dropdown رزرو دستی)</div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        نام خدمت
-                                        <x-admin.column-help title="نام خدمت">
-                                            عنوان نمایشی خدمت در فرم رزرو دستی و فاکتور.
-                                            <ul class="mt-2">
-                                                <li>کلید سیستمی (زیر نام) برای اتصال به ماتریس تخفیف است.</li>
-                                                <li>خدمات جدید با پیشوند <code>custom_</code> ساخته می‌شوند.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th style="width:120px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        قیمت پیش‌فرض
-                                        <x-admin.column-help title="قیمت پیش‌فرض">
-                                            مبلغ پایه هر واحد خدمت (تومان) هنگام افزودن به رزرو دستی.
-                                            <ul class="mt-2">
-                                                <li>میزبان/ادمین می‌تواند در هر رزرو مبلغ را تغییر دهد.</li>
-                                                <li>برای خدمات رایگان یا توافقی، ۰ بگذارید.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th style="width:90px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        تخفیف پیش‌فرض
-                                        <x-admin.column-help title="تخفیف پیش‌فرض">
-                                            درصد تخفیف پیش‌فرض این خدمت وقتی برای گروهی قانون اختصاصی تعریف نشده باشد.
-                                            <ul class="mt-2">
-                                                <li>در تب «تخفیف خدمات» می‌توانید برای هر گروه مقدار جدا تنظیم کنید.</li>
-                                                <li>محدوده: ۰ تا ۱۰۰.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th class="d-none" style="width:95px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        حداقل
-                                        <x-admin.column-help title="حداقل تخفیف">
-                                            کف درصد تخفیف هنگام <strong>تغییر دستی</strong> تخفیف در رزرو.
-                                            <ul class="mt-2">
-                                                <li>اگر خالی باشد، محدودیت پایینی اعمال نمی‌شود.</li>
-                                                <li>برای خدمات ورزشی معمولاً ۵۰٪ تنظیم می‌شود.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th class="d-none" style="width:95px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        حداکثر
-                                        <x-admin.column-help title="حداکثر تخفیف">
-                                            سقف درصد تخفیف هنگام <strong>تغییر دستی</strong> تخفیف در رزرو.
-                                            <ul class="mt-2">
-                                                <li>اگر خالی باشد، محدودیت بالایی اعمال نمی‌شود.</li>
-                                                <li>برای خدمات ورزشی معمولاً ۸۰٪ تنظیم می‌شود.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th style="width:80px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        جلسه رایگان
-                                        <x-admin.column-help title="پشتیبانی جلسه رایگان">
-                                            مشخص می‌کند آیا این خدمت می‌تواند <strong>جلسه رایگان هفتگی</strong> داشته باشد.
-                                            <ul class="mt-2">
-                                                <li>برای استخر، بدنسازی و سالن فعال کنید.</li>
-                                                <li>در تب «تخفیف خدمات» تیک «رایگان» برای هر گروه جداگانه تنظیم می‌شود.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                                <th style="width:60px">
-                                    <span class="d-inline-flex align-items-center gap-1">
-                                        فعال
-                                        <x-admin.column-help title="وضعیت خدمت">
-                                            اگر غیرفعال باشد:
-                                            <ul class="mt-2">
-                                                <li>در dropdown خدمات رزرو دستی نمایش داده نمی‌شود.</li>
-                                                <li>ستون آن در ماتریس تخفیف همچنان قابل مشاهده است تا بتوانید دوباره فعال کنید.</li>
-                                            </ul>
-                                        </x-admin.column-help>
-                                    </span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($services as $i => $service)
-                            <tr wire:key="svc-{{ $service['id'] }}">
-                                <td>
-                                    <input type="text" wire:model="services.{{ $i }}.name" class="form-control form-control-sm">
-                                    <div class="text-muted" style="font-size:.7rem">{{ $service['key'] }}</div>
-                                </td>
-                                <td><x-money-input wire:model="services.{{ $i }}.default_price" min="0" class="form-control form-control-sm" /></td>
-                                <td><input type="number" wire:model="services.{{ $i }}.default_discount" min="0" max="100" class="form-control form-control-sm"></td>
-                                <td class="d-none"><input type="number" wire:model="services.{{ $i }}.min_discount" min="0" max="100" class="form-control form-control-sm" placeholder="—"></td>
-                                <td class="d-none"><input type="number" wire:model="services.{{ $i }}.max_discount" min="0" max="100" class="form-control form-control-sm" placeholder="—"></td>
-                                <td class="text-center"><input type="checkbox" wire:model="services.{{ $i }}.supports_free_sessions" class="form-check-input"></td>
-                                <td class="text-center"><input type="checkbox" wire:model="services.{{ $i }}.is_active" class="form-check-input"></td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                @foreach($services as $i => $service)
+                <div class="border-bottom" wire:key="svc-block-{{ $service['key'] }}">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>نام خدمت</th>
+                                    <th style="width:60px">فعال</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <input type="text" wire:model="services.{{ $i }}.name" class="form-control form-control-sm">
+                                        <div class="text-muted" style="font-size:.7rem">{{ $service['key'] }}</div>
+                                    </td>
+                                    <td class="text-center"><input type="checkbox" wire:model="services.{{ $i }}.is_active" class="form-check-input"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <x-veteran-policy.service-variants-section :service="$service" :service-index="$i" />
                 </div>
+                @endforeach
             </div>
             <div class="card-footer bg-white text-end">
-                <button type="submit" class="btn btn-primary btn-sm">ذخیره خدمات</button>
+                <button type="submit" class="btn btn-primary btn-sm">ذخیره خدمات و انواع (همه اقامتگاه‌ها)</button>
             </div>
+        </div>
+        <div class="alert alert-info small mb-3">
+            قیمت فقط در <strong>انواع زیرمجموعه</strong> تعریف می‌شود. تخفیف ایثارگری روی <strong>خدمت والد</strong> در تب «تخفیف خدمات» تنظیم می‌شود.
         </div>
     </form>
 
@@ -312,23 +231,14 @@
         <div class="card-header bg-white fw-semibold">افزودن خدمت جدید</div>
         <div class="card-body">
             <div class="row g-2 align-items-end">
-                <div class="col-md-6">
+                <div class="col-md-9">
                     <label class="form-label small d-inline-flex align-items-center gap-1">
                         نام خدمت
                         <x-admin.column-help title="نام خدمت جدید">
-                            نام فارسی خدمتی که به فهرست اضافه می‌شود. پس از افزودن، برای همه گروه‌های ایثارگری ردیف تخفیف با مقدار ۰٪ ساخته می‌شود.
+                            عنوان کلی خدمت (مثل «استخر»). پس از افزودن، انواع و قیمت هر نوع را در بخش همان خدمت تعریف کنید.
                         </x-admin.column-help>
                     </label>
                     <input type="text" wire:model="newServiceName" class="form-control form-control-sm" placeholder="مثلاً: پارکینگ">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small d-inline-flex align-items-center gap-1">
-                        قیمت پیش‌فرض
-                        <x-admin.column-help title="قیمت خدمت جدید">
-                            مبلغ پایه (تومان) که هنگام انتخاب این خدمت در رزرو دستی پیشنهاد می‌شود.
-                        </x-admin.column-help>
-                    </label>
-                    <x-money-input wire:model="newServicePrice" min="0" class="form-control form-control-sm" />
                 </div>
                 <div class="col-md-3">
                     <button type="button" wire:click="addCustomService" class="btn btn-success btn-sm w-100">افزودن</button>
@@ -355,7 +265,7 @@
                                             <ul class="mt-2">
                                                 <li>ردیف = گروه مشمول (جانباز، شهید، …)</li>
                                                 <li>ستون = نوع خدمت (استخر، سالن، …)</li>
-                                                <li>برای خدمات ورزشی، تیک «رایگان» جلسات هفتگی رایگان را فعال می‌کند.</li>
+                                                <li>حالت عادی: درصد تخفیف همیشگی — حالت پله‌ای: جزئیات هفتگی</li>
                                             </ul>
                                         </x-admin.column-help>
                                     </span>
@@ -366,17 +276,9 @@
                                         {{ $service['name'] }}
                                         <x-admin.column-help :title="$service['name']">
                                             @if($service['supports_free_sessions'])
-                                                خدمت ورزشی — با فعال‌کردن تیک «رایگان» می‌توانید تعداد جلسات رایگان هفتگی را مشخص کنید.
-                                                <ul class="mt-2">
-                                                    <li>درصد: تخفیف روی مبلغ خدمت برای گروه‌هایی که رایگان نیستند.</li>
-                                                    <li>تیک رایگان: برای جانباز ۷۰٪ معمولاً فعال است (مثلاً ۳ جلسه در هفته).</li>
-                                                </ul>
+                                                خدمت با سقف هفتگی — در حالت عادی درصد همیشگی؛ با تیک «پله‌ای» جلسات رایگان و مبلغ ثابت تعریف کنید.
                                             @else
-                                                درصد تخفیف این خدمت برای هر گروه ایثارگری.
-                                                <ul class="mt-2">
-                                                    <li>محدوده: ۰ تا ۱۰۰.</li>
-                                                    <li>تخفیف روی مبلغ ثبت‌شده در رزرو اعمال می‌شود.</li>
-                                                </ul>
+                                                درصد تخفیف همیشگی این خدمت برای هر گروه (۰ تا ۱۰۰).
                                             @endif
                                         </x-admin.column-help>
                                     </span>
@@ -389,36 +291,16 @@
                             <tr wire:key="mx-{{ $group['key'] }}">
                                 <td class="fw-semibold small">{{ $group['label'] }}</td>
                                 @foreach($services as $service)
-                                @php $sid = $service['id']; @endphp
-                                <td class="text-center" wire:key="mx-{{ $group['key'] }}-{{ $sid }}">
-                                    <input type="number"
-                                           wire:model="discountMatrix.{{ $group['key'] }}.{{ $sid }}.discount_percentage"
-                                           min="0" max="100"
-                                           class="form-control form-control-sm mb-1" style="width:70px;margin:0 auto">
-                                    @if($service['supports_free_sessions'])
-                                    <label class="d-flex align-items-center justify-content-center gap-1" style="font-size:.7rem">
-                                        <input type="checkbox"
-                                               wire:model.live="discountMatrix.{{ $group['key'] }}.{{ $sid }}.free_sessions_eligible"
-                                               class="form-check-input m-0">
-                                        <span class="d-inline-flex align-items-center gap-1">
-                                            رایگان
-                                            <x-admin.column-help title="جلسه رایگان">
-                                                با فعال‌کردن این تیک، تعداد جلسات رایگان هفتگی را وارد کنید. هزینه این خدمت تا آن سقف صفر محاسبه می‌شود.
-                                            </x-admin.column-help>
-                                        </span>
-                                    </label>
-                                    @if($discountMatrix[$group['key']][$sid]['free_sessions_eligible'] ?? false)
-                                    <div class="mt-1">
-                                        <input type="number"
-                                               wire:model="discountMatrix.{{ $group['key'] }}.{{ $sid }}.weekly_free_sessions"
-                                               min="0" max="21"
-                                               class="form-control form-control-sm"
-                                               style="width:70px;margin:0 auto"
-                                               placeholder="تعداد">
-                                        <div class="text-muted" style="font-size:.65rem">جلسه/هفته</div>
-                                    </div>
-                                    @endif
-                                    @endif
+                                @php
+                                    $serviceKey = $service['key'];
+                                    $cell = $discountMatrix[$group['key']][$serviceKey] ?? [];
+                                @endphp
+                                <td wire:key="mx-{{ $group['key'] }}-{{ $serviceKey }}">
+                                    <x-veteran-policy.discount-matrix-cell
+                                        :group-key="$group['key']"
+                                        :service-ref="$serviceKey"
+                                        :cell="$cell"
+                                    />
                                 </td>
                                 @endforeach
                             </tr>
@@ -432,7 +314,8 @@
             </div>
         </div>
         <div class="alert alert-info small mt-3 mb-0">
-            برای خدمات ورزشی (استخر، بدنسازی، سالن): با فعال‌کردن تیک «رایگان»، تعداد جلسات رایگان هفتگی را <strong>برای هر خدمت جداگانه</strong> وارد کنید (مثلاً ۳ جلسه استخر و ۲ جلسه بدنسازی برای جانباز ۷۰٪).
+            <strong>حالت عادی:</strong> درصد تخفیف همیشگی.
+            <strong>حالت پله‌ای:</strong> تیک «پله‌ای» → جزئیات هفتگی (رایگان، مبلغ ثابت، درصد).
         </div>
     </form>
     @endif

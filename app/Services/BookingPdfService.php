@@ -17,12 +17,14 @@ class BookingPdfService
         $booking->loadMissing([
             'user', 'accommodation.city.province', 'roomType', 'roomRate',
             'services', 'guestDetails', 'createdBy',
+            'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
         ]);
 
         $html = View::make('pdf.booking-receipt', [
-            'booking'      => $booking,
-            'veteranLabel' => $booking->veteran_type_applied
-                ? VeteranGroups::label($booking->veteran_type_applied)
+            'booking'             => $booking,
+            'pricing'             => app(BookingReceiptBreakdownService::class)->pricingForBooking($booking),
+            'veteranLabel' => $booking->veteranTypesApplied()
+                ? $booking->veteranLabelApplied()
                 : ($booking->user?->veteranLabel() ?? 'کاربر عادی'),
             'paymentLabel' => $this->paymentLabel($booking->payment_method),
             'issuedAt'     => PdfPersian::jalali(now(), 'Y/m/d H:i'),

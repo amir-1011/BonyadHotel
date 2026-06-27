@@ -259,6 +259,13 @@ function mbbDrawer() {
         availabilityLoading: false,
         availabilityError: false,
         loadedMonths: [],
+        selectedRoomId: null,
+        selectedRoomName: '',
+        selectedRooms: [],
+        pendingCommitExtraG: 0,
+        pendingCommitFullRoom: false,
+        pendingPreselectedRoomId: null,
+        pendingPreselectedRoomName: '',
 
         get nights() {
             return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
@@ -566,6 +573,87 @@ function mbbDrawer() {
                 this.checkOut = '';
                 this.calPhase = 0;
             });
+            window.addEventListener('manual-booking-room-selected', (e) => {
+                if (this.mode !== 'manual') return;
+                const rooms = e.detail?.roomId
+                    ? [{ roomId: e.detail.roomId, roomName: e.detail.roomName || '' }]
+                    : [];
+                this._finalizeManualRoomCommit(rooms);
+            });
+            window.addEventListener('manual-booking-rooms-selected', (e) => {
+                if (this.mode !== 'manual') return;
+                this._finalizeManualRoomCommit(e.detail?.rooms || []);
+            });
+            window.addEventListener('manual-booking-excluded-rooms', (e) => {
+                if (this.mode !== 'manual') return;
+                this._showRoomPicker(e.detail?.roomIds || []);
+            });
+
+            const prefillRt = parseInt(this.$el.dataset.bnbPrefillRoomTypeId, 10) || null;
+            const prefillRate = parseInt(this.$el.dataset.bnbPrefillRoomRateId, 10) || null;
+            if (this.mode === 'manual' && prefillRt && prefillRate) {
+                this.pendingPreselectedRoomId = parseInt(this.$el.dataset.bnbPrefillRoomId, 10) || null;
+                this.pendingPreselectedRoomName = this.$el.dataset.bnbPrefillRoomName || '';
+                this.$nextTick(() => this._applyManualPrefill(prefillRt, prefillRate));
+            }
+
+            if (this.mode === 'manual' && this.$el.dataset.bnbPrefillFocus === '1') {
+                document.addEventListener('livewire:navigated', () => {
+                    if (!document.getElementById('manual-booking-prefill-summary')) return;
+                    setTimeout(() => this._scrollToDatePicker(), 350);
+                }, { once: true });
+            }
+        },
+
+        _applyManualPrefill(roomTypeId, roomRateId) {
+            const el = this.$el;
+            const rtName = el.dataset.bnbPrefillRoomTypeName || '';
+            const rtCap = parseInt(el.dataset.bnbPrefillRoomCapacity, 10) || 1;
+            const price = parseInt(el.dataset.bnbPrefillPrice, 10) || parseInt(el.dataset.bnbPrefillOrigPrice, 10) || 0;
+            const origPrice = parseInt(el.dataset.bnbPrefillOrigPrice, 10) || price;
+            const extraCap = parseInt(el.dataset.bnbPrefillExtraCap, 10) || 0;
+            const extraPrice = parseInt(el.dataset.bnbPrefillExtraPrice, 10) || 0;
+
+            let form = document.getElementById('bnb-prefill-reserve-form');
+            if (!form) {
+                form = document.createElement('form');
+                form.id = 'bnb-prefill-reserve-form';
+                form.className = 'd-none';
+                form.setAttribute('aria-hidden', 'true');
+                form.innerHTML = '<input type="hidden" name="room_type_id"><input type="hidden" name="room_rate_id">';
+                document.body.appendChild(form);
+            }
+            form.querySelector('[name="room_type_id"]').value = roomTypeId;
+            form.querySelector('[name="room_rate_id"]').value = roomRateId;
+
+            this.openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap, extraCap, extraPrice);
+
+            if (el.dataset.bnbPrefillFocus === '1') {
+                this._scrollToDatePicker();
+            }
+        },
+
+        _scrollToDatePicker() {
+            const scroll = () => {
+                const panel = document.getElementById('bnb-manual-drawer-panel');
+                if (!panel) return;
+                const top = panel.getBoundingClientRect().top + window.pageYOffset - 88;
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            };
+            setTimeout(scroll, 120);
+            setTimeout(scroll, 450);
+        },
+
+        _finalizeManualRoomCommit(rooms) {
+            this.selectedRooms = Array.isArray(rooms) ? rooms : [];
+            this.extraGuests = this.pendingCommitExtraG || 0;
+            this.billFullRooms = this.pendingCommitFullRoom || false;
+            this._emitManualCommit();
+            this.selectedRooms = [];
+            this.selectedRoomId = null;
+            this.selectedRoomName = '';
+            this.pendingPreselectedRoomId = null;
+            this.pendingPreselectedRoomName = '';
         },
 
         _emitManualSync() {
@@ -578,8 +666,16 @@ function mbbDrawer() {
         _emitManualCommit() {
             const payload = this._manualSyncPayload();
             if (typeof Livewire !== 'undefined') {
-                Livewire.dispatch('manual-booking-commit-room', payload);
+                if (this.selectedRooms.length > 0) {
+                    Livewire.dispatch('manual-booking-commit-rooms', {
+                        ...payload,
+                        rooms: this.selectedRooms,
+                    });
+                } else {
+                    Livewire.dispatch('manual-booking-commit-room', payload);
+                }
             }
+            this.datesConfirmed = true;
         },
 
         _manualSyncPayload() {
@@ -602,6 +698,8 @@ function mbbDrawer() {
                 extraGuests: this.extraGuests,
                 billFullRooms: this.billFullRooms,
                 childrenUnder6: this.childrenUnder6,
+                roomId: this.selectedRoomId,
+                roomName: this.selectedRoomName,
             };
         },
 
@@ -751,16 +849,67 @@ function mbbDrawer() {
         _proceedBooking(extraG, fullRoom) {
             this.extraGuests    = extraG || 0;
             this.billFullRooms  = !!fullRoom;
-            this.datesConfirmed = true;
             if (this.mode !== 'manual') {
+                this.datesConfirmed = true;
                 this.drawerOpen = false;
             }
             window.dispatchEvent(new CustomEvent('bnb-dates-set', {
                 detail: { checkIn: this.checkIn, checkOut: this.checkOut }
             }));
             if (this.mode === 'manual') {
-                this._emitManualCommit();
+                this._openPhysicalRoomPicker(extraG, fullRoom);
             }
+        },
+
+        async _openPhysicalRoomPicker(extraG, fullRoom) {
+            this.pendingCommitExtraG = extraG || 0;
+            this.pendingCommitFullRoom = !!fullRoom;
+
+            if (!this.roomTypeId || !this.checkIn || !this.checkOut) {
+                this._emitManualCommit();
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    check_in: this.checkIn,
+                    check_out: this.checkOut,
+                });
+                const resp = await fetch('/api/room-types/' + this.roomTypeId + '/physical-rooms?' + params, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (!data.rooms || data.rooms.length === 0) {
+                        this.extraGuests = this.pendingCommitExtraG;
+                        this.billFullRooms = this.pendingCommitFullRoom;
+                        this._emitManualCommit();
+                        return;
+                    }
+                }
+            } catch (e) {}
+
+            if (typeof Livewire !== 'undefined') {
+                Livewire.dispatch('manual-booking-get-excluded-rooms');
+            } else {
+                this._showRoomPicker([]);
+            }
+        },
+
+        _showRoomPicker(excludeRoomIds) {
+            const preIds = this.pendingPreselectedRoomId ? [this.pendingPreselectedRoomId] : [];
+            window.dispatchEvent(new CustomEvent('manual-booking-open-room-picker', {
+                detail: {
+                    roomTypeId: this.roomTypeId,
+                    roomTypeName: this.roomTypeName,
+                    checkIn: this.checkIn,
+                    checkOut: this.checkOut,
+                    excludeRoomIds: excludeRoomIds || [],
+                    roomsToSelect: this.effectiveRoomsNeeded,
+                    preselectedRoomIds: preIds,
+                    explicitConfirm: preIds.length > 0,
+                }
+            }));
         },
 
         confirmDates() {

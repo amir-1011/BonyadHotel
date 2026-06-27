@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\Room;
 use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\User;
@@ -313,6 +314,266 @@ class MultiRoomManualBookingTest extends TestCase
             ->call('removeRoomLine', 0)
             ->assertSet('roomLines', fn ($lines) => count($lines) === 1)
             ->assertSet('totalGuests', 3);
+    }
+
+    public function test_commit_multiple_physical_rooms_splits_guests(): void
+    {
+        $roomOne = Room::create([
+            'room_type_id' => $this->roomTypeA->id,
+            'name'         => 'اتاق ۱۰۱',
+            'sort_order'   => 1,
+            'is_active'    => true,
+        ]);
+        $roomTwo = Room::create([
+            'room_type_id' => $this->roomTypeA->id,
+            'name'         => 'اتاق ۱۰۲',
+            'sort_order'   => 2,
+            'is_active'    => true,
+        ]);
+
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000002']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->addDays(35)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(2)->format('Y-m-d');
+
+        \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation,
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 4, $this->roomTypeA->id, $this->rateA->id, 0, false, 0, 4, [
+                ['room_id' => $roomOne->id, 'room_name' => $roomOne->name],
+                ['room_id' => $roomTwo->id, 'room_name' => $roomTwo->name],
+            ])
+            ->assertSet('roomLines', function ($lines) use ($roomOne, $roomTwo) {
+                if (count($lines) !== 2) {
+                    return false;
+                }
+
+                return $lines[0]['room_id'] === $roomOne->id
+                    && $lines[1]['room_id'] === $roomTwo->id
+                    && $lines[0]['adults'] === 2
+                    && $lines[1]['adults'] === 2;
+            })
+            ->assertSet('totalGuests', 4);
+    }
+
+    public function test_rejects_wrong_physical_room_count_for_guests(): void
+    {
+        $roomOne = Room::create([
+            'room_type_id' => $this->roomTypeA->id,
+            'name'         => 'اتاق ۲۰۱',
+            'sort_order'   => 1,
+            'is_active'    => true,
+        ]);
+
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000003']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->addDays(40)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(1)->format('Y-m-d');
+
+        \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation,
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 4, $this->roomTypeA->id, $this->rateA->id, 0, false, 0, 4, [
+                ['room_id' => $roomOne->id, 'room_name' => $roomOne->name],
+            ])
+            ->assertHasErrors(['roomLines']);
+    }
+
+    public function test_no_physical_rooms_splits_into_needed_lines(): void
+    {
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000004']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->addDays(45)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(1)->format('Y-m-d');
+
+        \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation,
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 4, $this->roomTypeA->id, $this->rateA->id, 0, false, 0, 4, [])
+            ->assertSet('roomLines', fn ($lines) => count($lines) === 2
+                && $lines[0]['adults'] === 2
+                && $lines[1]['adults'] === 2
+                && $lines[0]['room_id'] === null);
+    }
+
+    public function test_nine_guests_four_bed_one_floor_assigns_extra_to_last_room(): void
+    {
+        $roomOne = Room::create([
+            'room_type_id' => $this->roomTypeB->id,
+            'name'         => 'چهار تخته ۱',
+            'sort_order'   => 1,
+            'is_active'    => true,
+        ]);
+        $roomTwo = Room::create([
+            'room_type_id' => $this->roomTypeB->id,
+            'name'         => 'چهار تخته ۳',
+            'sort_order'   => 2,
+            'is_active'    => true,
+        ]);
+
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000005']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->addDays(50)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(3)->format('Y-m-d');
+
+        \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation,
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 9, $this->roomTypeB->id, $this->rateB->id, 1, false, 0, 9, [
+                ['room_id' => $roomOne->id, 'room_name' => $roomOne->name],
+                ['room_id' => $roomTwo->id, 'room_name' => $roomTwo->name],
+            ])
+            ->assertSet('roomLines', function ($lines) use ($roomOne, $roomTwo) {
+                if (count($lines) !== 2) {
+                    return false;
+                }
+
+                return $lines[0]['room_id'] === $roomOne->id
+                    && $lines[1]['room_id'] === $roomTwo->id
+                    && $lines[0]['adults'] === 4
+                    && $lines[0]['extra_guests'] === 0
+                    && $lines[1]['adults'] === 4
+                    && $lines[1]['extra_guests'] === 1;
+            })
+            ->assertSet('totalGuests', 9)
+            ->assertSet('totalExtraGuests', 1);
+    }
+
+    public function test_nine_guests_two_bed_one_floor_splits_four_full_rooms(): void
+    {
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000006']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->addDays(55)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(2)->format('Y-m-d');
+
+        \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation,
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 9, $this->roomTypeA->id, $this->rateA->id, 1, false, 0, 9, [])
+            ->assertSet('roomLines', function ($lines) {
+                if (count($lines) !== 4) {
+                    return false;
+                }
+
+                return $lines[0]['adults'] === 2
+                    && $lines[0]['extra_guests'] === 0
+                    && $lines[1]['adults'] === 2
+                    && $lines[1]['extra_guests'] === 0
+                    && $lines[2]['adults'] === 2
+                    && $lines[2]['extra_guests'] === 0
+                    && $lines[3]['adults'] === 2
+                    && $lines[3]['extra_guests'] === 1;
+            })
+            ->assertSet('totalGuests', 9);
+    }
+
+    public function test_nine_guests_four_bed_floor_pricing_matches_bed_count(): void
+    {
+        $this->roomTypeB->update([
+            'extra_capacity'       => 2,
+            'extra_capacity_price' => 150_000,
+        ]);
+
+        $checkIn = now()->addDays(60)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(3)->format('Y-m-d');
+
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000007']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        $component = \Livewire\Livewire::actingAs($host)
+            ->test(\App\Livewire\ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates']),
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomsFromDrawer', $checkIn, $checkOut, 9, $this->roomTypeB->id, $this->rateB->id, 1, false, 0, 9, []);
+
+        $pricing = $component->get('pricingPreview');
+        $this->assertNotEmpty($pricing);
+        $this->assertSame(2, $pricing['rooms_needed']);
+        $this->assertSame(8, $pricing['billing_guests']);
+        $this->assertSame(1, $component->get('totalExtraGuests'));
+        $this->assertSame(450_000, $pricing['extra_guests_total']);
+    }
+
+    public function test_persisted_booking_with_floor_sleeper_keeps_correct_room_lines(): void
+    {
+        $checkIn = now()->addDays(65)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(2)->format('Y-m-d');
+
+        $booking = app(ManualBookingService::class)->create(
+            $this->accommodation,
+            [
+                'check_in'   => $checkIn,
+                'check_out'  => $checkOut,
+                'room_lines' => [
+                    [
+                        'room_type_id'     => $this->roomTypeB->id,
+                        'room_rate_id'     => $this->rateB->id,
+                        'adults'           => 4,
+                        'children_under_6' => 0,
+                        'guests'           => 4,
+                        'extra_guests'     => 0,
+                        'bill_full_rooms'  => false,
+                    ],
+                    [
+                        'room_type_id'     => $this->roomTypeB->id,
+                        'room_rate_id'     => $this->rateB->id,
+                        'adults'           => 4,
+                        'children_under_6' => 0,
+                        'guests'           => 4,
+                        'extra_guests'     => 1,
+                        'bill_full_rooms'  => false,
+                    ],
+                ],
+                'guests'               => 9,
+                'extra_guests'         => 1,
+                'booker_national_id'   => '1231231231',
+                'guest_contact_name'   => 'مهمان کف‌خواب',
+                'guest_contact_mobile' => '09121231231',
+                'payment_method'       => 'cash',
+                'services'             => [],
+                'guest_details'        => [
+                    ['full_name' => 'مهمان کف‌خواب', 'national_id' => '1231231231', 'mobile' => '09121231231', 'relation' => ''],
+                ],
+            ],
+            $this->adminUser,
+        );
+
+        $lines = $booking->bookingRooms()->orderBy('sort_order')->get();
+        $this->assertCount(2, $lines);
+        $this->assertSame(4, $lines[0]->guests);
+        $this->assertSame(0, $lines[0]->extra_guests);
+        $this->assertSame(4, $lines[1]->guests);
+        $this->assertSame(1, $lines[1]->extra_guests);
+        $this->assertSame(8, $booking->guests);
+        $this->assertSame(1, $booking->extra_guests);
     }
 
     public function test_manual_discount_without_guest_name_is_snapshotted_and_persisted(): void

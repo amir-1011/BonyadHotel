@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ServiceCatalog extends Model
 {
     protected $fillable = [
-        'key', 'name', 'default_price', 'supports_free_sessions',
+        'accommodation_id', 'key', 'name', 'default_price', 'supports_free_sessions',
         'default_discount', 'min_discount', 'max_discount',
         'sort_order', 'is_active',
     ];
@@ -26,9 +26,36 @@ class ServiceCatalog extends Model
         ];
     }
 
+    public function accommodation()
+    {
+        return $this->belongsTo(Accommodation::class);
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ServiceCatalogVariant::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function activeVariants(): HasMany
+    {
+        return $this->variants()->where('is_active', true);
+    }
+
+    public function hasVariants(): bool
+    {
+        return $this->relationLoaded('variants')
+            ? $this->variants->where('is_active', true)->isNotEmpty()
+            : $this->activeVariants()->exists();
+    }
+
     public function groupDiscounts(): HasMany
     {
         return $this->hasMany(VeteranGroupServiceDiscount::class);
+    }
+
+    public function scopeForAccommodation($query, int $accommodationId)
+    {
+        return $query->where('accommodation_id', $accommodationId);
     }
 
     public function scopeActive($query)

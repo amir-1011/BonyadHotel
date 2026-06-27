@@ -20,6 +20,7 @@ trait ManagesBookingDetails
 
     public $uploadedForm;
     public string $newServiceCatalogId = '';
+    public string $newServiceCatalogVariantId = '';
     public string $newServiceName = '';
     public int|string $newServicePrice = '';
     public int $newServiceQty = 1;
@@ -32,14 +33,16 @@ trait ManagesBookingDetails
 
     public function loadEditableServices(): void
     {
-        $this->editableServices = $this->booking->services->map(fn ($s) => [
-            'id'              => $s->id,
-            'name'            => $s->name,
-            'unit_price'      => $s->unit_price,
-            'quantity'        => $s->quantity,
-            'discount_amount' => $s->discount_amount,
-            'total'           => $s->total,
-        ])->values()->all();
+        $this->editableServices = $this->booking->services->mapWithKeys(fn ($s) => [
+            $s->id => [
+                'id'              => $s->id,
+                'name'            => $s->name,
+                'unit_price'      => $s->unit_price,
+                'quantity'        => $s->quantity,
+                'discount_amount' => $s->discount_amount,
+                'total'           => $s->total,
+            ],
+        ])->all();
 
         if (empty($this->editableServices)) {
             $this->editableServices = [];
@@ -48,6 +51,8 @@ trait ManagesBookingDetails
 
     public function updatedNewServiceCatalogId(): void
     {
+        $this->newServiceCatalogVariantId = '';
+
         if ($this->newServiceCatalogId === 'custom' || $this->newServiceCatalogId === '') {
             if ($this->newServiceCatalogId === 'custom') {
                 $this->newServiceName = '';
@@ -56,29 +61,81 @@ trait ManagesBookingDetails
             return;
         }
 
-        $service = app(VeteranPolicyService::class)->serviceById((int) $this->newServiceCatalogId);
-        if ($service) {
-            $this->newServiceName = $service->name;
-            $this->newServicePrice = $service->default_price;
+        $service = app(VeteranPolicyService::class)
+            ->forAccommodation($this->booking->accommodation_id)
+            ->serviceById((int) $this->newServiceCatalogId);
+        if (!$service) {
+            return;
         }
+
+        if ($service->variants->where('is_active', true)->isNotEmpty()) {
+            $this->newServiceName = $service->name;
+            $this->newServicePrice = '';
+            return;
+        }
+
+        $this->addError('newServiceCatalogId', 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
+        $this->newServiceName = '';
+        $this->newServicePrice = '';
+    }
+
+    public function updatedNewServiceCatalogVariantId(): void
+    {
+        if ($this->newServiceCatalogVariantId === '' || $this->newServiceCatalogId === '') {
+            return;
+        }
+
+        $service = app(VeteranPolicyService::class)
+            ->forAccommodation($this->booking->accommodation_id)
+            ->serviceById((int) $this->newServiceCatalogId);
+        if (!$service) {
+            return;
+        }
+
+        $variant = $service->variants->firstWhere('id', (int) $this->newServiceCatalogVariantId);
+        if (!$variant || !$variant->is_active) {
+            return;
+        }
+
+        $this->newServiceName = $service->name . ' — ' . $variant->name;
+        $this->newServicePrice = $variant->price;
     }
 
     public function addServiceLine(): void
     {
+        $catalogId = ($this->newServiceCatalogId && $this->newServiceCatalogId !== 'custom')
+            ? (int) $this->newServiceCatalogId
+            : null;
+
+        if ($catalogId) {
+            $service = app(VeteranPolicyService::class)
+                ->forAccommodation($this->booking->accommodation_id)
+                ->serviceById($catalogId);
+            if ($service && $service->variants->where('is_active', true)->isEmpty()) {
+                $this->addError('newServiceCatalogId', 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
+                return;
+            }
+            if ($service && $service->variants->where('is_active', true)->isNotEmpty() && $this->newServiceCatalogVariantId === '') {
+                $this->addError('newServiceCatalogVariantId', 'نوع این خدمت را انتخاب کنید.');
+                return;
+            }
+        }
+
         $this->validate([
             'newServiceName'  => ['required', 'string', 'max:200'],
             'newServicePrice' => ['required', 'integer', 'min:0'],
             'newServiceQty'   => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
-        $catalogId = ($this->newServiceCatalogId && $this->newServiceCatalogId !== 'custom')
-            ? (int) $this->newServiceCatalogId
+        $variantId = ($this->newServiceCatalogVariantId && $catalogId)
+            ? (int) $this->newServiceCatalogVariantId
             : null;
 
         BookingService::create([
-            'booking_id'         => $this->booking->id,
-            'service_catalog_id' => $catalogId,
-            'name'               => $this->newServiceName,
+            'booking_id'                 => $this->booking->id,
+            'service_catalog_id'         => $catalogId,
+            'service_catalog_variant_id' => $variantId,
+            'name'                       => $this->newServiceName,
             'unit_price'         => (int) $this->newServicePrice,
             'quantity'           => $this->newServiceQty,
             'total'              => (int) $this->newServicePrice * $this->newServiceQty,
@@ -90,10 +147,32 @@ trait ManagesBookingDetails
         $this->booking->refresh();
         $this->loadEditableServices();
         $this->newServiceCatalogId = '';
+        $this->newServiceCatalogVariantId = '';
         $this->newServiceName = '';
         $this->newServicePrice = '';
         $this->newServiceQty = 1;
         $this->dispatch('toast', type: 'success', message: 'خدمت اضافه شد.');
+        $this->dispatch('booking-services-updated');
+    }
+
+    public function adjustServiceQuantity(int $serviceId, int $delta): void
+    {
+        $service = $this->booking->services()->findOrFail($serviceId);
+        $newQty = max(1, min(99, (int) $service->quantity + $delta));
+        if ($newQty === (int) $service->quantity) {
+            return;
+        }
+
+        $service->update([
+            'quantity' => $newQty,
+            'total'    => $newQty * (int) $service->unit_price,
+        ]);
+
+        $this->booking->refresh();
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+        $this->loadEditableServices();
+        $this->dispatch('booking-services-updated');
     }
 
     public function removeServiceLine(int $serviceId): void
@@ -105,6 +184,7 @@ trait ManagesBookingDetails
         $this->booking->refresh();
         $this->loadEditableServices();
         $this->dispatch('toast', type: 'success', message: 'خدمت حذف شد.');
+        $this->dispatch('booking-services-updated');
     }
 
     public function saveServiceEdits(ManualBookingService $manualBooking): void
@@ -115,7 +195,8 @@ trait ManagesBookingDetails
             'editableServices.*.quantity'   => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
-        foreach ($this->editableServices as $i => $row) {
+        $sortOrder = 0;
+        foreach ($this->editableServices as $row) {
             if (empty($row['id'])) {
                 continue;
             }
@@ -130,7 +211,7 @@ trait ManagesBookingDetails
                 'unit_price' => $unit,
                 'quantity'   => $qty,
                 'total'      => $qty * $unit,
-                'sort_order' => $i,
+                'sort_order' => $sortOrder++,
             ]);
         }
 
@@ -138,6 +219,7 @@ trait ManagesBookingDetails
         $this->booking->refresh();
         $this->loadEditableServices();
         $this->dispatch('toast', type: 'success', message: 'خدمات به‌روز شد.');
+        $this->dispatch('booking-services-updated');
     }
 
     public function uploadBookingForm(): void
@@ -169,6 +251,8 @@ trait ManagesBookingDetails
 
     protected function serviceCatalogOptions()
     {
-        return app(VeteranPolicyService::class)->activeServices();
+        return app(VeteranPolicyService::class)
+            ->forAccommodation($this->booking->accommodation_id)
+            ->activeServices();
     }
 }

@@ -16,6 +16,10 @@
     </style>
     {{-- Anti-flash: apply saved theme before first paint --}}
     <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
+    <link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
+    <style>
+        .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; }
+    </style>
     @stack('styles')
     @livewireStyles
 </head>
@@ -73,7 +77,7 @@
             <i class="bi bi-wallet2"></i><span class="ta-nav-link__label">کیف پول کارمزد</span>
         </a>
 
-        {{-- تنظیمات ایثارگری --}}
+        {{-- تنظیمات ایثارگری (سراسری) --}}
         <a href="{{ route('admin.veteran-policy') }}" wire:navigate data-label="تنظیمات ایثارگری"
            class="ta-nav-link {{ request()->routeIs('admin.veteran-policy') ? 'active' : '' }}">
             <i class="bi bi-shield-check"></i><span class="ta-nav-link__label">تنظیمات ایثارگری</span>
@@ -172,13 +176,17 @@
         </div>
     </header>
 
-    <div class="ta-page">
+    <div class="ta-page @if(request()->routeIs('admin.dashboard')) flex-grow-1 @endif">
         @hasSection('content')
             @yield('content')
         @else
             {{ $slot ?? '' }}
         @endif
     </div>
+
+    @if(request()->routeIs('admin.dashboard'))
+        @include('partials._panel_footer')
+    @endif
 </div>
 
 <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
@@ -262,11 +270,21 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     taSyncThemeBtn();
 </script>
 <script src="{{ Vite::asset('resources/js/money-input.js') }}"></script>
-<script src="{{ Vite::asset('resources/js/room-type-form.js') }}"></script>
 @livewireScripts
+<script>
+(function () {
+    function restoreJquery$() {
+        if (window.jQuery) window.$ = window.jQuery;
+    }
+    restoreJquery$();
+    document.addEventListener('livewire:initialized', restoreJquery$);
+    document.addEventListener('livewire:navigated', restoreJquery$);
+})();
+</script>
 @stack('scripts')
 @include('partials._btn_loader')
 @include('partials._swal')
+<script src="{{ Vite::asset('resources/js/room-type-form.js') }}"></script>
 @include('partials._test_site_notice')
 </body>
 </html>

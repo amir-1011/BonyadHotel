@@ -5,8 +5,9 @@ namespace App\Livewire\Admin;
 use App\Livewire\Concerns\ManagesBookingFilters;
 use App\Models\Accommodation;
 use App\Models\Booking;
-use App\Models\City;
 use App\Support\AdminBookingFilter;
+use App\Support\BookingLocationFilterCatalog;
+use App\Support\BookingServiceFilterCatalog;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -43,14 +44,29 @@ class BookingIndex extends Component
         $countFiltered = (clone $query)->count();
         $bookings = $query->paginate(25);
 
+        $locationCatalog = app(BookingLocationFilterCatalog::class);
+        $provinces = $locationCatalog->provinces();
+        $cities = $locationCatalog->cities($this->draftProvinceId);
+        $counties = $locationCatalog->counties($this->draftProvinceId);
+
+        $serviceCatalog = app(BookingServiceFilterCatalog::class);
+        $serviceCatalogs = $serviceCatalog->parentServices(
+            $this->draftAccommodationId,
+            $this->draftProvinceId,
+            $this->draftCityId,
+            $this->draftCountyId,
+        );
+        $serviceVariants = $serviceCatalog->variants($this->draftServiceCatalogId);
+        $showServiceAccommodation = $serviceCatalog->shouldShowAccommodationInLabels($this->draftAccommodationId);
+
         $accommodations = Accommodation::orderBy('name')->get(['id', 'name']);
-        $cities = City::orderBy('name')->get(['id', 'name']);
         $hasActiveFilters = $filter->hasActiveFilters();
         $exportQuery = $filter->exportQuery();
         extract($this->resolvedBookingSort());
 
         return view('admin.bookings.index', compact(
-            'bookings', 'accommodations', 'cities',
+            'bookings', 'accommodations', 'provinces', 'cities', 'counties',
+            'serviceCatalogs', 'serviceVariants', 'showServiceAccommodation',
             'totalFiltered', 'countFiltered', 'sort', 'dir',
             'hasActiveFilters', 'exportQuery',
         ));

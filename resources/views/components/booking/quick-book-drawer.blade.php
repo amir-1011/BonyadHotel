@@ -1,9 +1,20 @@
-﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null])
+﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null, 'prefillRoomTypeId' => null, 'prefillRoomRateId' => null, 'prefillRoomId' => null, 'prefillRoomName' => null, 'prefillFocusDates' => false, 'prefillRoomTypeName' => null, 'prefillRoomCapacity' => null, 'prefillPrice' => null, 'prefillOrigPrice' => null, 'prefillExtraCap' => 0, 'prefillExtraPrice' => 0])
 @php $isManual = $mode === 'manual'; @endphp
 {{-- Quick-Book Drawer --}}
 <div data-bnb-drawer
      data-bnb-mode="{{ $mode }}"
      data-user-discount-pct="{{ (int) $defaultDiscountPct }}"
+     @if($prefillRoomTypeId) data-bnb-prefill-room-type-id="{{ (int) $prefillRoomTypeId }}" @endif
+     @if($prefillRoomRateId) data-bnb-prefill-room-rate-id="{{ (int) $prefillRoomRateId }}" @endif
+     @if($prefillRoomId) data-bnb-prefill-room-id="{{ (int) $prefillRoomId }}" @endif
+     @if($prefillRoomName) data-bnb-prefill-room-name="{{ $prefillRoomName }}" @endif
+     @if($prefillFocusDates) data-bnb-prefill-focus="1" @endif
+     @if($prefillRoomTypeName) data-bnb-prefill-room-type-name="{{ $prefillRoomTypeName }}" @endif
+     @if($prefillRoomCapacity) data-bnb-prefill-room-capacity="{{ (int) $prefillRoomCapacity }}" @endif
+     @if($prefillPrice !== null) data-bnb-prefill-price="{{ (int) $prefillPrice }}" @endif
+     @if($prefillOrigPrice !== null) data-bnb-prefill-orig-price="{{ (int) $prefillOrigPrice }}" @endif
+     data-bnb-prefill-extra-cap="{{ (int) $prefillExtraCap }}"
+     data-bnb-prefill-extra-price="{{ (int) $prefillExtraPrice }}"
      x-data="mbbDrawer()"
      @keydown.escape.window="mode !== 'manual' && (drawerOpen=false)">
 

@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class BookingService extends Model
 {
     protected $fillable = [
-        'booking_id', 'service_catalog_id', 'name', 'unit_price',
+        'booking_id', 'service_catalog_id', 'service_catalog_variant_id', 'name', 'unit_price',
         'discount_percentage', 'discount_amount',
-        'quantity', 'free_units', 'total', 'sort_order',
+        'quantity', 'free_units', 'total', 'sort_order', 'veteran_group_usage',
     ];
 
     protected function casts(): array
@@ -22,6 +22,7 @@ class BookingService extends Model
             'sort_order'          => 'integer',
             'discount_percentage' => 'integer',
             'discount_amount'     => 'integer',
+            'veteran_group_usage' => 'array',
         ];
     }
 
@@ -33,5 +34,10 @@ class BookingService extends Model
     public function serviceCatalog()
     {
         return $this->belongsTo(ServiceCatalog::class);
+    }
+
+    public function serviceCatalogVariant()
+    {
+        return $this->belongsTo(ServiceCatalogVariant::class);
     }
 }

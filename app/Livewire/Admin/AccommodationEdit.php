@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Accommodation;
+use App\Models\County;
 use App\Models\Province;
 use App\Models\User;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
@@ -24,6 +25,7 @@ class AccommodationEdit extends Component
 
     public int    $provinceId      = 0;
     public int    $cityId          = 0;
+    public int    $countyId        = 0;
     public ?int   $hostId          = null;
     public string $name            = '';
     public string $description     = '';
@@ -47,6 +49,7 @@ class AccommodationEdit extends Component
         $this->accommodation  = $accommodation;
         $this->cityId         = $accommodation->city_id;
         $this->provinceId     = $accommodation->city?->province_id ?? 0;
+        $this->countyId       = $accommodation->county_id ?? 0;
         $this->hostId         = $accommodation->host_id;
         $this->name           = $accommodation->name;
         $this->description    = $accommodation->description ?? '';
@@ -70,6 +73,7 @@ class AccommodationEdit extends Component
     {
         return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
+            'countyId'      => $this->countyIdRules(),
             'hostId'        => ['nullable', 'exists:users,id'],
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
@@ -90,11 +94,6 @@ class AccommodationEdit extends Component
     private function parseAmenities(string $raw): array
     {
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
-    }
-
-    public function updatedProvinceId(): void
-    {
-        $this->cityId = 0;
     }
 
     public function removeExistingImage(string $path): void
@@ -127,6 +126,7 @@ class AccommodationEdit extends Component
 
         $this->accommodation->update(array_merge([
             'city_id'         => $this->cityId,
+            'county_id'       => $this->normalizedCountyId(),
             'host_id'         => $this->hostId,
             'name'            => $this->name,
             'description'     => $this->description ?: null,
@@ -157,10 +157,11 @@ class AccommodationEdit extends Component
     {
         $provinces     = Province::orderBy('name')->get();
         $cities        = $this->provinceId ? \App\Models\City::where('province_id', $this->provinceId)->orderBy('name')->get() : collect();
+        $counties      = $this->provinceId ? County::where('province_id', $this->provinceId)->orderBy('name')->get() : collect();
         $hosts         = User::role('host')->orderBy('name')->get();
         $accommodation = $this->accommodation;
         $keepImages    = $this->keepImages;
         $accommodationTypes = AccommodationType::options();
-        return view('admin.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'hosts', 'keepImages', 'accommodationTypes'));
+        return view('admin.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'counties', 'hosts', 'keepImages', 'accommodationTypes'));
     }
 }

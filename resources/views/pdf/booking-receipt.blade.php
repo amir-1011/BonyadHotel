@@ -190,7 +190,33 @@
                     @endif
                 </td>
             </tr>
-            @if($booking->roomType)
+            @if($booking->bookingRooms->isNotEmpty())
+            <tr>
+                <td class="label">اتاق‌های رزرو</td>
+                <td class="value">
+                    <table class="data" style="font-size:10px;margin:0">
+                        <thead>
+                            <tr>
+                                <th>نوع</th>
+                                <th>اتاق اختصاصی</th>
+                                <th>تعرفه</th>
+                                <th>نفر</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($booking->bookingRooms as $line)
+                            <tr>
+                                <td>{{ $line->roomType?->name ?? '—' }}</td>
+                                <td>{{ $line->room?->name ?? '—' }}</td>
+                                <td>{{ $line->roomRate?->name ?? '—' }}</td>
+                                <td>{{ \App\Support\PdfPersian::toPersianDigits((string) $line->guests) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            @elseif($booking->roomType)
             <tr>
                 <td class="label">نوع اتاق</td>
                 <td class="value">
@@ -241,14 +267,32 @@
                 <td class="label">روش پرداخت</td>
                 <td class="value">{{ $paymentLabel }}</td>
             </tr>
-            @if($booking->discount_percentage > 0)
+            @if($booking->veteran_type_applied)
             <tr>
                 <td class="label">گروه ایثارگری</td>
-                <td class="value">
-                    {{ $veteranLabel }}
-                    · {{ \App\Support\PdfPersian::toPersianDigits((string) $booking->discount_percentage) }}٪
+                <td class="value">{{ $veteranLabel }}</td>
+            </tr>
+            @if($booking->secondary_veteran_type_applied)
+            <tr>
+                <td class="label">گروه دوم</td>
+                <td class="value">{{ \App\Support\VeteranGroups::label($booking->secondary_veteran_type_applied, $booking->accommodation_id) }}</td>
+            </tr>
+            @endif
+            @php
+                $accGroupUsage = $pricing['veteran_accommodation_group_usage'] ?? $booking->veteran_accommodation_group_usage ?? [];
+            @endphp
+            @if(!empty($accGroupUsage))
+            <tr>
+                <td class="label">مصرف سقف اقامت</td>
+                <td class="value" style="font-size:10px">
+                    @foreach($accGroupUsage as $gKey => $gNights)
+                        {{ \App\Support\VeteranGroups::label($gKey, $booking->accommodation_id) }}:
+                        {{ \App\Support\PdfPersian::toPersianDigits((string) $gNights) }} شب
+                        @if(!$loop->last) · @endif
+                    @endforeach
                 </td>
             </tr>
+            @endif
             @endif
         </table>
     </div>
@@ -288,47 +332,7 @@
     </div>
 
     <div class="section-title">جزئیات مالی</div>
-    <table class="totals">
-        <tr>
-            <td>هزینه اقامت ({{ \App\Support\PdfPersian::toPersianDigits((string) $booking->nights) }} شب)</td>
-            <td class="amount">{{ \App\Support\PdfPersian::amount($booking->roomSubtotal() + $booking->extra_guests_price) }}</td>
-        </tr>
-        @if($booking->services_subtotal > 0)
-        <tr>
-            <td>خدمات اضافی</td>
-            <td class="amount">{{ \App\Support\PdfPersian::amount($booking->services_subtotal) }}</td>
-        </tr>
-        @endif
-        @if($booking->services->isNotEmpty())
-        <tr>
-            <td colspan="2" style="padding-top:8px">
-                <table class="data" style="font-size:10px">
-                    <thead><tr><th>خدمت</th><th>تعداد</th><th>قیمت واحد</th><th>جمع</th></tr></thead>
-                    <tbody>
-                        @foreach($booking->services as $svc)
-                        <tr>
-                            <td>{{ $svc->name }}</td>
-                            <td>{{ \App\Support\PdfPersian::toPersianDigits((string) $svc->quantity) }}</td>
-                            <td class="amount">{{ \App\Support\PdfPersian::amount($svc->unit_price) }}</td>
-                            <td class="amount">{{ \App\Support\PdfPersian::amount($svc->total) }}</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </td>
-        </tr>
-        @endif
-        @if($booking->discount_amount > 0)
-        <tr>
-            <td>تخفیف ({{ \App\Support\PdfPersian::toPersianDigits((string) $booking->discount_percentage) }}٪)</td>
-            <td class="amount" style="color:#dc2626">− {{ \App\Support\PdfPersian::amount($booking->discount_amount) }}</td>
-        </tr>
-        @endif
-        <tr class="grand">
-            <td>مبلغ قابل پرداخت</td>
-            <td class="amount">{{ \App\Support\PdfPersian::amount($booking->total_price) }}</td>
-        </tr>
-    </table>
+    <x-booking.financial-breakdown :booking="$booking" :pricing="$pricing" :pdf="true" />
 
     @if($booking->notes)
     <div class="section-title">یادداشت</div>

@@ -18,8 +18,20 @@ trait ManagesBookingFilters
     #[Url(as: 'accommodation_id')]
     public string $accommodationId = '';
 
+    #[Url(as: 'province_id')]
+    public string $provinceId = '';
+
     #[Url(as: 'city_id')]
     public string $cityId = '';
+
+    #[Url(as: 'county_id')]
+    public string $countyId = '';
+
+    #[Url(as: 'service_catalog_id')]
+    public string $serviceCatalogId = '';
+
+    #[Url(as: 'service_catalog_variant_id')]
+    public string $serviceCatalogVariantId = '';
 
     #[Url(as: 'check_in_from')]
     public string $checkInFrom = '';
@@ -63,7 +75,15 @@ trait ManagesBookingFilters
 
     public string $draftAccommodationId = '';
 
+    public string $draftProvinceId = '';
+
     public string $draftCityId = '';
+
+    public string $draftCountyId = '';
+
+    public string $draftServiceCatalogId = '';
+
+    public string $draftServiceCatalogVariantId = '';
 
     public string $draftCheckInFrom = '';
 
@@ -95,7 +115,11 @@ trait ManagesBookingFilters
         $this->search = trim($this->draftSearch);
         $this->status = $this->draftStatus;
         $this->accommodationId = $this->draftAccommodationId;
+        $this->provinceId = $this->draftProvinceId;
         $this->cityId = $this->draftCityId;
+        $this->countyId = $this->draftCountyId;
+        $this->serviceCatalogId = $this->draftServiceCatalogId;
+        $this->serviceCatalogVariantId = $this->draftServiceCatalogVariantId;
         $this->checkInFrom = $this->draftCheckInFrom;
         $this->checkInTo = $this->draftCheckInTo;
         $this->checkOutFrom = $this->draftCheckOutFrom;
@@ -113,7 +137,8 @@ trait ManagesBookingFilters
     public function resetFilters(): void
     {
         $this->reset([
-            'search', 'status', 'accommodationId', 'cityId',
+            'search', 'status', 'accommodationId', 'provinceId', 'cityId', 'countyId',
+            'serviceCatalogId', 'serviceCatalogVariantId',
             'checkInFrom', 'checkInTo', 'checkOutFrom', 'checkOutTo',
             'nightsMin', 'nightsMax', 'priceMin', 'priceMax', 'guestsMin',
             'hasDiscount',
@@ -123,6 +148,25 @@ trait ManagesBookingFilters
         $this->syncDraftFromApplied();
         $this->resetPage();
         $this->dispatch('booking-dates-sync', dates: $this->bookingDateSyncPayload());
+    }
+
+    public function updatedDraftProvinceId(): void
+    {
+        $this->draftCityId = '';
+        $this->draftCountyId = '';
+        $this->draftServiceCatalogId = '';
+        $this->draftServiceCatalogVariantId = '';
+    }
+
+    public function updatedDraftAccommodationId(): void
+    {
+        $this->draftServiceCatalogId = '';
+        $this->draftServiceCatalogVariantId = '';
+    }
+
+    public function updatedDraftServiceCatalogId(): void
+    {
+        $this->draftServiceCatalogVariantId = '';
     }
 
     public function sortBy(string $column): void
@@ -149,7 +193,11 @@ trait ManagesBookingFilters
             'search'           => $this->search,
             'status'           => $this->status,
             'accommodation_id' => $this->accommodationId,
+            'province_id'      => $this->provinceId,
             'city_id'          => $this->cityId,
+            'county_id'                 => $this->countyId,
+            'service_catalog_id'        => $this->serviceCatalogId,
+            'service_catalog_variant_id'=> $this->serviceCatalogVariantId,
             'check_in_from'    => $this->checkInFrom,
             'check_in_to'      => $this->checkInTo,
             'check_out_from'   => $this->checkOutFrom,
@@ -181,7 +229,11 @@ trait ManagesBookingFilters
         $this->draftSearch = $this->search;
         $this->draftStatus = $this->status;
         $this->draftAccommodationId = $this->accommodationId;
+        $this->draftProvinceId = $this->provinceId;
         $this->draftCityId = $this->cityId;
+        $this->draftCountyId = $this->countyId;
+        $this->draftServiceCatalogId = $this->serviceCatalogId;
+        $this->draftServiceCatalogVariantId = $this->serviceCatalogVariantId;
         $this->draftCheckInFrom = $this->checkInFrom;
         $this->draftCheckInTo = $this->checkInTo;
         $this->draftCheckOutFrom = $this->checkOutFrom;

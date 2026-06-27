@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VeteranGroup extends Model
 {
     protected $fillable = [
-        'key', 'label', 'accommodation_discount',
+        'accommodation_id', 'key', 'label', 'accommodation_discount',
         'nights_per_dependent', 'max_nights_per_period', 'period_months',
         'weekly_free_sessions', 'usage_notes', 'sort_order', 'is_active',
     ];
@@ -26,9 +26,19 @@ class VeteranGroup extends Model
         ];
     }
 
+    public function accommodation()
+    {
+        return $this->belongsTo(Accommodation::class);
+    }
+
     public function serviceDiscounts(): HasMany
     {
         return $this->hasMany(VeteranGroupServiceDiscount::class);
+    }
+
+    public function scopeForAccommodation($query, int $accommodationId)
+    {
+        return $query->where('accommodation_id', $accommodationId);
     }
 
     public function scopeActive($query)

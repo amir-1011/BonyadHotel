@@ -34,7 +34,8 @@ class BookingController extends Controller
     public function export(Request $request)
     {
         $filters = $request->only([
-            'search', 'status', 'accommodation_id', 'city_id',
+            'search', 'status', 'accommodation_id', 'province_id', 'city_id', 'county_id',
+            'service_catalog_id', 'service_catalog_variant_id',
             'check_in_from', 'check_in_to', 'check_out_from', 'check_out_to',
             'nights_min', 'nights_max', 'price_min', 'price_max',
             'guests_min', 'has_discount',

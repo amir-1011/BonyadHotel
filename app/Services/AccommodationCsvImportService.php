@@ -185,6 +185,11 @@ class AccommodationCsvImportService
             $warnings[] = "ردیف {$firstRow}: استان «{$first['province_name']}» و شهر «{$first['city_name']}» در سیستم نیست و هنگام درون‌ریزی اضافه خواهد شد.";
         }
 
+        $countyName = trim($first['county_name'] ?? '');
+        if ($countyName !== '' && !$this->locations->findCountyId($first['province_name'] ?? '', $countyName)) {
+            $warnings[] = "ردیف {$firstRow}: شهرستان «{$countyName}» در استان «{$first['province_name']}» در سیستم نیست و هنگام درون‌ریزی اضافه خواهد شد.";
+        }
+
         $type = $this->normalizeType($first['type'] ?? '');
         if ($type === null && trim($first['type'] ?? '') !== '') {
             $warnings[] = "ردیف {$firstRow}: نوع «{$first['type']}» در سیستم نیست و هنگام درون‌ریزی اضافه خواهد شد.";
@@ -221,7 +226,7 @@ class AccommodationCsvImportService
         }
 
         $accommodationFields = [
-            'province_name', 'city_name', 'accommodation_name', 'type', 'management_status',
+            'province_name', 'city_name', 'county_name', 'accommodation_name', 'type', 'management_status',
             'price_per_night', 'capacity', 'rooms', 'address', 'lat', 'lng', 'description',
             'amenities', 'image', 'is_active', 'host_mobile', 'phones',
         ];
@@ -333,6 +338,24 @@ class AccommodationCsvImportService
 
         $cityId = $location['id'];
 
+        $countyId = null;
+        $countyName = trim($first['county_name'] ?? '');
+        if ($countyName !== '') {
+            $countyLocation = $this->locations->resolveOrCreateCounty(
+                $first['province_name'],
+                $countyName
+            );
+
+            if ($countyLocation['province_created']) {
+                $warnings[] = "استان «{$countyLocation['province_name']}» به فهرست اضافه شد.";
+            }
+            if ($countyLocation['county_created']) {
+                $warnings[] = "شهرستان «{$countyLocation['county_name']}» در استان «{$countyLocation['province_name']}» به فهرست اضافه شد.";
+            }
+
+            $countyId = $countyLocation['id'];
+        }
+
         $typeLabel = trim($first['type']);
         $typeExisted = $this->normalizeType($typeLabel) !== null
             || AccommodationType::where('label', $typeLabel)->exists();
@@ -349,6 +372,7 @@ class AccommodationCsvImportService
 
         $accommodation = Accommodation::create([
             'city_id'            => $cityId,
+            'county_id'          => $countyId,
             'host_id'            => $hostId,
             'name'               => $first['accommodation_name'],
             'description'        => $first['description'] ?: null,
@@ -370,6 +394,8 @@ class AccommodationCsvImportService
         if ($hostId) {
             $accommodation->grantHostAccess(User::find($hostId));
         }
+
+        app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         $roomRows = [];
         foreach ($rows as $row) {
@@ -444,6 +470,8 @@ class AccommodationCsvImportService
             'کد_اقامتگاه' => 'accommodation_code',
             'نام_استان' => 'province_name',
             'نام_شهر' => 'city_name',
+            'نام_شهرستان' => 'county_name',
+            'شهرستان' => 'county_name',
             'نام_اقامتگاه' => 'accommodation_name',
             'نوع' => 'type',
             'وضعیت_اداره' => 'management_status',

@@ -10,7 +10,7 @@ class Accommodation extends Model
     public const MANAGEMENT_SELF_GOVERNING = 'self_governing';
 
     protected $fillable = [
-        'city_id', 'host_id', 'name', 'description', 'type', 'management_status',
+        'city_id', 'county_id', 'host_id', 'name', 'description', 'type', 'management_status',
         'price_per_night', 'capacity', 'children_under_6_allocate_bed', 'children_under_6_discount_percentage', 'rooms',
         'address', 'phone_numbers', 'lat', 'lng', 'amenities', 'image', 'images', 'is_active',
     ];
@@ -109,6 +109,11 @@ class Accommodation extends Model
         return $this->belongsTo(City::class);
     }
 
+    public function county()
+    {
+        return $this->belongsTo(County::class);
+    }
+
     public function bookings()
     {
         return $this->hasMany(Booking::class);
@@ -127,6 +132,16 @@ class Accommodation extends Model
     public function roomTypes()
     {
         return $this->hasMany(RoomType::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function veteranGroups()
+    {
+        return $this->hasMany(VeteranGroup::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function serviceCatalogs()
+    {
+        return $this->hasMany(ServiceCatalog::class)->orderBy('sort_order')->orderBy('id');
     }
 
     /**

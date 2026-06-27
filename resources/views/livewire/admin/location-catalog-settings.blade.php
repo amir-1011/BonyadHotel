@@ -9,6 +9,10 @@
                     class="nav-link {{ $tab === 'cities' ? 'active' : '' }}">شهرها</button>
         </li>
         <li class="nav-item">
+            <button type="button" wire:click="$set('tab', 'counties')"
+                    class="nav-link {{ $tab === 'counties' ? 'active' : '' }}">شهرستان‌ها</button>
+        </li>
+        <li class="nav-item">
             <button type="button" wire:click="$set('tab', 'types')"
                     class="nav-link {{ $tab === 'types' ? 'active' : '' }}">انواع اقامتگاه</button>
         </li>
@@ -88,6 +92,44 @@
         </div>
     @endif
 
+    @if($tab === 'counties')
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>شهرستان</th>
+                                <th>استان</th>
+                                <th class="text-center">اقامتگاه</th>
+                                <th class="text-end" style="width:100px">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($counties as $county)
+                                <tr>
+                                    <td>{{ $county->name }}</td>
+                                    <td>{{ $county->province?->name }}</td>
+                                    <td class="text-center">{{ $county->accommodations_count }}</td>
+                                    <td class="text-end">
+                                        <button wire:click="deleteCounty({{ $county->id }})"
+                                                wire:confirm="این شهرستان حذف شود؟"
+                                                class="btn btn-sm btn-outline-danger"
+                                                @disabled($county->accommodations_count > 0)>
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" class="text-center text-muted py-4">شهرستانی ثبت نشده است.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($tab === 'types')
         <div class="card shadow-sm">
             <div class="card-body p-0">
@@ -134,6 +176,6 @@
 
     <div class="alert alert-info small mt-3 mb-0">
         <i class="bi bi-info-circle me-1"></i>
-        میزبانان و مدیران می‌توانند هنگام ثبت اقامتگاه، استان، شهر یا نوع جدید اضافه کنند. فقط مدیر می‌تواند آیتم‌های بدون استفاده را از اینجا حذف کند.
+        میزبانان و مدیران می‌توانند هنگام ثبت اقامتگاه، استان، شهر، شهرستان یا نوع جدید اضافه کنند. فقط مدیر می‌تواند آیتم‌های بدون استفاده را از اینجا حذف کند.
     </div>
 </div>

@@ -50,7 +50,7 @@
                             @endforeach
                         </select>
                         @error('veteranType')<div class="text-danger small">{{ $message }}</div>@enderror
-                        <div class="form-text">گروه‌های ایثارگری از <a href="{{ route('admin.veteran-policy') }}" wire:navigate>تنظیمات ایثارگری</a> خوانده می‌شوند.</div>
+                        <div class="form-text">گروه ایثارگری کاربر از <a href="{{ route('admin.veteran-policy') }}" wire:navigate>تنظیمات سراسری ایثارگری</a> خوانده می‌شود؛ درصد تخفیف در هر اقامتگاه ممکن است متفاوت باشد.</div>
                     </div>
 
                     <div class="col-12 col-md-6">

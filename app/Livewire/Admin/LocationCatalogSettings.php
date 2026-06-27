@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\AccommodationType;
 use App\Models\City;
+use App\Models\County;
 use App\Models\Province;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -17,8 +18,8 @@ class LocationCatalogSettings extends Component
     {
         $province = Province::findOrFail($provinceId);
 
-        if ($province->cities()->exists()) {
-            $this->dispatch('toast', type: 'error', message: 'این استان دارای شهر است و قابل حذف نیست.');
+        if ($province->cities()->exists() || $province->counties()->exists()) {
+            $this->dispatch('toast', type: 'error', message: 'این استان دارای شهر یا شهرستان است و قابل حذف نیست.');
             return;
         }
 
@@ -39,6 +40,19 @@ class LocationCatalogSettings extends Component
         $this->dispatch('toast', type: 'success', message: 'شهر حذف شد.');
     }
 
+    public function deleteCounty(int $countyId): void
+    {
+        $county = County::findOrFail($countyId);
+
+        if ($county->accommodations()->exists()) {
+            $this->dispatch('toast', type: 'error', message: 'این شهرستان در اقامتگاه‌ها استفاده شده و قابل حذف نیست.');
+            return;
+        }
+
+        $county->delete();
+        $this->dispatch('toast', type: 'success', message: 'شهرستان حذف شد.');
+    }
+
     public function deleteType(int $typeId): void
     {
         $type = AccommodationType::findOrFail($typeId);
@@ -55,8 +69,9 @@ class LocationCatalogSettings extends Component
     public function render()
     {
         return view('livewire.admin.location-catalog-settings', [
-            'provinces'          => Province::withCount('cities')->orderBy('name')->get(),
+            'provinces'          => Province::withCount(['cities', 'counties'])->orderBy('name')->get(),
             'cities'             => City::with('province')->withCount('accommodations')->orderBy('name')->get(),
+            'counties'           => County::with('province')->withCount('accommodations')->orderBy('name')->get(),
             'accommodationTypes' => AccommodationType::orderBy('label')->get(),
         ]);
     }

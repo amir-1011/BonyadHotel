@@ -69,6 +69,13 @@
     </div>
 </div>
 
+{{-- ── Room status board ─────────────────────────────────────────────── --}}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <livewire:room-status-board panel="admin" />
+    </div>
+</div>
+
 {{-- ── Revenue statistics area chart ───────────────────────────────── --}}
 @php
     $faDigits = ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹'];

@@ -63,6 +63,9 @@
                     </td>
                     <td class="small text-muted">
                         {{ $acc->city->name ?? '—' }}
+                        @if($acc->county)
+                        <br><span style="font-size:.7rem">شهرستان {{ $acc->county->name }}</span>
+                        @endif
                         @if($acc->city->province)
                         <br><span style="font-size:.7rem">{{ $acc->city->province->name }}</span>
                         @endif
@@ -96,6 +99,7 @@
                             <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-xs btn-outline-secondary" style="padding:.2rem .5rem;font-size:.75rem;" title="نمایش در سایت" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.manual-booking', $acc) }}" class="btn btn-xs btn-success" style="padding:.2rem .5rem;font-size:.75rem;" title="رزرو دستی"><i class="bi bi-plus-circle"></i></a>
                             <a wire:navigate href="{{ route('admin.room-types.index', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="مدیریت اتاق‌ها"><i class="bi bi-door-open"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="ایثارگری و خدمات"><i class="bi bi-shield-check"></i></a>
                             <a wire:navigate href="{{ route('admin.bookings.index', ['search'=> $acc->name]) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزروها"><i class="bi bi-calendar-check"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.edit', $acc) }}" class="btn btn-xs btn-outline-warning" style="padding:.2rem .5rem;font-size:.75rem;" title="ویرایش"><i class="bi bi-pencil"></i></a>
                             <button wire:click="destroy({{ $acc->id }})" data-swal-confirm="حذف شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>

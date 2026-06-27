@@ -2,54 +2,118 @@
 
 namespace App\Support;
 
+use App\Services\VeteranPolicyBroadcastService;
+use App\Services\VeteranPolicyProvisioner;
 use App\Services\VeteranPolicyService;
 
 class VeteranGroups
 {
-    public static function options(): array
+    public static function options(?int $accommodationId = null): array
     {
-        return app(VeteranPolicyService::class)->optionsForUi();
+        return self::policy($accommodationId)->optionsForUi();
     }
 
-    public static function label(?string $type): string
+    public static function label(?string $type, ?int $accommodationId = null): string
     {
         if (!$type) {
             return 'کاربر عادی';
         }
 
-        $normalized = app(VeteranPolicyService::class)->normalizeKey($type);
-        $group = app(VeteranPolicyService::class)->groupByKey($normalized);
+        $normalized = self::policy($accommodationId)->normalizeKey($type);
+        $group = self::policy($accommodationId)->groupByKey($normalized);
 
         if ($group) {
             return $group->label;
         }
 
-        return self::fallbackOptions()[$type]['label'] ?? 'کاربر عادی';
+        $fallback = self::fallbackOptions();
+
+        return $fallback[$normalized]['label']
+            ?? $fallback[$type]['label']
+            ?? 'کاربر عادی';
     }
 
-    public static function discount(?string $type): int
+    public static function discount(?string $type, ?int $accommodationId = null): int
     {
         if (!$type) {
             return 0;
         }
 
-        return app(VeteranPolicyService::class)->accommodationDiscount($type);
+        return self::policy($accommodationId)->accommodationDiscount($type);
     }
 
-    public static function accommodationDiscount(?string $type): int
+    public static function accommodationDiscount(?string $type, ?int $accommodationId = null): int
     {
-        return self::discount($type);
+        return self::discount($type, $accommodationId);
+    }
+
+    /**
+     * @param  array<int, string|null>  $types
+     */
+    public static function accommodationDiscountForTypes(array $types, ?int $accommodationId = null): int
+    {
+        $types = array_values(array_filter($types));
+
+        if (empty($types)) {
+            return 0;
+        }
+
+        if (count($types) === 1) {
+            return self::accommodationDiscount($types[0], $accommodationId);
+        }
+
+        return self::policy($accommodationId)->accommodationDiscountForTypes($types);
+    }
+
+    /**
+     * @param  array<int, string|null>  $types
+     */
+    public static function labelsForTypes(array $types, ?int $accommodationId = null): string
+    {
+        $labels = collect($types)
+            ->filter()
+            ->map(fn ($type) => self::label($type, $accommodationId))
+            ->filter(fn ($label) => $label !== 'کاربر عادی')
+            ->values();
+
+        return $labels->isEmpty() ? 'کاربر عادی' : $labels->join(' + ');
+    }
+
+    private static function policy(?int $accommodationId): VeteranPolicyService
+    {
+        if ($accommodationId === null) {
+            $referenceId = app(VeteranPolicyBroadcastService::class)->referenceAccommodationId();
+            if ($referenceId !== null) {
+                $accommodationId = $referenceId;
+            }
+        }
+
+        return app(VeteranPolicyService::class)->forAccommodation($accommodationId);
     }
 
     /** @return array<string, array{label:string, discount:int}> */
     private static function fallbackOptions(): array
     {
-        return [
-            'martyr_family'         => ['label' => 'خانواده شهید', 'discount' => 50],
-            'veteran_25_49'         => ['label' => 'جانباز ۲۵ تا ۴۹ درصد', 'discount' => 30],
-            'veteran_50_69'         => ['label' => 'جانباز ۵۰ تا ۶۹ درصد', 'discount' => 40],
-            'veteran_70_plus'       => ['label' => 'جانباز ۷۰ درصد و بالاتر', 'discount' => 50],
-            'freed_prisoner_family' => ['label' => 'خانواده آزاده', 'discount' => 40],
-        ];
+        static $options = null;
+
+        if ($options !== null) {
+            return $options;
+        }
+
+        $options = [];
+        foreach (app(VeteranPolicyProvisioner::class)->groupDefinitions() as $def) {
+            $options[$def['key']] = [
+                'label'    => $def['label'],
+                'discount' => $def['accommodation_discount'],
+            ];
+        }
+
+        foreach (VeteranPolicyService::LEGACY_KEY_MAP as $legacy => $modern) {
+            if (isset($options[$modern]) && !isset($options[$legacy])) {
+                $options[$legacy] = $options[$modern];
+            }
+        }
+
+        return $options;
     }
 }

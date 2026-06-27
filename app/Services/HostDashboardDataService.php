@@ -40,7 +40,7 @@ class HostDashboardDataService
             ->whereDate('created_at', today())->sum('total_price');
 
         $recentBookings = Booking::whereIn('accommodation_id', $ids)
-            ->with('user', 'accommodation', 'roomType')
+            ->with('user', 'accommodation', 'roomType', 'bookingRooms.room')
             ->latest()->limit(12)->get();
 
         $myAccommodations = $user->accommodations()
@@ -122,7 +122,7 @@ class HostDashboardDataService
         $checkoutsToday = Booking::whereIn('accommodation_id', $ids)
             ->where('status', 'confirmed')
             ->whereDate('check_out', today())
-            ->with('user', 'accommodation', 'roomType')
+            ->with('user', 'accommodation', 'roomType', 'bookingRooms.room')
             ->orderBy('check_out')
             ->get();
 
@@ -130,7 +130,7 @@ class HostDashboardDataService
             ->where('status', 'confirmed')
             ->whereDate('check_out', '>', today())
             ->whereDate('check_out', '<=', today()->addDays(2))
-            ->with('user', 'accommodation', 'roomType')
+            ->with('user', 'accommodation', 'roomType', 'bookingRooms.room')
             ->orderBy('check_out')
             ->get();
 
@@ -159,7 +159,7 @@ class HostDashboardDataService
             ->where('status', 'confirmed')
             ->whereDate('check_in', '<=', today())
             ->whereDate('check_out', '>', today())
-            ->with('user', 'accommodation', 'roomType')
+            ->with('user', 'accommodation', 'roomType', 'bookingRooms.room')
             ->orderBy('check_out')
             ->get();
 

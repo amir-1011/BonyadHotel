@@ -17,6 +17,9 @@
               method="POST" enctype="multipart/form-data">
             @csrf @method('PUT')
             @include('host.room_types._form', ['roomType' => $roomType])
+
+            <x-room-type.physical-rooms-section :roomType="$roomType" />
+
             <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn btn-warning">
                     <i class="bi bi-check-lg me-1"></i>ذخیره تغییرات

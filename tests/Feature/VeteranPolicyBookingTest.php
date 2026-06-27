@@ -13,7 +13,7 @@ use App\Services\BookingPricingService;
 use App\Services\ManualBookingService;
 use App\Services\VeteranPolicyService;
 use Carbon\Carbon;
-use Database\Seeders\VeteranPolicySeeder;
+use App\Services\VeteranPolicyProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
@@ -41,7 +41,6 @@ class VeteranPolicyBookingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(VeteranPolicySeeder::class);
 
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
@@ -64,6 +63,8 @@ class VeteranPolicyBookingTest extends TestCase
             'rooms'           => 5,
             'is_active'       => true,
         ]);
+
+        app(VeteranPolicyProvisioner::class)->seedForAccommodation($this->accommodation);
     }
 
     // ──────────────────────────────────────────────────────
@@ -253,8 +254,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_veteran70_pool_sessions_within_quota_are_fully_free(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $pricing = $this->calculatePricing([
             'veteran_type' => 'veteran_70_spouses',
@@ -275,8 +276,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_veteran70_pool_sessions_beyond_3_pay_full_price(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $pricing = $this->calculatePricing([
             'veteran_type' => 'veteran_70_spouses',
@@ -298,8 +299,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_veteran70_duplicate_pool_lines_share_weekly_free_quota(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $pricing = $this->calculatePricing([
             'veteran_type' => 'veteran_70_spouses',
@@ -330,8 +331,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_non_veteran70_pool_gets_65_percent_discount_not_free(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $pricing = $this->calculatePricing([
             'veteran_type' => 'veteran_50_69_dependents',
@@ -350,8 +351,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_pool_free_sessions_rule_data_for_veteran70(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $rule = $policy->serviceDiscountRule('veteran_70_spouses', $pool->id);
 
@@ -369,7 +370,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_recalculate_totals_preserves_free_sessions_for_veteran70(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $booking = $this->makeBookingWithService('veteran_70_spouses', $pool->id, 200_000, 2);
 
         app(ManualBookingService::class)->recalculateTotals($booking);
@@ -383,7 +384,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_recalculate_totals_does_not_clamp_zero_to_min_discount(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         // 5 sessions: 3 free + 2 paid at matrix 0% (NOT at clamped 50%)
         $booking = $this->makeBookingWithService('veteran_70_spouses', $pool->id, 100_000, 5);
 
@@ -399,7 +400,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_recalculate_totals_applies_65_percent_for_veteran50_pool(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $booking = $this->makeBookingWithService('veteran_50_69_dependents', $pool->id, 200_000, 2);
 
         app(ManualBookingService::class)->recalculateTotals($booking);
@@ -414,7 +415,7 @@ class VeteranPolicyBookingTest extends TestCase
     public function test_recalculate_totals_uses_fresh_service_data(): void
     {
         // Ensures recalculate fetches fresh DB rows, not stale in-memory collection
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $booking = $this->makeBookingWithService('veteran_50_69_dependents', $pool->id, 100_000, 2);
 
         // Directly update the service in DB (simulating saveServiceEdits)
@@ -438,10 +439,10 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_conference_hall_40_percent_for_all_groups(): void
     {
-        $conference = ServiceCatalog::where('key', 'conference_hall')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $conference = $this->veteranCatalog($this->accommodation, 'conference_hall');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
-        foreach (VeteranGroup::active()->get() as $group) {
+        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->active()->get() as $group) {
             $rule = $policy->serviceDiscountRule($group->key, $conference->id);
             $this->assertSame(40, $rule['discount_percentage'],
                 "Expected 40% for {$group->key}");
@@ -455,10 +456,10 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_reception_entrance_50_percent_for_all_groups(): void
     {
-        $entrance = ServiceCatalog::where('key', 'reception_entrance')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $entrance = $this->veteranCatalog($this->accommodation, 'reception_entrance');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
-        foreach (VeteranGroup::active()->get() as $group) {
+        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->active()->get() as $group) {
             $rule = $policy->serviceDiscountRule($group->key, $entrance->id);
             $this->assertSame(50, $rule['discount_percentage'],
                 "Expected 50% for {$group->key}");
@@ -467,10 +468,10 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_reception_food_20_percent_for_all_groups(): void
     {
-        $food = ServiceCatalog::where('key', 'reception_food')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $food = $this->veteranCatalog($this->accommodation, 'reception_food');
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
-        foreach (VeteranGroup::active()->get() as $group) {
+        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->active()->get() as $group) {
             $rule = $policy->serviceDiscountRule($group->key, $food->id);
             $this->assertSame(20, $rule['discount_percentage'],
                 "Expected 20% for {$group->key}");
@@ -483,8 +484,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_gym_is_free_for_veteran70(): void
     {
-        $gym = ServiceCatalog::where('key', 'gym')->firstOrFail();
-        $rule = app(VeteranPolicyService::class)->serviceDiscountRule('veteran_70_spouses', $gym->id);
+        $gym = $this->veteranCatalog($this->accommodation, 'gym');
+        $rule = $this->veteranPolicyFor($this->accommodation)->serviceDiscountRule('veteran_70_spouses', $gym->id);
 
         $this->assertTrue($rule['free_sessions_eligible']);
         $this->assertSame(3, $rule['weekly_free_sessions']);
@@ -492,15 +493,15 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_multi_purpose_hall_is_free_for_veteran70(): void
     {
-        $hall = ServiceCatalog::where('key', 'multi_purpose_hall')->firstOrFail();
-        $rule = app(VeteranPolicyService::class)->serviceDiscountRule('veteran_70_spouses', $hall->id);
+        $hall = $this->veteranCatalog($this->accommodation, 'multi_purpose_hall');
+        $rule = $this->veteranPolicyFor($this->accommodation)->serviceDiscountRule('veteran_70_spouses', $hall->id);
 
         $this->assertTrue($rule['free_sessions_eligible']);
     }
 
     public function test_sports_services_have_65_percent_for_other_groups(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $sportKeys = ['pool', 'gym', 'multi_purpose_hall'];
         $veteranKeys = [
             'veteran_50_69_dependents', 'veteran_25_49_dependents',
@@ -509,7 +510,7 @@ class VeteranPolicyBookingTest extends TestCase
         ];
 
         foreach ($sportKeys as $serviceKey) {
-            $service = ServiceCatalog::where('key', $serviceKey)->firstOrFail();
+            $service = $this->veteranCatalog($this->accommodation, $serviceKey);
             foreach ($veteranKeys as $vKey) {
                 $rule = $policy->serviceDiscountRule($vKey, $service->id);
                 $this->assertSame(65, $rule['discount_percentage'],
@@ -526,7 +527,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_booking_exceeding_3_night_period_cap_gets_partial_discount(): void
     {
-        $result = app(VeteranPolicyService::class)->checkAccommodationUsage(
+        $result = $this->veteranPolicyFor($this->accommodation)->checkAccommodationUsage(
             'veteran_70_spouses', 1, 4, '1234567890',
         );
 
@@ -537,7 +538,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_booking_within_period_cap_is_allowed(): void
     {
-        $result = app(VeteranPolicyService::class)->checkAccommodationUsage(
+        $result = $this->veteranPolicyFor($this->accommodation)->checkAccommodationUsage(
             'veteran_70_spouses', 1, 3, '1234567890',
         );
 
@@ -567,7 +568,7 @@ class VeteranPolicyBookingTest extends TestCase
         ]);
 
         // 2 used + 2 requested = 4 > cap of 3 → only 1 night gets veteran discount
-        $result = app(VeteranPolicyService::class)->checkAccommodationUsage(
+        $result = $this->veteranPolicyFor($this->accommodation)->checkAccommodationUsage(
             'veteran_70_spouses', 1, 2, '5554443332', $guest->id,
         );
 
@@ -598,7 +599,7 @@ class VeteranPolicyBookingTest extends TestCase
             'tracking_code'        => 'TEST002',
         ]);
 
-        $result = app(VeteranPolicyService::class)->checkAccommodationUsage(
+        $result = $this->veteranPolicyFor($this->accommodation)->checkAccommodationUsage(
             'veteran_70_spouses', 1, 3, '7778889990', $guest->id,
         );
 
@@ -612,7 +613,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_total_quota_scales_with_number_of_dependents(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
 
         $summary1 = $policy->usageSummary('veteran_70_spouses', 1);
         $summary2 = $policy->usageSummary('veteran_70_spouses', 2);
@@ -629,7 +630,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_all_legacy_keys_normalize_correctly(): void
     {
-        $policy = app(VeteranPolicyService::class);
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $map = [
             'veteran_70_plus'       => 'veteran_70_spouses',
             'veteran_50_69'         => 'veteran_50_69_dependents',
@@ -646,7 +647,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_legacy_veteran70_plus_gets_70_percent_discount(): void
     {
-        $this->assertSame(70, app(VeteranPolicyService::class)->accommodationDiscount('veteran_70_plus'));
+        $this->assertSame(70, $this->veteranPolicyFor($this->accommodation)->accommodationDiscount('veteran_70_plus'));
     }
 
     // ──────────────────────────────────────────────────────
@@ -655,7 +656,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_veteran_5_49_group_label_matches_pdf_not_25(): void
     {
-        $group = VeteranGroup::where('key', 'veteran_25_49_dependents')->firstOrFail();
+        $group = VeteranGroup::forAccommodation($this->accommodation->id)->where('key', 'veteran_25_49_dependents')->firstOrFail();
         $this->assertStringContainsString('۵ الی ۴۹', $group->label,
             'Group label must say 5-49% as per official policy document (not 25-49%)');
     }
@@ -666,7 +667,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_create_stores_correct_accommodation_and_service_discount_veteran70(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
 
         $booking = app(ManualBookingService::class)->create(
             $this->accommodation,
@@ -710,7 +711,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_create_stores_correct_65_percent_for_veteran50_pool(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
 
         $booking = app(ManualBookingService::class)->create(
             $this->accommodation,
@@ -737,13 +738,13 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_used_free_sessions_in_week_counts_prior_booking_pool_usage(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $nationalId = '1212121212';
         $checkIn = $this->sameWeekCheckIn();
 
         $this->createPriorPoolBooking($nationalId, '09121212121', $checkIn, 3, 100_000);
 
-        $used = app(VeteranPolicyService::class)->usedFreeSessionsInWeek(
+        $used = $this->veteranPolicyFor($this->accommodation)->usedFreeSessionsInWeek(
             'veteran_70_spouses',
             $nationalId,
             null,
@@ -756,8 +757,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_second_booking_same_week_gets_no_additional_free_pool_sessions(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '1313131313';
         $mobile = '09131313131';
         $checkIn = $this->sameWeekCheckIn();
@@ -785,8 +786,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_second_booking_same_week_gets_only_remaining_free_pool_sessions(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '1414141414';
         $checkIn = $this->sameWeekCheckIn();
 
@@ -813,13 +814,13 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_cancelled_booking_does_not_count_toward_weekly_pool_quota(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $nationalId = '1515151515';
         $checkIn = $this->sameWeekCheckIn();
 
         $this->createPriorPoolBooking($nationalId, '09151515151', $checkIn, 3, 100_000, 'cancelled');
 
-        $used = app(VeteranPolicyService::class)->usedFreeSessionsInWeek(
+        $used = $this->veteranPolicyFor($this->accommodation)->usedFreeSessionsInWeek(
             'veteran_70_spouses',
             $nationalId,
             null,
@@ -832,8 +833,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_different_week_gets_fresh_pool_free_quota(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '1616161616';
         $priorWeek = Carbon::parse($this->sameWeekCheckIn())->subWeek()->format('Y-m-d');
         $thisWeek = $this->sameWeekCheckIn();
@@ -859,9 +860,9 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_gym_and_pool_have_independent_weekly_free_quotas(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $gym = ServiceCatalog::where('key', 'gym')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $gym = $this->veteranCatalog($this->accommodation, 'gym');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '1717171717';
         $checkIn = $this->sameWeekCheckIn();
 
@@ -886,7 +887,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_create_second_manual_booking_same_week_charges_full_pool_price(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $nationalId = '1818181818';
         $mobile = '09181818181';
         $checkIn = $this->sameWeekCheckIn();
@@ -932,7 +933,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_create_stores_free_units_on_pool_service(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
 
         $booking = app(ManualBookingService::class)->create(
             $this->accommodation,
@@ -956,8 +957,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_pricing_preview_without_national_id_does_not_apply_cross_booking_free_quota(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '2424242424';
         $checkIn = $this->sameWeekCheckIn();
 
@@ -982,8 +983,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_pricing_with_national_id_respects_prior_weekly_pool_usage(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '2525252525';
         $checkIn = $this->sameWeekCheckIn();
 
@@ -1008,7 +1009,7 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_recalculate_totals_excludes_current_booking_from_weekly_pool_usage(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $booking = $this->makeBookingWithService('veteran_70_spouses', $pool->id, 100_000, 3);
 
         app(ManualBookingService::class)->recalculateTotals($booking);
@@ -1025,7 +1026,7 @@ class VeteranPolicyBookingTest extends TestCase
         $checkIn = $this->sameWeekCheckIn();
         $this->createPriorPoolBooking($nationalId, '09191919191', $checkIn, 2, 100_000);
 
-        $summary = app(VeteranPolicyService::class)->usageSummary(
+        $summary = $this->veteranPolicyFor($this->accommodation)->usageSummary(
             'veteran_70_spouses',
             1,
             $nationalId,
@@ -1041,8 +1042,8 @@ class VeteranPolicyBookingTest extends TestCase
 
     public function test_cross_booking_and_duplicate_lines_share_single_weekly_pool_quota(): void
     {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $policy = app(VeteranPolicyService::class);
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $policy = $this->veteranPolicyFor($this->accommodation);
         $nationalId = '2020202020';
         $checkIn = $this->sameWeekCheckIn();
 
@@ -1073,6 +1074,39 @@ class VeteranPolicyBookingTest extends TestCase
         $this->assertSame(100, $pricing['services_discount_amount']);
         $this->assertSame(1, $pricing['service_lines'][0]['free_units']);
         $this->assertSame(0, $pricing['service_lines'][1]['free_units']);
+    }
+
+    public function test_service_variant_uses_variant_price_and_parent_discount(): void
+    {
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $variant = \App\Models\ServiceCatalogVariant::create([
+            'service_catalog_id' => $pool->id,
+            'key'                => 'pool_neshat',
+            'name'               => 'استخر نشاط',
+            'price'              => 500_000,
+            'sort_order'         => 1,
+            'is_active'          => true,
+        ]);
+
+        $pricing = $this->calculatePricing([
+            'veteran_type' => 'veteran_50_69',
+            'services'     => [
+                [
+                    'service_catalog_id'         => $pool->id,
+                    'service_catalog_variant_id' => $variant->id,
+                    'name'                       => 'استخر — استخر نشاط',
+                    'unit_price'                 => 500_000,
+                    'quantity'                   => 1,
+                ],
+            ],
+        ]);
+
+        $line = $pricing['service_lines'][0];
+        $this->assertSame('استخر — استخر نشاط', $line['name']);
+        $this->assertSame(500_000, $line['unit_price']);
+        $this->assertSame($variant->id, $line['service_catalog_variant_id']);
+        $this->assertSame(65, $line['discount_percentage']);
+        $this->assertSame(325_000, $line['discount_amount']);
     }
 
     // ──────────────────────────────────────────────────────
@@ -1118,7 +1152,7 @@ class VeteranPolicyBookingTest extends TestCase
         int $unitPrice,
         string $status = 'confirmed',
     ): Booking {
-        $pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
         $checkOut = Carbon::parse($checkIn)->addDay()->format('Y-m-d');
         $freeUnits = min(3, $poolQuantity);
         $discountAmount = $freeUnits * $unitPrice;

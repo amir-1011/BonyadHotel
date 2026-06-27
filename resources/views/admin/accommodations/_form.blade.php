@@ -6,7 +6,7 @@
         @error('name') <div class="text-danger small">{{ $message }}</div> @enderror
     </div>
     @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
-    @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities])
+    @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities, 'counties' => $counties])
     <div class="col-md-4 d-none">
         <label class="form-label small fw-semibold">قیمت/شب (ریال)</label>
         <x-money-input wire:model="pricePerNight" class="form-control" required min="0" />

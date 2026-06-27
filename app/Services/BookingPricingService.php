@@ -33,6 +33,14 @@ class BookingPricingService
         return $this->calculateSingleRoom($params);
     }
 
+    private function policyFor(array $params): VeteranPolicyService
+    {
+        $accommodation = $params['accommodation'] ?? null;
+        $accommodationId = $accommodation instanceof Accommodation ? $accommodation->id : null;
+
+        return $this->veteranPolicy->forAccommodation($accommodationId);
+    }
+
     /**
      * @param  array<int, array<string, mixed>>  $roomLines
      */
@@ -41,7 +49,8 @@ class BookingPricingService
         $checkIn = $params['check_in'];
         $checkOut = $params['check_out'];
         $services = $params['services'] ?? [];
-        $veteranType = $params['veteran_type'] ?? null;
+        $veteranTypes = $this->resolveVeteranTypes($params);
+        $veteranType = $veteranTypes[0] ?? null;
         $accommodation = $params['accommodation'];
         $remainingExcluded = max(0, (int) ($params['non_veteran_discount_guests'] ?? 0));
         $allGuestSlots = $params['per_guest_slots'] ?? null;
@@ -49,7 +58,12 @@ class BookingPricingService
 
         $accommodationDiscountPct = isset($params['discount_percentage'])
             ? (int) $params['discount_percentage']
-            : $this->veteranPolicy->accommodationDiscount($veteranType);
+            : $this->policyFor($params)->accommodationDiscountForTypes($veteranTypes);
+
+        $bookingGuests = max(1, (int) ($params['guests'] ?? collect($roomLines)->sum(fn ($line) => (int) ($line['guests'] ?? 1))));
+        $nights = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
+        $accommodationNightPlan = $params['accommodation_night_plan']
+            ?? $this->resolveAccommodationNightPlan($params, $nights, $veteranTypes, $bookingGuests);
 
         $aggregated = [
             'nights' => 0,
@@ -64,6 +78,8 @@ class BookingPricingService
             'extra_guests_total' => 0,
             'room_lines' => [],
         ];
+
+        $mergedAccommodationBreakdown = [];
 
         foreach ($roomLines as $index => $line) {
             $roomType = $line['room_type'] ?? null;
@@ -92,7 +108,9 @@ class BookingPricingService
                 'extra_guests'                => $extraGuests,
                 'bill_full_rooms'             => $billFullRooms,
                 'veteran_type'                => $veteranType,
+                'veteran_types'               => $veteranTypes,
                 'discount_percentage'         => $accommodationDiscountPct,
+                'accommodation_night_plan'    => $accommodationNightPlan,
                 'services'                    => [],
                 'accommodation'               => $accommodation,
                 'room_type'                   => $roomType,
@@ -114,6 +132,17 @@ class BookingPricingService
             $aggregated['veteran_accommodation_discount_amount'] += $linePricing['veteran_accommodation_discount_amount'];
             $aggregated['manual_accommodation_discount_amount'] += $linePricing['manual_accommodation_discount_amount'] ?? 0;
             $aggregated['extra_guests_total'] += $linePricing['extra_guests_total'];
+            foreach ($linePricing['accommodation_discount_breakdown'] ?? [] as $item) {
+                $groupKey = (string) ($item['veteran_group_key'] ?? '');
+                if ($groupKey === '') {
+                    continue;
+                }
+                if (!isset($mergedAccommodationBreakdown[$groupKey])) {
+                    $mergedAccommodationBreakdown[$groupKey] = $item;
+                    continue;
+                }
+                $mergedAccommodationBreakdown[$groupKey]['discount_amount'] += (int) ($item['discount_amount'] ?? 0);
+            }
             $aggregated['room_lines'][] = array_merge($linePricing, [
                 'sort_order'      => $index,
                 'room_type_id'    => $roomType?->id,
@@ -125,13 +154,15 @@ class BookingPricingService
             ]);
         }
 
-        $enrichedServices = $this->veteranPolicy->enrichServicesWithDiscounts($veteranType, $services);
+        $enrichedServices = $this->policyFor($params)->enrichServicesWithDiscountsForTypes($veteranTypes, $services);
         $serviceLines = $this->calculateServiceLines($enrichedServices, [
+            'veteran_types'      => $veteranTypes,
             'veteran_type'       => $veteranType,
             'national_id'        => $params['national_id'] ?? null,
             'user_id'            => isset($params['user_id']) ? (int) $params['user_id'] : null,
             'reference_date'     => $checkIn,
             'exclude_booking_id' => isset($params['exclude_booking_id']) ? (int) $params['exclude_booking_id'] : null,
+            'accommodation_id'   => ($params['accommodation'] ?? null) instanceof Accommodation ? $params['accommodation']->id : null,
         ]);
         $servicesSubtotal = collect($serviceLines)->sum('line_subtotal');
         $servicesDiscountAmount = collect($serviceLines)->sum('discount_amount');
@@ -146,11 +177,7 @@ class BookingPricingService
             ? (int) round($totalDiscount / $subtotal * 100)
             : 0;
 
-        $veteranDiscountNights = $this->resolveVeteranDiscountNights(
-            $params,
-            $aggregated['nights'],
-            $veteranType,
-        );
+        $veteranDiscountNights = $this->countDiscountedNights($accommodationNightPlan['night_discounts'] ?? []);
 
         return [
             'nights'                          => $aggregated['nights'],
@@ -164,6 +191,8 @@ class BookingPricingService
             'veteran_accommodation_discount_amount' => $aggregated['veteran_accommodation_discount_amount'],
             'manual_accommodation_discount_amount'  => $aggregated['manual_accommodation_discount_amount'],
             'veteran_discount_nights'         => $veteranDiscountNights,
+            'veteran_accommodation_group_usage' => $accommodationNightPlan['group_usage'] ?? [],
+            'accommodation_discount_breakdown'  => array_values($mergedAccommodationBreakdown),
             'extra_guests_total'              => $aggregated['extra_guests_total'],
             'services_subtotal'               => $servicesSubtotal,
             'services_discount_amount'        => $servicesDiscountAmount,
@@ -235,19 +264,25 @@ class BookingPricingService
         $extraGuests        = (int) ($params['extra_guests'] ?? 0);
         $billFullRooms      = (bool) ($params['bill_full_rooms'] ?? false);
         $services      = $params['services'] ?? [];
-        $veteranType   = $params['veteran_type'] ?? null;
+        $veteranTypes  = $this->resolveVeteranTypes($params);
+        $veteranType   = $veteranTypes[0] ?? null;
         $nonDiscountGuests = max(0, (int) ($params['non_veteran_discount_guests'] ?? 0));
 
         $accommodationDiscountPct = isset($params['discount_percentage'])
             ? (int) $params['discount_percentage']
-            : $this->veteranPolicy->accommodationDiscount($veteranType);
+            : $this->policyFor($params)->accommodationDiscountForTypes($veteranTypes);
 
         $accommodation = $params['accommodation'];
         $roomType      = $params['room_type'] ?? null;
         $roomRate      = $params['room_rate'] ?? null;
 
         $nights = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
-        $veteranDiscountNights = $this->resolveVeteranDiscountNights($params, $nights, $veteranType);
+        $bookingGuests = max(1, (int) ($params['guests'] ?? 1));
+        $accommodationNightPlan = $params['accommodation_night_plan']
+            ?? $this->resolveAccommodationNightPlan($params, $nights, $veteranTypes, $bookingGuests);
+        $nightDiscounts = $accommodationNightPlan['night_discounts'] ?? array_fill(0, $nights, 0);
+        $nightGroupKeys = $accommodationNightPlan['night_group_keys'] ?? array_fill(0, $nights, null);
+        $veteranDiscountNights = $this->countDiscountedNights($nightDiscounts);
         $pricePerNight = $roomRate ? $roomRate->price_per_night : $accommodation->price_per_night;
 
         $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType, $childrenUnder6, $accommodation);
@@ -274,6 +309,7 @@ class BookingPricingService
         $roomAfterAllDiscounts = 0;
         $childrenDiscountAmount = 0;
         $manualAccommodationDiscount = 0;
+        $groupVeteranDiscountAmounts = [];
         $cursor = new \DateTime($checkIn);
         $endDate = new \DateTime($checkOut);
         $nightIndex = 0;
@@ -285,7 +321,7 @@ class BookingPricingService
                 ? (int) $dayData['effective_price']
                 : $pricePerNight;
 
-            $nightVeteranPct = $nightIndex < $veteranDiscountNights ? $accommodationDiscountPct : 0;
+            $nightVeteranPct = (int) ($nightDiscounts[$nightIndex] ?? 0);
 
             if (is_array($perGuestSlots) && count($perGuestSlots) > 0) {
                 $nightBreakdown = $this->accommodationNightBreakdownPerGuest(
@@ -309,6 +345,14 @@ class BookingPricingService
             $roomAfterAllDiscounts += $nightBreakdown['net'];
             $childrenDiscountAmount += $nightBreakdown['children_discount_amount'];
             $manualAccommodationDiscount += $nightBreakdown['manual_discount_amount'] ?? 0;
+
+            $nightGroupKey = $nightGroupKeys[$nightIndex] ?? null;
+            $nightVeteranAmount = (int) ($nightBreakdown['veteran_discount_amount'] ?? 0);
+            if ($nightGroupKey && $nightVeteranAmount > 0) {
+                $groupVeteranDiscountAmounts[$nightGroupKey] = ($groupVeteranDiscountAmounts[$nightGroupKey] ?? 0)
+                    + $nightVeteranAmount;
+            }
+
             $nightIndex++;
             $cursor->modify('+1 day');
         }
@@ -316,13 +360,15 @@ class BookingPricingService
         $roomTotalDiscount = $roomSubtotal - $roomAfterAllDiscounts;
         $roomVeteranDiscount = max(0, $roomTotalDiscount - $manualAccommodationDiscount);
 
-        $enrichedServices = $this->veteranPolicy->enrichServicesWithDiscounts($veteranType, $services);
+        $enrichedServices = $this->policyFor($params)->enrichServicesWithDiscountsForTypes($veteranTypes, $services);
         $serviceLines = $this->calculateServiceLines($enrichedServices, [
+            'veteran_types'      => $veteranTypes,
             'veteran_type'       => $veteranType,
             'national_id'        => $params['national_id'] ?? null,
             'user_id'            => isset($params['user_id']) ? (int) $params['user_id'] : null,
             'reference_date'     => $checkIn,
             'exclude_booking_id' => isset($params['exclude_booking_id']) ? (int) $params['exclude_booking_id'] : null,
+            'accommodation_id'   => ($params['accommodation'] ?? null) instanceof Accommodation ? $params['accommodation']->id : null,
         ]);
         $servicesSubtotal = collect($serviceLines)->sum('line_subtotal');
         $servicesDiscountAmount = collect($serviceLines)->sum('discount_amount');
@@ -331,12 +377,32 @@ class BookingPricingService
         $discountEligibleRatio = $billingGuests > 0
             ? ($billingGuests - $nonDiscountGuests) / $billingGuests
             : 1.0;
-        $extraVeteranDiscount = $accommodationDiscountPct > 0 && $nights > 0 && $veteranDiscountNights > 0
-            ? (int) round(
-                $extraGuestsTotal * $accommodationDiscountPct / 100 * $discountEligibleRatio * $veteranDiscountNights / $nights
-            )
+        $extraPerNight = ($extraGuests > 0 && $roomType && $roomType->extra_capacity_price)
+            ? $extraGuests * (int) $roomType->extra_capacity_price
             : 0;
+        $extraVeteranDiscount = 0;
+        if ($extraPerNight > 0 && $discountEligibleRatio > 0) {
+            foreach ($nightDiscounts as $nightIdx => $nightPct) {
+                if ($nightPct <= 0) {
+                    continue;
+                }
+                $nightExtraDiscount = (int) round($extraPerNight * $nightPct / 100 * $discountEligibleRatio);
+                $extraVeteranDiscount += $nightExtraDiscount;
+                $nightGroupKey = $nightGroupKeys[$nightIdx] ?? null;
+                if ($nightGroupKey && $nightExtraDiscount > 0) {
+                    $groupVeteranDiscountAmounts[$nightGroupKey] = ($groupVeteranDiscountAmounts[$nightGroupKey] ?? 0)
+                        + $nightExtraDiscount;
+                }
+            }
+        }
         $veteranAccommodationDiscount = $roomVeteranDiscount + $extraVeteranDiscount;
+        $accommodationDiscountBreakdown = $this->buildAccommodationDiscountBreakdown(
+            $accommodationNightPlan['group_usage'] ?? [],
+            $groupVeteranDiscountAmounts,
+            $nightDiscounts,
+            $nightGroupKeys,
+            $this->policyFor($params),
+        );
         $accommodationDiscountAmount = $veteranAccommodationDiscount + $manualAccommodationDiscount;
 
         $subtotal = $accommodationSubtotal + $servicesSubtotal;
@@ -359,6 +425,8 @@ class BookingPricingService
             'veteran_accommodation_discount_amount' => $veteranAccommodationDiscount,
             'manual_accommodation_discount_amount'  => $manualAccommodationDiscount,
             'veteran_discount_nights'           => $veteranDiscountNights,
+            'veteran_accommodation_group_usage' => $accommodationNightPlan['group_usage'] ?? [],
+            'accommodation_discount_breakdown'  => $accommodationDiscountBreakdown,
             'extra_guests_total'              => $extraGuestsTotal,
             'services_subtotal'               => $servicesSubtotal,
             'services_discount_amount'        => $servicesDiscountAmount,
@@ -371,26 +439,79 @@ class BookingPricingService
         ];
     }
 
-    private function resolveVeteranDiscountNights(array $params, int $nights, ?string $veteranType): int
-    {
-        if (!$veteranType || $nights <= 0) {
-            return 0;
+    /**
+     * @param  array<int, string>  $veteranTypes
+     * @return array{night_discounts: array<int, int>, group_usage: array<string, int>}
+     */
+    private function resolveAccommodationNightPlan(
+        array $params,
+        int $nights,
+        array $veteranTypes,
+        int $guests,
+    ): array {
+        if ($nights <= 0 || empty($veteranTypes)) {
+            return [
+                'night_discounts'  => array_fill(0, max(0, $nights), 0),
+                'night_group_keys' => array_fill(0, max(0, $nights), null),
+                'group_usage'      => [],
+            ];
         }
 
         if (array_key_exists('veteran_discount_nights', $params)) {
-            return min($nights, max(0, (int) $params['veteran_discount_nights']));
+            $discounted = min($nights, max(0, (int) $params['veteran_discount_nights']));
+            $pct = isset($params['discount_percentage'])
+                ? (int) $params['discount_percentage']
+                : $this->policyFor($params)->accommodationDiscountForTypes($veteranTypes);
+            $nightDiscounts = [];
+            $nightGroupKeys = [];
+            for ($i = 0; $i < $nights; $i++) {
+                $nightDiscounts[] = $i < $discounted ? $pct : 0;
+                $nightGroupKeys[] = $i < $discounted ? ($veteranTypes[0] ?? null) : null;
+            }
+            $groupUsage = ($discounted > 0 && !empty($veteranTypes[0]))
+                ? [$veteranTypes[0] => $discounted]
+                : [];
+
+            return [
+                'night_discounts'  => $nightDiscounts,
+                'night_group_keys' => $nightGroupKeys,
+                'group_usage'      => $groupUsage,
+            ];
         }
 
-        $usage = $this->veteranPolicy->checkAccommodationUsage(
-            $veteranType,
-            max(1, (int) ($params['guests'] ?? 1)),
+        return $this->policyFor($params)->accommodationNightPlan(
+            $veteranTypes,
+            max(1, $guests),
             $nights,
             $params['national_id'] ?? null,
             isset($params['user_id']) ? (int) $params['user_id'] : null,
             isset($params['exclude_booking_id']) ? (int) $params['exclude_booking_id'] : null,
         );
+    }
 
-        return min($nights, max(0, (int) ($usage['discounted_nights'] ?? $nights)));
+    /**
+     * @param  array<int, int>  $nightDiscounts
+     */
+    private function countDiscountedNights(array $nightDiscounts): int
+    {
+        return count(array_filter($nightDiscounts, fn (int $pct) => $pct > 0));
+    }
+
+    private function resolveVeteranDiscountNights(array $params, int $nights, ?string $veteranType): int
+    {
+        $veteranTypes = $this->resolveVeteranTypes($params);
+        if (empty($veteranTypes) || $nights <= 0) {
+            return 0;
+        }
+
+        $plan = $this->resolveAccommodationNightPlan(
+            $params,
+            $nights,
+            $veteranTypes,
+            max(1, (int) ($params['guests'] ?? 1)),
+        );
+
+        return $this->countDiscountedNights($plan['night_discounts']);
     }
 
     /**
@@ -401,14 +522,21 @@ class BookingPricingService
     private function calculateServiceLines(array $services, array $context = []): array
     {
         $lines = [];
-        $veteranType = $context['veteran_type'] ?? null;
+        $veteranTypes = $context['veteran_types'] ?? [];
+        if (empty($veteranTypes) && !empty($context['veteran_type'])) {
+            $veteranTypes = [$context['veteran_type']];
+        }
+        $veteranType = $veteranTypes[0] ?? ($context['veteran_type'] ?? null);
         $nationalId = $context['national_id'] ?? null;
         $userId = $context['user_id'] ?? null;
         $referenceDate = $context['reference_date'] ?? now()->format('Y-m-d');
         $excludeBookingId = $context['exclude_booking_id'] ?? null;
+        $policy = $this->veteranPolicy->forAccommodation($context['accommodation_id'] ?? null);
+        $multiGroup = count($veteranTypes) > 1;
 
-        // Track free sessions already granted per service type within this booking.
-        $freeUsedByService = [];
+        // Track sessions already consumed per service within this booking.
+        $sessionsUsedByService = [];
+        $groupUsageByService = [];
 
         foreach ($services as $service) {
             if (empty(trim($service['name'] ?? ''))) {
@@ -418,17 +546,118 @@ class BookingPricingService
             $qty  = max(1, (int) ($service['quantity'] ?? 1));
             $unit = max(0, (int) ($service['unit_price'] ?? 0));
             $lineSubtotal = $qty * $unit;
-            $discountPct  = (int) ($service['discount_percentage'] ?? 0);
-
-            $freeEligible = (bool) ($service['free_sessions_eligible'] ?? false);
-            $weeklyFree   = (int) ($service['weekly_free_sessions'] ?? 0);
 
             $serviceKey = $service['service_catalog_id'] ?? trim($service['name']);
             $catalogId = isset($service['service_catalog_id']) ? (int) $service['service_catalog_id'] : null;
 
-            $alreadyFreeInBooking = $freeUsedByService[$serviceKey] ?? 0;
+            $groupConfigs = $multiGroup && $catalogId
+                ? $policy->groupDiscountConfigsForService($veteranTypes, $catalogId)
+                : [];
+
+            $useTiered = (bool) ($service['use_tiered_discount'] ?? false);
+            $tiers = $service['discount_tiers'] ?? [];
+            $hasMultiGroupRules = $multiGroup && !empty($groupConfigs);
+
+            if ($hasMultiGroupRules || ($multiGroup && $catalogId)) {
+                $weeklyConsumed = $catalogId
+                    ? $policy->weeklyConsumedPerGroupForService(
+                        $veteranTypes,
+                        $nationalId,
+                        $userId,
+                        $catalogId,
+                        $referenceDate,
+                        $excludeBookingId,
+                    )
+                    : array_fill_keys($veteranTypes, 0);
+                $bookingConsumed = $groupUsageByService[$serviceKey] ?? array_fill_keys($veteranTypes, 0);
+
+                $multiResult = MultiGroupServiceDiscountEngine::calculateLine(
+                    $unit,
+                    $qty,
+                    $groupConfigs,
+                    $weeklyConsumed,
+                    $bookingConsumed,
+                );
+
+                $groupUsageByService[$serviceKey] = $multiResult['group_usage'];
+                $sessionsUsedByService[$serviceKey] = ($sessionsUsedByService[$serviceKey] ?? 0) + $qty;
+
+                $lines[] = [
+                    'name'                       => trim($service['name']),
+                    'service_catalog_id'         => $service['service_catalog_id'] ?? null,
+                    'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                    'unit_price'                 => $unit,
+                    'quantity'                   => $qty,
+                    'line_subtotal'              => $lineSubtotal,
+                    'discount_percentage'        => $multiResult['effective_discount_percentage'],
+                    'discount_amount'            => $multiResult['discount_amount'],
+                    'line_total'                 => $lineSubtotal - $multiResult['discount_amount'],
+                    'free_sessions_eligible'     => $multiResult['free_units'] > 0,
+                    'free_units'                 => $multiResult['free_units'],
+                    'use_tiered_discount'        => collect($groupConfigs)->contains(fn ($g) => !empty($g['use_tiered_discount'])),
+                    'discount_breakdown'         => $multiResult['discount_breakdown'],
+                    'veteran_group_usage'        => collect($multiResult['group_usage'])
+                        ->mapWithKeys(fn ($count, $key) => [$key => max(0, (int) $count - (int) ($bookingConsumed[$key] ?? 0))])
+                        ->filter(fn ($count) => $count > 0)
+                        ->all(),
+                ];
+
+                continue;
+            }
+
+            if ($useTiered && !empty($tiers)) {
+                $alreadyInBooking = $sessionsUsedByService[$serviceKey] ?? 0;
+                $alreadyThisWeek = $catalogId
+                    ? $policy->usedServiceSessionsInWeek(
+                        $veteranType,
+                        $nationalId,
+                        $userId,
+                        $catalogId,
+                        $referenceDate,
+                        $excludeBookingId,
+                    )
+                    : 0;
+
+                $tierResult = ServiceDiscountTierEngine::calculateLine(
+                    $unit,
+                    $qty,
+                    $alreadyThisWeek,
+                    $alreadyInBooking,
+                    $tiers,
+                );
+
+                $sessionsUsedByService[$serviceKey] = $alreadyInBooking + $qty;
+                $freeUnits = $tierResult['free_units'];
+                $discountAmount = $tierResult['discount_amount'];
+                $discountPct = $tierResult['effective_discount_percentage'];
+                $freeEligible = ServiceDiscountTierEngine::freeTierQuota($tiers) > 0;
+
+                $lines[] = [
+                    'name'                       => trim($service['name']),
+                    'service_catalog_id'         => $service['service_catalog_id'] ?? null,
+                    'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                    'unit_price'                 => $unit,
+                    'quantity'                   => $qty,
+                    'line_subtotal'              => $lineSubtotal,
+                    'discount_percentage'        => $discountPct,
+                    'discount_amount'            => $discountAmount,
+                    'line_total'                 => $lineSubtotal - $discountAmount,
+                    'free_sessions_eligible'     => $freeEligible,
+                    'free_units'                 => $freeUnits,
+                    'use_tiered_discount'        => true,
+                    'discount_breakdown'         => $tierResult['discount_breakdown'] ?? [],
+                ];
+
+                continue;
+            }
+
+            $discountPct  = (int) ($service['discount_percentage'] ?? 0);
+            $freeEligible = (bool) ($service['free_sessions_eligible'] ?? false);
+            $weeklyFree   = (int) ($service['weekly_free_sessions'] ?? 0);
+
+            $alreadyFreeInBooking = $sessionsUsedByService[$serviceKey] ?? 0;
             $alreadyFreeThisWeek = ($freeEligible && $catalogId)
-                ? $this->veteranPolicy->usedFreeSessionsInWeek(
+                ? $policy->usedFreeSessionsInWeek(
                     $veteranType,
                     $nationalId,
                     $userId,
@@ -444,17 +673,19 @@ class BookingPricingService
             $paidUnits = $qty - $freeUnits;
 
             if ($freeEligible && $freeUnits > 0) {
-                $freeUsedByService[$serviceKey] = $alreadyFreeInBooking + $freeUnits;
+                $sessionsUsedByService[$serviceKey] = $alreadyFreeInBooking + $freeUnits;
             }
 
             $freeDiscount   = $freeUnits * $unit;
             $paidDiscount   = (int) round($paidUnits * $unit * $discountPct / 100);
             $discountAmount = $freeDiscount + $paidDiscount;
+            $legacyBreakdown = ServiceDiscountTierEngine::legacyLineBreakdown($unit, $qty, $freeUnits, $discountPct);
 
             $lines[] = [
-                'name'                   => trim($service['name']),
-                'service_catalog_id'     => $service['service_catalog_id'] ?? null,
-                'unit_price'             => $unit,
+                'name'                       => trim($service['name']),
+                'service_catalog_id'         => $service['service_catalog_id'] ?? null,
+                'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                'unit_price'                 => $unit,
                 'quantity'               => $qty,
                 'line_subtotal'          => $lineSubtotal,
                 'discount_percentage'    => $discountPct,
@@ -462,10 +693,29 @@ class BookingPricingService
                 'line_total'             => $lineSubtotal - $discountAmount,
                 'free_sessions_eligible' => $freeEligible,
                 'free_units'             => $freeUnits,
+                'use_tiered_discount'    => false,
+                'discount_breakdown'     => $legacyBreakdown['discount_breakdown'] ?? [],
             ];
         }
 
         return $lines;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveVeteranTypes(array $params): array
+    {
+        $policy = $this->policyFor($params);
+
+        if (!empty($params['veteran_types']) && is_array($params['veteran_types'])) {
+            return $policy->normalizeVeteranTypes($params['veteran_types']);
+        }
+
+        return $policy->normalizeVeteranTypes(
+            $params['veteran_type'] ?? null,
+            $params['secondary_veteran_type'] ?? null,
+        );
     }
 
     public function guestsForBedAllocation(int $guests, int $childrenUnder6, ?Accommodation $accommodation): int
@@ -514,7 +764,15 @@ class BookingPricingService
             return $roomsNeeded * max(1, (int) $roomType->capacity);
         }
 
-        return max(1, $guests - $extraGuests);
+        $capacity = max(1, (int) ($roomType?->capacity ?? 1));
+
+        // Single-line bookings store total headcount in guests (including floor sleepers).
+        // Split room lines store bed-only counts per line; extra_guests is separate.
+        if ($extraGuests > 0 && $guests > $capacity) {
+            return max(1, $guests - $extraGuests);
+        }
+
+        return max(1, $guests);
     }
 
     public function servicesSubtotal(array $services): int
@@ -564,15 +822,19 @@ class BookingPricingService
         if ($veteranDiscountPct > 0) {
             $net += (int) round($nightPrice * (100 - $veteranDiscountPct) / 100 * $discountAdults);
             $net += (int) round($nightPrice * $childMultiplier * (100 - $veteranDiscountPct) / 100 * $discountChildren);
+            $veteranDiscountAmount = (int) round($discountAdults * $nightPrice * $veteranDiscountPct / 100)
+                + (int) round($nightPrice * $childMultiplier * $discountChildren * $veteranDiscountPct / 100);
         } else {
             $net += $discountAdults * $nightPrice;
             $net += (int) round($nightPrice * $childMultiplier * $discountChildren);
+            $veteranDiscountAmount = 0;
         }
 
         return [
             'gross'                    => $gross - $childrenDiscountAmount,
             'net'                      => $net,
             'children_discount_amount' => $childrenDiscountAmount,
+            'veteran_discount_amount'  => $veteranDiscountAmount,
         ];
     }
 
@@ -591,6 +853,7 @@ class BookingPricingService
         $net = 0;
         $childrenDiscountAmount = 0;
         $manualDiscountAmount = 0;
+        $veteranDiscountAmount = 0;
 
         foreach ($guestSlots as $slot) {
             $isChild = !empty($slot['is_child']);
@@ -610,6 +873,7 @@ class BookingPricingService
 
             if ($veteranEligible && $veteranDiscountPct > 0) {
                 $afterBase = (int) round($guestGross * (100 - $veteranDiscountPct) / 100);
+                $veteranDiscountAmount += $guestGross - $afterBase;
             } elseif ($manualPct > 0) {
                 $afterManual = (int) round($guestGross * (100 - $manualPct) / 100);
                 $manualDiscountAmount += $guestGross - $afterManual;
@@ -624,6 +888,52 @@ class BookingPricingService
             'net'                      => $net,
             'children_discount_amount' => $childrenDiscountAmount,
             'manual_discount_amount'   => $manualDiscountAmount,
+            'veteran_discount_amount'  => $veteranDiscountAmount,
         ];
+    }
+
+    /**
+     * @param  array<string, int>  $groupUsage
+     * @param  array<string, int>  $groupDiscountAmounts
+     * @param  array<int, int>  $nightDiscounts
+     * @param  array<int, string|null>  $nightGroupKeys
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildAccommodationDiscountBreakdown(
+        array $groupUsage,
+        array $groupDiscountAmounts,
+        array $nightDiscounts,
+        array $nightGroupKeys,
+        VeteranPolicyService $policy,
+    ): array {
+        if (empty($groupUsage)) {
+            return [];
+        }
+
+        $pctByGroup = [];
+        foreach ($nightDiscounts as $idx => $pct) {
+            $key = $nightGroupKeys[$idx] ?? null;
+            if ($key && $pct > 0) {
+                $pctByGroup[$key] = $pct;
+            }
+        }
+
+        $breakdown = [];
+        foreach ($groupUsage as $groupKey => $units) {
+            if ($units <= 0) {
+                continue;
+            }
+
+            $group = $policy->groupByKey($groupKey);
+            $breakdown[] = [
+                'veteran_group_key'     => $groupKey,
+                'veteran_group_label'   => $group?->label ?? $groupKey,
+                'units'                 => (int) $units,
+                'discount_percentage'   => (int) ($pctByGroup[$groupKey] ?? 0),
+                'discount_amount'       => (int) ($groupDiscountAmounts[$groupKey] ?? 0),
+            ];
+        }
+
+        return $breakdown;
     }
 }

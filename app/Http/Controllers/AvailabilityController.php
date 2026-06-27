@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Accommodation;
 use App\Models\RoomType;
+use App\Services\RoomAvailabilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -115,5 +116,40 @@ class AvailabilityController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * Per-physical-room availability for manual booking room picker.
+     *
+     * GET /api/room-types/{roomType}/physical-rooms?check_in=Y-m-d&check_out=Y-m-d&exclude_room_ids=1,2
+     */
+    public function physicalRooms(Request $request, RoomType $roomType, RoomAvailabilityService $service): JsonResponse
+    {
+        if (!$roomType->is_active || !$roomType->accommodation->is_active) {
+            return response()->json(['rooms' => []]);
+        }
+
+        $checkIn  = $request->input('check_in');
+        $checkOut = $request->input('check_out');
+
+        if (!$checkIn || !$checkOut || $checkIn >= $checkOut) {
+            return response()->json(['rooms' => [], 'error' => 'invalid_dates'], 422);
+        }
+
+        if ((new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days > 90) {
+            return response()->json(['rooms' => [], 'error' => 'range_too_long'], 422);
+        }
+
+        $excludeIds = array_filter(array_map('intval', explode(',', (string) $request->input('exclude_room_ids', ''))));
+
+        $rooms = $service->roomsForRange($roomType, $checkIn, $checkOut, $excludeIds);
+
+        return response()->json([
+            'rooms'      => $rooms,
+            'room_type'  => [
+                'id'   => $roomType->id,
+                'name' => $roomType->name,
+            ],
+        ]);
     }
 }

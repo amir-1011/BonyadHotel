@@ -4,6 +4,7 @@ namespace App\Livewire\Host;
 
 use App\Models\Accommodation;
 use App\Models\City;
+use App\Models\County;
 use App\Models\Province;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
@@ -25,6 +26,7 @@ class AccommodationEdit extends Component
 
     public int    $provinceId       = 0;
     public int    $cityId          = 0;
+    public int    $countyId        = 0;
     public string $name            = '';
     public string $description     = '';
     public string $type            = 'hotel';
@@ -47,6 +49,7 @@ class AccommodationEdit extends Component
         $this->accommodation = $accommodation;
         $this->cityId        = $accommodation->city_id;
         $this->provinceId    = $accommodation->city?->province_id ?? 0;
+        $this->countyId      = $accommodation->county_id ?? 0;
         $this->name          = $accommodation->name;
         $this->description   = $accommodation->description ?? '';
         $this->type          = $accommodation->type;
@@ -63,15 +66,11 @@ class AccommodationEdit extends Component
         $this->loadContactInfoFrom($accommodation);
     }
 
-    public function updatedProvinceId(): void
-    {
-        $this->cityId = 0;
-    }
-
     protected function rules(): array
     {
         return array_merge([
             'cityId'        => ['required', 'exists:cities,id'],
+            'countyId'      => $this->countyIdRules(),
             'name'          => ['required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
             'type'          => $this->accommodationTypeRule(),
@@ -118,6 +117,7 @@ class AccommodationEdit extends Component
 
         $this->accommodation->update(array_merge([
             'city_id'         => $this->cityId,
+            'county_id'       => $this->normalizedCountyId(),
             'name'            => $this->name,
             'description'     => $this->description ?: null,
             'type'            => $this->type,
@@ -143,9 +143,12 @@ class AccommodationEdit extends Component
         $cities        = $this->provinceId
             ? City::where('province_id', $this->provinceId)->orderBy('name')->get()
             : City::where('province_id', $this->accommodation->city?->province_id ?? 0)->orderBy('name')->get();
+        $counties      = $this->provinceId
+            ? County::where('province_id', $this->provinceId)->orderBy('name')->get()
+            : County::where('province_id', $this->accommodation->city?->province_id ?? 0)->orderBy('name')->get();
         $accommodation = $this->accommodation;
         $keepImages    = $this->keepImages;
         $accommodationTypes = AccommodationType::options();
-        return view('host.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'keepImages', 'accommodationTypes'));
+        return view('host.accommodations.edit', compact('accommodation', 'provinces', 'cities', 'counties', 'keepImages', 'accommodationTypes'));
     }
 }

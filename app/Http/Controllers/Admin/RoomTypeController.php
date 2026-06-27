@@ -9,8 +9,10 @@ use App\Models\RoomType;
 use App\Models\RoomTypeBlockedDate;
 use App\Models\RoomTypeDailyOverride;
 use App\Models\RoomTypeWeeklyPriceRule;
+use App\Services\BlockedDatesService;
 use App\Services\DailyAvailabilityService;
 use App\Services\ImageUploadService;
+use App\Services\RoomSyncService;
 use App\Support\JalaliCalendarGrid;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class RoomTypeController extends Controller
     public function index(Accommodation $accommodation)
     {
         $roomTypes = $accommodation->roomTypes()
-            ->with(['rates' => fn ($q) => $q->orderBy('price_per_night')])
+            ->with(['rates' => fn ($q) => $q->orderBy('price_per_night'), 'rooms'])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -40,6 +42,11 @@ class RoomTypeController extends Controller
         $data['images'] = $this->storeImages($request);
         $accommodation->roomTypes()->create($data);
 
+        $roomType = $accommodation->roomTypes()->latest('id')->first();
+        if ($roomType) {
+            app(RoomSyncService::class)->syncFromRoomType($roomType);
+        }
+
         return redirect()
             ->route('admin.room-types.index', $accommodation)
             ->with('status', 'نوع اتاق با موفقیت اضافه شد.');
@@ -49,6 +56,8 @@ class RoomTypeController extends Controller
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
         $roomType->load(['rates' => fn ($q) => $q->orderBy('price_per_night')]);
+        app(RoomSyncService::class)->syncFromRoomType($roomType);
+        $roomType->load('rooms');
 
         return view('admin.room_types.edit', compact('accommodation', 'roomType'));
     }
@@ -60,7 +69,11 @@ class RoomTypeController extends Controller
         $data = $this->validated($request, $roomType);
         $data['images'] = $this->mergeImages($request, $roomType);
 
+        $physicalRooms = $request->input('physical_rooms', []);
+        unset($data['physical_rooms']);
+
         $roomType->update($data);
+        app(RoomSyncService::class)->updateRooms($roomType->fresh(), $physicalRooms);
 
         return redirect()
             ->route('admin.room-types.edit', [$accommodation, $roomType])
@@ -139,6 +152,12 @@ class RoomTypeController extends Controller
             'new_images.*'         => ['nullable', 'image', 'max:4096'],
             'keep_images'          => ['nullable', 'array'],
             'is_active'            => ['nullable', 'boolean'],
+            'physical_rooms'       => ['nullable', 'array'],
+            'physical_rooms.*.id'  => ['nullable', 'integer'],
+            'physical_rooms.*.name'=> ['required_with:physical_rooms', 'string', 'max:120'],
+            'physical_rooms.*.description' => ['nullable', 'string', 'max:1000'],
+            'physical_rooms.*.amenities'   => ['nullable', 'array'],
+            'physical_rooms.*.amenities.*' => ['string', 'max:60'],
         ]);
 
         $data['smoking']              = $this->resolveHiddenBoolean($request, 'smoking', $roomType?->smoking ?? false);
@@ -220,66 +239,78 @@ class RoomTypeController extends Controller
 
     // ─── Blocked Dates (Admin) ───────────────────────────────────────────────
 
-    public function blockedDates(Accommodation $accommodation, RoomType $roomType)
+    public function blockedDates(Accommodation $accommodation, RoomType $roomType, RoomSyncService $roomSync, BlockedDatesService $service)
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $roomSync->syncFromRoomType($roomType);
+        $roomType->load('rooms');
 
         $from = now()->startOfDay()->format('Y-m-d');
         $to   = now()->addMonths(3)->endOfMonth()->addDay()->format('Y-m-d');
         $availabilityMap = $roomType->availabilityMap($from, $to);
 
         $blockedDates = $roomType->blockedDates()
+            ->with('room')
             ->where('date', '>=', now()->toDateString())
             ->orderBy('date')
+            ->orderBy('room_id')
             ->get();
 
-        return view('admin.room_types.blocked_dates', compact('accommodation', 'roomType', 'blockedDates', 'availabilityMap'));
+        $roomBookings = $service->upcomingBookingsByRoom($roomType);
+
+        return view('admin.room_types.blocked_dates', compact('accommodation', 'roomType', 'blockedDates', 'availabilityMap', 'roomBookings'));
     }
 
-    public function storeBlockedDate(Request $request, Accommodation $accommodation, RoomType $roomType)
+    public function previewBlockedDate(Request $request, Accommodation $accommodation, RoomType $roomType, BlockedDatesService $service, RoomSyncService $roomSync)
     {
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $raw = $request->validate([
-            'date_from' => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'date_to'   => ['required', 'string', 'regex:/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/'],
-            'reason'    => ['nullable', 'string', 'max:200'],
+        $roomSync->syncFromRoomType($roomType);
+        $roomType->load('rooms');
+
+        $request->validate([
+            'date_from' => ['required', 'string'],
+            'date_to'   => ['required', 'string'],
         ]);
 
-        // Convert Jalali (Solar Hijri) input to Gregorian
-        try {
-            $split    = fn(string $s) => array_map('intval', preg_split('/[\/\-]/', $s));
-            [$fy, $fm, $fd] = $split($raw['date_from']);
-            [$ty, $tm, $td] = $split($raw['date_to']);
-            $fromGreg = (new Jalalian($fy, $fm, $fd))->toCarbon()->format('Y-m-d');
-            $toGreg   = (new Jalalian($ty, $tm, $td))->toCarbon()->format('Y-m-d');
-        } catch (\Exception $e) {
-            return back()->withErrors(['date_from' => 'تاریخ خورشیدی وارد شده معتبر نیست.'])->withInput();
+        $roomIds = array_map('intval', (array) $request->input('room_ids', []));
+
+        return response()->json($service->previewConflicts(
+            $roomType,
+            $request->string('date_from')->toString(),
+            $request->string('date_to')->toString(),
+            $roomIds,
+        ));
+    }
+
+    public function storeBlockedDate(Request $request, Accommodation $accommodation, RoomType $roomType, BlockedDatesService $service, RoomSyncService $roomSync)
+    {
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $roomSync->syncFromRoomType($roomType);
+        $roomType->load('rooms');
+
+        if ($roomType->rooms->isEmpty()) {
+            return back()->withErrors(['room_ids' => 'ابتدا اتاق‌های فیزیکی را در صفحه ویرایش تعریف کنید.'])->withInput();
         }
 
-        if ($fromGreg < now()->toDateString()) {
-            return back()->withErrors(['date_from' => 'تاریخ شروع نباید در گذشته باشد.'])->withInput();
-        }
-        if ($toGreg < $fromGreg) {
-            return back()->withErrors(['date_to' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.'])->withInput();
+        $raw = $service->validateStoreRequest($request, $roomType);
+        $range = $service->parseJalaliRange($raw['date_from'], $raw['date_to']);
+        if (!$range['ok']) {
+            return back()->withErrors($range['errors'] ?? [])->withInput();
         }
 
-        $from   = new \DateTime($fromGreg);
-        $to     = new \DateTime($toGreg);
-        $reason = $raw['reason'] ?? null;
-        $cursor = clone $from;
-
-        while ($cursor <= $to) {
-            RoomTypeBlockedDate::updateOrCreate(
-                ['room_type_id' => $roomType->id, 'date' => $cursor->format('Y-m-d')],
-                ['reason' => $reason]
-            );
-            $cursor->modify('+1 day');
+        $conflictErrors = $service->validateNoBookingConflicts($roomType, $range['from'], $range['to'], $raw['room_ids']);
+        if ($conflictErrors !== null) {
+            return back()->withErrors($conflictErrors)->withInput();
         }
+
+        $service->store($roomType, $range['from'], $range['to'], $raw['room_ids'], $raw['reason'] ?? null);
 
         return redirect()
             ->route('admin.room-types.blocked-dates', [$accommodation, $roomType])
-            ->with('status', 'تاریخ‌های انتخابی با موفقیت مسدود شدند.');
+            ->with('status', 'تاریخ‌های انتخابی برای اتاق‌های مشخص‌شده مسدود شدند.');
     }
 
     public function destroyBlockedDate(Accommodation $accommodation, RoomType $roomType, RoomTypeBlockedDate $blocked)

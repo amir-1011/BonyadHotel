@@ -1,5 +1,7 @@
 
 
+@php $accDiscountPct = $userAccommodationDiscount ?? 0; @endphp
+
 @push('styles')
 <link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}"></noscript>
@@ -600,8 +602,8 @@
                             <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">
                                 <i class="bi bi-person-add"></i> کف‌خوابی: تا {{ $roomType->extra_capacity }} نفر ·
                                 @auth
-                                    @if(Auth::user()->discount_percentage > 0)
-                                        @php $discExtraCapPrice = round($roomType->extra_capacity_price * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                                    @if($accDiscountPct > 0)
+                                        @php $discExtraCapPrice = round($roomType->extra_capacity_price * (1 - $accDiscountPct / 100)); @endphp
                                         <s style="opacity:.65;">{{ number_format($roomType->extra_capacity_price) }}</s> {{ number_format($discExtraCapPrice) }} تومان/نفر/شب
                                     @else
                                         {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
@@ -646,8 +648,8 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <div style="text-align:right;white-space:nowrap;">
                             @auth
-                                @if(Auth::user()->discount_percentage > 0)
-                                    @php $discRate = round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                                @if($accDiscountPct > 0)
+                                    @php $discRate = round($rate->price_per_night * (1 - $accDiscountPct / 100)); @endphp
                                     <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($rate->price_per_night) }}</div>
                                     <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ number_format($discRate) }}</div>
                                 @else
@@ -670,7 +672,7 @@
                                 <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
                                 <input type="hidden" name="bill_full_rooms" class="rt-bill-full-rooms" value="0">
                                 @php
-                                    $btnDiscPrice = Auth::user()->discount_percentage > 0 ? round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)) : $rate->price_per_night;
+                                    $btnDiscPrice = $accDiscountPct > 0 ? round($rate->price_per_night * (1 - $accDiscountPct / 100)) : $rate->price_per_night;
                                     $btnOrigPrice = $rate->price_per_night;
                                 @endphp
                                 <button type="button" class="btn-bnb" style="white-space:nowrap; width: 100%; min-width: 100px;"
@@ -800,8 +802,8 @@
             <div class="bnb-book-price">
                 <span class="text-xs text-slate-500 font-normal">شروع از</span>
                 @auth
-                    @if(Auth::user()->discount_percentage > 0)
-                        @php $discShow = round($accommodation->lowest_price * (1 - Auth::user()->discount_percentage / 100)); @endphp
+                    @if($accDiscountPct > 0)
+                        @php $discShow = round($accommodation->lowest_price * (1 - $accDiscountPct / 100)); @endphp
                         <span style="font-size:14px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ number_format($accommodation->lowest_price) }}</span>
                         <span class="font-bold text-xl" style="color:var(--bnb-red);">{{ number_format($discShow) }}</span>
                     @else
@@ -820,8 +822,8 @@
                 @endif
             </div>
             @auth
-                @if(Auth::user()->discount_percentage > 0)
-                <div class="bnb-alert bnb-alert-success" style="margin-bottom:16px;"><i class="bi bi-tag-fill me-1"></i>تخفیف <strong>{{ Auth::user()->discount_percentage }}٪</strong> برای شما</div>
+                @if($accDiscountPct > 0)
+                <div class="bnb-alert bnb-alert-success" style="margin-bottom:16px;"><i class="bi bi-tag-fill me-1"></i>تخفیف <strong>{{ $accDiscountPct }}٪</strong> برای شما</div>
                 @endif
             @endauth
             @if($errors->any())
@@ -939,16 +941,16 @@
                     <span x-text="(calNights * {{ $accommodation->price_per_night }}).toLocaleString('fa-IR') + ' تومان'">-</span>
                 </div>
                 @auth
-                    @if(Auth::user()->discount_percentage > 0)
+                    @if($accDiscountPct > 0)
                     <div class="bnb-price-row" style="color:var(--bnb-red);">
-                        <span>تخفیف {{ Auth::user()->discount_percentage }}٪</span>
-                        <span x-text="'-' + Math.round((calNights * {{ $accommodation->price_per_night }} * {{ Auth::user()->discount_percentage }} / 100)).toLocaleString('fa-IR') + ' تومان'">-</span>
+                        <span>تخفیف {{ $accDiscountPct }}٪</span>
+                        <span x-text="'-' + Math.round((calNights * {{ $accommodation->price_per_night }} * {{ $accDiscountPct }} / 100)).toLocaleString('fa-IR') + ' تومان'">-</span>
                     </div>
                     @endif
                 @endauth
                 <div class="bnb-price-row total">
                     <span>جمع کل</span>
-                    <span x-text="Math.round((calNights * {{ $accommodation->price_per_night }} * (1 - {{ auth()->check() ? auth()->user()->discount_percentage : 0 }} / 100))).toLocaleString('fa-IR') + ' تومان'">-</span>
+                    <span x-text="Math.round((calNights * {{ $accommodation->price_per_night }} * (1 - {{ auth()->check() ? $accDiscountPct : 0 }} / 100))).toLocaleString('fa-IR') + ' تومان'">-</span>
                 </div>
             </div>
             <p style="font-size:12px;color:var(--bnb-gray);text-align:center;margin-top:12px;"><i class="bi bi-shield-check me-1"></i>تا زمان تأیید نهایی، هیچ مبلغی دریافت نمی‌شود</p>
@@ -1100,8 +1102,8 @@
             <div style="padding:7px 12px;background:#f9fafb;font-size:11px;font-weight:700;color:var(--bnb-gray);border-bottom:1px solid var(--bnb-border);display:flex;align-items:center;justify-content:space-between;">
                 <span>قیمت به تفکیک شب</span>
                 @auth
-                @if(auth()->user()->discount_percentage > 0)
-                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ auth()->user()->discount_percentage }}٪ تخفیف</span>
+                @if($accDiscountPct > 0)
+                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ $accDiscountPct }}٪ تخفیف</span>
                 @endif
                 @endauth
             </div>
@@ -1117,8 +1119,8 @@
                             <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف میزبان ' + p.hostDiscountPct + '%'"></span>
                         </template>
                         @auth
-                        @if(auth()->user()->discount_percentage > 0)
-                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
+                        @if($accDiscountPct > 0)
+                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ $accDiscountPct }}%</span>
                         @endif
                         @endauth
                     </div>
@@ -1127,7 +1129,7 @@
                             <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="p.baseRate.toLocaleString('fa-IR')"></span>
                         </template>
                         @auth
-                        @if(auth()->user()->discount_percentage > 0)
+                        @if($accDiscountPct > 0)
                         <template x-if="p.hostEffective < p.baseRate && p.price < p.hostEffective">
                             <span style="font-size:10px;text-decoration:line-through;color:#f97316;margin-left:4px;" x-text="p.hostEffective.toLocaleString('fa-IR')"></span>
                         </template>
@@ -1144,7 +1146,7 @@
                         <span style="font-size:11px;text-decoration:line-through;color:var(--bnb-gray);" x-text="dynamicOriginalTotal.toLocaleString('fa-IR')"></span>
                     </template>
                     @auth
-                    @if(auth()->user()->discount_percentage > 0)
+                    @if($accDiscountPct > 0)
                     <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
                         <span style="font-size:11px;text-decoration:line-through;color:#f97316;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR')"></span>
                     </template>
@@ -1159,8 +1161,8 @@
                     <span style="color:#15803d;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
                         <i class="bi bi-person-add"></i><span x-text="extraGuests + ' نفر کف‌خواب'"></span>
                         @auth
-                        @if(auth()->user()->discount_percentage > 0)
-                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
+                        @if($accDiscountPct > 0)
+                        <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ $accDiscountPct }}%</span>
                         @endif
                         @endauth
                     </span>
@@ -1199,7 +1201,7 @@
                         <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                     </template>
                     @auth
-                    @if(auth()->user()->discount_percentage > 0)
+                    @if($accDiscountPct > 0)
                     <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
                         <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                     </template>
@@ -1522,7 +1524,7 @@ function mbbDrawer() {
         pricePerNight: 0,
         originalPrice: 0,
         // User's veteran/special-group discount injected from PHP
-        userDiscountPct: {{ auth()->check() ? (int) auth()->user()->discount_percentage : 0 }},
+        userDiscountPct: {{ auth()->check() ? (int) $accDiscountPct : 0 }},
         // Room capacity (guests per room) — used to compute rooms_needed for warning
         roomTypeCapacityNum: 1,
         // Extra capacity (floor sleeping / کف‌خوابی)

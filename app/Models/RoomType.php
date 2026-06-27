@@ -56,6 +56,11 @@ class RoomType extends Model
         return $this->hasMany(RoomTypeWeeklyPriceRule::class)->orderBy('weekday');
     }
 
+    public function rooms()
+    {
+        return $this->hasMany(Room::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     /** First image or null */
     public function coverImage(): ?string
     {
@@ -94,14 +99,8 @@ class RoomType extends Model
             ->whereDoesntHave('bookingRooms')
             ->get(['id', 'check_in', 'check_out', 'rooms_consumed']);
 
-        // Manually blocked dates
-        $blocked = $this->blockedDates()
-            ->whereDate('date', '>=', $from)
-            ->whereDate('date', '<=', $endExcl)
-            ->pluck('date')
-            ->map(fn($d) => $d->format('Y-m-d'))
-            ->flip()
-            ->all();
+        // Per-day blocked rooms (legacy rows with room_id=null block all rooms)
+        $blockedIndex = $this->blockedDatesIndex($from, $to);
 
         // Daily capacity overrides: date → override object
         $overrides = $this->dailyOverrides()
@@ -178,11 +177,16 @@ class RoomType extends Model
                 ? RoomTypePriceResolver::effectivePrice($defaultPrice, $dayCustomPrice, $dayDiscount)
                 : null;
 
+            $blockedRooms = $this->blockedRoomCountForDate($dateStr, $effectiveTotal, $blockedIndex);
+            $availableRooms = max(0, $effectiveTotal - $booked - $blockedRooms);
+
             $map[$dateStr] = [
                 'total'           => $effectiveTotal,
                 'booked'          => $booked,
-                'available_rooms' => max(0, $effectiveTotal - $booked),
-                'is_blocked'      => isset($blocked[$dateStr]),
+                'blocked_rooms'   => $blockedRooms,
+                'available_rooms' => $availableRooms,
+                'is_blocked'      => $blockedRooms >= $effectiveTotal && $effectiveTotal > 0,
+                'is_partially_blocked' => $blockedRooms > 0 && $availableRooms > 0,
                 'has_override'    => $ovr !== null,
                 'override_count'  => $ovr ? (int) $ovr->available_count : null,
                 // Price fields
@@ -214,5 +218,67 @@ class RoomType extends Model
             }
         }
         return true;
+    }
+
+    /**
+     * @return array<string, array{all?:bool, room_ids?:array<int, true>}>
+     */
+    public function blockedDatesIndex(string $from, string $to): array
+    {
+        $endExcl = (clone new \DateTime($to))->modify('-1 day')->format('Y-m-d');
+
+        $rows = $this->blockedDates()
+            ->whereDate('date', '>=', $from)
+            ->whereDate('date', '<=', $endExcl)
+            ->get(['date', 'room_id']);
+
+        $index = [];
+        foreach ($rows as $row) {
+            $dateStr = $row->date->format('Y-m-d');
+            if ($row->room_id === null) {
+                $index[$dateStr]['all'] = true;
+            } else {
+                $index[$dateStr]['room_ids'][(int) $row->room_id] = true;
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param  array<string, array{all?:bool, room_ids?:array<int, true>}>  $blockedIndex
+     */
+    public function blockedRoomCountForDate(string $dateStr, int $effectiveTotal, array $blockedIndex): int
+    {
+        $day = $blockedIndex[$dateStr] ?? [];
+        if (!empty($day['all'])) {
+            return $effectiveTotal;
+        }
+
+        return count($day['room_ids'] ?? []);
+    }
+
+    /**
+     * @param  array<string, array{all?:bool, room_ids?:array<int, true>}>  $blockedIndex
+     */
+    public function isRoomBlockedOnDate(int $roomId, string $dateStr, int $effectiveTotal, array $blockedIndex): bool
+    {
+        $day = $blockedIndex[$dateStr] ?? [];
+        if (!empty($day['all'])) {
+            return true;
+        }
+
+        return isset($day['room_ids'][$roomId]);
+    }
+
+    public function blockReasonForRoomOnDate(int $roomId, string $dateStr): ?string
+    {
+        return $this->blockedDates()
+            ->whereDate('date', $dateStr)
+            ->where(function ($q) use ($roomId) {
+                $q->whereNull('room_id')->orWhere('room_id', $roomId);
+            })
+            ->orderByRaw('room_id is null desc')
+            ->value('reason');
     }
 }

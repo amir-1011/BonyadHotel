@@ -79,42 +79,12 @@
                 <h6 class="mb-0 fw-bold"><i class="bi bi-calendar-plus me-2"></i>مسدود کردن تاریخ جدید</h6>
             </div>
             <div class="card-body p-4">
-                <p class="text-muted small mb-3">
-                    در بازه انتخابی، هیچ رزروی قبول نمی‌شود. این عملیات بر رزروهای موجود تأثیر نمی‌گذارد.
-                </p>
-                <form action="{{ route('host.room-types.blocked-dates.store', [$accommodation, $roomType]) }}" method="POST">
-                    @csrf
-                    @php $todayJalali = \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::today())->format('Y/m/d'); @endphp
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">از تاریخ <span class="text-danger">*</span></label>
-                        <input type="text" name="date_from"
-                               class="form-control @error('date_from') is-invalid @enderror"
-                               placeholder="مثال: {{ $todayJalali }}"
-                               value="{{ old('date_from', $todayJalali) }}"
-                               autocomplete="off" required>
-                        <div class="form-text">تاریخ خورشیدی — مثال: ۱۴۰۵/۰۲/۲۰</div>
-                        @error('date_from')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">تا تاریخ <span class="text-danger">*</span></label>
-                        <input type="text" name="date_to"
-                               class="form-control @error('date_to') is-invalid @enderror"
-                               placeholder="مثال: {{ $todayJalali }}"
-                               value="{{ old('date_to', $todayJalali) }}"
-                               autocomplete="off" required>
-                        <div class="form-text">تاریخ خورشیدی — مثال: ۱۴۰۵/۰۲/۲۵</div>
-                        @error('date_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">دلیل (اختیاری)</label>
-                        <input type="text" name="reason" class="form-control"
-                               placeholder="مثال: تعمیرات، رزرو شخصی..."
-                               value="{{ old('reason') }}" maxlength="200">
-                    </div>
-                    <button type="submit" class="btn btn-danger w-100">
-                        <i class="bi bi-lock-fill me-2"></i>مسدود کردن
-                    </button>
-                </form>
+                <x-room-type.blocked-dates-form
+                    :accommodation="$accommodation"
+                    :roomType="$roomType"
+                    route-prefix="host.room-types"
+                    :room-bookings="$roomBookings ?? []"
+                />
             </div>
         </div>
 
@@ -202,6 +172,9 @@
                                 if ($avail['is_blocked']) {
                                     $cellClass = 'host-blocked';
                                     $roomsInfo = 'مسدود';
+                                } elseif (!empty($avail['is_partially_blocked'])) {
+                                    $cellClass = 'partially-booked';
+                                    $roomsInfo = ($avail['blocked_rooms'] ?? 0) . ' مسدود';
                                 } elseif ($avail['available_rooms'] <= 0) {
                                     $cellClass = 'fully-booked';
                                     $roomsInfo = 'تمام شد';
@@ -244,6 +217,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>تاریخ خورشیدی</th>
+                                <th>اتاق</th>
                                 <th>دلیل</th>
                                 <th class="text-end">عملیات</th>
                             </tr>
@@ -252,6 +226,7 @@
                         @foreach($blockedDates as $bd)
                         <tr>
                             <td class="fw-semibold">{{ \Morilog\Jalali\Jalalian::fromCarbon($bd->date)->format('Y/m/d') }}</td>
+                            <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ $bd->roomLabel() }}</span></td>
                             <td class="text-muted">{{ $bd->reason ?: '—' }}</td>
                             <td class="text-end">
                                 <form action="{{ route('host.room-types.blocked-dates.destroy', [$accommodation, $roomType, $bd]) }}"

@@ -2,7 +2,7 @@
     'videos' => [],
 ])
 
-@if(count($videos) > 0)
+@if(config('tutorial_videos.enabled') && count($videos) > 0)
 <div {{ $attributes->merge(['class' => 'card shadow-sm mb-3 border-info border-opacity-25']) }}>
     <div class="card-body py-2">
         <div class="d-flex align-items-center flex-wrap gap-2">

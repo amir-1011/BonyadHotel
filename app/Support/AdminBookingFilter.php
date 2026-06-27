@@ -53,8 +53,29 @@ class AdminBookingFilter
             }
         }
 
+        if (!empty($this->filters['province_id'])) {
+            $query->whereHas('accommodation.city', fn ($q) => $q->where('province_id', (int) $this->filters['province_id']));
+        }
+
         if (!empty($this->filters['city_id'])) {
             $query->whereHas('accommodation', fn ($q) => $q->where('city_id', (int) $this->filters['city_id']));
+        }
+
+        if (!empty($this->filters['county_id'])) {
+            $query->whereHas('accommodation', fn ($q) => $q->where('county_id', (int) $this->filters['county_id']));
+        }
+
+        if (!empty($this->filters['service_catalog_variant_id'])) {
+            $variantId = (int) $this->filters['service_catalog_variant_id'];
+            $query->whereHas('services', function ($q) use ($variantId) {
+                $q->where('service_catalog_variant_id', $variantId);
+                if (!empty($this->filters['service_catalog_id'])) {
+                    $q->where('service_catalog_id', (int) $this->filters['service_catalog_id']);
+                }
+            });
+        } elseif (!empty($this->filters['service_catalog_id'])) {
+            $catalogId = (int) $this->filters['service_catalog_id'];
+            $query->whereHas('services', fn ($q) => $q->where('service_catalog_id', $catalogId));
         }
 
         if (!empty($this->filters['check_in_from']) && ($d = $this->toGregorian((string) $this->filters['check_in_from']))) {
@@ -128,7 +149,11 @@ class AdminBookingFilter
             'search'            => $this->filters['search'] ?? '',
             'status'            => $this->filters['status'] ?? '',
             'accommodation_id'  => $this->filters['accommodation_id'] ?? '',
+            'province_id'       => $this->filters['province_id'] ?? '',
             'city_id'           => $this->filters['city_id'] ?? '',
+            'county_id'                  => $this->filters['county_id'] ?? '',
+            'service_catalog_id'         => $this->filters['service_catalog_id'] ?? '',
+            'service_catalog_variant_id' => $this->filters['service_catalog_variant_id'] ?? '',
             'check_in_from'     => $this->filters['check_in_from'] ?? '',
             'check_in_to'       => $this->filters['check_in_to'] ?? '',
             'check_out_from'    => $this->filters['check_out_from'] ?? '',

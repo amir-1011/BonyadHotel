@@ -12,7 +12,14 @@
 
 <x-filters.booking-panel
     :accommodations="$accommodations"
+    :provinces="$provinces"
     :cities="$cities"
+    :counties="$counties"
+    :service-catalogs="$serviceCatalogs"
+    :service-variants="$serviceVariants"
+    :show-service-accommodation="$showServiceAccommodation"
+    :draft-province-id="$draftProvinceId"
+    :draft-service-catalog-id="$draftServiceCatalogId"
     :has-active-filters="$hasActiveFilters"
 />
 

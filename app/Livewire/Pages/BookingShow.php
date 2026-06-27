@@ -21,7 +21,15 @@ class BookingShow extends Component
     {
         abort_if($booking->user_id !== Auth::id(), 403);
         $this->booking = $booking;
-        $this->booking->load('accommodation.city.province', 'user');
+        $this->booking->load([
+            'accommodation.city.province',
+            'user',
+            'roomType',
+            'roomRate',
+            'bookingRooms.roomType',
+            'bookingRooms.roomRate',
+            'bookingRooms.room',
+        ]);
     }
 
     public function cancel(): void
