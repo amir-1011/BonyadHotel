@@ -16,7 +16,7 @@
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">نقش</span>
-                    <strong>میزبان</strong>
+                    <strong>{{ $user->hostRoleLabel() }}</strong>
                 </div>
                 <div class="d-flex justify-content-between">
                     <span class="text-muted">رمز عبور</span>

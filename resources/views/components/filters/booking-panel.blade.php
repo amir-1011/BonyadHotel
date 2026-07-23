@@ -5,12 +5,23 @@
     'counties' => collect(),
     'serviceCatalogs' => collect(),
     'serviceVariants' => collect(),
+    'roomCategories' => collect(),
+    'rooms' => collect(),
+    'veteranOptions' => [],
     'showServiceAccommodation' => true,
+    'showRoomAccommodation' => true,
     'draftProvinceId' => '',
+    'draftAccommodationId' => '',
     'draftServiceCatalogId' => '',
+    'draftRoomCategory' => '',
+    'draftBookingSource' => '',
     'hasActiveFilters' => false,
     'showCityFilter' => true,
     'showCountyFilter' => true,
+    'showHostFilter' => false,
+    'showReserverFilter' => false,
+    'hosts' => collect(),
+    'reservers' => collect(),
 ])
 
 <div class="card shadow-sm mb-3">
@@ -43,13 +54,37 @@
 
                     <div class="col-6 col-md-3">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">اقامتگاه</label>
-                        <select wire:model="draftAccommodationId" class="form-select form-select-sm">
+                        <select wire:model.live="draftAccommodationId" class="form-select form-select-sm" wire:key="booking-filter-accommodation">
                             <option value="">همه اقامتگاه‌ها</option>
                             @foreach($accommodations as $acc)
                                 <option value="{{ $acc->id }}">{{ $acc->name }}</option>
                             @endforeach
                         </select>
                     </div>
+
+                    @if($showHostFilter)
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">میزبان</label>
+                        <select wire:model="draftHostId" class="form-select form-select-sm">
+                            <option value="">همه میزبان‌ها</option>
+                            @foreach($hosts as $host)
+                                <option value="{{ $host->id }}">{{ $host->name ?? $host->mobile }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    @if($showReserverFilter)
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">رزرو کننده</label>
+                        <select wire:model="draftReserverId" class="form-select form-select-sm" wire:key="booking-filter-reserver-{{ $draftAccommodationId }}" @if($draftBookingSource === 'online') disabled @endif>
+                            <option value="">{{ $draftBookingSource === 'online' ? 'فقط رزرو حضوری' : ($draftAccommodationId ? 'همه رزروکنندگان این اقامتگاه' : 'همه رزروکنندگان') }}</option>
+                            @foreach($reservers as $reserver)
+                                <option value="{{ $reserver->id }}">{{ $reserver->name ?? $reserver->mobile }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
 
                     <div class="col-12">
                         <div class="small text-muted fw-semibold border-bottom pb-1 mb-1">
@@ -67,18 +102,6 @@
                         </select>
                     </div>
 
-                    @if($showCityFilter)
-                    <div class="col-6 col-md-2">
-                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">شهر</label>
-                        <select wire:model.live="draftCityId" class="form-select form-select-sm" wire:key="booking-filter-city-{{ $draftProvinceId }}" @disabled(!$draftProvinceId)>
-                            <option value="">{{ $draftProvinceId ? 'همه شهرها' : 'ابتدا استان انتخاب کنید' }}</option>
-                            @foreach($cities as $city)
-                                <option value="{{ $city->id }}">{{ $city->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    @endif
-
                     @if($showCountyFilter)
                     <div class="col-6 col-md-2">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">شهرستان</label>
@@ -91,6 +114,94 @@
                     </div>
                     @endif
 
+                    @if($showCityFilter)
+                    <div class="col-6 col-md-2">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">شهر</label>
+                        <select wire:model.live="draftCityId" class="form-select form-select-sm" wire:key="booking-filter-city-{{ $draftProvinceId }}" @disabled(!$draftProvinceId)>
+                            <option value="">{{ $draftProvinceId ? 'همه شهرها' : 'ابتدا استان انتخاب کنید' }}</option>
+                            @foreach($cities as $city)
+                                <option value="{{ $city->id }}">{{ $city->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    <div class="col-12">
+                        <div class="small text-muted fw-semibold border-bottom pb-1 mb-1">
+                            <i class="bi bi-door-open me-1"></i>اتاق و رزرو
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">نوع اتاق</label>
+                        <select wire:model.live="draftRoomCategory" class="form-select form-select-sm" wire:key="booking-filter-room-category-{{ $draftAccommodationId }}-{{ $draftProvinceId }}">
+                            <option value="">{{ $draftAccommodationId ? 'همه انواع این اقامتگاه' : 'همه انواع اتاق' }}</option>
+                            @foreach($roomCategories as $category)
+                                <option value="{{ $category }}">{{ $category }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">نام اتاق (فیزیکی)</label>
+                        <select wire:model="draftRoomId" class="form-select form-select-sm" wire:key="booking-filter-room-{{ $draftRoomCategory }}-{{ $draftAccommodationId }}">
+                            <option value="">{{ $draftRoomCategory ? 'همه اتاق‌های این نوع' : ($draftAccommodationId ? 'همه اتاق‌های این اقامتگاه' : 'ابتدا نوع اتاق را انتخاب کنید') }}</option>
+                            @foreach($rooms as $room)
+                                <option value="{{ $room->id }}">
+                                    {{ $room->roomType ? $room->roomType->groupLabel() . ' · ' . $room->name : $room->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">گروه ایثارگری مهمان</label>
+                        <select wire:model="draftVeteranType" class="form-select form-select-sm">
+                            <option value="">همه</option>
+                            <option value="__none__">عادی (بدون تخفیف ایثارگری)</option>
+                            @foreach($veteranOptions as $key => $option)
+                                @if($key !== '')
+                                    <option value="{{ $key }}">{{ $option['label'] ?? $key }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">نوع رزرو</label>
+                        <select wire:model.live="draftBookingSource" class="form-select form-select-sm">
+                            <option value="">همه</option>
+                            <option value="manual">حضوری</option>
+                            <option value="online">اینترنتی</option>
+                            <option value="program">برنامه / اردو</option>
+                        </select>
+                    </div>
+
+                    @if($draftBookingSource === 'program')
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">نوع برنامه</label>
+                        <select wire:model="draftProgramType" class="form-select form-select-sm">
+                            <option value="">همه</option>
+                            @foreach(\App\Models\Program::typeOptions() as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">نوع پرداخت برنامه</label>
+                        <select wire:model="draftProgramPaymentType" class="form-select form-select-sm">
+                            <option value="">همه</option>
+                            @foreach(\App\Models\Program::paymentTypeOptions() as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">طرف حساب برنامه</label>
+                        <input type="text" wire:model="draftProgramCounterparty" class="form-control form-control-sm" placeholder="جستجو...">
+                    </div>
+                    @endif
+
                     <div class="col-12">
                         <div class="small text-muted fw-semibold border-bottom pb-1 mb-1">
                             <i class="bi bi-diagram-3 me-1"></i>خدمات رزرو
@@ -99,8 +210,8 @@
 
                     <div class="col-6 col-md-3">
                         <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">خدمت والد</label>
-                        <select wire:model.live="draftServiceCatalogId" class="form-select form-select-sm" wire:key="booking-filter-service-{{ $draftProvinceId }}-{{ $draftServiceCatalogId }}">
-                            <option value="">همه خدمات</option>
+                        <select wire:model.live="draftServiceCatalogId" class="form-select form-select-sm" wire:key="booking-filter-service-{{ $draftAccommodationId }}-{{ $draftProvinceId }}">
+                            <option value="">{{ $draftAccommodationId ? 'همه خدمات این اقامتگاه' : 'همه خدمات' }}</option>
                             @foreach($serviceCatalogs as $svc)
                                 <option value="{{ $svc->id }}">
                                     {{ $showServiceAccommodation ? ($svc->accommodation?->name . ' — ' . $svc->name) : $svc->name }}

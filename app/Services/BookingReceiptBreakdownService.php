@@ -41,6 +41,20 @@ class BookingReceiptBreakdownService
             $booking->accommodation_id,
         );
 
+        $bookingRooms = $booking->bookingRooms;
+        if ($bookingRooms->isNotEmpty()) {
+            $billingGuests = $this->pricing->totalBillingGuestsForRoomLines(
+                $bookingRooms->map(fn ($line) => [
+                    'room_type'        => $line->roomType,
+                    'guests'           => $line->guests,
+                    'children_under_6' => $line->children_under_6,
+                    'extra_guests'     => $line->extra_guests,
+                    'bill_full_rooms'  => $line->bill_full_rooms,
+                ])->all(),
+                $booking->accommodation,
+            );
+        }
+
         $perGuestSlots = $this->pricing->buildPerGuestSlotsFromGuestDetails(
             $guestDetails,
             $billingGuests,
@@ -49,7 +63,6 @@ class BookingReceiptBreakdownService
             $veteranDiscountPct,
         );
 
-        $bookingRooms = $booking->bookingRooms;
         $params = [
             'check_in'            => $booking->check_in->format('Y-m-d'),
             'check_out'           => $booking->check_out->format('Y-m-d'),

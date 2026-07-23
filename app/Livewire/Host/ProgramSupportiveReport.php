@@ -32,9 +32,9 @@ class ProgramSupportiveReport extends Component
         $endDate     = $jalaliEnd->toCarbon()->addDay()->format('Y-m-d');
 
         $programs = Program::whereIn('accommodation_id', $accIds)
-            ->where('is_supportive_service', true)
-            ->where('status', '!=', 'cancelled')
-            ->whereBetween('start_date', [$startDate, $endDate])
+            ->where('payment_type', Program::PAYMENT_SUPPORTIVE)
+            ->where('status', '!=', Program::STATUS_CANCELLED)
+            ->whereHas('booking', fn ($q) => $q->whereBetween('check_in', [$startDate, $endDate]))
             ->with('accommodation')
             ->latest('start_date')
             ->get();
@@ -43,7 +43,7 @@ class ProgramSupportiveReport extends Component
         $totalGuests    = $programs->sum('guest_count');
         $totalPrograms  = $programs->count();
 
-        $byType = $programs->groupBy(fn($p) => $p->supportive_service_type ?: 'نامشخص')
+        $byType = $programs->groupBy(fn ($p) => $p->programTypeLabel())
             ->map(fn($g) => [
                 'count'    => $g->count(),
                 'guests'   => $g->sum('guest_count'),

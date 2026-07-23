@@ -116,10 +116,12 @@
                                 </div>
                                 @endforeach
                             @elseif($svc->discount_amount > 0)
+                                @php $svcDiscountReason = $svc->discountReasonLabel(); @endphp
                                 <div style="color:#dc2626;font-size:9px;margin-top:2px">
-                                    تخفیف {{ $num($svc->discount_percentage) }}٪
-                                    @if(($svc->free_units ?? 0) > 0)
-                                        · {{ $num($svc->free_units) }} جلسه رایگان
+                                    @if($svcDiscountReason !== '')
+                                    {{ $svcDiscountReason }}
+                                    @else
+                                    تخفیف
                                     @endif
                                     (− {{ $fmt($svc->discount_amount) }})
                                 </div>
@@ -223,20 +225,39 @@
             @php
                 $line = $svcLines[$i] ?? null;
                 $lineSub = $svc->unit_price * $svc->quantity;
+                $veteranApplied = !empty($booking->veteran_type_applied);
             @endphp
             <div class="mb-2 ps-2 border-start border-secondary border-opacity-25">
-                <div class="d-flex justify-content-between small">
+                @if($svc->guest_sort_order !== null && $booking->guestDetails->isNotEmpty())
+                @php
+                    $svcGuest = $booking->guestDetails->firstWhere('sort_order', $svc->guest_sort_order);
+                @endphp
+                @if($svcGuest)
+                <div class="text-muted mb-1" style="font-size:.68rem">
+                    مهمان: {{ $svcGuest->full_name }}
+                    @if($room = $booking->guestPhysicalRoomLabel($svcGuest))
+                    · اتاق {{ $room }}
+                    @endif
+                </div>
+                @endif
+                @endif
+                @if($line && !empty($line['discount_breakdown']))
+                <div class="d-flex justify-content-between small mb-1">
                     <span class="fw-semibold">{{ $svc->name }}
                         <span class="text-muted fw-normal">({{ $svc->quantity }} × {{ number_format($svc->unit_price) }})</span>
                     </span>
                     <span>{{ number_format($lineSub) }} ت</span>
                 </div>
-                @if($line)
                 <x-booking.service-discount-breakdown :line="$line" compact />
-                <div class="d-flex justify-content-between small text-primary fw-semibold">
-                    <span>مبلغ نهایی این خدمت</span>
+                <div class="d-flex justify-content-between small text-success fw-semibold">
+                    <span>با تخفیف</span>
                     <span>{{ number_format($svc->total) }} ت</span>
                 </div>
+                @else
+                <x-booking.service-line-readonly
+                    :service="$svc"
+                    :veteran-type-applied="$veteranApplied"
+                    class="border-0 bg-transparent p-0" />
                 @endif
             </div>
             @endforeach

@@ -1,5 +1,8 @@
 ﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null, 'prefillRoomTypeId' => null, 'prefillRoomRateId' => null, 'prefillRoomId' => null, 'prefillRoomName' => null, 'prefillFocusDates' => false, 'prefillRoomTypeName' => null, 'prefillRoomCapacity' => null, 'prefillPrice' => null, 'prefillOrigPrice' => null, 'prefillExtraCap' => 0, 'prefillExtraPrice' => 0])
-@php $isManual = $mode === 'manual'; @endphp
+@php
+    $isManual = $mode === 'manual';
+    $showAuthVeteranDiscount = !$isManual && auth()->check() && auth()->user()->discount_percentage > 0;
+@endphp
 {{-- Quick-Book Drawer --}}
 <div data-bnb-drawer
      data-bnb-mode="{{ $mode }}"
@@ -56,10 +59,11 @@
                 <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">ورود · اولین شب</div>
                 <div style="font-size:13px;font-weight:600;" x-text="checkIn ? jalStr(checkIn) : 'انتخاب'"></div>
             </div>
-            <div :style="checkOut ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : ''"
+            <div :style="checkOut ? 'border-color:var(--bnb-red);background:rgba(255,56,92,.06);' : (previewCheckOut ? 'border-color:rgba(255,56,92,.45);background:rgba(255,56,92,.03);' : '')"
                  style="flex:1;border:1.5px solid var(--bnb-border);border-radius:10px;padding:9px 12px;text-align:center;">
                 <div style="font-size:10px;font-weight:700;color:var(--bnb-gray);margin-bottom:3px;">خروج · روز پایان</div>
-                <div style="font-size:13px;font-weight:600;" x-text="checkOut ? jalStr(checkOut) : 'انتخاب'"></div>
+                <div style="font-size:13px;font-weight:600;" x-text="checkOut ? jalStr(checkOut) : (previewCheckOut ? jalStr(previewCheckOut) : 'انتخاب')"></div>
+                <div x-show="mode === 'manual' && previewCheckOut && !checkOut" style="font-size:10px;color:var(--bnb-gray);margin-top:2px;">پیش‌نمایش</div>
             </div>
         </div>
 
@@ -99,40 +103,97 @@
                 <template x-for="(cell, idx) in calDays" :key="idx">
                     <button type="button"
                         :disabled="!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap"
-                        @click.stop="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.disabledByGap && selectDay(cell)"
-                        @mouseenter="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && (calHover = cell.greg)"
+                        @click.stop="cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.disabledByGap && !(mode === 'manual' && awaitingStayDuration && isCheckInDay(cell)) && selectDay(cell)"
+                        @mouseenter="mode !== 'manual' && cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && (calHover = cell.greg)"
                         @mouseleave="calHover = null"
                         :title="cell && cell.availInfo ? cell.availInfo : ''"
                         class="bnb-cal-square-cell"
                         :class="{
-                            'cal-start':       cell && isCheckInDay(cell),
+                            'cal-start':       cell && isCheckInDay(cell) && !(mode === 'manual' && awaitingStayDuration),
+                            'cal-duration-entry': cell && mode === 'manual' && awaitingStayDuration && isCheckInDay(cell),
                             'cal-end':         cell && isCheckOutDay(cell),
                             'cal-last-night':  cell && isLastStayNight(cell),
                             'cal-range':       cell && calInRange(cell),
                             'cal-selected':    cell && isStayNight(cell),
                             'cal-hover-range': cell && calHoverRange(cell),
+                            'cal-today':       cell && isTodayDay(cell),
                             'cal-empty':       !cell,
                             'cal-unavailable': cell && !cell.past && cell.isUnavailable,
                             'cal-blocked':     cell && !cell.past && cell.isBlocked,
                             'cal-low-avail':   cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && cell.isLowAvail,
                             'cal-avail':       cell && !cell.past && !cell.isUnavailable && !cell.isBlocked && !cell.isLowAvail && cell.hasAvailData
                         }">
-                        <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
-                        <div class="cd" x-text="cell ? cell.d : ''"></div>
-                        <template x-if="cell && !cell.past && isCheckInDay(cell)">
-                            <div class="cs">ورود</div>
+                        <template x-if="cell && mode === 'manual' && awaitingStayDuration && isCheckInDay(cell)">
+                            <div class="bnb-cal-duration-panel" @click.stop @mousedown.stop>
+                                <div class="bnb-cal-duration-day" x-text="jalStrLatin(checkIn)"></div>
+                                <div class="bnb-cal-duration-toggle" role="group" aria-label="نحوه تعیین مدت اقامت">
+                                    <button type="button"
+                                            class="bnb-cal-duration-toggle-btn"
+                                            :class="stayDurationMode === 'nights' ? 'is-active' : ''"
+                                            @click.stop="stayDurationMode = 'nights'; stayCheckOutInput = ''; _focusStayDurationInput()">
+                                        تعداد شب
+                                    </button>
+                                    <button type="button"
+                                            class="bnb-cal-duration-toggle-btn"
+                                            :class="stayDurationMode === 'checkout' ? 'is-active' : ''"
+                                            @click.stop="stayDurationMode = 'checkout'; stayCheckOutInput = jalStrLatin(checkIn); _focusStayDurationInput()">
+                                        تاریخ خروج
+                                    </button>
+                                </div>
+                                <template x-if="stayDurationMode === 'nights'">
+                                    <div class="bnb-cal-duration-fields">
+                                        <input type="number"
+                                               data-bnb-stay-nights-input
+                                               class="bnb-cal-duration-input"
+                                               x-model="stayNightsInput"
+                                               min="1"
+                                               :max="window.bnbStayPicker?.maxStayNights || 365"
+                                               placeholder="مثلاً ۳"
+                                               @keydown.enter.prevent="confirmStayDuration()"
+                                               @click.stop>
+                                    </div>
+                                </template>
+                                <template x-if="stayDurationMode === 'checkout'">
+                                    <div class="bnb-cal-duration-fields">
+                                        <input type="text"
+                                               data-bnb-stay-checkout-input
+                                               class="bnb-cal-duration-input"
+                                               x-model="stayCheckOutInput"
+                                               :placeholder="jalStrLatin(checkIn)"
+                                               dir="ltr"
+                                               inputmode="numeric"
+                                               @keydown.enter.prevent="confirmStayDuration()"
+                                               @click.stop>
+                                        <div class="bnb-cal-duration-hint">یا روز خروج را در تقویم بزنید</div>
+                                    </div>
+                                </template>
+                                <button type="button"
+                                        class="bnb-cal-duration-btn"
+                                        @click.stop="confirmStayDuration()">
+                                    تأیید
+                                </button>
+                            </div>
                         </template>
-                        <template x-if="cell && !cell.past && isCheckOutDay(cell)">
-                            <div class="cs">خروج</div>
-                        </template>
-                        <template x-if="cell && !cell.past && cell.discountPct">
-                            <div style="position:absolute;top:1px;left:2px;font-size:7px;background:#dc2626;color:#fff;border-radius:2px;padding:0 2px;line-height:1.4;font-weight:700;" x-text="cell.discountPct + '%'"></div>
-                        </template>
-                        <template x-if="cell && !cell.past && cell.priceLabel">
-                            <div class="cal-meta" style="font-size:7px;line-height:1;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;" x-text="cell.priceLabel"></div>
-                        </template>
-                        <template x-if="cell && !cell.past && cell.effectivePrice">
-                            <div class="cal-meta" style="font-size:9px;font-weight:700;line-height:1;margin-top:1px;" x-text="cell.effectivePrice.toLocaleString('fa-IR')"></div>
+                        <template x-if="!(cell && mode === 'manual' && awaitingStayDuration && isCheckInDay(cell))">
+                            <div class="bnb-cal-day-content">
+                                <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
+                                <div class="cd" x-text="cell ? cell.d : ''"></div>
+                                <template x-if="cell && !cell.past && isCheckInDay(cell)">
+                                    <div class="cs">ورود</div>
+                                </template>
+                                <template x-if="cell && !cell.past && isCheckOutDay(cell)">
+                                    <div class="cs">خروج</div>
+                                </template>
+                                <template x-if="cell && !cell.past && cell.discountPct">
+                                    <div style="position:absolute;top:1px;left:2px;font-size:7px;background:#dc2626;color:#fff;border-radius:2px;padding:0 2px;line-height:1.4;font-weight:700;" x-text="cell.discountPct + '%'"></div>
+                                </template>
+                                <template x-if="cell && !cell.past && cell.priceLabel">
+                                    <div class="cal-meta" style="font-size:7px;line-height:1;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;" x-text="cell.priceLabel"></div>
+                                </template>
+                                <template x-if="cell && !cell.past && cell.effectivePrice">
+                                    <div class="cal-meta" style="font-size:9px;font-weight:700;line-height:1;margin-top:1px;" x-text="cell.effectivePrice.toLocaleString('fa-IR')"></div>
+                                </template>
+                            </div>
                         </template>
                     </button>
                 </template>
@@ -140,10 +201,12 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <div>
                     <span x-show="checkIn && checkOut" style="font-size:12px;color:var(--bnb-gray);" x-text="nights + ' شب اقامت'"></span>
-                    <span x-show="checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
+                    <span x-show="mode === 'manual' && awaitingStayDuration && stayDurationMode === 'nights'" style="font-size:12px;color:var(--bnb-gray);">تعداد شب را در همان روز انتخاب‌شده وارد کنید</span>
+                    <span x-show="mode === 'manual' && awaitingStayDuration && stayDurationMode === 'checkout'" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را وارد کنید یا روز خروج را در تقویم بزنید</span>
+                    <span x-show="mode !== 'manual' && checkIn && calPhase === 1" style="font-size:12px;color:var(--bnb-gray);">تاریخ خروج را انتخاب کنید</span>
                     <span x-show="!checkIn" style="font-size:12px;color:var(--bnb-gray);">روز شروع اقامت را انتخاب کنید</span>
                 </div>
-                <button x-show="checkIn" type="button" @click.stop="checkIn='';checkOut='';calPhase=0;"
+                <button x-show="checkIn" type="button" @click.stop="clearDatesSelection()"
                     style="background:none;border:none;font-size:12px;color:var(--bnb-gray);text-decoration:underline;cursor:pointer;font-family:var(--bnb-font);">پاک کردن</button>
             </div>
         </div>
@@ -183,15 +246,25 @@
         </div>
 
         {{-- Dynamic price breakdown (shown when dates selected) --}}
-        <div x-show="checkIn && checkOut && hasDynamicPricing" style="margin:-4px 0 14px;border:1px solid var(--bnb-border);border-radius:10px;overflow:hidden;">
-            <div style="padding:7px 12px;background:#f9fafb;font-size:11px;font-weight:700;color:var(--bnb-gray);border-bottom:1px solid var(--bnb-border);display:flex;align-items:center;justify-content:space-between;">
-                <span>قیمت به تفکیک شب</span>
-                @auth
-                @if(auth()->user()->discount_percentage > 0)
-                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ auth()->user()->discount_percentage }}٪ تخفیف</span>
-                @endif
-                @endauth
-            </div>
+        <div x-show="checkIn && checkOut && hasDynamicPricing"
+             x-data="{ nightPricesOpen: false }"
+             style="margin:-4px 0 14px;border:1px solid var(--bnb-border);border-radius:10px;overflow:hidden;">
+            <button type="button"
+                    @click="nightPricesOpen = !nightPricesOpen"
+                    style="width:100%;padding:10px 12px;background:#f9fafb;font-size:11px;font-weight:700;color:var(--bnb-gray);border:none;border-bottom:1px solid var(--bnb-border);display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-family:var(--bnb-font);text-align:right;">
+                <span style="display:flex;align-items:center;gap:8px;min-width:0;">
+                    <i class="bi flex-shrink-0" :class="nightPricesOpen ? 'bi-chevron-up' : 'bi-chevron-down'" style="font-size:12px;color:var(--bnb-gray);"></i>
+                    <span>قیمت به تفکیک شب</span>
+                    <span style="font-weight:500;color:var(--bnb-gray);" x-text="'(' + nights + ' شب)'"></span>
+                </span>
+                <span style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                    @if($showAuthVeteranDiscount)
+                    <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ auth()->user()->discount_percentage }}٪ تخفیف</span>
+                    @endif
+                    <span style="color:var(--bnb-red);font-size:12px;font-weight:700;white-space:nowrap;" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                </span>
+            </button>
+            <div x-show="nightPricesOpen" x-cloak>
             <template x-for="(p, i) in dynamicNightPrices" :key="i">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;font-size:12px;border-bottom:1px solid #f3f4f6;">
                     <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
@@ -203,23 +276,19 @@
                         <template x-if="!p.label && p.hostDiscountPct > 0">
                             <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف میزبان ' + p.hostDiscountPct + '%'"></span>
                         </template>
-                        @auth
-                        @if(auth()->user()->discount_percentage > 0)
+                        @if($showAuthVeteranDiscount)
                         <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
                         @endif
-                        @endauth
                     </div>
                     <div style="text-align:left;white-space:nowrap;">
                         <template x-if="p.baseRate > p.price">
                             <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="p.baseRate.toLocaleString('fa-IR')"></span>
                         </template>
-                        @auth
-                        @if(auth()->user()->discount_percentage > 0)
+                        @if($showAuthVeteranDiscount)
                         <template x-if="p.hostEffective < p.baseRate && p.price < p.hostEffective">
                             <span style="font-size:10px;text-decoration:line-through;color:#f97316;margin-left:4px;" x-text="p.hostEffective.toLocaleString('fa-IR')"></span>
                         </template>
                         @endif
-                        @endauth
                         <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ت'"></span>
                     </div>
                 </div>
@@ -230,13 +299,11 @@
                     <template x-if="dynamicOriginalTotal > dynamicTotal">
                         <span style="font-size:11px;text-decoration:line-through;color:var(--bnb-gray);" x-text="dynamicOriginalTotal.toLocaleString('fa-IR')"></span>
                     </template>
-                    @auth
-                    @if(auth()->user()->discount_percentage > 0)
+                    @if($showAuthVeteranDiscount)
                     <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
                         <span style="font-size:11px;text-decoration:line-through;color:#f97316;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR')"></span>
                     </template>
                     @endif
-                    @endauth
                     <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
             </div>
@@ -245,11 +312,9 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;background:#f0fdf4;border-top:1px solid #bbf7d0;">
                     <span style="color:#15803d;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
                         <i class="bi bi-person-add"></i><span x-text="extraGuests + ' نفر کف‌خواب'"></span>
-                        @auth
-                        @if(auth()->user()->discount_percentage > 0)
+                        @if($showAuthVeteranDiscount)
                         <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
                         @endif
-                        @endauth
                     </span>
                     <div style="text-align:left;white-space:nowrap;">
                         <template x-if="userDiscountPct > 0 && extraGuestsOriginalTotal > extraGuestsTotal">
@@ -259,6 +324,7 @@
                     </div>
                 </div>
             </template>
+            </div>
         </div>
 
         {{-- Confirm dates button --}}

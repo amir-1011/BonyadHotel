@@ -693,6 +693,8 @@ class VeteranPolicyService
             'used_in_period'         => $usedInPeriod,
             'remaining_period'       => max(0, $group->max_nights_per_period - $usedInPeriod),
             'usage_notes'            => $group->usage_notes,
+            'period_deductions'      => $this->usageDeductionsInPeriod($veteranKey, $nationalId, $userId, $group->period_months, $group->label),
+            'total_deductions'       => $this->usageDeductionsTotal($veteranKey, $nationalId, $userId, $group->label),
             'weekly_free_usage'      => $this->weeklyFreeUsageByService($veteranKey, $nationalId, $userId, $referenceDate),
         ];
     }
@@ -804,7 +806,11 @@ class VeteranPolicyService
 
         foreach ($this->bookingsInWeek($nationalId, $userId, $weekStart, $weekEnd, $excludeBookingId) as $booking) {
             foreach ($booking->services as $service) {
-                if ((int) $service->service_catalog_id !== $serviceCatalogId) {
+                if ($service->excluded_from_veteran_quota) {
+                    continue;
+                }
+
+                if (!$this->serviceMatchesCatalogKey($service, $serviceCatalogId)) {
                     continue;
                 }
 
@@ -854,7 +860,11 @@ class VeteranPolicyService
 
         foreach ($this->bookingsInWeek($nationalId, $userId, $weekStart, $weekEnd, $excludeBookingId) as $booking) {
             foreach ($booking->services as $service) {
-                if ((int) $service->service_catalog_id !== $serviceCatalogId) {
+                if ($service->excluded_from_veteran_quota) {
+                    continue;
+                }
+
+                if (!$this->serviceMatchesCatalogKey($service, $serviceCatalogId)) {
                     continue;
                 }
 
@@ -890,7 +900,11 @@ class VeteranPolicyService
 
         foreach ($this->bookingsInWeek($nationalId, $userId, $weekStart, $weekEnd, $excludeBookingId) as $booking) {
             foreach ($booking->services as $service) {
-                if ((int) $service->service_catalog_id !== $serviceCatalogId) {
+                if ($service->excluded_from_veteran_quota) {
+                    continue;
+                }
+
+                if (!$this->serviceMatchesCatalogKey($service, $serviceCatalogId)) {
                     continue;
                 }
 
@@ -1067,6 +1081,71 @@ class VeteranPolicyService
             ->sum(fn (Booking $booking) => $this->accommodationNightsForGroup($booking, $veteranKey));
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function usageDeductionsInPeriod(
+        ?string $veteranKey,
+        ?string $nationalId,
+        ?int $userId,
+        int $periodMonths,
+        ?string $groupLabel = null,
+        ?int $excludeBookingId = null,
+    ): array {
+        return $this->bookingsQuery($veteranKey, $nationalId, $userId, $excludeBookingId)
+            ->where('check_in', '>=', now()->subMonths($periodMonths))
+            ->with('accommodation:id,name')
+            ->orderByDesc('check_in')
+            ->get()
+            ->map(fn (Booking $booking) => $this->mapUsageDeduction($booking, $veteranKey, $groupLabel))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function usageDeductionsTotal(
+        ?string $veteranKey,
+        ?string $nationalId,
+        ?int $userId,
+        ?string $groupLabel = null,
+        ?int $excludeBookingId = null,
+    ): array {
+        return $this->bookingsQuery($veteranKey, $nationalId, $userId, $excludeBookingId)
+            ->with('accommodation:id,name')
+            ->orderByDesc('check_in')
+            ->get()
+            ->map(fn (Booking $booking) => $this->mapUsageDeduction($booking, $veteranKey, $groupLabel))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function mapUsageDeduction(Booking $booking, ?string $veteranKey, ?string $groupLabel): ?array
+    {
+        $nights = $this->accommodationNightsForGroup($booking, $veteranKey);
+        if ($nights <= 0) {
+            return null;
+        }
+
+        return [
+            'booking_id'         => $booking->id,
+            'tracking_code'      => $booking->tracking_code,
+            'accommodation_id'   => $booking->accommodation_id,
+            'accommodation_name' => $booking->accommodation?->name ?? '—',
+            'check_in'           => $booking->check_in?->format('Y-m-d'),
+            'check_out'          => $booking->check_out?->format('Y-m-d'),
+            'nights'             => $nights,
+            'status'             => $booking->status,
+            'group_label'        => $groupLabel,
+        ];
+    }
+
     private function accommodationNightsForGroup(Booking $booking, ?string $groupKey): int
     {
         $groupKey = $this->normalizeKey($groupKey);
@@ -1097,14 +1176,10 @@ class VeteranPolicyService
         ?int $excludeBookingId = null,
     ): Collection {
         $query = Booking::query()
-            ->with('services')
+            ->with(['services.serviceCatalog', 'accommodation:id,name'])
             ->where('booking_source', 'manual')
             ->where('status', '!=', 'cancelled')
             ->whereBetween('check_in', [$weekStart->toDateString(), $weekEnd->toDateString()]);
-
-        if ($this->accommodationId !== null) {
-            $query->where('accommodation_id', $this->accommodationId);
-        }
 
         if ($excludeBookingId) {
             $query->where('id', '!=', $excludeBookingId);
@@ -1128,8 +1203,12 @@ class VeteranPolicyService
 
     private function inferFreeUnitsFromService(BookingService $service, ?string $veteranKey): int
     {
-        if ($service->quantity <= 0) {
+        if ($service->excluded_from_veteran_quota || $service->quantity <= 0) {
             return 0;
+        }
+
+        if ($service->free_units > 0) {
+            return min($service->quantity, (int) $service->free_units);
         }
 
         $rule = $this->serviceDiscountRule($veteranKey, $service->service_catalog_id);
@@ -1139,10 +1218,6 @@ class VeteranPolicyService
 
         if (!$rule['free_sessions_eligible']) {
             return 0;
-        }
-
-        if ($service->free_units > 0) {
-            return min($service->quantity, $service->free_units);
         }
 
         if ($service->unit_price <= 0) {
@@ -1169,10 +1244,6 @@ class VeteranPolicyService
             })
             ->where('status', '!=', 'cancelled');
 
-        if ($this->accommodationId !== null) {
-            $query->where('accommodation_id', $this->accommodationId);
-        }
-
         if ($excludeBookingId) {
             $query->where('id', '!=', $excludeBookingId);
         }
@@ -1191,6 +1262,31 @@ class VeteranPolicyService
         }
 
         return $query;
+    }
+
+    private function resolveServiceCatalogKey(int $serviceCatalogId): ?string
+    {
+        return $this->serviceById($serviceCatalogId)?->key
+            ?? ServiceCatalog::query()->whereKey($serviceCatalogId)->value('key');
+    }
+
+    private function serviceCatalogKeyForService(BookingService $service): ?string
+    {
+        if ($service->relationLoaded('serviceCatalog') && $service->serviceCatalog) {
+            return $service->serviceCatalog->key;
+        }
+
+        return $this->resolveServiceCatalogKey((int) $service->service_catalog_id);
+    }
+
+    private function serviceMatchesCatalogKey(BookingService $service, int $targetCatalogId): bool
+    {
+        $targetKey = $this->resolveServiceCatalogKey($targetCatalogId);
+        if (!$targetKey) {
+            return (int) $service->service_catalog_id === $targetCatalogId;
+        }
+
+        return $this->serviceCatalogKeyForService($service) === $targetKey;
     }
 
     private function bookingMatchesVeteranGroup(Booking $booking, ?string $groupKey): bool

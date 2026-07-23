@@ -53,6 +53,21 @@ class AdminBookingFilter
             }
         }
 
+        if (!empty($this->filters['host_id'])) {
+            $hostId = (int) $this->filters['host_id'];
+            $query->whereHas('accommodation.hosts', fn ($q) => $q->where('users.id', $hostId));
+        }
+
+        if (!empty($this->filters['reserver_id'])) {
+            $reserverId = (int) $this->filters['reserver_id'];
+            $query->withReserver()->where(function ($w) use ($reserverId) {
+                $w->where('created_by', $reserverId)
+                    ->orWhere(function ($q) use ($reserverId) {
+                        $q->whereNull('created_by')->where('user_id', $reserverId);
+                    });
+            });
+        }
+
         if (!empty($this->filters['province_id'])) {
             $query->whereHas('accommodation.city', fn ($q) => $q->where('province_id', (int) $this->filters['province_id']));
         }
@@ -118,6 +133,68 @@ class AdminBookingFilter
             $query->where('discount_percentage', '>', 0);
         }
 
+        $roomCategory = (string) ($this->filters['room_category'] ?? $this->filters['bed_type'] ?? '');
+        if ($roomCategory !== '') {
+            $query->where(function ($w) use ($roomCategory) {
+                $w->whereHas('roomType', fn ($q) => $q->where('bed_type', $roomCategory))
+                    ->orWhereHas('bookingRooms.roomType', fn ($q) => $q->where('bed_type', $roomCategory));
+            });
+        }
+
+        if (!empty($this->filters['room_id'])) {
+            $roomId = (int) $this->filters['room_id'];
+            $query->whereHas('bookingRooms', fn ($q) => $q->where('room_id', $roomId));
+        }
+
+        if (array_key_exists('veteran_type', $this->filters)) {
+            $veteranType = (string) ($this->filters['veteran_type'] ?? '');
+            if ($veteranType === '__none__') {
+                $query->where(function ($w) {
+                    $w->where(function ($inner) {
+                        $inner->whereNull('veteran_type_applied')->orWhere('veteran_type_applied', '');
+                    })->where(function ($inner) {
+                        $inner->whereDoesntHave('user')
+                            ->orWhereHas('user', fn ($u) => $u->where(function ($user) {
+                                $user->where(fn ($q) => $q->whereNull('veteran_type')->orWhere('veteran_type', ''))
+                                    ->where(fn ($q) => $q->whereNull('secondary_veteran_type')->orWhere('secondary_veteran_type', ''));
+                            }));
+                    });
+                });
+            } elseif ($veteranType !== '') {
+                $query->where(function ($w) use ($veteranType) {
+                    $w->where('veteran_type_applied', $veteranType)
+                        ->orWhere('secondary_veteran_type_applied', $veteranType)
+                        ->orWhere(function ($q) use ($veteranType) {
+                            $q->where(function ($inner) {
+                                $inner->whereNull('veteran_type_applied')->orWhere('veteran_type_applied', '');
+                            })->whereHas('user', fn ($u) => $u
+                                ->where(fn ($user) => $user->where('veteran_type', $veteranType)
+                                    ->orWhere('secondary_veteran_type', $veteranType)));
+                        });
+                });
+            }
+        }
+
+        if (!empty($this->filters['booking_source'])) {
+            $source = (string) $this->filters['booking_source'];
+            if (in_array($source, ['manual', 'online', 'program'], true)) {
+                $query->where('booking_source', $source);
+            }
+        }
+
+        if (!empty($this->filters['program_type'])) {
+            $query->whereHas('program', fn ($q) => $q->where('program_type', $this->filters['program_type']));
+        }
+
+        if (!empty($this->filters['program_payment_type'])) {
+            $query->whereHas('program', fn ($q) => $q->where('payment_type', $this->filters['program_payment_type']));
+        }
+
+        if (!empty($this->filters['program_counterparty'])) {
+            $term = trim((string) $this->filters['program_counterparty']);
+            $query->whereHas('program', fn ($q) => $q->where('counterparty', 'like', "%{$term}%"));
+        }
+
         if ($withSort) {
             $sortable = ['id', 'check_in', 'check_out', 'nights', 'total_price', 'guests', 'created_at'];
             $sort = in_array($this->filters['sort'] ?? '', $sortable, true) ? $this->filters['sort'] : 'created_at';
@@ -149,6 +226,8 @@ class AdminBookingFilter
             'search'            => $this->filters['search'] ?? '',
             'status'            => $this->filters['status'] ?? '',
             'accommodation_id'  => $this->filters['accommodation_id'] ?? '',
+            'host_id'           => $this->filters['host_id'] ?? '',
+            'reserver_id'       => $this->filters['reserver_id'] ?? '',
             'province_id'       => $this->filters['province_id'] ?? '',
             'city_id'           => $this->filters['city_id'] ?? '',
             'county_id'                  => $this->filters['county_id'] ?? '',
@@ -164,6 +243,13 @@ class AdminBookingFilter
             'price_max'         => $this->filters['price_max'] ?? '',
             'guests_min'        => $this->filters['guests_min'] ?? '',
             'has_discount'      => $this->truthy($this->filters['has_discount'] ?? false),
+            'bed_type'          => (string) ($this->filters['room_category'] ?? $this->filters['bed_type'] ?? ''),
+            'room_id'           => $this->filters['room_id'] ?? '',
+            'veteran_type'      => $this->filters['veteran_type'] ?? '',
+            'booking_source'    => $this->filters['booking_source'] ?? '',
+            'program_type'          => $this->filters['program_type'] ?? '',
+            'program_payment_type'  => $this->filters['program_payment_type'] ?? '',
+            'program_counterparty'  => $this->filters['program_counterparty'] ?? '',
             'sort'              => $this->filters['sort'] ?? 'created_at',
             'dir'               => $this->filters['dir'] ?? 'desc',
         ];

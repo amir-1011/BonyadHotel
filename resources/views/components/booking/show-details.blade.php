@@ -40,8 +40,13 @@
     $discountSummary = $discountDetailSummary;
 
     $servicesCount = $booking->services->count();
+    $beneficiaryCosts = $booking->beneficiaryCosts;
+    $hasBeneficiaries = $beneficiaryCosts->isNotEmpty();
     $hasNotes = $booking->notes || $booking->form_file_path;
     $bookingSummaryHtml = view('components.booking.show-details._snippets.booking-summary', ['booking' => $booking])->render();
+    $allGuestSlots = $booking->allGuestSlotsForDisplay();
+    $canEditGuestNames = $booking->canEditBookingDetails()
+        && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('bookings.guests', 'edit'));
 @endphp
 
 <div class="booking-show-details">
@@ -81,7 +86,7 @@
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-booker-' . $bid,
                 'icon' => 'person-badge',
-                'title' => 'رزرو‌کننده',
+                'title' => 'مهمان اصلی',
                 'accent' => 'secondary',
                 'summary' => '<strong>' . e($booking->bookerName()) . '</strong><span dir="ltr" class="d-block">' . e($booking->bookerMobile()) . '</span>',
             ])
@@ -119,12 +124,34 @@
 
         @if($servicesCount > 0)
         <div class="col-sm-6 col-lg-4">
+            @php
+                $perGuestServices = $booking->guestDetails->isNotEmpty();
+                $servicesSummary = $servicesCount . ' خدمت · ' . number_format($booking->services_subtotal) . ' تومان';
+                if ($perGuestServices) {
+                    $servicesSummary .= ' · به‌ازای مهمان';
+                }
+            @endphp
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-services-' . $bid,
                 'icon' => 'bag-plus',
                 'title' => 'خدمات اضافی',
                 'accent' => 'dark',
-                'summary' => $servicesCount . ' خدمت · ' . number_format($booking->services_subtotal) . ' تومان',
+                'summary' => $servicesSummary,
+            ])
+        </div>
+        @endif
+
+        @if($hasBeneficiaries)
+        <div class="col-sm-6 col-lg-4">
+            @php
+                $beneficiarySummary = $beneficiaryCosts->count() . ' ذینفع · ' . number_format($beneficiaryCosts->sum('debt_amount')) . ' تومان بدهی';
+            @endphp
+            @include('components.booking.show-details.summary-card', [
+                'modalId' => 'bd-modal-beneficiaries-' . $bid,
+                'icon' => 'building',
+                'title' => 'ذینفعان',
+                'accent' => 'success',
+                'summary' => e($beneficiarySummary),
             ])
         </div>
         @endif
@@ -158,7 +185,7 @@
 </div>
 
 {{-- ── Modals ── --}}
-@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'bookerGuest', 'bookerManualDiscount', 'pricingBreakdown', 'accBreakdown', 'veteranAccDiscount'); @endphp
+@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'allGuestSlots', 'canEditGuestNames', 'bookerGuest', 'bookerManualDiscount', 'pricingBreakdown', 'accBreakdown', 'veteranAccDiscount'); @endphp
 
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-booking-' . $bid,
@@ -169,7 +196,7 @@
 ])
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-booker-' . $bid,
-    'title' => 'رزرو‌کننده',
+    'title' => 'مهمان اصلی',
     'icon' => 'person-badge',
     'size' => '',
     'body' => view('components.booking.show-details._modal-booker', $modalVars)->render(),
@@ -188,12 +215,13 @@
     'size' => 'xl',
     'body' => view('components.booking.show-details._modal-rooms', $modalVars)->render(),
 ])
-@include('components.booking.show-details.detail-modal', [
+@include('components.booking.show-details.detail-modal-live', [
     'id' => 'bd-modal-guests-' . $bid,
     'title' => 'مهمانان و تخفیف‌ها',
     'icon' => 'people',
     'size' => 'xl',
-    'body' => view('components.booking.show-details._modal-guests', $modalVars)->render(),
+    'bodyView' => 'components.booking.show-details._modal-guests',
+    'bodyVars' => $modalVars,
 ])
 @if($servicesCount > 0)
 @include('components.booking.show-details.detail-modal', [
@@ -202,6 +230,15 @@
     'icon' => 'bag-plus',
     'size' => 'xl',
     'body' => view('components.booking.show-details._modal-services', $modalVars)->render(),
+])
+@endif
+@if($hasBeneficiaries)
+@include('components.booking.show-details.detail-modal', [
+    'id' => 'bd-modal-beneficiaries-' . $bid,
+    'title' => 'ذینفعان',
+    'icon' => 'building',
+    'size' => 'xl',
+    'body' => view('components.booking.show-details._modal-beneficiaries', $modalVars)->render(),
 ])
 @endif
 @include('components.booking.show-details.detail-modal', [

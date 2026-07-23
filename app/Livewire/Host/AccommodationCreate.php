@@ -6,10 +6,13 @@ use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\County;
 use App\Models\Province;
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Livewire\Concerns\ManagesLivewireImageUploads;
 use App\Models\AccommodationType;
 use Illuminate\Support\Facades\Auth;
+use App\Services\ImageUploadService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -20,6 +23,8 @@ class AccommodationCreate extends Component
     use WithFileUploads;
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
+    use ManagesLivewireImageUploads;
+    use AssertsHostPermissions;
 
     public int    $provinceId       = 0;
     public int    $cityId          = 0;
@@ -59,8 +64,7 @@ class AccommodationCreate extends Component
             'address'       => ['nullable', 'string'],
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
-            'images.*'      => ['nullable', 'image', 'max:4096'],
-        ], $this->contactInfoRules());
+        ], $this->imageUploadRules('images'), $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -70,12 +74,15 @@ class AccommodationCreate extends Component
 
     public function store(): void
     {
+        $this->assertHostCan('accommodations.create', 'write');
         $this->validate();
         $this->validateContactInfo();
 
-        $uploadedImages = [];
-        foreach ($this->images as $img) {
-            $uploadedImages[] = $img->store('accommodations', 'public');
+        try {
+            $uploadedImages = app(ImageUploadService::class)->storeManyWebp($this->images, 'accommodations');
+        } catch (\RuntimeException $e) {
+            $this->addError('images', $e->getMessage());
+            return;
         }
 
         $accommodation = Accommodation::create(array_merge([
@@ -100,6 +107,7 @@ class AccommodationCreate extends Component
 
         $accommodation->grantHostAccess(Auth::user());
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         session()->flash('status', 'اقامتگاه ثبت شد و پس از تأیید مدیر نمایش داده می‌شود.');
         $this->redirectRoute('host.accommodations.index', navigate: true);

@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Services\BookingPricingService;
 use App\Services\PlatformCommissionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -82,27 +83,20 @@ class BookingCreate extends Component
             }
         }
 
-        $pricePerNight = $roomRate ? $roomRate->price_per_night : $this->accommodation->price_per_night;
-        $user          = Auth::user();
-        $nights        = (int) (new \DateTime($this->checkIn))->diff(new \DateTime($this->checkOut))->days;
+        $user = Auth::user();
 
-        $availMap  = $roomType ? $roomType->availabilityMap($this->checkIn, $this->checkOut) : [];
-        $basePrice = 0;
-        $cursor    = new \DateTime($this->checkIn);
-        $endDate   = new \DateTime($this->checkOut);
-        while ($cursor < $endDate) {
-            $dayKey     = $cursor->format('Y-m-d');
-            $dayData    = $availMap[$dayKey] ?? null;
-            $nightPrice = ($dayData && isset($dayData['effective_price']) && $dayData['effective_price'] !== null)
-                ? (int) $dayData['effective_price']
-                : $pricePerNight;
-            $basePrice += $nightPrice * $this->guests;
-            $cursor->modify('+1 day');
-        }
-
-        $discountPct    = $user->discount_percentage;
-        $discountAmount = (int) round($basePrice * $discountPct / 100);
-        $totalPrice     = $basePrice - $discountAmount;
+        $pricing = app(BookingPricingService::class)->calculate([
+            'check_in'               => $this->checkIn,
+            'check_out'              => $this->checkOut,
+            'guests'                 => $this->guests,
+            'accommodation'          => $this->accommodation,
+            'room_type'              => $roomType,
+            'room_rate'              => $roomRate,
+            'veteran_type'           => $user->normalizedVeteranType(),
+            'secondary_veteran_type' => $user->normalizedSecondaryVeteranType(),
+            'user_id'                => $user->id,
+            'national_id'            => $user->national_id,
+        ]);
 
         $booking = Booking::create([
             'user_id'             => $user->id,
@@ -112,13 +106,14 @@ class BookingCreate extends Component
             'check_in'            => $this->checkIn,
             'check_out'           => $this->checkOut,
             'guests'              => $this->guests,
-            'rooms_consumed'      => $roomsNeeded,
-            'nights'              => $nights,
-            'base_price'          => $basePrice,
-            'discount_percentage' => $discountPct,
-            'discount_amount'     => $discountAmount,
-            'total_price'         => $totalPrice,
+            'rooms_consumed'      => (int) $pricing['rooms_needed'],
+            'nights'              => (int) $pricing['nights'],
+            'base_price'          => $pricing['subtotal_before_discount'],
+            'discount_percentage' => $pricing['accommodation_discount_percentage'],
+            'discount_amount'     => $pricing['discount_amount'],
+            'total_price'         => $pricing['total_price'],
             'status'              => 'confirmed',
+            'booking_source'      => 'online',
             'tracking_code'       => strtoupper(Str::random(10)),
         ]);
 

@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\User;
 use App\Support\AdminUserFilter;
+use App\Support\AdminUserRoleFilterCatalog;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -59,10 +60,11 @@ class UserIndex extends Component
         $filter->apply($query);
 
         $users = $query->paginate(20);
-        $roles = Role::all();
+        $roleFilterOptions = AdminUserRoleFilterCatalog::options();
         $hasActiveFilters = $filter->hasActiveFilters();
         $exportQuery = $filter->exportQuery();
+        $role = $this->role;
 
-        return view('admin.users.index', compact('users', 'roles', 'hasActiveFilters', 'exportQuery'));
+        return view('admin.users.index', compact('users', 'roleFilterOptions', 'hasActiveFilters', 'exportQuery', 'role'));
     }
 }

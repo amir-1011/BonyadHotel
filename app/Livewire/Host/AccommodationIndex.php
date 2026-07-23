@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Host;
 
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Models\Accommodation;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -10,8 +11,11 @@ use Livewire\Component;
 #[Layout('layouts.host', ['title' => 'اقامتگاه‌های من', 'pageTitle' => 'اقامتگاه‌های من'])]
 class AccommodationIndex extends Component
 {
+    use AssertsHostPermissions;
+
     public function destroy(int $id): void
     {
+        $this->assertHostCan('accommodations.list', 'delete');
         abort_unless(Auth::user()->managesAccommodation($id), 403);
         $accommodation = Accommodation::findOrFail($id);
         $accommodation->delete();

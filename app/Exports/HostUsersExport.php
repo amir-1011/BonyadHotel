@@ -32,7 +32,8 @@ class HostUsersExport implements FromQuery, WithHeadings, WithMapping
         return [
             'نام',
             'موبایل',
-            'کد ملی',
+            'شناسه',
+            'محل اقامت',
             'گروه ایثارگری',
             'تعداد رزرو',
             'آخرین رزرو',
@@ -44,7 +45,8 @@ class HostUsersExport implements FromQuery, WithHeadings, WithMapping
         return [
             $user->name ?? '—',
             $user->mobile,
-            $user->national_id ?? '—',
+            $user->identityNumber() ?? '—',
+            $user->residenceLocationLabel() ?? '—',
             $user->veteranLabel(),
             $user->host_bookings_count ?? 0,
             $this->formatDateTime($user->last_booking_at),

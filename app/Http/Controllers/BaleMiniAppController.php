@@ -60,8 +60,12 @@ class BaleMiniAppController extends Controller
             }
         }
 
-        Auth::login($user, true);
+        Auth::login($user, !$user->hasStaffAccess());
         $request->session()->regenerate();
+
+        if ($user->hasStaffAccess()) {
+            $request->session()->put('staff_last_activity', now()->timestamp);
+        }
 
         return response()->json([
             'ok' => true,

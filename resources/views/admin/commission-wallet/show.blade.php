@@ -10,7 +10,6 @@
     <a wire:navigate href="{{ route('admin.commission-wallet') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-right me-1"></i>بازگشت به کیف پول
     </a>
-    <h5 class="fw-bold mb-0">تراکنش کارمزد #{{ $entry->id }}</h5>
     <span class="badge bg-{{ $entry->isCredit() ? 'success' : 'danger' }}-subtle text-{{ $entry->isCredit() ? 'success' : 'danger' }}">
         {{ $entry->entryTypeLabel() }}
     </span>
@@ -193,7 +192,7 @@
                     </span>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
-                    <span class="text-muted">رزرو‌کننده</span>
+                    <span class="text-muted">مهمان اصلی</span>
                     <span>{{ $meta['booker_name'] ?? $booking?->bookerName() ?? '—' }}</span>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
@@ -361,7 +360,7 @@
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>ردیف</th>
+                                <th class="col-index">ردیف</th>
                                 <th>نام</th>
                                 <th>قیمت واحد</th>
                                 <th>تعداد</th>
@@ -467,7 +466,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th class="col-index">#</th>
                     <th>تاریخ</th>
                     <th>نوع</th>
                     <th>دلیل</th>

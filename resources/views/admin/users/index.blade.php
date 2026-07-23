@@ -1,8 +1,6 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <h5 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>کاربران ({{ $users->total() }})</h5>
-    <div class="d-flex flex-wrap gap-2">
+<div class="d-flex align-items-center justify-content-end mb-3 flex-wrap gap-2">
         <a href="{{ route('admin.users.export', $exportQuery) }}" class="btn btn-sm btn-success">
             <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
             @if($hasActiveFilters)
@@ -12,7 +10,6 @@
         <a wire:navigate href="{{ route('admin.users.create-host') }}" class="btn btn-sm btn-success">
             <i class="bi bi-person-plus me-1"></i>افزودن میزبان
         </a>
-    </div>
 </div>
 
 <x-tutorial-videos :videos="[
@@ -29,8 +26,8 @@
             <div class="col-6 col-md-3">
                 <select name="role" class="form-select form-select-sm">
                     <option value="">همه نقش‌ها</option>
-                    @foreach($roles as $r)
-                    <option value="{{ $r->name }}" {{ request('role') == $r->name ? 'selected' : '' }}>{{ $r->name }}</option>
+                    @foreach($roleFilterOptions as $option)
+                    <option value="{{ $option['value'] }}" {{ ($role ?? request('role')) == $option['value'] ? 'selected' : '' }}>{{ $option['label'] }}</option>
                     @endforeach
                 </select>
             </div>
@@ -49,7 +46,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th class="col-index">#</th>
                     <th>نام</th>
                     <th>موبایل</th>
                     <th>نقش</th>
@@ -72,9 +69,9 @@
                     <td><code>{{ $user->mobile }}</code></td>
                     <td>
                         @foreach($user->roles as $r)
-                            <a wire:navigate href="{{ route('admin.users.index', ['role'=>$r->name]) }}" class="badge text-decoration-none {{ $r->name === 'super_admin' ? 'bg-danger' : ($r->name === 'host' ? 'bg-success' : 'bg-secondary') }}">{{ $r->name }}</a>
+                            <a wire:navigate href="{{ route('admin.users.index', ['role'=>$r->name]) }}" class="badge text-decoration-none {{ $r->name === 'super_admin' ? 'bg-danger' : ($r->name === 'host' ? 'bg-success' : 'bg-secondary') }}">{{ $user->roleBadgeLabel($r->name) }}</a>
                         @endforeach
-                        @if($user->roles->isEmpty()) <span class="badge bg-light text-dark border">guest</span> @endif
+                        @if($user->roles->isEmpty()) <span class="badge bg-light text-dark border">{{ $user->roleBadgeLabel('guest') }}</span> @endif
                     </td>
                     <td class="small">{{ $user->veteranLabel() }}</td>
                     <td>{{ $user->discount_percentage > 0 ? $user->discount_percentage.'%' : '—' }}</td>

@@ -5,32 +5,39 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\PlatformCommissionEntry;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PlatformCommissionService
 {
+    public function fixedAmount(): int
+    {
+        return (int) config('platform_commission.fixed_amount', 50_000);
+    }
+
+    /** @deprecated Legacy percentage model — kept for historical entry display. */
     public function percentage(): int
     {
         return (int) config('platform_commission.percentage', 5);
     }
 
+    /** @deprecated Legacy percentage model — kept for historical entry display. */
     public function cap(): int
     {
         return (int) config('platform_commission.cap', 50_000);
     }
 
-    public function calculateCommission(int $transactionAmount): int
+    public function calculateBookingCommission(Booking $booking): int
     {
-        if ($transactionAmount <= 0) {
+        if ($booking->isProgram()) {
             return 0;
         }
 
-        $raw = (int) round($transactionAmount * $this->percentage() / 100);
+        if ((int) $booking->total_price <= 0) {
+            return 0;
+        }
 
-        return min($this->cap(), $raw);
+        return $this->fixedAmount();
     }
 
     public function walletBalance(): int
@@ -70,53 +77,37 @@ class PlatformCommissionService
      */
     public function buildCommissionTargets(Booking $booking): array
     {
-        $targets = [];
-        $servicesTotal = (int) $booking->services->sum('total');
-        $accommodationAmount = max(0, (int) $booking->total_price - $servicesTotal);
+        $bookingAmount = (int) $booking->total_price;
+        $commissionAmount = $this->calculateBookingCommission($booking);
 
-        if ($accommodationAmount > 0) {
-            $targets['accommodation'] = [
+        if ($commissionAmount <= 0 && $bookingAmount <= 0) {
+            return [];
+        }
+
+        $servicesTotal = (int) $booking->services->sum('total');
+
+        return [
+            'accommodation' => [
                 'category'             => PlatformCommissionEntry::CATEGORY_ACCOMMODATION,
                 'category_key'         => 'accommodation',
                 'service_catalog_id'   => null,
                 'service_name'         => null,
-                'transaction_amount'   => $accommodationAmount,
-                'commission_amount'    => $this->calculateCommission($accommodationAmount),
+                'transaction_amount'   => $bookingAmount,
+                'commission_amount'    => $commissionAmount,
                 'meta'                 => $this->baseMeta($booking) + [
-                    'description'      => 'هزینه اقامت',
-                    'nights'           => $booking->nights,
-                    'guests'           => $booking->guests,
-                    'base_price'       => $booking->base_price,
-                    'discount_amount'  => max(0, $booking->discount_amount - (int) $booking->services->sum('discount_amount')),
+                    'description'           => 'هزینه رزرو',
+                    'commission_model'      => 'fixed_per_booking',
+                    'fixed_commission'      => $this->fixedAmount(),
+                    'services_total'        => $servicesTotal,
+                    'accommodation_amount'  => max(0, $bookingAmount - $servicesTotal),
+                    'is_program_booking'    => $booking->isProgram(),
+                    'nights'                => $booking->nights,
+                    'guests'                => $booking->guests,
+                    'base_price'            => $booking->base_price,
+                    'discount_amount'       => $booking->discount_amount,
                 ],
-            ];
-        }
-
-        foreach ($this->groupedServices($booking->services) as $group) {
-            if ($group['transaction_amount'] <= 0) {
-                continue;
-            }
-
-            $targets[$group['category_key']] = [
-                'category'             => PlatformCommissionEntry::CATEGORY_SERVICE,
-                'category_key'         => $group['category_key'],
-                'service_catalog_id'   => $group['service_catalog_id'],
-                'service_name'         => $group['service_name'],
-                'transaction_amount'   => $group['transaction_amount'],
-                'commission_amount'    => $this->calculateCommission($group['transaction_amount']),
-                'meta'                 => $this->baseMeta($booking) + [
-                    'description'      => 'خدمت: ' . $group['service_name'],
-                    'quantity'         => $group['quantity'],
-                    'unit_price'       => $group['unit_price'],
-                    'discount_amount'  => $group['discount_amount'],
-                    'free_units'       => $group['free_units'],
-                    'service_catalog_key'=> $group['service_catalog_key'],
-                    'lines'            => $group['lines'],
-                ],
-            ];
-        }
-
-        return $targets;
+            ],
+        ];
     }
 
     private function reconcileBookingCommissions(Booking $booking, ?User $actor): void
@@ -138,7 +129,7 @@ class PlatformCommissionService
             $previousTransaction = $this->lastTransactionAmount($booking, $categoryKey);
 
             $this->createEntry($booking, [
-                'category'             => $target['category'] ?? $this->inferCategory($categoryKey),
+                'category'             => $target['category'] ?? PlatformCommissionEntry::CATEGORY_ACCOMMODATION,
                 'category_key'         => $categoryKey,
                 'service_catalog_id'   => $target['service_catalog_id'] ?? null,
                 'service_name'         => $target['service_name'] ?? null,
@@ -168,7 +159,7 @@ class PlatformCommissionService
             $lastEntry = $this->lastEntryForCategory($booking, $categoryKey);
 
             $this->createEntry($booking, [
-                'category'             => $lastEntry?->category ?? $this->inferCategory($categoryKey),
+                'category'             => $lastEntry?->category ?? PlatformCommissionEntry::CATEGORY_ACCOMMODATION,
                 'category_key'         => $categoryKey,
                 'service_catalog_id'   => $lastEntry?->service_catalog_id,
                 'service_name'         => $lastEntry?->service_name,
@@ -182,64 +173,6 @@ class PlatformCommissionService
                 ],
             ], $actor);
         }
-    }
-
-    /**
-     * @param  Collection<int, \App\Models\BookingService>  $services
-     * @return array<int, array{
-     *   category_key: string,
-     *   service_catalog_id: ?int,
-     *   service_name: string,
-     *   service_catalog_key: ?string,
-     *   transaction_amount: int,
-     *   quantity: int,
-     *   unit_price: int,
-     *   discount_amount: int,
-     *   free_units: int,
-     *   lines: array<int, array<string, mixed>>
-     * }>
-     */
-    private function groupedServices(Collection $services): array
-    {
-        $groups = [];
-
-        foreach ($services as $service) {
-            $catalogId = $service->service_catalog_id;
-            $categoryKey = $catalogId
-                ? 'service:catalog:' . $catalogId
-                : 'service:custom:' . Str::slug($service->name ?: 'custom');
-
-            if (!isset($groups[$categoryKey])) {
-                $groups[$categoryKey] = [
-                    'category_key'        => $categoryKey,
-                    'service_catalog_id'  => $catalogId,
-                    'service_name'        => $service->name,
-                    'service_catalog_key' => $service->serviceCatalog?->key,
-                    'transaction_amount'  => 0,
-                    'quantity'            => 0,
-                    'unit_price'          => 0,
-                    'discount_amount'     => 0,
-                    'free_units'          => 0,
-                    'lines'               => [],
-                ];
-            }
-
-            $groups[$categoryKey]['transaction_amount'] += (int) $service->total;
-            $groups[$categoryKey]['quantity'] += (int) $service->quantity;
-            $groups[$categoryKey]['discount_amount'] += (int) $service->discount_amount;
-            $groups[$categoryKey]['free_units'] += (int) $service->free_units;
-            $groups[$categoryKey]['lines'][] = [
-                'id'                  => $service->id,
-                'name'                => $service->name,
-                'unit_price'          => $service->unit_price,
-                'quantity'            => $service->quantity,
-                'free_units'          => $service->free_units,
-                'discount_amount'     => $service->discount_amount,
-                'total'               => $service->total,
-            ];
-        }
-
-        return array_values($groups);
     }
 
     /** @return array<string, int> */
@@ -273,7 +206,7 @@ class PlatformCommissionService
             ->value('transaction_amount') ?? 0);
     }
 
-  /**
+    /**
      * @param  array<string, mixed>  $data
      */
     private function createEntry(Booking $booking, array $data, ?User $actor): PlatformCommissionEntry
@@ -299,19 +232,12 @@ class PlatformCommissionService
             'entry_type'            => $data['entry_type'],
             'reason'                => $data['reason'],
             'transaction_amount'    => $data['transaction_amount'],
-            'commission_percentage' => $this->percentage(),
-            'commission_cap'        => $this->cap(),
+            'commission_percentage' => 0,
+            'commission_cap'        => $this->fixedAmount(),
             'commission_amount'     => $data['commission_amount'],
             'meta'                  => $data['meta'] ?? [],
             'created_by'            => $actor?->id ?? Auth::id(),
         ]);
-    }
-
-    private function inferCategory(string $categoryKey): string
-    {
-        return str_starts_with($categoryKey, 'service:')
-            ? PlatformCommissionEntry::CATEGORY_SERVICE
-            : PlatformCommissionEntry::CATEGORY_ACCOMMODATION;
     }
 
     /** @return array<string, mixed> */

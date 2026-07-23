@@ -2,14 +2,21 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AssertsHostPermissions;
+use App\Livewire\Concerns\ManagesForeignGuestLocation;
+use App\Livewire\Concerns\ManagesProgramBeneficiaries;
+use App\Models\Country;
+use App\Models\ResidenceCity;
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\BookingGuestDetail;
 use App\Models\Room;
 use App\Models\RoomRate;
 use App\Models\User;
 use App\Services\BookingPricingService;
 use App\Services\ManualBookingService;
 use App\Services\NationalIdVerificationService;
+use App\Services\ProgramDocumentService;
 use App\Services\RoomAvailabilityService;
 use App\Services\VeteranPolicyService;
 use App\Support\VeteranGroups;
@@ -17,9 +24,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class ManualBookingForm extends Component
 {
+    use ManagesProgramBeneficiaries;
+    use ManagesForeignGuestLocation;
+    use WithFileUploads;
+    use AssertsHostPermissions;
     public Accommodation $accommodation;
     public string $panel = 'admin';
 
@@ -40,12 +52,12 @@ class ManualBookingForm extends Component
     public int $extraGuests = 0;
     public bool $billFullRooms = false;
 
-    // Step 2 — services
-    /** @var array<int, array{service_catalog_id:string, service_catalog_variant_id:string, name:string, unit_price:int|string, quantity:int|string, discount_override:string, is_custom:bool}> */
-    public array $services = [];
-
-    // Step 3 — booker identity & veteran discount
+    // Step 2 — booker identity & veteran discount
+    public bool $bookerIsForeignGuest = false;
     public string $bookerNationalId = '';
+    public string $bookerPassportNumber = '';
+    public int $foreignCountryId = 0;
+    public int $foreignResidenceCityId = 0;
     public bool $bookerVerified = false;
     public bool $bookerIsExistingUser = false;
     public string $bookerVerifyMessage = '';
@@ -55,14 +67,14 @@ class ManualBookingForm extends Component
     /** @var array<int, string> */
     public array $selectedVeteranTypes = [];
 
-    // Step 4 — payment & contacts
+    // Step 4 — payment & contacts (legacy comment removed; payment is step 3)
     public string $paymentMethod = 'cash';
     public ?int $userId = null;
     public string $guestContactName = '';
     public string $guestContactMobile = '';
     public string $notes = '';
 
-    /** @var array<int, array{full_name:string, national_id:string, mobile:string, relation:string, excluded_from_veteran_discount:bool, manual_discount_percentage:string, manual_discount_reason:string}> */
+    /** @var array<int, array{full_name:string, national_id:string, mobile:string, relation:string, excluded_from_veteran_discount:bool, manual_discount_percentage:string, manual_discount_reason:string, services:array<int, array{service_catalog_id:string, service_catalog_variant_id:string, name:string, unit_price:int|string, quantity:int|string, discount_override:string, is_custom:bool, excluded_from_veteran_quota:bool, manual_discount_percentage:string, manual_discount_reason:string}>}> */
     public array $guestDetails = [];
 
     public ?int $createdBookingId = null;
@@ -89,7 +101,7 @@ class ManualBookingForm extends Component
         $this->accommodation = $accommodation->load(['roomTypes.rates', 'roomTypes.rooms', 'city']);
         $this->panel = $panel;
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
-        $this->services = [$this->emptyServiceRow()];
+        app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
         $this->syncGuestDetailRows();
         $this->applyPrefillFromRequest();
     }
@@ -132,6 +144,26 @@ class ManualBookingForm extends Component
     public function updatedBookerNationalId(): void
     {
         $this->resetBookerVerification();
+    }
+
+    public function updatedBookerIsForeignGuest(): void
+    {
+        $this->resetBookerVerification();
+        $this->bookerNationalId = '';
+        $this->bookerPassportNumber = '';
+        $this->foreignCountryId = 0;
+        $this->foreignResidenceCityId = 0;
+        $this->showAddCountry = false;
+        $this->showAddResidenceCity = false;
+        $this->newCountryName = '';
+        $this->newResidenceCityName = '';
+    }
+
+    public function updatedBookerPassportNumber(): void
+    {
+        if ($this->bookerIsForeignGuest) {
+            $this->resetBookerVerification();
+        }
     }
 
     public function updatedAdults(): void
@@ -216,8 +248,27 @@ class ManualBookingForm extends Component
         return $this->veteranPolicy()->normalizeVeteranTypes($types);
     }
 
+    /**
+     * Veteran types used for pricing UI — only after main guest national ID is verified.
+     *
+     * @return array<int, string>
+     */
+    private function veteranTypesForPricing(): array
+    {
+        if (!$this->bookerVerified || $this->bookerIsForeignGuest) {
+            return [];
+        }
+
+        return $this->resolvedVeteranTypes();
+    }
+
     public function updatedGuestDetails($value, $key): void
     {
+        if (str_contains($key, '.services.')) {
+            $this->handleGuestServiceFieldUpdate($key);
+            return;
+        }
+
         if (!str_contains($key, 'excluded_from_veteran_discount')) {
             return;
         }
@@ -239,35 +290,47 @@ class ManualBookingForm extends Component
     {
         $policy = $this->veteranPolicy();
 
-        $types = $this->resolvedVeteranTypes();
+        $types = $this->veteranTypesForPricing();
         $primaryType = $types[0] ?? null;
 
-        foreach ($this->services as $index => $service) {
-            $catalogId = $service['service_catalog_id'] ?? '';
-            if ($catalogId === '' || $catalogId === 'custom' || $catalogId === '0') {
-                continue;
-            }
+        foreach ($this->guestDetails as $guestIndex => $guest) {
+            foreach ($guest['services'] ?? [] as $serviceIndex => $service) {
+                $catalogId = $service['service_catalog_id'] ?? '';
+                if ($catalogId === '' || $catalogId === 'custom' || $catalogId === '0') {
+                    continue;
+                }
 
-            $rule = count($types) > 1
-                ? $policy->mergedServiceDiscountRule($types, (int) $catalogId)
-                : $policy->serviceDiscountRule($primaryType, (int) $catalogId);
+                if (!empty($service['excluded_from_veteran_quota'])) {
+                    continue;
+                }
 
-            $matrixPct = $rule['discount_percentage'];
-            if (
-                $rule['min_discount'] !== null
-                && $rule['max_discount'] !== null
-                && $matrixPct >= $rule['min_discount']
-                && $matrixPct <= $rule['max_discount']
-            ) {
-                $this->services[$index]['discount_override'] = (string) $matrixPct;
-            } else {
-                $this->services[$index]['discount_override'] = '';
+                $rule = count($types) > 1
+                    ? $policy->mergedServiceDiscountRule($types, (int) $catalogId)
+                    : $policy->serviceDiscountRule($primaryType, (int) $catalogId);
+
+                $matrixPct = $rule['discount_percentage'];
+                if (
+                    $rule['min_discount'] !== null
+                    && $rule['max_discount'] !== null
+                    && $matrixPct >= $rule['min_discount']
+                    && $matrixPct <= $rule['max_discount']
+                ) {
+                    $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = (string) $matrixPct;
+                } else {
+                    $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = '';
+                }
             }
         }
     }
 
     public function verifyBooker(): void
     {
+        if ($this->bookerIsForeignGuest) {
+            $this->verifyForeignBooker();
+
+            return;
+        }
+
         $this->resetErrorBag('bookerNationalId');
         $this->validate([
             'bookerNationalId' => ['required', 'digits:10'],
@@ -315,6 +378,67 @@ class ManualBookingForm extends Component
 
         $this->bookerVerified = true;
         $this->syncBookerToGuestDetails();
+        $this->refreshServiceDiscountOverrides();
+        $this->dispatch('manual-booking-set-discount', pct: $this->discountPct);
+    }
+
+    private function verifyForeignBooker(): void
+    {
+        $this->resetErrorBag(['bookerPassportNumber', 'foreignCountryId', 'foreignResidenceCityId', 'guestContactName', 'guestContactMobile']);
+
+        $this->validate([
+            'bookerPassportNumber' => ['required', 'string', 'min:5', 'max:32', 'regex:/^[A-Za-z0-9]+$/'],
+            'foreignCountryId' => ['required', 'integer', 'exists:countries,id'],
+            'foreignResidenceCityId' => ['required', 'integer', ...$this->residenceCityIdRules()],
+            'guestContactName' => ['required', 'string', 'max:120'],
+            'guestContactMobile' => ['required', 'regex:/^09[0-9]{9}$/'],
+        ], [], [
+            'bookerPassportNumber' => 'شماره پاسپورت',
+            'foreignCountryId' => 'کشور اقامت',
+            'foreignResidenceCityId' => 'شهر اقامت',
+            'guestContactName' => 'نام و نام خانوادگی',
+            'guestContactMobile' => 'شماره موبایل',
+        ]);
+
+        $passport = strtoupper(trim($this->bookerPassportNumber));
+        $this->bookerPassportNumber = $passport;
+
+        $existing = $this->findGuestUserByPassport($passport);
+
+        if ($existing) {
+            $this->applyExistingForeignBooker($existing);
+            $this->bookerVerifyMessage = 'مهمان خارجی در سیستم یافت شد: ' . ($existing->name ?: $existing->mobile);
+        } else {
+            $anyUser = User::where('passport_number', $passport)->first();
+            if ($anyUser) {
+                if ($anyUser->isAdmin() || $anyUser->isHost()) {
+                    $this->addError('bookerPassportNumber', 'این شماره پاسپورت متعلق به حساب کارکنان است و قابل استفاده برای رزرو مهمان نیست.');
+                } else {
+                    $this->addError('bookerPassportNumber', 'این شماره پاسپورت قبلاً ثبت شده است. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.');
+                }
+                $this->bookerVerified = false;
+
+                return;
+            }
+
+            $this->userId = null;
+            $this->bookerIsExistingUser = false;
+            $this->veteranType = '';
+            $this->secondaryVeteranType = '';
+            $this->selectedVeteranTypes = [];
+
+            if (!$this->validateNewBookerContacts()) {
+                $this->bookerVerified = false;
+
+                return;
+            }
+
+            $this->bookerVerifyMessage = 'مهمان خارجی جدید — بدون تخفیف ایثارگری (کاربر عادی)';
+        }
+
+        $this->bookerVerified = true;
+        $this->syncBookerToGuestDetails();
+        $this->refreshServiceDiscountOverrides();
         $this->dispatch('manual-booking-set-discount', pct: $this->discountPct);
     }
 
@@ -327,41 +451,59 @@ class ManualBookingForm extends Component
 
     public function resetBookerVerificationFromUi(): void
     {
-        $this->bookerNationalId = '';
+        if ($this->bookerIsForeignGuest) {
+            $this->bookerPassportNumber = '';
+            $this->foreignCountryId = 0;
+            $this->foreignResidenceCityId = 0;
+        } else {
+            $this->bookerNationalId = '';
+        }
+
         $this->resetBookerVerification();
     }
 
-    public function updatedServices($value, $key): void
+    private function handleGuestServiceFieldUpdate(string $key): void
     {
-        if (str_contains($key, 'service_catalog_variant_id')) {
-            [$index] = explode('.', $key);
-            $this->applyVariantToServiceRow((int) $index);
+        if (preg_match('/^(\d+)\.services\.(\d+)\.service_catalog_variant_id$/', $key, $matches)) {
+            $this->applyVariantToGuestServiceRow((int) $matches[1], (int) $matches[2]);
             return;
         }
 
-        if (!str_contains($key, 'service_catalog_id')) {
+        if (!preg_match('/^(\d+)\.services\.(\d+)\.service_catalog_id$/', $key, $matches)) {
+            if (preg_match('/^(\d+)\.services\.(\d+)\.excluded_from_veteran_quota$/', $key, $quotaMatches)) {
+                $guestIndex = (int) $quotaMatches[1];
+                $serviceIndex = (int) $quotaMatches[2];
+                if (empty($this->guestDetails[$guestIndex]['services'][$serviceIndex]['excluded_from_veteran_quota'])) {
+                    $catalogId = (int) ($this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_id'] ?? 0);
+                    if ($catalogId > 0) {
+                        $this->applyGuestServiceDiscountOverride($guestIndex, $serviceIndex, $catalogId);
+                    }
+                } else {
+                    $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = '';
+                }
+            }
             return;
         }
 
-        [$index] = explode('.', $key);
-        $index = (int) $index;
-        $catalogId = $this->services[$index]['service_catalog_id'] ?? '';
+        $guestIndex = (int) $matches[1];
+        $serviceIndex = (int) $matches[2];
+        $catalogId = $this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_id'] ?? '';
 
-        $this->resetErrorBag("services.{$index}.service_catalog_id");
-        $this->resetErrorBag("services.{$index}.service_catalog_variant_id");
+        $this->resetErrorBag("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_id");
+        $this->resetErrorBag("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_variant_id");
 
         if ($catalogId === 'custom') {
-            $this->services[$index]['is_custom'] = true;
-            $this->services[$index]['service_catalog_variant_id'] = '';
-            $this->services[$index]['name'] = '';
-            $this->services[$index]['unit_price'] = '';
-            $this->services[$index]['discount_override'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['is_custom'] = true;
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_variant_id'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['name'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['unit_price'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = '';
             return;
         }
 
         if ($catalogId === '' || $catalogId === '0') {
-            $this->services[$index]['is_custom'] = false;
-            $this->services[$index]['service_catalog_variant_id'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['is_custom'] = false;
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_variant_id'] = '';
             return;
         }
 
@@ -370,28 +512,28 @@ class ManualBookingForm extends Component
             return;
         }
 
-        $this->services[$index]['is_custom'] = false;
-        $this->services[$index]['service_catalog_variant_id'] = '';
-        $this->services[$index]['discount_override'] = '';
-        $this->services[$index]['name'] = $service->name;
-        $this->services[$index]['unit_price'] = '';
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['is_custom'] = false;
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_variant_id'] = '';
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = '';
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['name'] = $service->name;
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['unit_price'] = '';
 
         $activeVariants = $service->variants->where('is_active', true);
         if ($activeVariants->isNotEmpty()) {
-            $this->applyServiceDiscountOverride($index, (int) $catalogId);
+            $this->applyGuestServiceDiscountOverride($guestIndex, $serviceIndex, (int) $catalogId);
             return;
         }
 
         $this->addError(
-            "services.{$index}.service_catalog_id",
+            "guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_id",
             'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.',
         );
     }
 
-    private function applyVariantToServiceRow(int $index): void
+    private function applyVariantToGuestServiceRow(int $guestIndex, int $serviceIndex): void
     {
-        $catalogId = (int) ($this->services[$index]['service_catalog_id'] ?? 0);
-        $variantId = (int) ($this->services[$index]['service_catalog_variant_id'] ?? 0);
+        $catalogId = (int) ($this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_id'] ?? 0);
+        $variantId = (int) ($this->guestDetails[$guestIndex]['services'][$serviceIndex]['service_catalog_variant_id'] ?? 0);
 
         if ($catalogId <= 0 || $variantId <= 0) {
             return;
@@ -407,16 +549,20 @@ class ManualBookingForm extends Component
             return;
         }
 
-        $this->services[$index]['name'] = $service->name . ' — ' . $variant->name;
-        $this->services[$index]['unit_price'] = $variant->price;
-        $this->resetErrorBag("services.{$index}.service_catalog_id");
-        $this->resetErrorBag("services.{$index}.service_catalog_variant_id");
-        $this->applyServiceDiscountOverride($index, $catalogId);
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['name'] = $service->name . ' — ' . $variant->name;
+        $this->guestDetails[$guestIndex]['services'][$serviceIndex]['unit_price'] = $variant->price;
+        $this->resetErrorBag("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_id");
+        $this->resetErrorBag("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_variant_id");
+        $this->applyGuestServiceDiscountOverride($guestIndex, $serviceIndex, $catalogId);
     }
 
-    private function applyServiceDiscountOverride(int $index, int $catalogId): void
+    private function applyGuestServiceDiscountOverride(int $guestIndex, int $serviceIndex, int $catalogId): void
     {
-        $types = $this->resolvedVeteranTypes();
+        if (!empty($this->guestDetails[$guestIndex]['services'][$serviceIndex]['excluded_from_veteran_quota'])) {
+            return;
+        }
+
+        $types = $this->veteranTypesForPricing();
         $primaryType = $types[0] ?? null;
         $rule = count($types) > 1
             ? $this->veteranPolicy()->mergedServiceDiscountRule($types, $catalogId)
@@ -428,9 +574,9 @@ class ManualBookingForm extends Component
             && $matrixPct >= $rule['min_discount']
             && $matrixPct <= $rule['max_discount']
         ) {
-            $this->services[$index]['discount_override'] = (string) $matrixPct;
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = (string) $matrixPct;
         } else {
-            $this->services[$index]['discount_override'] = '';
+            $this->guestDetails[$guestIndex]['services'][$serviceIndex]['discount_override'] = '';
         }
     }
 
@@ -626,6 +772,7 @@ class ManualBookingForm extends Component
 
         $this->syncGuestDetailRows();
         $this->dispatch('manual-booking-room-committed', checkIn: $this->checkIn, checkOut: $this->checkOut);
+        $this->scrollToNavigationAfterRoomCommit();
     }
 
     public function removeRoomLine(int $index): void
@@ -642,17 +789,26 @@ class ManualBookingForm extends Component
         $this->syncGuestDetailRows();
     }
 
-    public function addService(): void
+    public function addGuestService(int $guestIndex): void
     {
-        $this->services[] = $this->emptyServiceRow();
+        if (!isset($this->guestDetails[$guestIndex])) {
+            return;
+        }
+
+        $this->guestDetails[$guestIndex]['services'][] = $this->emptyGuestServiceRow();
     }
 
-    public function removeService(int $index): void
+    public function removeGuestService(int $guestIndex, int $serviceIndex): void
     {
-        unset($this->services[$index]);
-        $this->services = array_values($this->services);
-        if (empty($this->services)) {
-            $this->services = [$this->emptyServiceRow()];
+        if (!isset($this->guestDetails[$guestIndex]['services'][$serviceIndex])) {
+            return;
+        }
+
+        unset($this->guestDetails[$guestIndex]['services'][$serviceIndex]);
+        $this->guestDetails[$guestIndex]['services'] = array_values($this->guestDetails[$guestIndex]['services']);
+
+        if (empty($this->guestDetails[$guestIndex]['services'])) {
+            $this->guestDetails[$guestIndex]['services'] = [];
         }
     }
 
@@ -660,27 +816,81 @@ class ManualBookingForm extends Component
     {
         $count = max(1, $this->totalGuests);
         while (count($this->guestDetails) < $count) {
-            $this->guestDetails[] = [
-                'full_name' => '',
-                'national_id' => '',
-                'mobile' => '',
-                'relation' => '',
-                'excluded_from_veteran_discount' => false,
-                'manual_discount_percentage' => '',
-                'manual_discount_reason' => '',
-            ];
+            $this->guestDetails[] = $this->emptyGuestDetailRow();
         }
         $this->guestDetails = array_slice($this->guestDetails, 0, $count);
+
+        foreach ($this->guestDetails as $index => $guest) {
+            if (!isset($this->guestDetails[$index]['services']) || !is_array($this->guestDetails[$index]['services'])) {
+                $this->guestDetails[$index]['services'] = [];
+            }
+        }
 
         if ($this->bookerVerified) {
             $this->syncBookerToGuestDetails();
         }
+
+        $this->assignGuestsToRoomLines();
+    }
+
+    /**
+     * Map each billing guest slot to the room line they occupy (same order as splitGuestsAcrossRooms).
+     */
+    private function assignGuestsToRoomLines(): void
+    {
+        if (empty($this->roomLines)) {
+            return;
+        }
+
+        $guestIndex = 0;
+
+        foreach ($this->roomLines as $lineIndex => $line) {
+            $lineGuests = max(1, (int) ($line['adults'] ?? 1)
+                + (int) ($line['children_under_6'] ?? 0)
+                + (int) ($line['extra_guests'] ?? 0));
+
+            $roomType = $this->accommodation->roomTypes->firstWhere('id', (int) ($line['room_type_id'] ?? 0));
+            $roomName = $line['room_name'] ?? null;
+
+            if (!$roomName && !empty($line['room_id'])) {
+                $roomName = $roomType?->rooms?->firstWhere('id', (int) $line['room_id'])?->name;
+            }
+
+            if (!$roomName) {
+                $typeName = $roomType?->name ?? 'اتاق';
+                $roomName = $typeName . ' — ردیف ' . ($lineIndex + 1);
+            }
+
+            for ($slot = 0; $slot < $lineGuests; $slot++) {
+                if (!isset($this->guestDetails[$guestIndex])) {
+                    break 2;
+                }
+
+                $this->guestDetails[$guestIndex]['room_line_index'] = $lineIndex;
+                $this->guestDetails[$guestIndex]['room_id'] = !empty($line['room_id']) ? (int) $line['room_id'] : null;
+                $this->guestDetails[$guestIndex]['room_name'] = $roomName;
+                $guestIndex++;
+            }
+        }
+    }
+
+    public function guestRoomLabel(int $index): ?string
+    {
+        $guest = $this->guestDetails[$index] ?? [];
+
+        return trim((string) ($guest['room_name'] ?? '')) ?: null;
     }
 
     public function nextStep(): void
     {
-        if ($this->step === 3 && !$this->bookerVerified) {
-            $this->addError('bookerNationalId', 'لطفاً ابتدا کد ملی را بررسی کنید.');
+        if ($this->step === 2 && !$this->bookerVerified) {
+            $this->addError(
+                $this->bookerIsForeignGuest ? 'bookerPassportNumber' : 'bookerNationalId',
+                $this->bookerIsForeignGuest
+                    ? 'لطفاً ابتدا اطلاعات مهمان خارجی را بررسی کنید.'
+                    : 'لطفاً ابتدا کد ملی را بررسی کنید.',
+            );
+
             return;
         }
 
@@ -694,11 +904,7 @@ class ManualBookingForm extends Component
             $this->syncGuestDetailRows();
         }
 
-        if ($this->step === 2 && !$this->validateServiceVariants()) {
-            return;
-        }
-
-        if ($this->step === 3) {
+        if ($this->step === 2) {
             $this->syncBookerToGuestDetails();
             if (!$this->validateNewBookerContacts()) {
                 return;
@@ -706,11 +912,13 @@ class ManualBookingForm extends Component
         }
 
         $this->step = min(5, $this->step + 1);
+        $this->scrollToTopAfterStepChange();
     }
 
     public function prevStep(): void
     {
         $this->step = max(1, $this->step - 1);
+        $this->scrollToTopAfterStepChange();
     }
 
     public function goToStep(int $step): void
@@ -720,13 +928,59 @@ class ManualBookingForm extends Component
             if ($step === 1) {
                 $this->dispatch('manual-booking-set-discount', pct: $this->discountPct);
             }
+            $this->scrollToTopAfterStepChange();
         }
+    }
+
+    private function scrollToTopAfterStepChange(): void
+    {
+        $this->js(<<<'JS'
+            (() => {
+                const scroll = () => {
+                    const el = document.getElementById('manual-booking-form');
+                    const top = el
+                        ? el.getBoundingClientRect().top + window.scrollY - 24
+                        : 0;
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                };
+                scroll();
+                setTimeout(scroll, 120);
+            })()
+        JS);
+    }
+
+    private function scrollToNavigationAfterRoomCommit(): void
+    {
+        $this->js(<<<'JS'
+            (() => {
+                const scroll = () => {
+                    const nav = document.getElementById('manual-booking-nav');
+                    if (!nav) return;
+                    const rect = nav.getBoundingClientRect();
+                    const top = rect.bottom + window.scrollY - window.innerHeight + 48;
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                };
+                scroll();
+                setTimeout(scroll, 120);
+                setTimeout(scroll, 450);
+            })()
+        JS);
     }
 
     public function submit(ManualBookingService $manualBooking): void
     {
+        if ($this->panel === 'host') {
+            $this->assertHostCan('accommodations.manual-booking', 'write');
+        }
+
         if (!$this->bookerVerified) {
-            $this->addError('bookerNationalId', 'لطفاً ابتدا کد ملی رزرو‌کننده را بررسی کنید.');
+            $this->addError(
+                $this->bookerIsForeignGuest ? 'bookerPassportNumber' : 'bookerNationalId',
+                $this->bookerIsForeignGuest
+                    ? 'لطفاً ابتدا اطلاعات مهمان خارجی را بررسی کنید.'
+                    : 'لطفاً ابتدا کد ملی مهمان اصلی را بررسی کنید.',
+            );
+
             return;
         }
 
@@ -734,8 +988,11 @@ class ManualBookingForm extends Component
             $this->rulesForStep(1),
             $this->rulesForStep(2),
             $this->rulesForStep(3),
-            $this->rulesForStep(4),
         ));
+
+        $this->validate([
+            'beneficiaryRows.*.documents.*' => ProgramDocumentService::fileRules(),
+        ]);
 
         $this->syncBookerToGuestDetails();
         $this->syncGuestDetailRows();
@@ -744,7 +1001,15 @@ class ManualBookingForm extends Component
             return;
         }
 
+        if (!$this->validateServiceVariants()) {
+            return;
+        }
+
         if (!$this->validateManualGuestDiscounts()) {
+            return;
+        }
+
+        if (!$this->validateManualServiceDiscounts()) {
             return;
         }
 
@@ -762,6 +1027,10 @@ class ManualBookingForm extends Component
                 'secondary_veteran_type' => $secondaryType,
                 'veteran_types'        => $this->resolvedVeteranTypes(),
                 'booker_national_id'   => $this->bookerNationalId,
+                'booker_is_foreign_guest' => $this->bookerIsForeignGuest,
+                'booker_passport_number' => $this->bookerPassportNumber,
+                'foreign_country_id'   => $this->foreignCountryId ?: null,
+                'foreign_residence_city_id' => $this->foreignResidenceCityId ?: null,
                 'payment_method'       => $this->paymentMethod,
                 'user_id'              => $this->userId,
                 'guest_contact_name'   => $this->guestContactName,
@@ -769,11 +1038,19 @@ class ManualBookingForm extends Component
                 'notes'                => $this->notes,
                 'services'             => $this->filledServices(),
                 'guest_details'        => $this->guestDetails,
+                'beneficiary_costs'    => $this->filledBeneficiaryCosts(),
             ], Auth::user());
 
             $this->createdBookingId = $booking->id;
-            $this->createdBooking = $booking;
+            $this->createdBooking = $booking->load([
+                'beneficiaryCosts.beneficiary.user',
+                'user', 'accommodation.city', 'roomType', 'roomRate',
+                'services.serviceCatalog', 'guestDetails.bookingRoom.room',
+                'guestDetails.country', 'guestDetails.residenceCity',
+                'bookingRooms.roomType', 'bookingRooms.room',
+            ]);
             $this->step = 5;
+            $this->scrollToTopAfterStepChange();
             session()->flash('status', 'رزرو دستی با موفقیت ثبت شد.');
             $this->dispatch('toast', type: 'success', message: 'رزرو دستی با موفقیت ثبت شد.');
         } catch (\Throwable $e) {
@@ -792,7 +1069,8 @@ class ManualBookingForm extends Component
             return [];
         }
 
-        [$primaryType] = $this->veteranPolicy()->splitVeteranTypes($this->resolvedVeteranTypes());
+        $pricingVeteranTypes = $this->veteranTypesForPricing();
+        [$primaryType] = $this->veteranPolicy()->splitVeteranTypes($pricingVeteranTypes);
 
         return $pricing->calculate([
             'check_in'        => $this->checkIn,
@@ -802,8 +1080,8 @@ class ManualBookingForm extends Component
             'extra_guests'    => $this->totalExtraGuests,
             'bill_full_rooms' => false,
             'veteran_type'    => $primaryType,
-            'secondary_veteran_type' => $this->secondaryVeteranType ?: null,
-            'veteran_types'   => $this->resolvedVeteranTypes(),
+            'secondary_veteran_type' => $this->bookerVerified ? ($this->secondaryVeteranType ?: null) : null,
+            'veteran_types'   => $pricingVeteranTypes,
             'services'        => $this->filledServices(),
             'accommodation'   => $this->accommodation,
             'room_lines'      => $roomLines,
@@ -816,7 +1094,8 @@ class ManualBookingForm extends Component
 
     public function guestReceivesVeteranDiscount(int $index): bool
     {
-        return !empty($this->resolvedVeteranTypes())
+        return $this->bookerVerified
+            && !empty($this->veteranTypesForPricing())
             && $this->discountPct > 0
             && empty($this->guestDetails[$index]['excluded_from_veteran_discount'] ?? false);
     }
@@ -831,13 +1110,16 @@ class ManualBookingForm extends Component
      */
     private function perGuestSlotsForPricing(): array
     {
-        $billingGuests = max(1, $this->totalGuests - $this->totalExtraGuests);
+        $pricing = app(BookingPricingService::class);
+        $billingGuests = !empty($this->roomLines)
+            ? $pricing->totalBillingGuestsForRoomLines($this->resolvedRoomLinesForPricing(), $this->accommodation)
+            : max(1, $this->totalGuests - $this->totalExtraGuests);
 
-        return app(BookingPricingService::class)->buildPerGuestSlotsFromGuestDetails(
+        return $pricing->buildPerGuestSlotsFromGuestDetails(
             $this->guestDetails,
             $billingGuests,
             $this->totalChildrenUnder6,
-            $this->veteranType ?: null,
+            $this->bookerVerified ? ($this->veteranType ?: null) : null,
             $this->discountPct,
         );
     }
@@ -891,15 +1173,19 @@ class ManualBookingForm extends Component
 
     public function getDiscountPctProperty(): int
     {
+        if (!$this->bookerVerified) {
+            return 0;
+        }
+
         return VeteranGroups::accommodationDiscountForTypes(
-            $this->resolvedVeteranTypes(),
+            $this->veteranTypesForPricing(),
             $this->accommodation->id,
         );
     }
 
     public function getAccommodationUsageCheckProperty(): array
     {
-        if (empty($this->resolvedVeteranTypes()) || !$this->checkIn || !$this->checkOut) {
+        if (!$this->bookerVerified || empty($this->veteranTypesForPricing()) || !$this->checkIn || !$this->checkOut) {
             return [];
         }
 
@@ -908,7 +1194,7 @@ class ManualBookingForm extends Component
 
     public function getUsageSummaryProperty(): array
     {
-        $types = $this->resolvedVeteranTypes();
+        $types = $this->veteranTypesForPricing();
         if (empty($types)) {
             return [];
         }
@@ -932,14 +1218,37 @@ class ManualBookingForm extends Component
         $this->guestContactName = $user->name ?? '';
         $this->guestContactMobile = $user->mobile ?? '';
         $this->veteranType = $user->normalizedVeteranType() ?? '';
-        $this->secondaryVeteranType = '';
+        $this->secondaryVeteranType = $user->normalizedSecondaryVeteranType() ?? '';
         $this->syncSelectedVeteranTypesFromFields();
+    }
+
+    private function applyExistingForeignBooker(User $user): void
+    {
+        $this->userId = $user->id;
+        $this->bookerIsExistingUser = true;
+        $this->guestContactName = $user->name ?? '';
+        $this->guestContactMobile = $user->mobile ?? '';
+        $this->bookerPassportNumber = $user->passport_number ?? '';
+        $this->foreignCountryId = (int) ($user->country_id ?? 0);
+        $this->foreignResidenceCityId = (int) ($user->residence_city_id ?? 0);
+        $this->veteranType = '';
+        $this->secondaryVeteranType = '';
+        $this->selectedVeteranTypes = [];
     }
 
     private function findGuestUserByNationalId(string $nationalId): ?User
     {
         return User::query()
             ->where('national_id', $nationalId)
+            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'host']))
+            ->first();
+    }
+
+    private function findGuestUserByPassport(string $passport): ?User
+    {
+        return User::query()
+            ->where('passport_number', $passport)
+            ->where('is_foreign_guest', true)
             ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'host']))
             ->first();
     }
@@ -953,7 +1262,19 @@ class ManualBookingForm extends Component
         $nationalId = preg_replace('/\D/', '', $this->bookerNationalId);
         $mobile = preg_replace('/\D/', '', $this->guestContactMobile);
 
-        if (!$mobileOnly && strlen($nationalId) === 10) {
+        if ($this->bookerIsForeignGuest) {
+            if (!$mobileOnly && $this->bookerPassportNumber !== '') {
+                $passport = strtoupper(trim($this->bookerPassportNumber));
+                if (User::where('passport_number', $passport)->exists()) {
+                    $this->addError(
+                        'bookerPassportNumber',
+                        'این شماره پاسپورت قبلاً ثبت شده است. لطفاً دوباره «بررسی» کنید تا اطلاعات کاربر موجود بارگذاری شود.'
+                    );
+
+                    return false;
+                }
+            }
+        } elseif (!$mobileOnly && strlen($nationalId) === 10) {
             if (User::where('national_id', $nationalId)->exists()) {
                 $this->addError(
                     'bookerNationalId',
@@ -984,7 +1305,10 @@ class ManualBookingForm extends Component
                     'guestContactMobile',
                     'این شماره موبایل قبلاً ثبت شده است'
                     . ($mobileUser->national_id ? " (کد ملی: {$mobileUser->national_id})" : '')
-                    . '. برای رزرو، همان کد ملی را در مرحله قبل وارد و «بررسی» کنید.'
+                    . ($mobileUser->passport_number ? " (پاسپورت: {$mobileUser->passport_number})" : '')
+                    . ($this->bookerIsForeignGuest
+                        ? '. برای رزرو، همان شماره پاسپورت را در مرحله قبل وارد و «بررسی» کنید.'
+                        : '. برای رزرو، همان کد ملی را در مرحله قبل وارد و «بررسی» کنید.')
                 );
 
                 return false;
@@ -1005,6 +1329,7 @@ class ManualBookingForm extends Component
         $this->selectedVeteranTypes = [];
         $this->guestContactName = '';
         $this->guestContactMobile = '';
+        $this->dispatch('manual-booking-set-discount', pct: 0);
     }
 
     private function syncBookerToGuestDetails(): void
@@ -1013,7 +1338,11 @@ class ManualBookingForm extends Component
             $this->syncGuestDetailRows();
         }
 
-        $this->guestDetails[0]['national_id'] = $this->bookerNationalId;
+        $this->guestDetails[0]['national_id'] = $this->bookerIsForeignGuest ? '' : $this->bookerNationalId;
+        $this->guestDetails[0]['is_foreign_guest'] = $this->bookerIsForeignGuest;
+        $this->guestDetails[0]['passport_number'] = $this->bookerIsForeignGuest ? $this->bookerPassportNumber : '';
+        $this->guestDetails[0]['country_id'] = $this->bookerIsForeignGuest ? ($this->foreignCountryId ?: null) : null;
+        $this->guestDetails[0]['residence_city_id'] = $this->bookerIsForeignGuest ? ($this->foreignResidenceCityId ?: null) : null;
 
         if ($this->guestContactName) {
             $this->guestDetails[0]['full_name'] = $this->guestContactName;
@@ -1023,7 +1352,7 @@ class ManualBookingForm extends Component
             $this->guestDetails[0]['mobile'] = $this->guestContactMobile;
         }
 
-        $this->guestDetails[0]['relation'] = 'رزرو‌کننده';
+        $this->guestDetails[0]['relation'] = BookingGuestDetail::RELATION_MAIN_GUEST;
     }
 
     private function usageCheck(): array
@@ -1034,7 +1363,7 @@ class ManualBookingForm extends Component
         }
 
         return $this->veteranPolicy()->checkAccommodationUsageForTypes(
-            $this->resolvedVeteranTypes(),
+            $this->veteranTypesForPricing(),
             $this->totalGuests,
             $nights,
             $this->primaryNationalId(),
@@ -1104,7 +1433,28 @@ class ManualBookingForm extends Component
         return null;
     }
 
-    private function emptyServiceRow(): array
+    private function emptyGuestDetailRow(): array
+    {
+        return [
+            'full_name' => '',
+            'national_id' => '',
+            'is_foreign_guest' => false,
+            'passport_number' => '',
+            'country_id' => null,
+            'residence_city_id' => null,
+            'mobile' => '',
+            'relation' => '',
+            'room_line_index' => null,
+            'room_id' => null,
+            'room_name' => null,
+            'excluded_from_veteran_discount' => false,
+            'manual_discount_percentage' => '',
+            'manual_discount_reason' => '',
+            'services' => [],
+        ];
+    }
+
+    private function emptyGuestServiceRow(): array
     {
         return [
             'service_catalog_id'         => '',
@@ -1114,6 +1464,9 @@ class ManualBookingForm extends Component
             'quantity'                   => 1,
             'discount_override'          => '',
             'is_custom'                  => false,
+            'excluded_from_veteran_quota' => false,
+            'manual_discount_percentage' => '',
+            'manual_discount_reason'   => '',
         ];
     }
 
@@ -1121,27 +1474,72 @@ class ManualBookingForm extends Component
     {
         $valid = true;
 
-        foreach ($this->services as $i => $svc) {
-            $catalogId = $svc['service_catalog_id'] ?? '';
-            if ($catalogId === '' || $catalogId === 'custom' || $catalogId === '0') {
-                continue;
-            }
+        foreach ($this->guestDetails as $guestIndex => $guest) {
+            foreach ($guest['services'] ?? [] as $serviceIndex => $svc) {
+                $catalogId = $svc['service_catalog_id'] ?? '';
+                if ($catalogId === '' || $catalogId === 'custom' || $catalogId === '0') {
+                    continue;
+                }
 
-            $service = $this->veteranPolicy()->serviceById((int) $catalogId);
-            if (!$service) {
-                continue;
-            }
+                $service = $this->veteranPolicy()->serviceById((int) $catalogId);
+                if (!$service) {
+                    continue;
+                }
 
-            $activeVariants = $service->variants->where('is_active', true);
-            if ($activeVariants->isEmpty()) {
-                $this->addError("services.{$i}.service_catalog_id", 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
-                $valid = false;
-                continue;
-            }
+                $activeVariants = $service->variants->where('is_active', true);
+                if ($activeVariants->isEmpty()) {
+                    $this->addError("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_id", 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
+                    $valid = false;
+                    continue;
+                }
 
-            if (empty($svc['service_catalog_variant_id'])) {
-                $this->addError("services.{$i}.service_catalog_variant_id", 'نوع این خدمت را انتخاب کنید.');
-                $valid = false;
+                if (empty($svc['service_catalog_variant_id'])) {
+                    $this->addError("guestDetails.{$guestIndex}.services.{$serviceIndex}.service_catalog_variant_id", 'نوع این خدمت را انتخاب کنید.');
+                    $valid = false;
+                }
+            }
+        }
+
+        return $valid;
+    }
+
+    private function validateManualServiceDiscounts(): bool
+    {
+        $valid = true;
+
+        foreach ($this->guestDetails as $guestIndex => $guest) {
+            foreach ($guest['services'] ?? [] as $serviceIndex => $service) {
+                if (empty($service['excluded_from_veteran_quota'])) {
+                    continue;
+                }
+
+                if (empty(trim($service['name'] ?? ''))) {
+                    continue;
+                }
+
+                $pct = trim((string) ($service['manual_discount_percentage'] ?? ''));
+                $reason = trim((string) ($service['manual_discount_reason'] ?? ''));
+
+                if ($pct === '' || (int) $pct === 0) {
+                    continue;
+                }
+
+                $pctInt = (int) $pct;
+                if ($pctInt < 1 || $pctInt > 100) {
+                    $this->addError(
+                        "guestDetails.{$guestIndex}.services.{$serviceIndex}.manual_discount_percentage",
+                        'درصد تخفیف باید بین ۱ تا ۱۰۰ باشد.'
+                    );
+                    $valid = false;
+                }
+
+                if ($reason === '') {
+                    $this->addError(
+                        "guestDetails.{$guestIndex}.services.{$serviceIndex}.manual_discount_reason",
+                        'ذکر دلیل تخفیف برای این خدمت الزامی است.'
+                    );
+                    $valid = false;
+                }
             }
         }
 
@@ -1150,29 +1548,51 @@ class ManualBookingForm extends Component
 
     private function filledServices(): array
     {
-        return collect($this->services)
-            ->filter(fn ($s) => !empty(trim($s['name'] ?? '')))
-            ->map(function ($s) {
-                $catalogId = $s['service_catalog_id'] ?? '';
+        $rows = [];
+
+        foreach ($this->guestDetails as $guestIndex => $guest) {
+            foreach ($guest['services'] ?? [] as $service) {
+                if (empty(trim($service['name'] ?? ''))) {
+                    continue;
+                }
+
+                $catalogId = $service['service_catalog_id'] ?? '';
                 if ($catalogId === 'custom' || $catalogId === '') {
                     $catalogId = null;
                 }
 
-                return [
+                $manualPct = null;
+                $manualReason = null;
+                if (!empty($service['excluded_from_veteran_quota'])) {
+                    $rawPct = trim((string) ($service['manual_discount_percentage'] ?? ''));
+                    if ($rawPct !== '' && (int) $rawPct > 0) {
+                        $manualPct = (int) $rawPct;
+                        $manualReason = trim((string) ($service['manual_discount_reason'] ?? '')) ?: null;
+                    }
+                }
+
+                $rows[] = [
                     'service_catalog_id'         => $catalogId ? (int) $catalogId : null,
-                    'service_catalog_variant_id' => !empty($s['service_catalog_variant_id'])
-                        ? (int) $s['service_catalog_variant_id']
+                    'service_catalog_variant_id' => !empty($service['service_catalog_variant_id'])
+                        ? (int) $service['service_catalog_variant_id']
                         : null,
-                    'name'               => trim($s['name']),
-                    'unit_price'         => (int) ($s['unit_price'] ?? 0),
-                    'quantity'           => (int) ($s['quantity'] ?? 1),
-                    'discount_override'  => ($s['discount_override'] ?? '') !== ''
-                        ? (int) $s['discount_override']
-                        : null,
+                    'guest_sort_order'           => $guestIndex,
+                    'name'                       => trim($service['name']),
+                    'unit_price'                 => (int) ($service['unit_price'] ?? 0),
+                    'quantity'                   => (int) ($service['quantity'] ?? 1),
+                    'discount_override'          => !empty($service['excluded_from_veteran_quota'])
+                        ? null
+                        : (($service['discount_override'] ?? '') !== ''
+                            ? (int) $service['discount_override']
+                            : null),
+                    'excluded_from_veteran_quota' => !empty($service['excluded_from_veteran_quota']),
+                    'manual_discount_percentage'  => $manualPct,
+                    'manual_discount_reason'      => $manualReason,
                 ];
-            })
-            ->values()
-            ->all();
+            }
+        }
+
+        return $rows;
     }
 
     private function resolvedRoomLinesForPricing(): array
@@ -1332,13 +1752,13 @@ class ManualBookingForm extends Component
                 'checkOut' => ['required', 'date', 'after:checkIn'],
                 'roomLines' => ['array'],
             ],
-            2 => [
-                'services.*.name'       => ['nullable', 'string', 'max:200'],
-                'services.*.unit_price' => ['nullable', 'integer', 'min:0'],
-                'services.*.quantity'   => ['nullable', 'integer', 'min:1', 'max:99'],
-                'services.*.discount_override' => ['nullable', 'integer', 'min:0', 'max:100'],
-            ],
-            3 => [
+            2 => $this->bookerIsForeignGuest ? [
+                'bookerPassportNumber' => ['required', 'string', 'min:5', 'max:32', 'regex:/^[A-Za-z0-9]+$/'],
+                'foreignCountryId' => ['required', 'integer', 'exists:countries,id'],
+                'foreignResidenceCityId' => ['required', 'integer', ...$this->residenceCityIdRules()],
+                'guestContactName' => ['required', 'string', 'max:120'],
+                'guestContactMobile' => ['required', 'regex:/^09[0-9]{9}$/'],
+            ] : [
                 'bookerNationalId' => ['required', 'digits:10'],
                 'veteranType'      => ['nullable', 'string', Rule::in($veteranKeys)],
                 'secondaryVeteranType' => ['nullable', 'string', Rule::in($veteranKeys)],
@@ -1347,7 +1767,7 @@ class ManualBookingForm extends Component
                 'guestContactName' => [Rule::requiredIf(!$this->bookerIsExistingUser), 'nullable', 'string', 'max:120'],
                 'guestContactMobile' => [Rule::requiredIf(!$this->bookerIsExistingUser), 'nullable', 'regex:/^09[0-9]{9}$/'],
             ],
-            4 => [
+            3 => [
                 'paymentMethod'      => ['required', 'in:cash,card_terminal'],
                 'guestContactName'   => ['required', 'string', 'max:120'],
                 'guestContactMobile' => ['required', 'string', 'max:15'],
@@ -1355,6 +1775,13 @@ class ManualBookingForm extends Component
                 'guestDetails.*.excluded_from_veteran_discount' => ['nullable', 'boolean'],
                 'guestDetails.*.manual_discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
                 'guestDetails.*.manual_discount_reason' => ['nullable', 'string', 'max:500'],
+                'guestDetails.*.services.*.name' => ['nullable', 'string', 'max:200'],
+                'guestDetails.*.services.*.unit_price' => ['nullable', 'integer', 'min:0'],
+                'guestDetails.*.services.*.quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
+                'guestDetails.*.services.*.discount_override' => ['nullable', 'integer', 'min:0', 'max:100'],
+                'guestDetails.*.services.*.excluded_from_veteran_quota' => ['nullable', 'boolean'],
+                'guestDetails.*.services.*.manual_discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
+                'guestDetails.*.services.*.manual_discount_reason' => ['nullable', 'string', 'max:500'],
             ],
             default => [],
         };
@@ -1371,6 +1798,11 @@ class ManualBookingForm extends Component
             'pricing'          => $this->pricingPreview,
             'usageSummary'     => $this->usageSummary,
             'accommodationUsageCheck' => $this->accommodationUsageCheck,
+            'beneficiaries'    => \App\Models\ProgramBeneficiary::orderBy('name')->get(),
+            'countries'        => Country::orderBy('name')->get(),
+            'residenceCities'  => $this->foreignCountryId
+                ? ResidenceCity::where('country_id', $this->foreignCountryId)->orderBy('name')->get()
+                : collect(),
             'pdfRoute'         => $this->createdBookingId
                 ? route($this->panel . '.bookings.pdf', $this->createdBookingId)
                 : null,

@@ -18,6 +18,12 @@ trait ManagesBookingFilters
     #[Url(as: 'accommodation_id')]
     public string $accommodationId = '';
 
+    #[Url(as: 'host_id')]
+    public string $hostId = '';
+
+    #[Url(as: 'reserver_id')]
+    public string $reserverId = '';
+
     #[Url(as: 'province_id')]
     public string $provinceId = '';
 
@@ -63,6 +69,27 @@ trait ManagesBookingFilters
     #[Url(as: 'has_discount')]
     public bool $hasDiscount = false;
 
+    #[Url(as: 'bed_type')]
+    public string $roomCategory = '';
+
+    #[Url(as: 'room_id')]
+    public string $roomId = '';
+
+    #[Url(as: 'veteran_type')]
+    public string $veteranType = '';
+
+    #[Url(as: 'booking_source')]
+    public string $bookingSource = '';
+
+    #[Url(as: 'program_type')]
+    public string $programType = '';
+
+    #[Url(as: 'program_payment_type')]
+    public string $programPaymentType = '';
+
+    #[Url(as: 'program_counterparty')]
+    public string $programCounterparty = '';
+
     #[Url(as: 'sort')]
     public string $sort = 'created_at';
 
@@ -74,6 +101,10 @@ trait ManagesBookingFilters
     public string $draftStatus = '';
 
     public string $draftAccommodationId = '';
+
+    public string $draftHostId = '';
+
+    public string $draftReserverId = '';
 
     public string $draftProvinceId = '';
 
@@ -105,6 +136,20 @@ trait ManagesBookingFilters
 
     public bool $draftHasDiscount = false;
 
+    public string $draftRoomCategory = '';
+
+    public string $draftRoomId = '';
+
+    public string $draftVeteranType = '';
+
+    public string $draftBookingSource = '';
+
+    public string $draftProgramType = '';
+
+    public string $draftProgramPaymentType = '';
+
+    public string $draftProgramCounterparty = '';
+
     public function mountBookingFilters(): void
     {
         $this->syncDraftFromApplied();
@@ -115,6 +160,7 @@ trait ManagesBookingFilters
         $this->search = trim($this->draftSearch);
         $this->status = $this->draftStatus;
         $this->accommodationId = $this->draftAccommodationId;
+        $this->hostId = $this->draftHostId;
         $this->provinceId = $this->draftProvinceId;
         $this->cityId = $this->draftCityId;
         $this->countyId = $this->draftCountyId;
@@ -130,6 +176,17 @@ trait ManagesBookingFilters
         $this->priceMax = $this->draftPriceMax;
         $this->guestsMin = $this->draftGuestsMin;
         $this->hasDiscount = $this->draftHasDiscount;
+        $this->bookingSource = $this->draftBookingSource;
+        $this->programType = $this->draftProgramType;
+        $this->programPaymentType = $this->draftProgramPaymentType;
+        $this->programCounterparty = trim($this->draftProgramCounterparty);
+        if ($this->draftBookingSource === 'online') {
+            $this->draftReserverId = '';
+        }
+        $this->reserverId = $this->draftReserverId;
+        $this->roomCategory = $this->draftRoomCategory;
+        $this->roomId = $this->draftRoomId;
+        $this->veteranType = $this->draftVeteranType;
 
         $this->resetPage();
     }
@@ -137,11 +194,13 @@ trait ManagesBookingFilters
     public function resetFilters(): void
     {
         $this->reset([
-            'search', 'status', 'accommodationId', 'provinceId', 'cityId', 'countyId',
+            'search', 'status', 'accommodationId', 'hostId', 'reserverId',
+            'provinceId', 'cityId', 'countyId',
             'serviceCatalogId', 'serviceCatalogVariantId',
             'checkInFrom', 'checkInTo', 'checkOutFrom', 'checkOutTo',
             'nightsMin', 'nightsMax', 'priceMin', 'priceMax', 'guestsMin',
-            'hasDiscount',
+            'hasDiscount', 'roomCategory', 'roomId', 'veteranType', 'bookingSource',
+            'programType', 'programPaymentType', 'programCounterparty',
         ]);
         $this->sort = 'created_at';
         $this->dir = 'desc';
@@ -160,8 +219,23 @@ trait ManagesBookingFilters
 
     public function updatedDraftAccommodationId(): void
     {
+        $this->draftReserverId = '';
         $this->draftServiceCatalogId = '';
         $this->draftServiceCatalogVariantId = '';
+        $this->draftRoomCategory = '';
+        $this->draftRoomId = '';
+    }
+
+    public function updatedDraftRoomCategory(): void
+    {
+        $this->draftRoomId = '';
+    }
+
+    public function updatedDraftBookingSource(): void
+    {
+        if ($this->draftBookingSource === 'online') {
+            $this->draftReserverId = '';
+        }
     }
 
     public function updatedDraftServiceCatalogId(): void
@@ -193,6 +267,8 @@ trait ManagesBookingFilters
             'search'           => $this->search,
             'status'           => $this->status,
             'accommodation_id' => $this->accommodationId,
+            'host_id'          => $this->hostId,
+            'reserver_id'      => $this->bookingSource === 'online' ? '' : $this->reserverId,
             'province_id'      => $this->provinceId,
             'city_id'          => $this->cityId,
             'county_id'                 => $this->countyId,
@@ -208,6 +284,13 @@ trait ManagesBookingFilters
             'price_max'        => $this->priceMax,
             'guests_min'       => $this->guestsMin,
             'has_discount'     => $this->hasDiscount,
+            'room_category'    => $this->roomCategory,
+            'room_id'          => $this->roomId,
+            'veteran_type'     => $this->veteranType,
+            'booking_source'   => $this->bookingSource,
+            'program_type'          => $this->programType,
+            'program_payment_type'  => $this->programPaymentType,
+            'program_counterparty'  => $this->programCounterparty,
             'sort'             => $this->sort,
             'dir'              => $this->dir,
         ];
@@ -229,6 +312,8 @@ trait ManagesBookingFilters
         $this->draftSearch = $this->search;
         $this->draftStatus = $this->status;
         $this->draftAccommodationId = $this->accommodationId;
+        $this->draftHostId = $this->hostId;
+        $this->draftReserverId = $this->reserverId;
         $this->draftProvinceId = $this->provinceId;
         $this->draftCityId = $this->cityId;
         $this->draftCountyId = $this->countyId;
@@ -244,6 +329,13 @@ trait ManagesBookingFilters
         $this->draftPriceMax = $this->priceMax;
         $this->draftGuestsMin = $this->guestsMin;
         $this->draftHasDiscount = $this->hasDiscount;
+        $this->draftRoomCategory = $this->roomCategory;
+        $this->draftRoomId = $this->roomId;
+        $this->draftVeteranType = $this->veteranType;
+        $this->draftBookingSource = $this->bookingSource;
+        $this->draftProgramType = $this->programType;
+        $this->draftProgramPaymentType = $this->programPaymentType;
+        $this->draftProgramCounterparty = $this->programCounterparty;
     }
 
     /** @return array{sort: string, dir: string} */

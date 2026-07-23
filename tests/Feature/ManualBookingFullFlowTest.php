@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Livewire\ManualBookingForm;
 use App\Models\Booking;
-use App\Models\BookingGuestDetail;
+use App\Models\BookingService;
+use App\Models\Room;
 use App\Models\RoomRate;
 use App\Models\RoomType;
+use App\Models\ServiceCatalog;
+use App\Models\ServiceCatalogVariant;
 use App\Models\User;
 use App\Services\BookingPricingService;
 use Carbon\Carbon;
@@ -16,7 +19,7 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * End-to-end Livewire manual booking flow: rooms → services → booker → payment → submit.
+ * End-to-end Livewire manual booking flow: rooms → booker → payment (per-guest services) → submit.
  */
 class ManualBookingFullFlowTest extends TestCase
 {
@@ -70,8 +73,6 @@ class ManualBookingFullFlowTest extends TestCase
             ->assertSet('step', 1)
             ->call('nextStep')
             ->assertSet('step', 2)
-            ->call('nextStep')
-            ->assertSet('step', 3)
             ->set('bookerNationalId', '4440123456')
             ->call('verifyBooker')
             ->assertSet('bookerVerified', true)
@@ -79,7 +80,7 @@ class ManualBookingFullFlowTest extends TestCase
             ->set('guestContactName', 'جانباز تست')
             ->set('guestContactMobile', '09144401234')
             ->call('nextStep')
-            ->assertSet('step', 4)
+            ->assertSet('step', 3)
             ->assertCount('guestDetails', 4);
 
         $pricingAllEligible = $component->get('pricingPreview');
@@ -135,7 +136,6 @@ class ManualBookingFullFlowTest extends TestCase
             ])
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 3, $this->roomType->id, $this->roomRate->id, 0, false, 0, 3)
             ->call('nextStep')
-            ->call('nextStep')
             ->set('bookerNationalId', '4440555666')
             ->call('verifyBooker')
             ->set('selectedVeteranTypes', ['veteran_70_spouses', 'martyr_children'])
@@ -154,6 +154,12 @@ class ManualBookingFullFlowTest extends TestCase
         $this->assertSame('martyr_children', $booking->secondary_veteran_type_applied);
         $this->assertSame(70, $booking->discount_percentage);
         $this->assertSame(1, $booking->guestDetails()->where('excluded_from_veteran_discount', true)->count());
+
+        $guestUser = User::where('national_id', '4440555666')->first();
+        $this->assertNotNull($guestUser);
+        $this->assertSame('veteran_70_spouses', $guestUser->veteran_type);
+        $this->assertSame('martyr_children', $guestUser->secondary_veteran_type);
+        $this->assertSame(70, $guestUser->discount_percentage);
 
         $pricing = app(BookingPricingService::class)->calculate([
             'check_in'        => $checkIn,
@@ -191,7 +197,6 @@ class ManualBookingFullFlowTest extends TestCase
             ])
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2)
             ->call('nextStep')
-            ->call('nextStep')
             ->set('bookerNationalId', '4440999888')
             ->call('verifyBooker')
             ->set('guestContactName', 'جانباز با همراه عادی')
@@ -212,6 +217,160 @@ class ManualBookingFullFlowTest extends TestCase
         $this->assertIsArray($booking->guest_discount_snapshot);
     }
 
+    public function test_per_guest_pool_service_uses_veteran_quota_for_booker(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+        [$pool, $variant] = $this->createPoolVariant(200_000);
+
+        $component = Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز استخر')
+            ->set('guestContactMobile', '09144401235')
+            ->call('nextStep')
+            ->set('guestDetails.0.services.0.service_catalog_id', (string) $pool->id)
+            ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->set('guestDetails.0.services.0.quantity', 3)
+            ->set('guestDetails.1.services.0.service_catalog_id', (string) $pool->id)
+            ->set('guestDetails.1.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->set('paymentMethod', 'cash');
+
+        $pricing = $component->get('pricingPreview');
+        $this->assertCount(2, $pricing['service_lines']);
+        $this->assertSame(3, $pricing['service_lines'][0]['free_units']);
+        $this->assertSame(0, $pricing['service_lines'][1]['free_units']);
+        $this->assertSame(600_000, $pricing['services_discount_amount']);
+
+        $component->call('submit')->assertSet('step', 5);
+
+        $booking = Booking::latest('id')->first();
+        $services = $booking->services()->orderBy('sort_order')->get();
+        $this->assertCount(2, $services);
+        $this->assertSame(0, $services[0]->guest_sort_order);
+        $this->assertSame(1, $services[1]->guest_sort_order);
+        $this->assertSame(3, $services[0]->free_units);
+        $this->assertSame(0, $services[1]->free_units);
+        $this->assertFalse($services[0]->excluded_from_veteran_quota);
+        $this->assertFalse($services[1]->excluded_from_veteran_quota);
+    }
+
+    public function test_excluded_from_veteran_quota_service_charges_full_price_with_host_discount(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+        [$pool, $variant] = $this->createPoolVariant(200_000);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id, 0, false, 0, 1)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز')
+            ->set('guestContactMobile', '09144401236')
+            ->call('nextStep')
+            ->set('guestDetails.0.services.0.service_catalog_id', (string) $pool->id)
+            ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->set('guestDetails.0.services.0.excluded_from_veteran_quota', true)
+            ->set('guestDetails.0.services.0.manual_discount_percentage', '25')
+            ->set('guestDetails.0.services.0.manual_discount_reason', 'پرداخت مستقیم')
+            ->set('paymentMethod', 'cash')
+            ->call('submit')
+            ->assertSet('step', 5);
+
+        $booking = Booking::latest('id')->first();
+        $service = $booking->services()->first();
+        $this->assertTrue($service->excluded_from_veteran_quota);
+        $this->assertSame(0, $service->free_units);
+        $this->assertSame(25, $service->manual_discount_percentage);
+        $this->assertSame('پرداخت مستقیم', $service->manual_discount_reason);
+        $this->assertSame(50_000, $service->discount_amount);
+        $this->assertSame(150_000, $service->total);
+
+        $pricing = app(BookingPricingService::class)->calculate([
+            'check_in'      => $checkIn,
+            'check_out'     => $checkOut,
+            'guests'        => 1,
+            'veteran_type'  => 'veteran_70_spouses',
+            'accommodation' => $this->accommodation,
+            'room_type'     => $this->roomType,
+            'room_rate'     => $this->roomRate,
+            'services'      => [[
+                'service_catalog_id'         => $pool->id,
+                'service_catalog_variant_id' => $variant->id,
+                'guest_sort_order'           => 0,
+                'name'                       => 'استخر — تست',
+                'unit_price'                 => 200_000,
+                'quantity'                   => 1,
+                'excluded_from_veteran_quota' => true,
+                'manual_discount_percentage' => 25,
+            ]],
+        ]);
+
+        $this->assertSame(0, $pricing['service_lines'][0]['free_units']);
+        $this->assertSame(50_000, $pricing['service_lines'][0]['discount_amount']);
+        $this->assertSame(150_000, $pricing['service_lines'][0]['line_total']);
+    }
+
+    public function test_excluded_service_does_not_consume_weekly_free_quota(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+        [$pool, $variant] = $this->createPoolVariant(100_000);
+        $policy = $this->veteranPolicyFor($this->accommodation);
+
+        $priorBooking = Booking::create([
+            'user_id'          => User::create([
+                'name'         => 'قبلی',
+                'mobile'       => '09120000088',
+                'national_id'  => '4440123456',
+                'veteran_type' => 'veteran_70_spouses',
+            ])->id,
+            'accommodation_id' => $this->accommodation->id,
+            'check_in'         => $checkIn,
+            'check_out'        => Carbon::parse($checkIn)->addDay()->format('Y-m-d'),
+            'guests'           => 1,
+            'nights'           => 1,
+            'base_price'       => 1_000_000,
+            'total_price'      => 1_000_000,
+            'status'           => 'confirmed',
+            'booking_source'   => 'manual',
+            'veteran_type_applied' => 'veteran_70_spouses',
+            'tracking_code'    => 'PRIORQUOTA1',
+        ]);
+
+        BookingService::create([
+            'booking_id'                 => $priorBooking->id,
+            'service_catalog_id'         => $pool->id,
+            'service_catalog_variant_id' => $variant->id,
+            'name'                         => 'استخر',
+            'unit_price'                   => 100_000,
+            'quantity'                     => 2,
+            'free_units'                   => 2,
+            'discount_percentage'          => 0,
+            'discount_amount'              => 200_000,
+            'total'                        => 0,
+            'excluded_from_veteran_quota'  => true,
+        ]);
+
+        $used = $policy->usedFreeSessionsInWeek(
+            'veteran_70_spouses',
+            '4440123456',
+            $priorBooking->user_id,
+            $pool->id,
+            $checkIn,
+        );
+
+        $this->assertSame(0, $used);
+    }
+
     public function test_step_validations_block_flow_until_requirements_met(): void
     {
         [$checkIn, $checkOut] = $this->futureStay(1);
@@ -229,14 +388,13 @@ class ManualBookingFullFlowTest extends TestCase
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id)
             ->call('nextStep')
             ->call('nextStep')
-            ->call('nextStep')
             ->assertHasErrors(['bookerNationalId'])
-            ->assertSet('step', 3)
+            ->assertSet('step', 2)
             ->set('bookerNationalId', '4440111222')
             ->call('verifyBooker')
             ->call('nextStep')
             ->assertHasErrors(['guestContactName', 'guestContactMobile'])
-            ->assertSet('step', 3);
+            ->assertSet('step', 2);
     }
 
     public function test_existing_guest_booker_skips_contact_validation(): void
@@ -258,13 +416,12 @@ class ManualBookingFullFlowTest extends TestCase
             ])
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id)
             ->call('nextStep')
-            ->call('nextStep')
             ->set('bookerNationalId', '4440333444')
             ->call('verifyBooker')
             ->assertSet('bookerIsExistingUser', true)
             ->assertSet('userId', $guest->id)
             ->call('nextStep')
-            ->assertSet('step', 4)
+            ->assertSet('step', 3)
             ->set('paymentMethod', 'cash')
             ->call('submit')
             ->assertSet('step', 5);
@@ -284,7 +441,6 @@ class ManualBookingFullFlowTest extends TestCase
             ])
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id)
             ->call('nextStep')
-            ->call('nextStep')
             ->set('bookerNationalId', '9999888777')
             ->call('verifyBooker')
             ->set('guestContactName', 'کاربر عادی')
@@ -294,7 +450,34 @@ class ManualBookingFullFlowTest extends TestCase
             ->set('paymentMethod', 'cash')
             ->call('submit')
             ->assertHasErrors(['guestDetails.1.manual_discount_reason'])
-            ->assertSet('step', 4);
+            ->assertSet('step', 3);
+    }
+
+    public function test_service_manual_discount_requires_reason_when_excluded_from_quota(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+        [$pool, $variant] = $this->createPoolVariant(200_000);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز')
+            ->set('guestContactMobile', '09144401237')
+            ->call('nextStep')
+            ->set('guestDetails.0.services.0.service_catalog_id', (string) $pool->id)
+            ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->set('guestDetails.0.services.0.excluded_from_veteran_quota', true)
+            ->set('guestDetails.0.services.0.manual_discount_percentage', '10')
+            ->set('paymentMethod', 'cash')
+            ->call('submit')
+            ->assertHasErrors(['guestDetails.0.services.0.manual_discount_reason'])
+            ->assertSet('step', 3);
     }
 
     public function test_veteran_eligible_guest_manual_discount_ignored_on_persist(): void
@@ -307,7 +490,6 @@ class ManualBookingFullFlowTest extends TestCase
                 'panel'         => 'admin',
             ])
             ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id)
-            ->call('nextStep')
             ->call('nextStep')
             ->set('bookerNationalId', '4440777888')
             ->call('verifyBooker')
@@ -328,6 +510,22 @@ class ManualBookingFullFlowTest extends TestCase
         $this->assertFalse($guestTwo->excluded_from_veteran_discount);
     }
 
+    /** @return array{0:ServiceCatalog,1:ServiceCatalogVariant} */
+    private function createPoolVariant(int $price): array
+    {
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $variant = ServiceCatalogVariant::create([
+            'service_catalog_id' => $pool->id,
+            'key'                => 'pool_test',
+            'name'               => 'استخر تست',
+            'price'              => $price,
+            'sort_order'         => 1,
+            'is_active'          => true,
+        ]);
+
+        return [$pool, $variant];
+    }
+
     /** @return array{0:string,1:string} */
     private function futureStay(int $nights): array
     {
@@ -335,5 +533,96 @@ class ManualBookingFullFlowTest extends TestCase
         $checkOut = Carbon::parse($checkIn)->addDays($nights)->format('Y-m-d');
 
         return [$checkIn, $checkOut];
+    }
+
+    public function test_veteran_host_does_not_apply_discount_before_guest_verification(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+
+        $host = User::create([
+            'name'                => 'میزبان ایثارگر',
+            'mobile'              => '09120001111',
+            'national_id'         => '1111111111',
+            'veteran_type'        => 'veteran_70_spouses',
+            'discount_percentage' => 70,
+        ]);
+        $host->assignRole('host');
+        $this->accommodation->hosts()->attach($host->id);
+
+        [$checkIn, $checkOut] = $this->futureStay(2);
+
+        $component = Livewire::actingAs($host)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'host',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2)
+            ->assertSet('bookerVerified', false)
+            ->assertSet('discountPct', 0);
+
+        $pricingBefore = $component->get('pricingPreview');
+        $this->assertNotEmpty($pricingBefore);
+        $this->assertSame(0, $pricingBefore['veteran_accommodation_discount_amount'] ?? 0);
+        $this->assertSame(4_000_000, $pricingBefore['total_price']);
+
+        $component
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->assertSet('bookerVerified', true)
+            ->assertSet('discountPct', 70);
+
+        $pricingAfter = $component->get('pricingPreview');
+        $this->assertGreaterThan(0, $pricingAfter['veteran_accommodation_discount_amount'] ?? 0);
+        $this->assertLessThan($pricingBefore['total_price'], $pricingAfter['total_price']);
+    }
+
+    public function test_multi_room_booking_assigns_guests_to_physical_rooms(): void
+    {
+        $room101 = Room::create([
+            'room_type_id' => $this->roomType->id,
+            'name'         => '۱۰۱',
+            'sort_order'   => 1,
+            'is_active'    => true,
+        ]);
+        $room102 = Room::create([
+            'room_type_id' => $this->roomType->id,
+            'name'         => '۱۰۲',
+            'sort_order'   => 2,
+            'is_active'    => true,
+        ]);
+
+        [$checkIn, $checkOut] = $this->futureStay(1);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2, $room101->id, '۱۰۱')
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2, $room102->id, '۱۰۲')
+            ->assertSet('totalGuests', 4)
+            ->assertCount('roomLines', 2)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440666777')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'خانواده چهار نفره')
+            ->set('guestContactMobile', '09144406667')
+            ->call('nextStep')
+            ->assertSet('step', 3)
+            ->assertSet('guestDetails.0.room_name', '۱۰۱')
+            ->assertSet('guestDetails.1.room_name', '۱۰۱')
+            ->assertSet('guestDetails.2.room_name', '۱۰۲')
+            ->assertSet('guestDetails.3.room_name', '۱۰۲')
+            ->set('paymentMethod', 'cash')
+            ->call('submit')
+            ->assertSet('step', 5);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertSame(4, $booking->guestDetails()->count());
+
+        $room101Guests = $booking->guestDetails()->whereHas('bookingRoom', fn ($q) => $q->where('room_id', $room101->id))->count();
+        $room102Guests = $booking->guestDetails()->whereHas('bookingRoom', fn ($q) => $q->where('room_id', $room102->id))->count();
+        $this->assertSame(2, $room101Guests);
+        $this->assertSame(2, $room102Guests);
     }
 }

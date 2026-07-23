@@ -36,7 +36,7 @@ class AdminCommissionWalletExport implements FromQuery, WithHeadings, WithMappin
             'شناسه رزرو',
             'اقامتگاه',
             'شهر',
-            'رزرو‌کننده',
+            'مهمان اصلی',
             'موبایل',
             'منبع رزرو',
             'وضعیت رزرو',

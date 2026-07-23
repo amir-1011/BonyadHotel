@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Pages;
 
+use App\Livewire\Concerns\ManagesCancellationRequests;
 use App\Models\Booking;
 use App\Models\Review;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,8 @@ use Livewire\Component;
 #[Layout('layouts.app', ['title' => 'جزئیات رزرو'])]
 class BookingShow extends Component
 {
+    use ManagesCancellationRequests;
+
     public Booking $booking;
 
     // Review form
@@ -30,16 +33,8 @@ class BookingShow extends Component
             'bookingRooms.roomRate',
             'bookingRooms.room',
         ]);
-    }
-
-    public function cancel(): void
-    {
-        abort_if($this->booking->user_id !== Auth::id(), 403);
-        abort_if($this->booking->status !== 'confirmed', 422, 'این رزرو قابل لغو نیست.');
-
-        $this->booking->update(['status' => 'cancelled']);
-        session()->flash('status', 'رزرو با موفقیت لغو شد.');
-        $this->dispatch('toast', type: 'success', message: 'رزرو با موفقیت لغو شد.');
+        $this->initCancellationRequestsData();
+        $this->maybeAutoOpenCancellationRequestModal();
     }
 
     public function submitReview(): void

@@ -2,7 +2,6 @@
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('admin.programs.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right"></i></a>
-    <h5 class="fw-bold mb-0"><i class="bi bi-heart-fill me-2 text-danger"></i>گزارش خدمات حمایتی بنیاد شهید</h5>
 </div>
 
 {{-- انتخاب سال --}}
@@ -120,7 +119,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>#</th><th>عنوان</th><th>اقامتگاه</th><th>نوع خدمت</th>
+                    <th class="col-index">#</th><th>عنوان</th><th>اقامتگاه</th><th>نوع خدمت</th>
                     <th>تاریخ شروع</th><th class="text-center">نفرات</th>
                     <th>کارفرما</th><th>مبلغ کل</th><th class="text-danger">تخفیف حمایتی</th>
                     <th>وضعیت</th>

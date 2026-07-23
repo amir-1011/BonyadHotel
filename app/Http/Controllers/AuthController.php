@@ -75,8 +75,12 @@ class AuthController extends Controller
             $user->update(['mobile_verified_at' => now()]);
         }
 
-        Auth::login($user, true);
+        Auth::login($user, !$user->hasStaffAccess());
         session()->forget('otp_mobile');
+
+        if ($user->hasStaffAccess()) {
+            $request->session()->put('staff_last_activity', now()->timestamp);
+        }
 
         // New users without a name go to profile setup
         if (!$user->name) {

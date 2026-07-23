@@ -37,11 +37,10 @@
             </div>
             <div style="border-top:1px solid var(--bnb-border);margin-top:16px;padding-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                 <a href="{{ route('bookings.show', $booking) }}" wire:navigate class="bnb-filter-pill text-decoration-none"><i class="bi bi-eye me-1"></i>جزئیات</a>
-                @if($booking->status === 'confirmed' && $booking->check_out >= now()->toDateString())
-                <form action="{{ route('bookings.cancel', $booking) }}" method="POST">
-                    @csrf
-                    <button type="submit" data-swal-confirm="آیا از لغو این رزرو مطمئن هستید؟" class="bnb-filter-pill" style="border-color:var(--bnb-red);color:var(--bnb-red);background:none;cursor:pointer;font-family:var(--bnb-font);"><i class="bi bi-x-circle me-1"></i>لغو</button>
-                </form>
+                @if($booking->canRequestCancellation())
+                <a href="{{ route('bookings.show', $booking) }}" wire:navigate class="bnb-filter-pill text-decoration-none" style="border-color:var(--bnb-red);color:var(--bnb-red);"><i class="bi bi-x-circle me-1"></i>درخواست کنسلی و استرداد</a>
+                @elseif($booking->hasPendingCancellationRequest())
+                <a href="{{ route('bookings.show', $booking) }}" wire:navigate class="bnb-filter-pill text-decoration-none" style="border-color:#e37400;color:#e37400;"><i class="bi bi-hourglass-split me-1"></i>درخواست کنسلی در انتظار بررسی</a>
                 @endif
                 @if($isCompleted && !$alreadyReviewed)
                 <button class="bnb-filter-pill" style="border-color:var(--bnb-dark);background:var(--bnb-dark);color:#fff;cursor:pointer;font-family:var(--bnb-font);" type="button" onclick="document.getElementById('review-form-{{ $booking->id }}').classList.toggle('d-none')">

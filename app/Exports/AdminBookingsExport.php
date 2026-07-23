@@ -23,7 +23,7 @@ class AdminBookingsExport implements FromQuery, WithHeadings, WithMapping
 
     public function query()
     {
-        $query = Booking::with(['user', 'accommodation', 'roomType']);
+        $query = Booking::with(['user', 'createdBy', 'accommodation', 'roomType', 'bookingRooms.room', 'bookingRooms.roomType']);
 
         return AdminBookingFilter::make($this->filters, $this->scopedAccommodationIds)
             ->apply($query, withSort: false)
@@ -34,10 +34,14 @@ class AdminBookingsExport implements FromQuery, WithHeadings, WithMapping
     {
         return [
             'کد رزرو',
-            'کاربر',
-            'موبایل',
+            'مهمان اصلی',
+            'موبایل مهمان اصلی',
+            'رزرو کننده',
             'اقامتگاه',
-            'اتاق',
+            'نوع اتاق',
+            'نام اتاق',
+            'گروه ایثارگری مهمان',
+            'نوع رزرو',
             'ورود',
             'خروج',
             'شب',
@@ -53,8 +57,12 @@ class AdminBookingsExport implements FromQuery, WithHeadings, WithMapping
             $booking->tracking_code,
             $booking->bookerName(),
             $booking->bookerMobile(),
+            $booking->reserverName(),
             $booking->accommodation->name ?? '—',
-            $booking->roomType->name ?? '—',
+            $booking->roomTypeNamesSummary(),
+            $booking->physicalRoomNamesDisplay(),
+            $booking->veteranDiscountLabel(),
+            $booking->bookingTypeLabel(),
             $this->formatDate($booking->check_in),
             $this->formatDate($booking->check_out),
             $booking->nights,

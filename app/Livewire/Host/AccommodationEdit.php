@@ -6,9 +6,12 @@ use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\County;
 use App\Models\Province;
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Livewire\Concerns\ManagesLivewireImageUploads;
 use App\Models\AccommodationType;
+use App\Services\ImageUploadService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -21,6 +24,8 @@ class AccommodationEdit extends Component
     use WithFileUploads;
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
+    use ManagesLivewireImageUploads;
+    use AssertsHostPermissions;
 
     public Accommodation $accommodation;
 
@@ -82,8 +87,7 @@ class AccommodationEdit extends Component
             'address'       => ['nullable', 'string'],
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
-            'newImages.*'   => ['nullable', 'image', 'max:4096'],
-        ], $this->contactInfoRules());
+        ], $this->imageUploadRules('newImages'), $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -93,6 +97,7 @@ class AccommodationEdit extends Component
 
     public function removeExistingImage(string $path): void
     {
+        $this->assertHostCan('accommodations.edit', 'edit');
         $this->keepImages = array_values(array_filter(
             $this->keepImages, fn($img) => $img !== $path
         ));
@@ -100,6 +105,7 @@ class AccommodationEdit extends Component
 
     public function update(): void
     {
+        $this->assertHostCan('accommodations.edit', 'edit');
         $this->validate();
         $this->validateContactInfo();
 
@@ -111,8 +117,24 @@ class AccommodationEdit extends Component
         }
         $finalImages = array_values(array_intersect($existingImages, $this->keepImages));
 
-        foreach ($this->newImages as $img) {
-            $finalImages[] = $img->store('accommodations', 'public');
+        try {
+            ImageUploadService::assertTotalImageCount(
+                count($finalImages) + count($this->newImages)
+            );
+        } catch (\RuntimeException $e) {
+            $this->addError('newImages', $e->getMessage());
+
+            return;
+        }
+
+        try {
+            $finalImages = array_merge(
+                $finalImages,
+                app(ImageUploadService::class)->storeManyWebp($this->newImages, 'accommodations')
+            );
+        } catch (\RuntimeException $e) {
+            $this->addError('newImages', $e->getMessage());
+            return;
         }
 
         $this->accommodation->update(array_merge([

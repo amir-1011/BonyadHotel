@@ -11,7 +11,7 @@
     <table class="table table-sm mb-0 align-middle {{ $compact ? '' : '' }}">
         <thead class="table-light">
             <tr>
-                <th>#</th>
+                <th class="col-index">#</th>
                 <th>نوع اتاق</th>
                 <th>اتاق اختصاصی</th>
                 <th>تعرفه</th>
@@ -35,7 +35,14 @@
                     <span class="text-muted">—</span>
                     @endif
                 </td>
-                <td>{{ $line->roomRate?->name ?? '—' }}</td>
+                <td>
+                    {{ $line->roomRate?->name ?? '—' }}
+                    @unless($compact)
+                        @if($line->roomRate)
+                            <span class="text-muted small d-block">{{ number_format($line->roomRate->price_per_night) }} ت/شب/تخت</span>
+                        @endif
+                    @endunless
+                </td>
                 @unless($compact)
                 <td>{{ $line->adults }}</td>
                 <td>{{ $line->children_under_6 }}</td>
@@ -56,7 +63,7 @@
     @if($booking->roomRate)
     <li class="list-group-item d-flex justify-content-between px-0">
         <span class="text-muted">تعرفه</span>
-        <span>{{ $booking->roomRate->name }}@unless($compact) · {{ number_format($booking->roomRate->price_per_night) }} ت/شب @endunless</span>
+        <span>{{ $booking->roomRate->name }}@unless($compact) · {{ number_format($booking->roomRate->price_per_night) }} ت/شب/تخت @endunless</span>
     </li>
     @endif
 </ul>

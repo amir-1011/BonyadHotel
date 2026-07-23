@@ -250,6 +250,34 @@ class VeteranPolicyTest extends TestCase
         }
     }
 
+    public function test_admin_global_settings_remove_service_from_all_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000992',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->call('removeService', 'pool')
+            ->assertHasNoErrors()
+            ->assertCount('services', 5);
+
+        foreach ([$this->accommodation, $secondAccommodation] as $accommodation) {
+            $this->assertDatabaseMissing('service_catalogs', [
+                'accommodation_id' => $accommodation->id,
+                'key'              => 'pool',
+            ]);
+        }
+
+        $this->assertArrayNotHasKey('pool', Livewire::test(VeteranPolicySettings::class)->get('services'));
+    }
+
     public function test_veteran_label_resolves_without_accommodation_context(): void
     {
         $user = User::create([
@@ -261,5 +289,335 @@ class VeteranPolicyTest extends TestCase
 
         $this->assertSame('جانبازان ۷۰ درصد و همسران', $user->veteranLabel());
         $this->assertSame('جانبازان ۷۰ درصد و همسران', \App\Support\VeteranGroups::label('veteran_70_plus'));
+    }
+
+    public function test_admin_can_remove_single_veteran_group_for_accommodation(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000997',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $group = VeteranGroup::forAccommodation($this->accommodation->id)
+            ->where('key', 'freed_prisoner_dependents')
+            ->firstOrFail();
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('removeVeteranGroup', $group->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('veteran_groups', ['id' => $group->id]);
+        $this->assertSame(
+            6,
+            VeteranGroup::forAccommodation($this->accommodation->id)->count(),
+        );
+    }
+
+    public function test_admin_can_remove_service_and_livewire_services_list_stays_in_sync(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000991',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('removeService', $pool->id)
+            ->assertHasNoErrors()
+            ->assertCount('services', 5)
+            ->assertSet('services.pool', null);
+
+        $this->assertDatabaseMissing('service_catalogs', ['id' => $pool->id]);
+    }
+
+    public function test_admin_can_clear_all_veteran_groups_for_accommodation(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000996',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('clearAllVeteranGroups')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, VeteranGroup::forAccommodation($this->accommodation->id)->count());
+        $this->assertGreaterThan(0, ServiceCatalog::forAccommodation($this->accommodation->id)->count());
+
+        $this->accommodation->refresh();
+        $this->assertFalse($this->accommodation->veteran_policy_auto_seed);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->assertSet('groups', []);
+    }
+
+    public function test_admin_can_clear_all_services_for_accommodation(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000995',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('clearAllServices')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, ServiceCatalog::forAccommodation($this->accommodation->id)->count());
+        $this->assertGreaterThan(0, VeteranGroup::forAccommodation($this->accommodation->id)->count());
+
+        $this->accommodation->refresh();
+        $this->assertFalse($this->accommodation->veteran_policy_auto_seed);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->assertSet('services', []);
+    }
+
+    public function test_cleared_policy_does_not_auto_reseed_on_page_reload(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000994',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('clearAllVeteranGroups')
+            ->call('clearAllServices')
+            ->assertHasNoErrors();
+
+        $this->accommodation->refresh();
+        $this->assertFalse($this->accommodation->veteran_policy_auto_seed);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->assertSet('groups', [])
+            ->assertSet('services', []);
+
+        $this->assertSame(0, VeteranGroup::forAccommodation($this->accommodation->id)->count());
+        $this->assertSame(0, ServiceCatalog::forAccommodation($this->accommodation->id)->count());
+    }
+
+    public function test_admin_can_restore_default_veteran_policy_for_accommodation(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000993',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->call('clearAllVeteranGroups')
+            ->call('clearAllServices')
+            ->call('restoreDefaultVeteranPolicy')
+            ->assertHasNoErrors();
+
+        $this->accommodation->refresh();
+        $this->assertTrue($this->accommodation->veteran_policy_auto_seed);
+        $this->assertGreaterThan(0, VeteranGroup::forAccommodation($this->accommodation->id)->count());
+        $this->assertGreaterThan(0, ServiceCatalog::forAccommodation($this->accommodation->id)->count());
+    }
+
+    public function test_restore_accommodation_policy_copies_global_admin_settings(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000990',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->set('groups.0.accommodation_discount', 82)
+            ->call('saveGroups')
+            ->assertHasNoErrors();
+
+        VeteranGroup::query()
+            ->where('accommodation_id', $secondAccommodation->id)
+            ->where('key', 'veteran_70_spouses')
+            ->update(['accommodation_discount' => 11]);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $secondAccommodation])
+            ->call('restoreDefaultVeteranPolicy')
+            ->assertHasNoErrors();
+
+        $restored = VeteranGroup::forAccommodation($secondAccommodation->id)
+            ->where('key', 'veteran_70_spouses')
+            ->firstOrFail();
+
+        $this->assertSame(82, $restored->accommodation_discount);
+    }
+
+    public function test_admin_global_settings_sync_group_discount_only_to_filtered_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000989',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+        $thirdAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه سوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->set('dashboardAccommodationAllSelected', false)
+            ->set('selectedAccommodationIds', [$this->accommodation->id, $secondAccommodation->id])
+            ->set('groups.0.accommodation_discount', 66)
+            ->call('saveGroups')
+            ->assertHasNoErrors();
+
+        foreach ([$this->accommodation, $secondAccommodation] as $accommodation) {
+            $group = VeteranGroup::forAccommodation($accommodation->id)
+                ->where('key', 'veteran_70_spouses')
+                ->firstOrFail();
+            $this->assertSame(66, $group->accommodation_discount);
+        }
+
+        $untouched = VeteranGroup::forAccommodation($thirdAccommodation->id)
+            ->where('key', 'veteran_70_spouses')
+            ->firstOrFail();
+        $this->assertSame(70, $untouched->accommodation_discount);
+    }
+
+    public function test_admin_can_add_custom_group_only_to_filtered_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000988',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->set('dashboardAccommodationAllSelected', false)
+            ->set('selectedAccommodationIds', [$secondAccommodation->id])
+            ->set('newGroupLabel', 'گروه اختصاصی دوم')
+            ->set('newGroupAccommodationDiscount', 44)
+            ->call('addCustomGroup')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('veteran_groups', [
+            'accommodation_id' => $secondAccommodation->id,
+            'label'            => 'گروه اختصاصی دوم',
+        ]);
+
+        $this->assertDatabaseMissing('veteran_groups', [
+            'accommodation_id' => $this->accommodation->id,
+            'label'            => 'گروه اختصاصی دوم',
+        ]);
+    }
+
+    public function test_admin_global_settings_remove_service_only_from_filtered_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000987',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        Livewire::test(VeteranPolicySettings::class)
+            ->set('dashboardAccommodationAllSelected', false)
+            ->set('selectedAccommodationIds', [$this->accommodation->id])
+            ->call('removeService', 'pool')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('service_catalogs', [
+            'accommodation_id' => $this->accommodation->id,
+            'key'              => 'pool',
+        ]);
+
+        $this->assertDatabaseHas('service_catalogs', [
+            'accommodation_id' => $secondAccommodation->id,
+            'key'              => 'pool',
+        ]);
+    }
+
+    public function test_veteran_policy_page_exposes_accommodation_badges_for_shared_policy_keys(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000986',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $secondAccommodation = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+
+        $component = Livewire::test(VeteranPolicySettings::class);
+
+        $groupMap = $component->viewData('groupAccommodationsByKey');
+        $this->assertArrayHasKey('veteran_70_spouses', $groupMap);
+        $this->assertGreaterThanOrEqual(2, count($groupMap['veteran_70_spouses']));
+
+        $names = collect($groupMap['veteran_70_spouses'])->pluck('name')->all();
+        $this->assertContains($this->accommodation->name, $names);
+        $this->assertContains($secondAccommodation->name, $names);
+    }
+
+    public function test_veteran_policy_page_exposes_variant_accommodation_badges_by_service(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000985',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        $pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $variant = \App\Models\ServiceCatalogVariant::create([
+            'service_catalog_id' => $pool->id,
+            'key'                => 'pool_test_variant',
+            'name'               => 'استخر تست',
+            'price'              => 100_000,
+            'sort_order'         => 1,
+            'is_active'          => true,
+        ]);
+
+        $map = Livewire::test(VeteranPolicySettings::class)->viewData('variantAccommodationsByServiceKey');
+
+        $this->assertArrayHasKey('pool', $map);
+        $this->assertArrayHasKey($variant->key, $map['pool']);
+        $this->assertNotEmpty($map['pool'][$variant->key]);
     }
 }

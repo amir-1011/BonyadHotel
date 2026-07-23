@@ -1,13 +1,16 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2"></i>رزروها ({{ $bookings->total() }})</h5>
+@php($hostUser = Auth::user())
+
+<div class="d-flex align-items-center justify-content-end mb-3">
+    @if($hostUser->hostCan('bookings.export', 'read'))
     <a href="{{ route('host.bookings.export', $exportQuery) }}" class="btn btn-success btn-sm">
         <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
         @if($hasActiveFilters)
         <span class="badge bg-white text-success ms-1">فیلترشده</span>
         @endif
     </a>
+    @endif
 </div>
 
 <x-filters.booking-panel
@@ -17,9 +20,16 @@
     :counties="$counties"
     :service-catalogs="$serviceCatalogs"
     :service-variants="$serviceVariants"
+    :room-categories="$roomCategories"
+    :rooms="$rooms"
+    :veteran-options="$veteranOptions"
     :show-service-accommodation="$showServiceAccommodation"
+    :show-room-accommodation="$showRoomAccommodation"
     :draft-province-id="$draftProvinceId"
+    :draft-accommodation-id="$draftAccommodationId"
     :draft-service-catalog-id="$draftServiceCatalogId"
+    :draft-room-category="$draftRoomCategory"
+    :draft-booking-source="$draftBookingSource"
     :has-active-filters="$hasActiveFilters"
 />
 
@@ -35,9 +45,13 @@
                             کد <x-filters.booking-sort-icon column="id" :sort="$sort" :dir="$dir" />
                         </button>
                     </th>
-                    <th>مهمان</th>
+                    <th>مهمان اصلی</th>
+                    <th>رزرو کننده</th>
                     <th>اقامتگاه</th>
-                    <th>اتاق</th>
+                    <th>نوع اتاق</th>
+                    <th>نام اتاق</th>
+                    <th>گروه ایثارگری مهمان</th>
+                    <th>نوع رزرو</th>
                     <th>
                         <button type="button" wire:click="sortBy('check_in')" class="btn btn-link btn-sm p-0 text-dark text-decoration-none border-0">
                             ورود <x-filters.booking-sort-icon column="check_in" :sort="$sort" :dir="$dir" />
@@ -67,8 +81,16 @@
                 <tr wire:key="host-booking-{{ $b->id }}">
                     <td><code class="small">{{ $b->tracking_code }}</code></td>
                     <td class="small">{{ $b->bookerName() }}</td>
+                    <td class="small">{{ $b->reserverName() }}</td>
                     <td class="small">{{ Str::limit($b->accommodation->name, 22) }}</td>
-                    <td class="small">{{ $b->roomType?->name ?? '—' }}</td>
+                    <td class="small">{{ $b->roomTypeNamesSummary() }}</td>
+                    <td class="small">{{ $b->physicalRoomNamesDisplay() }}</td>
+                    <td class="small">{{ $b->veteranDiscountLabel() }}</td>
+                    <td class="small">
+                        <span class="badge bg-{{ $b->booking_source === 'program' ? 'success' : ($b->booking_source === 'manual' ? 'secondary' : 'info') }}">
+                            {{ $b->bookingTypeLabel() }}
+                        </span>
+                    </td>
                     <td class="small">@jalali($b->check_in)</td>
                     <td class="small">@jalali($b->check_out)</td>
                     <td>{{ $b->nights }}</td>
@@ -77,23 +99,23 @@
                     <td>
                         <div class="d-flex gap-1">
                             <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;"><i class="bi bi-eye"></i></a>
-                            @if($b->status === 'pending')
+                            @if($b->status === 'pending' && $b->canEditBookingDetails() && $hostUser->hostCan('bookings.list', 'edit'))
                             <button wire:click="confirm({{ $b->id }})" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check"></i></button>
-                            @endif
-                            @if($b->status !== 'cancelled')
                             <button wire:click="cancel({{ $b->id }})" data-swal-confirm="لغو شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x"></i></button>
+                            @elseif($b->status === 'confirmed' && $b->canRequestCancellation() && $b->canEditBookingDetails() && $hostUser->hostCan('bookings.cancellation-submit', 'write'))
+                            <a wire:navigate href="{{ route('host.bookings.show', $b) }}?cancel=1" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="درخواست کنسلی"><i class="bi bi-x"></i></a>
                             @endif
                         </div>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="10" class="text-center text-muted py-4">رزروی یافت نشد</td></tr>
+                <tr><td colspan="15" class="text-center text-muted py-4">رزروی یافت نشد</td></tr>
                 @endforelse
             </tbody>
             @if($bookings->count() > 0)
             <tfoot class="table-light fw-bold">
                 <tr>
-                    <td colspan="7" class="text-end small text-muted">جمع این صفحه:</td>
+                    <td colspan="12" class="text-end small text-muted">جمع این صفحه:</td>
                     <td class="text-success small">{{ number_format($bookings->sum('total_price')) }} ت</td>
                     <td colspan="2"></td>
                 </tr>

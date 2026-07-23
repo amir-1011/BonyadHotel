@@ -8,6 +8,7 @@ use App\Models\Province;
 use App\Models\User;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Livewire\Concerns\ManagesLivewireImageUploads;
 use App\Models\AccommodationType;
 use App\Services\ImageUploadService;
 use Livewire\Attributes\Layout;
@@ -20,6 +21,7 @@ class AccommodationCreate extends Component
     use WithFileUploads;
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
+    use ManagesLivewireImageUploads;
 
     public int    $provinceId      = 0;
     public int    $cityId          = 0;
@@ -64,8 +66,7 @@ class AccommodationCreate extends Component
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
             'isActive'      => ['boolean'],
-            'images.*'      => ['nullable', 'image', 'max:4096'],
-        ], $this->contactInfoRules());
+        ], $this->imageUploadRules('images'), $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -78,11 +79,11 @@ class AccommodationCreate extends Component
         $this->validate();
         $this->validateContactInfo();
 
-        $uploadedImages = [];
-        if (!empty($this->images)) {
-            foreach ($this->images as $img) {
-                $uploadedImages[] = $img->store('accommodations', 'public');
-            }
+        try {
+            $uploadedImages = app(ImageUploadService::class)->storeManyWebp($this->images, 'accommodations');
+        } catch (\RuntimeException $e) {
+            $this->addError('images', $e->getMessage());
+            return;
         }
 
         $accommodation = Accommodation::create(array_merge([
@@ -111,6 +112,7 @@ class AccommodationCreate extends Component
         }
 
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         session()->flash('status', 'اقامتگاه با موفقیت ثبت شد.');
         $this->redirectRoute('admin.accommodations.index', navigate: true);

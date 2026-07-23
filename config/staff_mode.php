@@ -15,4 +15,16 @@ return [
 
     'enabled' => env('STAFF_ONLY_MODE', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Staff session idle timeout (minutes)
+    |--------------------------------------------------------------------------
+    |
+    | Admin and host accounts are logged out after this many minutes without
+    | activity. Simple users (no staff role) are not affected.
+    |
+    */
+
+    'session_timeout_minutes' => (int) env('STAFF_SESSION_TIMEOUT_MINUTES', 180),
+
 ];

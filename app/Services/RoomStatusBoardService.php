@@ -23,7 +23,7 @@ class RoomStatusBoardService
             return [];
         }
 
-        return $this->buildForAccommodations($accommodationIds, $date, $host);
+        return $this->buildForAccommodations($accommodationIds, $date);
     }
 
     /**
@@ -40,7 +40,7 @@ class RoomStatusBoardService
      * @param  array<int>  $accommodationIds
      * @return array<int, array<string, mixed>>
      */
-    public function buildForAccommodations(array $accommodationIds, string $date, ?User $layoutUser = null): array
+    public function buildForAccommodations(array $accommodationIds, string $date): array
     {
         $today = now()->toDateString();
 
@@ -116,9 +116,7 @@ class RoomStatusBoardService
                 continue;
             }
 
-            $savedLayout = $layoutUser
-                ? $layoutService->getAccommodationLayout($layoutUser, $accommodation->id)
-                : null;
+            $savedLayout = $layoutService->getAccommodationLayout($accommodation);
             $organized = $layoutService->organizeRooms($allRooms, $savedLayout);
 
             $result[] = [
@@ -192,9 +190,9 @@ class RoomStatusBoardService
             ->sortBy(fn (BookingRoom $line) => $line->booking->check_in->format('Y-m-d'))
             ->values();
 
-        $effectiveTotal = (int) ($dayInfo['total'] ?? $room->roomType->room_count);
-        $isRoomBlocked = $room->roomType->isRoomBlockedOnDate($room->id, $date, $effectiveTotal, $blockedIndex);
-        $blockReason = $isRoomBlocked ? $room->roomType->blockReasonForRoomOnDate($room->id, $date) : null;
+        $effectiveTotal = (int) ($dayInfo['total'] ?? $roomType->room_count);
+        $isRoomBlocked = $roomType->isRoomBlockedOnDate($room->id, $date, $effectiveTotal, $blockedIndex);
+        $blockReason = $isRoomBlocked ? $roomType->blockReasonForRoomOnDate($room->id, $date) : null;
         $capacityClosed = !$isRoomBlocked && !$current && $index >= $effectiveTotal;
 
         if ($isRoomBlocked) {
@@ -250,7 +248,7 @@ class RoomStatusBoardService
             'available'       => 'آزاد',
             'occupied'        => 'مهمان فعلی',
             'blocked'         => 'مسدود',
-            'capacity_closed' => 'بسته (ظرفیت روزانه)',
+            'capacity_closed' => 'بسته (سیاست قیمتی)',
             default           => $status,
         };
     }

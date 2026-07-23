@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Host;
 
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Models\Program;
-use App\Models\RoomType;
+use App\Models\ProgramBeneficiary;
+use App\Support\ProgramFilter;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -14,44 +16,64 @@ use Livewire\WithPagination;
 class ProgramIndex extends Component
 {
     use WithPagination;
+    use AssertsHostPermissions;
 
-    #[Url] public string $status          = '';
-    #[Url] public string $supportive      = '';
-    #[Url] public int    $accommodationId = 0;
+    #[Url] public string $search = '';
+    #[Url] public string $status = '';
+    #[Url] public string $programType = '';
+    #[Url] public string $paymentType = '';
+    #[Url] public int $accommodationId = 0;
+    #[Url] public string $counterparty = '';
+    #[Url] public string $employer = '';
+    #[Url] public string $contractor = '';
+    #[Url] public int $beneficiaryId = 0;
 
-    public function updatedStatus(): void          { $this->resetPage(); }
-    public function updatedSupportive(): void      { $this->resetPage(); }
-    public function updatedAccommodationId(): void { $this->resetPage(); }
+    public function updated($property): void
+    {
+        if (!in_array($property, ['page'], true)) {
+            $this->resetPage();
+        }
+    }
 
     public function destroy(int $id): void
     {
+        $this->assertHostCan('programs.list', 'delete');
         $accIds = Auth::user()->managedAccommodationIds();
-        $program = Program::whereIn('accommodation_id', $accIds)->findOrFail($id);
-        $program->delete();
-        session()->flash('status', 'برنامه حذف شد.');
-        $this->dispatch('toast', type: 'success', message: 'برنامه حذف شد.');
+        $program = Program::whereIn('accommodation_id', $accIds)->with('booking')->findOrFail($id);
+
+        if ($program->booking) {
+            $program->booking->update(['status' => 'cancelled']);
+        }
+
+        $program->update(['status' => Program::STATUS_CANCELLED]);
+        session()->flash('status', 'برنامه لغو شد.');
+        $this->dispatch('toast', type: 'success', message: 'برنامه لغو شد.');
         $this->resetPage();
     }
 
     public function render()
     {
         $accIds = Auth::user()->managedAccommodationIds();
-        $query  = Program::whereIn('accommodation_id', $accIds)
-            ->with('accommodation')->latest();
 
-        if ($this->status) {
-            $query->where('status', $this->status);
-        }
-        if ($this->supportive !== '') {
-            $query->where('is_supportive_service', (bool) $this->supportive);
-        }
-        if ($this->accommodationId && $accIds->contains($this->accommodationId)) {
-            $query->where('accommodation_id', $this->accommodationId);
-        }
+        $filters = [
+            'search'           => $this->search,
+            'status'           => $this->status,
+            'program_type'     => $this->programType,
+            'payment_type'     => $this->paymentType,
+            'accommodation_id' => $this->accommodationId,
+            'counterparty'     => $this->counterparty,
+            'employer'         => $this->employer,
+            'contractor'       => $this->contractor,
+            'beneficiary_id'   => $this->beneficiaryId,
+        ];
 
-        $programs         = $query->paginate(20);
+        $programs = ProgramFilter::make($filters, $accIds->all())
+            ->apply(Program::query()->with(['accommodation', 'booking']))
+            ->paginate(20);
+
         $myAccommodations = Auth::user()->managedAccommodationOptions();
+        $beneficiaries = ProgramBeneficiary::orderBy('name')->get();
 
-        return view('host.programs.index', compact('programs', 'myAccommodations'));
+        return view('host.programs.index', compact('programs', 'myAccommodations', 'beneficiaries', 'filters'));
     }
 }

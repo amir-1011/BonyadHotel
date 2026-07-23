@@ -22,6 +22,10 @@ class PersianDigits
 
         $content = $response->getContent();
 
+        if ($content === '' || $content === false || strpbrk($content, '0123456789') === false) {
+            return $response;
+        }
+
         // Match (and preserve) <script>/<style> blocks and HTML tags,
         // then replace bare digit runs in text nodes only.
         // The tag pattern uses (?:[^>"']|"[^"]*"|'[^']*') to correctly skip over

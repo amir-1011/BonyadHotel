@@ -34,6 +34,7 @@ class ProfileIndex extends Component
         Auth::user()->update([
             'national_id'             => $this->nationalId,
             'veteran_type'            => $result['veteran_type'],
+            'secondary_veteran_type'  => null,
             'discount_percentage'     => $result['discount'],
             'national_id_verified_at' => now(),
         ]);

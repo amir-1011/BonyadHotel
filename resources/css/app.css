@@ -777,6 +777,83 @@ body.nav-is-mini .bnb-book-widget {
 
 /* Datepicker overrides */
 .datepicker-plot-area { font-family: var(--bnb-font) !important; z-index: 9999 !important; }
+
+/* Jalali date input — blue when selected date is today */
+input.jalali-date-is-today:not(.is-invalid) {
+    border-color: #0d6efd !important;
+    color: #0d6efd;
+    font-weight: 600;
+    background-color: rgba(13, 110, 253, 0.06);
+}
+input.jalali-date-is-today:focus:not(.is-invalid) {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.2);
+}
+.datepicker-plot-area .datepicker-day-view .table-days td.today.selected span {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+    border: none !important;
+    text-shadow: none !important;
+}
+
+/* Booking calendar — blue highlight when today is in the selected range */
+.bnb-cal-cell.cal-start.cal-today,
+.bnb-cal-cell.cal-last-night.cal-today {
+    background: #0d6efd !important;
+    color: #fff !important;
+}
+.bnb-cal-cell.cal-end.cal-today {
+    background: #fff !important;
+    color: #0d6efd !important;
+    border: 2px solid #0d6efd !important;
+}
+.bnb-cal-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end),
+.bnb-cal-cell.cal-range.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) {
+    background: rgba(13, 110, 253, 0.18) !important;
+    color: #1e40af !important;
+}
+.bnb-cal-cell.cal-start.cal-today .cal-day-check,
+.bnb-cal-cell.cal-last-night.cal-today .cal-day-check { color: #fff; }
+.bnb-cal-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-day-check,
+.bnb-cal-cell.cal-range.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-day-check {
+    color: #1e40af;
+}
+
+.bnb-cal-square-cell.cal-start.cal-today,
+.bnb-cal-square-cell.cal-last-night.cal-today {
+    background: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #fff !important;
+}
+.bnb-cal-square-cell.cal-end.cal-today {
+    background: #fff !important;
+    border-color: #0d6efd !important;
+    color: #0d6efd !important;
+    box-shadow: inset 0 0 0 2px #0d6efd;
+}
+.bnb-cal-square-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end),
+.bnb-cal-square-cell.cal-range.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) {
+    background: rgba(13, 110, 253, 0.18) !important;
+    border-color: rgba(13, 110, 253, 0.45) !important;
+    color: #1e40af !important;
+}
+.bnb-cal-square-cell.cal-start.cal-today .cd,
+.bnb-cal-square-cell.cal-start.cal-today .cs,
+.bnb-cal-square-cell.cal-last-night.cal-today .cd,
+.bnb-cal-square-cell.cal-last-night.cal-today .cs { color: #fff !important; }
+.bnb-cal-square-cell.cal-end.cal-today .cd,
+.bnb-cal-square-cell.cal-end.cal-today .cs { color: #0d6efd !important; }
+.bnb-cal-square-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cd,
+.bnb-cal-square-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cs,
+.bnb-cal-square-cell.cal-range.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cd,
+.bnb-cal-square-cell.cal-range.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cs {
+    color: #1e40af !important;
+}
+.bnb-cal-square-cell.cal-start.cal-today .cal-day-check,
+.bnb-cal-square-cell.cal-last-night.cal-today .cal-day-check { color: #fff; }
+.bnb-cal-square-cell.cal-selected.cal-today:not(.cal-start):not(.cal-last-night):not(.cal-end) .cal-day-check {
+    color: #1e40af;
+}
 .range-picker-trigger { cursor: pointer; user-select: none; }
 .range-picker-cal .datepicker-plot-area { width: 100% !important; border-radius: var(--bnb-radius-sm) !important; border: 1px solid var(--bnb-border) !important; box-shadow: var(--bnb-shadow) !important; }
 
@@ -1149,3 +1226,53 @@ body.nav-is-mini .bnb-book-widget {
   50%       { opacity: .85; }
 }
 .bnb-ms-step.active .bnb-ms-step-label { animation: bnb-pulse 2s ease infinite; }
+
+/* ── Scrollable tables (sticky headers, Excel-like) ─ */
+.table-responsive {
+  overflow: auto;
+  max-height: min(72vh, 720px);
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal .table-responsive {
+  max-height: min(55vh, 480px);
+}
+
+.table-responsive > table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-responsive > table > thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--bs-light, #f8f9fa);
+  box-shadow: 0 1px 0 var(--bs-border-color, #dee2e6);
+}
+
+.table-responsive > table > thead:not(.table-light) > tr > th {
+  background-color: var(--bs-body-bg, #fff);
+}
+
+[data-bs-theme="dark"] .table-responsive > table > thead > tr > th {
+  background-color: var(--bs-tertiary-bg, #2b3035);
+  box-shadow: 0 1px 0 var(--bs-border-color-translucent, rgba(255, 255, 255, 0.15));
+}
+
+.table-responsive > table > tfoot > tr > th,
+.table-responsive > table > tfoot > tr > td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background-color: var(--bs-light, #f8f9fa);
+  box-shadow: 0 -1px 0 var(--bs-border-color, #dee2e6);
+}
+
+[data-bs-theme="dark"] .table-responsive > table > tfoot > tr > th,
+[data-bs-theme="dark"] .table-responsive > table > tfoot > tr > td {
+  background-color: var(--bs-tertiary-bg, #2b3035);
+  box-shadow: 0 -1px 0 var(--bs-border-color-translucent, rgba(255, 255, 255, 0.15));
+}

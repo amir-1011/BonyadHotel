@@ -15,9 +15,12 @@ class BookingServicesEditor extends Component
 
     public string $panel = 'host';
 
-    public function mount(int $bookingId, string $panel = 'host'): void
+    public ?int $guestSortOrder = null;
+
+    public function mount(int $bookingId, string $panel = 'host', ?int $guestSortOrder = null): void
     {
         $this->panel = $panel;
+        $this->guestSortOrder = $guestSortOrder;
         $this->booking = Booking::query()
             ->with(['services.serviceCatalog', 'services.serviceCatalogVariant', 'accommodation'])
             ->findOrFail($bookingId);
@@ -26,7 +29,7 @@ class BookingServicesEditor extends Component
             abort_unless(Auth::user()?->managesAccommodation($this->booking->accommodation_id), 403);
         }
 
-        abort_unless(in_array($this->booking->status, ['pending', 'confirmed'], true), 422);
+        abort_unless($this->booking->canEditBookingDetails(Auth::user()), 422);
         $this->bootBookingDetails($this->booking);
     }
 

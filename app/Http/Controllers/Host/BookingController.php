@@ -71,6 +71,12 @@ class BookingController extends Controller
         $accIds = Auth::user()->managedAccommodationIds();
         abort_if(!$accIds->contains($booking->accommodation_id), 403);
         abort_if($booking->status === 'cancelled', 422);
+
+        if ($booking->status === 'confirmed' && $booking->canRequestCancellation()) {
+            return redirect()->route('host.bookings.show', ['booking' => $booking, 'cancel' => 1]);
+        }
+
+        abort_if($booking->status !== 'pending', 422);
         $booking->update(['status' => 'cancelled']);
         return back()->with('status', 'رزرو لغو شد.');
     }

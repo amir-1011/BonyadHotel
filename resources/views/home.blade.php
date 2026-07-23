@@ -209,7 +209,7 @@
      DISCOUNT BANNER
 ═══════════════════════════════════ --}}
 @php
-    $isVeteran = auth()->check() && auth()->user()->veteran_type && auth()->user()->veteran_type !== 'none';
+    $isVeteran = auth()->check() && auth()->user()->hasVeteranGroup();
     $isRegularUser = auth()->check() && !$isVeteran;
 @endphp
 

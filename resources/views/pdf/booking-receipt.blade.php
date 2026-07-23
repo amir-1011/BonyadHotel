@@ -250,10 +250,10 @@
     </div>
 
     <div class="info-card">
-        <div class="info-card-title">اطلاعات رزرو‌کننده و پرداخت</div>
+        <div class="info-card-title">اطلاعات مهمان اصلی و پرداخت</div>
         <table class="info-card-table">
             <tr>
-                <td class="label">رزرو‌کننده</td>
+                <td class="label">مهمان اصلی</td>
                 <td class="value">
                     {{ $booking->guest_contact_name ?? $booking->user->name }}
                     — <span class="ltr">{{ $booking->guest_contact_mobile ?? $booking->user->mobile }}</span>
@@ -303,11 +303,15 @@
             $guestRowCount = max((int) $booking->guests, $booking->guestDetails->count());
             $guestDetailsByIndex = $booking->guestDetails->values();
             $bookerName = $booking->guest_contact_name ?? $booking->user->name;
+            $pdfHasForeignGuests = $booking->guestDetails->contains(fn ($guest) => $guest->is_foreign_guest);
         @endphp
         <table class="info-card-table guest-table">
             <tr class="header-row">
                 <td style="width:34%">نام و نام خانوادگی</td>
-                <td style="width:22%">کد ملی</td>
+                <td style="width:22%">{{ $pdfHasForeignGuests ? 'کد ملی / پاسپورت' : 'کد ملی' }}</td>
+                @if($pdfHasForeignGuests)
+                <td style="width:22%">محل اقامت</td>
+                @endif
                 <td style="width:22%">نسبت</td>
                 <td style="width:22%">تاریخ تولد</td>
             </tr>
@@ -315,15 +319,19 @@
             @php
                 $guest = $guestDetailsByIndex->get($i);
                 $guestName = filled($guest?->full_name) ? $guest->full_name : ($i === 0 ? $bookerName : '');
-                $guestRelation = filled($guest?->relation) ? $guest->relation : ($i === 0 ? '—' : '');
+                $guestRelation = filled($guest?->relation) ? $guest->relationLabel() : ($i === 0 ? '—' : '');
                 $hasGuestData = filled($guestName)
-                    || filled($guest?->national_id)
+                    || filled($guest?->identityNumber())
                     || filled($guestRelation)
-                    || filled($guest?->birth_date ?? null);
+                    || filled($guest?->birth_date ?? null)
+                    || filled($guest?->residenceLocationLabel());
             @endphp
             <tr class="data-row">
                 <td class="{{ $hasGuestData ? '' : 'writable' }}">{{ $guestName }}</td>
-                <td class="{{ $hasGuestData ? '' : 'writable' }} ltr">{{ $guest?->national_id ?? '' }}</td>
+                <td class="{{ $hasGuestData ? '' : 'writable' }} ltr">{{ $guest?->identityNumber() ?? '' }}</td>
+                @if($pdfHasForeignGuests)
+                <td class="{{ $hasGuestData ? '' : 'writable' }}">{{ $guest?->is_foreign_guest ? ($guest->residenceLocationLabel() ?? '') : '' }}</td>
+                @endif
                 <td class="{{ $hasGuestData ? '' : 'writable' }}">{{ $guestRelation }}</td>
                 <td class="{{ $hasGuestData ? '' : 'writable' }}">{{ $guest?->birth_date ?? '' }}</td>
             </tr>

@@ -1,6 +1,10 @@
 
 
-@php $accDiscountPct = $userAccommodationDiscount ?? 0; @endphp
+@php
+    $accDiscountPct = $userAccommodationDiscount ?? 0;
+    $childAllocateBed = $accommodation->childrenUnder6AllocateBed();
+    $childDiscountPct = $accommodation->childrenUnder6DiscountPercentage();
+@endphp
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" media="print" onload="this.media='all'">
@@ -669,6 +673,7 @@
                                 <input type="hidden" name="check_in" class="rt-check-in">
                                 <input type="hidden" name="check_out" class="rt-check-out">
                                 <input type="hidden" name="guests" class="rt-guests" value="1">
+                                <input type="hidden" name="children_under_6" class="rt-children-under-6" value="0">
                                 <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
                                 <input type="hidden" name="bill_full_rooms" class="rt-bill-full-rooms" value="0">
                                 @php
@@ -881,6 +886,7 @@
                                             'cal-range':       cell && calInRange(cell),
                                             'cal-selected':    cell && isStayNight(cell),
                                             'cal-hover-range': calHoverRange(cell),
+                                            'cal-today':       cell && isTodayDay(cell),
                                             'cal-empty':       !cell
                                         }">
                                         <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
@@ -1047,6 +1053,7 @@
                             'cal-range':       cell && calInRange(cell),
                             'cal-selected':    cell && isStayNight(cell),
                             'cal-hover-range': cell && calHoverRange(cell),
+                            'cal-today':       cell && isTodayDay(cell),
                             'cal-empty':       !cell,
                             'cal-unavailable': cell && !cell.past && cell.isUnavailable,
                             'cal-blocked':     cell && !cell.past && cell.isBlocked,
@@ -1084,16 +1091,33 @@
             </div>
         </div>
 
-        {{-- Guests counter --}}
+        {{-- Adults counter --}}
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--bnb-border);">
             <div>
                 <div style="font-size:14px;font-weight:600;">تعداد نفرات</div>
-                <div style="font-size:12px;color:var(--bnb-gray);">بزرگسال و کودک</div>
+                <div style="font-size:12px;color:var(--bnb-gray);">بزرگسال</div>
             </div>
             <div style="display:flex;align-items:center;gap:16px;">
-                <button type="button" class="bnb-cnt-btn" @click.stop="guests>1 && guests--" :disabled="guests<=1"><i class="bi bi-dash"></i></button>
-                <span x-text="guests" style="min-width:24px;text-align:center;font-size:16px;font-weight:600;"></span>
-                <button type="button" class="bnb-cnt-btn" @click.stop="guests<16 && guests++"><i class="bi bi-plus"></i></button>
+                <button type="button" class="bnb-cnt-btn" @click.stop="adults>1 && adults--" :disabled="adults<=1"><i class="bi bi-dash"></i></button>
+                <span x-text="adults" style="min-width:24px;text-align:center;font-size:16px;font-weight:600;"></span>
+                <button type="button" class="bnb-cnt-btn" @click.stop="adults<16 && adults++" :disabled="adults>=16"><i class="bi bi-plus"></i></button>
+            </div>
+        </div>
+
+        {{-- Children under 6 --}}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--bnb-border);">
+            <div>
+                <div style="font-size:14px;font-weight:600;">کودک زیر ۶ سال</div>
+                <div style="font-size:12px;color:var(--bnb-gray);line-height:1.6;">
+                    <span x-text="childDiscountPct <= 0 ? 'بدون تخفیف نرخ اقامت' : (childDiscountPct >= 100 ? 'رایگان (شامل ۱۰۰ درصد تخفیف)' : ('شامل ' + childDiscountPct + ' درصد تخفیف'))"></span>
+                    <span> · </span>
+                    <span x-text="childAllocateBed ? 'تخت اختصاص داده می‌شود' : 'تخت اختصاص داده نمی‌شود'"></span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <button type="button" class="bnb-cnt-btn" @click.stop="childrenUnder6>0 && childrenUnder6--" :disabled="childrenUnder6<=0"><i class="bi bi-dash"></i></button>
+                <span x-text="childrenUnder6" style="min-width:24px;text-align:center;font-size:16px;font-weight:600;"></span>
+                <button type="button" class="bnb-cnt-btn" @click.stop="childrenUnder6 < maxChildrenUnder6 && childrenUnder6++" :disabled="childrenUnder6>=maxChildrenUnder6"><i class="bi bi-plus"></i></button>
             </div>
         </div>
 
@@ -1209,7 +1233,7 @@
                     @endauth
                     <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
                 </div>
-                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + guests + ' نفر' + (billFullRooms ? ' (رزرو ' + billableGuests + ' تخت)' : '') + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
+                <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + totalGuests + ' نفر' + (childrenUnder6 > 0 ? ' (' + childrenUnder6 + ' کودک زیر ۶ سال)' : '') + (billFullRooms ? ' (رزرو ' + billableGuests + ' تخت)' : '') + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
             </div>
             <button type="button" data-async-btn @click="pay()"
                     class="btn-bnb"
@@ -1502,6 +1526,7 @@ function bnbBookWidget(initCheckIn, initCheckOut, initGuests) {
             addInput('check_in',  this.checkIn);
             addInput('check_out', this.checkOut);
             addInput('guests',    this.guests);
+            addInput('children_under_6', this.childrenUnder6 || 0);
             document.body.appendChild(form);
             form.submit();
         }
@@ -1515,7 +1540,8 @@ function mbbDrawer() {
         datesConfirmed: false,
         checkIn: '',
         checkOut: '',
-        guests: 1,
+        adults: 1,
+        childrenUnder6: 0,
         calYear: null,
         calMonth: null,
         calPhase: 0,
@@ -1525,6 +1551,8 @@ function mbbDrawer() {
         originalPrice: 0,
         // User's veteran/special-group discount injected from PHP
         userDiscountPct: {{ auth()->check() ? (int) $accDiscountPct : 0 }},
+        childAllocateBed: {{ $childAllocateBed ? 'true' : 'false' }},
+        childDiscountPct: {{ (int) $childDiscountPct }},
         // Room capacity (guests per room) — used to compute rooms_needed for warning
         roomTypeCapacityNum: 1,
         // Extra capacity (floor sleeping / کف‌خوابی)
@@ -1540,9 +1568,47 @@ function mbbDrawer() {
         availabilityLoading: false,
         availabilityError: false,
         loadedMonths: [],
+        roomRateId: null,
+        roomRateId: null,
 
         get nights() {
             return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
+        },
+
+        get totalGuests() {
+            return Math.max(1, this.adults + this.childrenUnder6);
+        },
+
+        get guests() {
+            return this.totalGuests;
+        },
+
+        get guestsForBeds() {
+            if (this.childAllocateBed) {
+                return this.totalGuests;
+            }
+            return Math.max(1, this.totalGuests - this.childrenUnder6);
+        },
+
+        get childPayMultiplier() {
+            return (100 - Math.max(0, Math.min(100, this.childDiscountPct))) / 100;
+        },
+
+        get maxChildrenUnder6() {
+            return Math.max(0, 20 - this.adults);
+        },
+
+        get effectiveChildGuests() {
+            return Math.min(Math.max(0, this.childrenUnder6), this.billableGuests);
+        },
+
+        _nightAccommodationTotal(perPerson, billingGuests, childGuests) {
+            const childMult = this.childPayMultiplier;
+            const fullRate = billingGuests - childGuests;
+            const raw = perPerson * fullRate + perPerson * childMult * childGuests;
+            return this.userDiscountPct > 0
+                ? Math.round(raw * (1 - this.userDiscountPct / 100))
+                : raw;
         },
 
         get roomsNeeded() {
@@ -1551,23 +1617,25 @@ function mbbDrawer() {
 
         get effectiveRoomsNeeded() {
             const cap = Math.max(1, this.roomTypeCapacityNum);
+            const total = this.guestsForBeds;
             if (this.extraGuests > 0) {
-                return Math.max(1, Math.ceil((this.guests - this.extraGuests) / cap));
+                return Math.max(1, Math.ceil((total - this.extraGuests) / cap));
             }
-            return Math.ceil(this.guests / cap);
+            return Math.ceil(total / cap);
         },
 
         get billableGuests() {
             if (this.billFullRooms) {
                 return this.effectiveRoomsNeeded * Math.max(1, this.roomTypeCapacityNum);
             }
-            return Math.max(1, this.guests - this.extraGuests);
+            return Math.max(1, this.totalGuests - this.extraGuests);
         },
 
         get dynamicNightPrices() {
             if (!this.checkIn || !this.checkOut) return [];
             const prices = [];
             const g = this.billableGuests;
+            const childG = this.effectiveChildGuests;
             let d = new Date(this.checkIn + 'T12:00:00');
             const end = new Date(this.checkOut + 'T12:00:00');
             while (d < end) {
@@ -1576,11 +1644,9 @@ function mbbDrawer() {
                 const baseRatePerPerson      = this.originalPrice || this.pricePerNight;
                 const hostEffectivePerPerson = (avail && avail.effective_price != null) ? avail.effective_price : baseRatePerPerson;
                 const hostDiscountPct        = (avail && avail.discount_percentage) ? avail.discount_percentage : 0;
-                const baseRate      = baseRatePerPerson * g;
-                const hostEffective = hostEffectivePerPerson * g;
-                const finalPrice    = this.userDiscountPct > 0
-                    ? Math.round(hostEffective * (1 - this.userDiscountPct / 100))
-                    : hostEffective;
+                const baseRate      = baseRatePerPerson * (g - childG) + baseRatePerPerson * this.childPayMultiplier * childG;
+                const hostEffective = hostEffectivePerPerson * (g - childG) + hostEffectivePerPerson * this.childPayMultiplier * childG;
+                const finalPrice    = this._nightAccommodationTotal(hostEffectivePerPerson, g, childG);
                 prices.push({
                     date: key,
                     baseRate,
@@ -1610,11 +1676,10 @@ function mbbDrawer() {
         get dynamicTotal() {
             const prices = this.dynamicNightPrices;
             const g = this.billableGuests;
+            const childG = this.effectiveChildGuests;
             if (!prices.length) {
-                const base = this.userDiscountPct > 0
-                    ? Math.round((this.originalPrice || this.pricePerNight) * (1 - this.userDiscountPct / 100))
-                    : (this.originalPrice || this.pricePerNight);
-                return this.nights * base * g + this.extraGuestsTotal;
+                const perPerson = this.originalPrice || this.pricePerNight;
+                return this.nights * this._nightAccommodationTotal(perPerson, g, childG) + this.extraGuestsTotal;
             }
             return prices.reduce((s, p) => s + p.price, 0) + this.extraGuestsTotal;
         },
@@ -1622,14 +1687,22 @@ function mbbDrawer() {
         get dynamicAfterHostTotal() {
             const prices = this.dynamicNightPrices;
             const g = this.billableGuests;
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsOriginalTotal;
+            const childG = this.effectiveChildGuests;
+            if (!prices.length) {
+                const perPerson = this.originalPrice || this.pricePerNight;
+                return this.nights * (perPerson * (g - childG) + perPerson * this.childPayMultiplier * childG) + this.extraGuestsOriginalTotal;
+            }
             return prices.reduce((s, p) => s + p.hostEffective, 0) + this.extraGuestsOriginalTotal;
         },
 
         get dynamicOriginalTotal() {
             const prices = this.dynamicNightPrices;
             const g = this.billableGuests;
-            if (!prices.length) return this.nights * (this.originalPrice || this.pricePerNight) * g + this.extraGuestsOriginalTotal;
+            const childG = this.effectiveChildGuests;
+            if (!prices.length) {
+                const perPerson = this.originalPrice || this.pricePerNight;
+                return this.nights * (perPerson * (g - childG) + perPerson * this.childPayMultiplier * childG) + this.extraGuestsOriginalTotal;
+            }
             return prices.reduce((s, p) => s + p.baseRate, 0) + this.extraGuestsOriginalTotal;
         },
 
@@ -1746,8 +1819,11 @@ function mbbDrawer() {
                 }
             });
             // Dispatch guest count changes to rooms section
-            this.$watch('guests', val => {
-                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: val } }));
+            this.$watch('adults', () => {
+                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
+            });
+            this.$watch('childrenUnder6', () => {
+                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
             });
             this.$watch('checkIn',  () => { if (this.drawerOpen) this.datesConfirmed = false; });
             this.$watch('checkOut', () => { if (this.drawerOpen) this.datesConfirmed = false; });
@@ -1759,14 +1835,20 @@ function mbbDrawer() {
                         const w = Alpine.$data(widgetEl);
                         if (w.checkIn)  this.checkIn  = w.checkIn;
                         if (w.checkOut) this.checkOut = w.checkOut;
-                        if (w.guests)   this.guests   = w.guests;
+                        if (w.guests) {
+                            this.adults = parseInt(w.guests, 10) || 1;
+                            this.childrenUnder6 = 0;
+                        }
                     } catch(e) {}
                 });
             }
             window.addEventListener('nav-search-updated', (e) => {
                 if (e.detail.checkIn)  this.checkIn  = e.detail.checkIn;
                 if (e.detail.checkOut) this.checkOut = e.detail.checkOut;
-                if (e.detail.guests)   this.guests   = e.detail.guests;
+                if (e.detail.guests) {
+                    this.adults = parseInt(e.detail.guests, 10) || 1;
+                    this.childrenUnder6 = 0;
+                }
             });
         },
 
@@ -1786,6 +1868,9 @@ function mbbDrawer() {
             this.availabilityError   = false;
             try {
                 const params = new URLSearchParams({ months: toFetch.join(',') });
+                if (this.roomRateId) {
+                    params.set('room_rate_id', String(this.roomRateId));
+                }
                 const resp = await fetch('/api/room-types/' + this.roomTypeId + '/availability?' + params, {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
@@ -1838,21 +1923,19 @@ function mbbDrawer() {
             }
         },
 
-        _calcNightTotal(g) {
+        _calcNightTotal(g, childG = 0) {
             if (!this.checkIn || !this.checkOut || !g) return 0;
             let total = 0;
             let d = new Date(this.checkIn + 'T12:00:00');
             const end = new Date(this.checkOut + 'T12:00:00');
+            const children = Math.min(Math.max(0, childG), g);
             while (d < end) {
                 const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
                 const avail = this.availabilityData[key];
                 const perPerson = (avail && avail.effective_price != null)
                     ? avail.effective_price
                     : (this.originalPrice || this.pricePerNight);
-                const hostEffective = perPerson * g;
-                total += this.userDiscountPct > 0
-                    ? Math.round(hostEffective * (1 - this.userDiscountPct / 100))
-                    : hostEffective;
+                total += this._nightAccommodationTotal(perPerson, g, children);
                 d.setDate(d.getDate() + 1);
             }
             return total;
@@ -1888,7 +1971,7 @@ function mbbDrawer() {
 
         _showEmptyBedsPopup(guests, rn, capacity, totalBeds, emptyBeds) {
             const fullRoomTotal = this._calcNightTotal(totalBeds);
-            const partialTotal  = this._calcNightTotal(guests);
+            const partialTotal  = this._calcNightTotal(guests, this.effectiveChildGuests);
             return _loadSwal().then(() => Swal.fire({
                 title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
                 html: this._swalEmptyBedsHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal),
@@ -1928,18 +2011,19 @@ function mbbDrawer() {
             if (!this.checkIn || !this.checkOut) return;
 
             const capacity     = this.roomTypeCapacityNum || 1;
-            const guests       = this.guests;
+            const guests       = this.totalGuests;
+            const bedGuests    = this.guestsForBeds;
             const extraCap     = this.extraCapacity || 0;
             const extraPrice   = this.extraCapacityPrice || 0;
             const nights       = this.nights;
-            // Standard rooms needed (ceil) without extra capacity
-            const rn           = Math.ceil(guests / capacity);
+            // Standard rooms needed (ceil) without extra capacity — based on bed allocation policy
+            const rn           = Math.ceil(bedGuests / capacity);
             const totalBeds    = rn * capacity;
-            const emptyBeds    = totalBeds - guests;
+            const emptyBeds    = totalBeds - bedGuests;
             // Remainder that would go on floor (guests that don't fill the last room)
-            const remainder    = guests % capacity;
+            const remainder    = bedGuests % capacity;
             // Can extra capacity solve the mismatch? (remainder fits within extra_capacity)
-            const canUseExtra  = this.roomTypeId && capacity > 1 && guests > capacity && remainder > 0 && extraCap >= remainder;
+            const canUseExtra  = this.roomTypeId && capacity > 1 && bedGuests > capacity && remainder > 0 && extraCap >= remainder;
 
             const proceed = (extraG, fullRoom) => this._proceedBooking(extraG, fullRoom);
 
@@ -1949,7 +2033,7 @@ function mbbDrawer() {
                 const extraCostDisc = this.userDiscountPct > 0
                     ? Math.round(extraCost * (1 - this.userDiscountPct / 100))
                     : extraCost;
-                const roomsWithExtra = Math.floor(guests / capacity); // one fewer room needed
+                const roomsWithExtra = Math.floor(bedGuests / capacity); // one fewer room needed
                 const htmlContent = `
                     <div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
                         <p style="margin:0 0 14px;">برای <strong>${guests} نفر</strong> با ظرفیت هر اتاق ${capacity} نفر:</p>
@@ -2015,7 +2099,9 @@ function mbbDrawer() {
             const bfr = form.querySelector('.rt-bill-full-rooms') || form.querySelector('input[name="bill_full_rooms"]');
             if (ci) ci.value = this.checkIn;
             if (co) co.value = this.checkOut;
-            if (g)  g.value  = this.guests;
+            const cu6 = form.querySelector('.rt-children-under-6') || form.querySelector('input[name="children_under_6"]');
+            if (g)  g.value  = this.totalGuests;
+            if (cu6) cu6.value = this.childrenUnder6 || 0;
             if (eg) eg.value = this.extraGuests || 0;
             if (bfr) bfr.value = this.billFullRooms ? '1' : '0';
             form.submit();
@@ -2031,14 +2117,22 @@ function mbbDrawer() {
             this.extraCapacity       = parseInt(extraCap)   || 0;
             this.extraCapacityPrice  = parseInt(extraPrice) || 0;
             this.extraGuests         = 0;  // reset when switching rooms
+            this.adults              = 1;
+            this.childrenUnder6      = 0;
             this.billFullRooms       = false;
             this.datesConfirmed      = false;
 
-            // Always clear cached availability so new room type gets fresh data
+            const rateInput = form ? form.querySelector('[name="room_rate_id"]') : null;
+            const newRateId = rateInput ? (parseInt(rateInput.value, 10) || null) : null;
+
             const roomChanged     = this.roomTypeId !== (roomTypeId || null);
+            const rateChanged     = this.roomRateId !== newRateId;
             this.roomTypeId       = roomTypeId || null;
-            this.availabilityData = {};
-            this.loadedMonths     = [];
+            this.roomRateId       = newRateId;
+            if (roomChanged || rateChanged) {
+                this.availabilityData = {};
+                this.loadedMonths     = [];
+            }
 
             // Reset calendar to current month when switching rooms so user picks fresh dates
             if (roomChanged && typeof persianDate !== 'undefined') {
@@ -2051,7 +2145,7 @@ function mbbDrawer() {
             this.drawerOpen = true;
 
             // Sync guest count to rooms section
-            window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guests } }));
+            window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
 
             if (roomTypeId) {
                 // Load current + next 2 Gregorian months (converted from Jalali calendar state)

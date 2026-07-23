@@ -91,6 +91,7 @@
                 onSelect: function () {
                     var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
                     syncProgramDateToWire(el);
+                    if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(el);
                 },
             });
         });

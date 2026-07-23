@@ -299,12 +299,19 @@ class BookingPricingService
         $perGuestSlots = $params['per_guest_slots'] ?? null;
         if (is_array($perGuestSlots) && count($perGuestSlots) > 0) {
             $perGuestSlots = array_slice($perGuestSlots, 0, $billingGuests);
+            while (count($perGuestSlots) < $billingGuests) {
+                $perGuestSlots[] = [
+                    'is_child'            => false,
+                    'veteran_eligible'    => false,
+                    'manual_discount_pct' => 0,
+                ];
+            }
             $nonDiscountGuests = collect($perGuestSlots)
                 ->filter(fn ($slot) => empty($slot['veteran_eligible']))
                 ->count();
         }
 
-        $availMap = $roomType ? $roomType->availabilityMap($checkIn, $checkOut) : [];
+        $availMap = $roomType ? $roomType->availabilityMap($checkIn, $checkOut, $roomRate) : [];
         $roomSubtotal = 0;
         $roomAfterAllDiscounts = 0;
         $childrenDiscountAmount = 0;
@@ -546,6 +553,42 @@ class BookingPricingService
             $qty  = max(1, (int) ($service['quantity'] ?? 1));
             $unit = max(0, (int) ($service['unit_price'] ?? 0));
             $lineSubtotal = $qty * $unit;
+            $guestSortOrder = isset($service['guest_sort_order']) ? (int) $service['guest_sort_order'] : null;
+
+            if (!empty($service['excluded_from_veteran_quota'])) {
+                $manualPct = max(0, min(100, (int) ($service['manual_discount_percentage'] ?? 0)));
+                $discountAmount = (int) round($lineSubtotal * $manualPct / 100);
+
+                $lines[] = [
+                    'name'                       => trim($service['name']),
+                    'service_catalog_id'         => $service['service_catalog_id'] ?? null,
+                    'service_catalog_variant_id'   => $service['service_catalog_variant_id'] ?? null,
+                    'guest_sort_order'           => $guestSortOrder,
+                    'unit_price'                 => $unit,
+                    'quantity'                   => $qty,
+                    'line_subtotal'              => $lineSubtotal,
+                    'discount_percentage'        => $manualPct,
+                    'discount_amount'            => $discountAmount,
+                    'line_total'                 => $lineSubtotal - $discountAmount,
+                    'free_sessions_eligible'     => false,
+                    'free_units'                 => 0,
+                    'use_tiered_discount'        => false,
+                    'excluded_from_veteran_quota' => true,
+                    'manual_discount_percentage' => $manualPct > 0 ? $manualPct : null,
+                    'manual_discount_reason'     => $service['manual_discount_reason'] ?? null,
+                    'discount_breakdown'         => $manualPct > 0
+                        ? [[
+                            'type'                => 'manual',
+                            'label'               => 'تخفیف دستی میزبان',
+                            'units'               => $qty,
+                            'discount_percentage' => $manualPct,
+                            'discount_amount'     => $discountAmount,
+                        ]]
+                        : [],
+                ];
+
+                continue;
+            }
 
             $serviceKey = $service['service_catalog_id'] ?? trim($service['name']);
             $catalogId = isset($service['service_catalog_id']) ? (int) $service['service_catalog_id'] : null;
@@ -585,7 +628,8 @@ class BookingPricingService
                 $lines[] = [
                     'name'                       => trim($service['name']),
                     'service_catalog_id'         => $service['service_catalog_id'] ?? null,
-                    'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                    'service_catalog_variant_id'   => $service['service_catalog_variant_id'] ?? null,
+                    'guest_sort_order'           => $guestSortOrder,
                     'unit_price'                 => $unit,
                     'quantity'                   => $qty,
                     'line_subtotal'              => $lineSubtotal,
@@ -595,6 +639,7 @@ class BookingPricingService
                     'free_sessions_eligible'     => $multiResult['free_units'] > 0,
                     'free_units'                 => $multiResult['free_units'],
                     'use_tiered_discount'        => collect($groupConfigs)->contains(fn ($g) => !empty($g['use_tiered_discount'])),
+                    'excluded_from_veteran_quota' => false,
                     'discount_breakdown'         => $multiResult['discount_breakdown'],
                     'veteran_group_usage'        => collect($multiResult['group_usage'])
                         ->mapWithKeys(fn ($count, $key) => [$key => max(0, (int) $count - (int) ($bookingConsumed[$key] ?? 0))])
@@ -635,7 +680,8 @@ class BookingPricingService
                 $lines[] = [
                     'name'                       => trim($service['name']),
                     'service_catalog_id'         => $service['service_catalog_id'] ?? null,
-                    'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                    'service_catalog_variant_id'   => $service['service_catalog_variant_id'] ?? null,
+                    'guest_sort_order'           => $guestSortOrder,
                     'unit_price'                 => $unit,
                     'quantity'                   => $qty,
                     'line_subtotal'              => $lineSubtotal,
@@ -645,6 +691,7 @@ class BookingPricingService
                     'free_sessions_eligible'     => $freeEligible,
                     'free_units'                 => $freeUnits,
                     'use_tiered_discount'        => true,
+                    'excluded_from_veteran_quota' => false,
                     'discount_breakdown'         => $tierResult['discount_breakdown'] ?? [],
                 ];
 
@@ -684,17 +731,19 @@ class BookingPricingService
             $lines[] = [
                 'name'                       => trim($service['name']),
                 'service_catalog_id'         => $service['service_catalog_id'] ?? null,
-                'service_catalog_variant_id' => $service['service_catalog_variant_id'] ?? null,
+                'service_catalog_variant_id'   => $service['service_catalog_variant_id'] ?? null,
+                'guest_sort_order'           => $guestSortOrder,
                 'unit_price'                 => $unit,
-                'quantity'               => $qty,
-                'line_subtotal'          => $lineSubtotal,
-                'discount_percentage'    => $discountPct,
-                'discount_amount'        => $discountAmount,
-                'line_total'             => $lineSubtotal - $discountAmount,
-                'free_sessions_eligible' => $freeEligible,
-                'free_units'             => $freeUnits,
-                'use_tiered_discount'    => false,
-                'discount_breakdown'     => $legacyBreakdown['discount_breakdown'] ?? [],
+                'quantity'                   => $qty,
+                'line_subtotal'              => $lineSubtotal,
+                'discount_percentage'        => $discountPct,
+                'discount_amount'            => $discountAmount,
+                'line_total'                 => $lineSubtotal - $discountAmount,
+                'free_sessions_eligible'     => $freeEligible,
+                'free_units'                 => $freeUnits,
+                'use_tiered_discount'        => false,
+                'excluded_from_veteran_quota' => false,
+                'discount_breakdown'         => $legacyBreakdown['discount_breakdown'] ?? [],
             ];
         }
 
@@ -773,6 +822,38 @@ class BookingPricingService
         }
 
         return max(1, $guests);
+    }
+
+    /**
+     * Sum billable bed slots across room lines (includes empty beds when bill_full_rooms).
+     *
+     * @param  array<int, array<string, mixed>>  $roomLines
+     */
+    public function totalBillingGuestsForRoomLines(array $roomLines, ?Accommodation $accommodation = null): int
+    {
+        if ($roomLines === []) {
+            return 1;
+        }
+
+        $total = 0;
+
+        foreach ($roomLines as $line) {
+            $roomType = $line['room_type'] ?? null;
+            $guests = max(1, (int) ($line['guests'] ?? 1));
+            $childrenUnder6 = max(0, (int) ($line['children_under_6'] ?? 0));
+            $extraGuests = max(0, (int) ($line['extra_guests'] ?? 0));
+            $billFullRooms = (bool) ($line['bill_full_rooms'] ?? false);
+
+            if (!$roomType instanceof RoomType) {
+                $total += $guests;
+                continue;
+            }
+
+            $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType, $childrenUnder6, $accommodation);
+            $total += $this->billingGuests($guests, $extraGuests, $billFullRooms, $roomsNeeded, $roomType);
+        }
+
+        return max(1, $total);
     }
 
     public function servicesSubtotal(array $services): int

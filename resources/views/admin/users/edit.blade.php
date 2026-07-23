@@ -2,7 +2,6 @@
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('admin.users.show', $user) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <h5 class="fw-bold mb-0">ویرایش اطلاعات {{ $user->name ?? $user->mobile }}</h5>
 </div>
 
 <div class="row g-3">
@@ -27,11 +26,24 @@
                     </div>
 
                     <div class="col-12 col-md-6">
+                        @if($user->isForeignGuestProfile())
+                        <label class="form-label small text-muted">پاسپورت</label>
+                        <input type="text" class="form-control bg-light" value="{{ $user->passport_number }}" disabled dir="ltr">
+                        <div class="form-text">اطلاعات مهمان خارجی از طریق رزرو ثبت شده و قابل ویرایش نیست.</div>
+                        @else
                         <label class="form-label small text-muted">کد ملی</label>
                         <input type="text" wire:model="nationalId" class="form-control" placeholder="کد ملی ۱۰ رقمی" dir="ltr">
                         @error('nationalId')<div class="text-danger small">{{ $message }}</div>@enderror
                         <div class="form-text">با تغییر کد ملی، گروه ایثارگری از سرویس استعلام به‌روز می‌شود (در صورت تأیید).</div>
+                        @endif
                     </div>
+
+                    @if($user->isForeignGuestProfile())
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted">محل اقامت</label>
+                        <input type="text" class="form-control bg-light" value="{{ $user->residenceLocationLabel() ?? '—' }}" disabled>
+                    </div>
+                    @endif
 
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted">نقش</label>
@@ -42,34 +54,68 @@
                         </select>
                     </div>
 
+                    @if($role === 'host')
+                    <div class="col-12 col-md-6">
+                        @include('components.admin.host-position-select', ['positionOptions' => $hostPositionOptions])
+                    </div>
+                    @endif
+
                     <div class="col-12">
-                        <label class="form-label small text-muted fw-semibold"><i class="bi bi-shield-check me-1"></i>گروه ایثارگری</label>
-                        <select wire:model.live="veteranType" class="form-select">
-                            @foreach($veteranGroups as $key => $group)
-                            <option value="{{ $key }}">{{ $group['label'] }} @if($key && $group['discount'] > 0)({{ $group['discount'] }}٪ اقامت)@endif</option>
-                            @endforeach
-                        </select>
+                        <label class="form-label small text-muted fw-semibold"><i class="bi bi-shield-check me-1"></i>گروه ایثارگری (حداکثر ۲ گروه)</label>
                         @error('veteranType')<div class="text-danger small">{{ $message }}</div>@enderror
-                        <div class="form-text">گروه ایثارگری کاربر از <a href="{{ route('admin.veteran-policy') }}" wire:navigate>تنظیمات سراسری ایثارگری</a> خوانده می‌شود؛ درصد تخفیف در هر اقامتگاه ممکن است متفاوت باشد.</div>
+                        @error('selectedVeteranTypes')<div class="text-danger small">{{ $message }}</div>@enderror
+                        <div class="row g-2">
+                            @foreach($veteranGroups as $key => $group)
+                            @if($key === '') @continue @endif
+                            <div class="col-md-6">
+                                <label class="d-flex align-items-center gap-2 border rounded p-3 {{ in_array((string)$key, $selectedVeteranTypes, true) ? 'border-primary bg-primary-subtle' : '' }}" style="cursor:pointer;">
+                                    <input
+                                        type="checkbox"
+                                        wire:model.live="selectedVeteranTypes"
+                                        value="{{ $key }}"
+                                        class="form-check-input m-0"
+                                        @disabled(count($selectedVeteranTypes) >= 2 && !in_array((string)$key, $selectedVeteranTypes, true))
+                                    >
+                                    <div>
+                                        <div class="fw-semibold">{{ $group['label'] }}</div>
+                                        <div class="small text-muted">{{ $group['discount'] }}٪ تخفیف اقامت</div>
+                                    </div>
+                                </label>
+                            </div>
+                            @endforeach
+                        </div>
+                        @if(count($selectedVeteranTypes) > 1)
+                        <div class="alert alert-info py-2 small mt-2 mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            مزایای هر دو گروه با اولویت تخفیف بیشتر محاسبه می‌شود.
+                        </div>
+                        @endif
+                        <div class="form-text mt-2">گروه‌ها از <a href="{{ route('admin.veteran-policy') }}" wire:navigate>تنظیمات سراسری ایثارگری</a> خوانده می‌شوند؛ درصد تخفیف در هر اقامتگاه ممکن است متفاوت باشد.</div>
                     </div>
 
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted">درصد تخفیف اقامت</label>
                         <div class="input-group">
-                            <input type="number" wire:model="discountPct" min="0" max="100" class="form-control" @if(!$veteranType) disabled @endif>
-                            <button type="button" wire:click="syncDiscountFromGroup" class="btn btn-outline-secondary" @if(!$veteranType) disabled @endif title="همگام با گروه">
+                            <input type="number" wire:model="discountPct" min="0" max="100" class="form-control" @if(empty($selectedVeteranTypes)) disabled @endif>
+                            <button type="button" wire:click="syncDiscountFromGroup" class="btn btn-outline-secondary" @if(empty($selectedVeteranTypes)) disabled @endif title="همگام با گروه">
                                 <i class="bi bi-arrow-repeat"></i>
                             </button>
                         </div>
                         @error('discountPct')<div class="text-danger small">{{ $message }}</div>@enderror
-                        <div class="form-text">معمولاً از گروه انتخاب‌شده پر می‌شود؛ در موارد خاص قابل تغییر دستی است.</div>
+                        <div class="form-text">معمولاً از گروه(های) انتخاب‌شده پر می‌شود؛ در موارد خاص قابل تغییر دستی است.</div>
                     </div>
 
                     <div class="col-12">
                         <div class="alert alert-info mb-0">
                             <div class="fw-semibold mb-1">وضعیت فعلی</div>
                             <div class="small">موبایل: <span class="badge {{ $user->mobile_verified_at ? 'bg-success' : 'bg-danger' }}">{{ $user->mobile_verified_at ? 'تأیید شده' : 'تأیید نشده' }}</span></div>
-                            <div class="small mt-1">کد ملی: <span class="badge {{ $user->national_id_verified_at ? 'bg-success' : 'bg-secondary' }}">{{ $user->national_id_verified_at ? 'تأیید شده' : 'تأیید نشده' }}</span></div>
+                            <div class="small mt-1">
+                                @if($user->isForeignGuestProfile())
+                                پاسپورت: <strong dir="ltr">{{ $user->passport_number }}</strong>
+                                @else
+                                کد ملی: <span class="badge {{ $user->national_id_verified_at ? 'bg-success' : 'bg-secondary' }}">{{ $user->national_id_verified_at ? 'تأیید شده' : 'تأیید نشده' }}</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -114,23 +160,10 @@
                 <i class="bi bi-sliders me-1"></i>دسترسی‌های پنل میزبان
             </div>
             <div class="card-body">
-                @error('hostPanelPermissions')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
-                <p class="text-muted small mb-3">بخش‌هایی از پنل میزبان که این کاربر می‌تواند ببیند. داده‌ها بر اساس اقامتگاه‌های نسبت‌داده‌شده فیلتر می‌شوند.</p>
-                <div class="row g-2">
-                    @foreach($hostPermissionCatalog as $key => $item)
-                    <div class="col-12 col-md-6">
-                        <label class="d-flex align-items-start gap-2 border rounded p-2 h-100 mb-0" style="cursor:pointer">
-                            <input type="checkbox" class="form-check-input mt-1" wire:model="hostPanelPermissions" value="{{ $key }}">
-                            <span>
-                                <span class="fw-semibold small d-block">
-                                    <i class="bi bi-{{ $item['icon'] }} me-1 text-primary"></i>{{ $item['label'] }}
-                                </span>
-                                <span class="text-muted small">{{ $item['description'] }}</span>
-                            </span>
-                        </label>
-                    </div>
-                    @endforeach
-                </div>
+                <x-admin.host-permissions-matrix
+                    :catalog="$hostPermissionCatalog"
+                    :form-state="$hostPermissionForm"
+                />
                 <div class="d-flex justify-content-end mt-3">
                     <button type="button" wire:click="saveHostPanelAccess" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-check2-circle me-1"></i>ذخیره دسترسی‌های پنل
@@ -232,8 +265,8 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-white fw-semibold small">خلاصه کاربر</div>
             <div class="card-body small">
-                <div class="d-flex justify-content-between mb-2"><span class="text-muted">نقش‌ها</span><strong>{{ $user->roles->pluck('name')->join('، ') ?: 'guest' }}</strong></div>
-                <div class="d-flex justify-content-between mb-2"><span class="text-muted">گروه ایثارگری</span><strong>{{ $veteranType ? ($veteranGroups[$veteranType]['label'] ?? '—') : 'کاربر عادی' }}</strong></div>
+                <div class="d-flex justify-content-between mb-2"><span class="text-muted">نقش‌ها</span><strong>{{ $user->roles->map(fn ($r) => $user->roleBadgeLabel($r->name))->join('، ') ?: $user->roleBadgeLabel('guest') }}</strong></div>
+                <div class="d-flex justify-content-between mb-2"><span class="text-muted">گروه ایثارگری</span><strong>{{ \App\Support\VeteranGroups::labelsForTypes($selectedVeteranTypes) }}</strong></div>
                 <div class="d-flex justify-content-between"><span class="text-muted">تخفیف اقامت</span><strong>{{ $discountPct }}%</strong></div>
             </div>
         </div>

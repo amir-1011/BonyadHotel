@@ -607,6 +607,101 @@ class VeteranPolicyBookingTest extends TestCase
         $this->assertSame(0, $result['used_in_period']);
     }
 
+    public function test_period_cap_is_shared_across_accommodations(): void
+    {
+        $accommodationB = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+        $nationalId = '1112223334';
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09112223344', 'national_id' => $nationalId]);
+        $guest->assignRole('guest');
+
+        Booking::create([
+            'user_id'                             => $guest->id,
+            'accommodation_id'                    => $this->accommodation->id,
+            'veteran_type_applied'                => 'veteran_70_spouses',
+            'veteran_accommodation_group_usage'   => ['veteran_70_spouses' => 2],
+            'booking_source'                      => 'manual',
+            'nights'                              => 2,
+            'check_in'                            => now()->subMonth(),
+            'check_out'                           => now()->subMonth()->addDays(2),
+            'status'                              => 'confirmed',
+            'guests'                              => 1,
+            'base_price'                          => 0,
+            'discount_percentage'                 => 70,
+            'discount_amount'                     => 0,
+            'total_price'                         => 0,
+            'tracking_code'                       => 'CROSSACC01',
+        ]);
+
+        $policyB = $this->veteranPolicyFor($accommodationB);
+        $result = $policyB->checkAccommodationUsage(
+            'veteran_70_spouses', 1, 2, $nationalId, $guest->id,
+        );
+
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(2, $result['used_in_period']);
+        $this->assertSame(1, $result['remaining_period']);
+        $this->assertSame(1, $result['discounted_nights']);
+    }
+
+    public function test_usage_summary_shows_cross_accommodation_period_deductions(): void
+    {
+        $accommodationB = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+        $nationalId = '2223334445';
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09123334455', 'national_id' => $nationalId]);
+        $guest->assignRole('guest');
+
+        Booking::create([
+            'user_id'                             => $guest->id,
+            'accommodation_id'                    => $this->accommodation->id,
+            'veteran_type_applied'                => 'veteran_70_spouses',
+            'veteran_accommodation_group_usage'   => ['veteran_70_spouses' => 2],
+            'booking_source'                      => 'manual',
+            'nights'                              => 2,
+            'check_in'                            => now()->subWeek(),
+            'check_out'                           => now()->subWeek()->addDays(2),
+            'status'                              => 'confirmed',
+            'guests'                              => 1,
+            'base_price'                          => 0,
+            'discount_percentage'                 => 70,
+            'discount_amount'                     => 0,
+            'total_price'                         => 0,
+            'tracking_code'                       => 'CROSSACC02',
+        ]);
+
+        $summary = $this->veteranPolicyFor($accommodationB)->usageSummary(
+            'veteran_70_spouses', 1, $nationalId, $guest->id,
+        );
+
+        $this->assertSame(2, $summary['used_in_period']);
+        $this->assertSame(1, $summary['remaining_period']);
+        $this->assertCount(1, $summary['period_deductions']);
+        $this->assertSame('CROSSACC02', $summary['period_deductions'][0]['tracking_code']);
+        $this->assertSame($this->accommodation->id, $summary['period_deductions'][0]['accommodation_id']);
+        $this->assertSame(2, $summary['period_deductions'][0]['nights']);
+    }
+
+    public function test_weekly_pool_quota_is_shared_across_accommodations(): void
+    {
+        $accommodationB = $this->createTestAccommodation(['name' => 'اقامتگاه دوم']);
+        $nationalId = '3334445556';
+        $checkIn = $this->sameWeekCheckIn();
+
+        $this->createPriorPoolBooking($nationalId, '09134445556', $checkIn, 3, 100_000);
+
+        $poolB = $this->veteranCatalog($accommodationB, 'pool');
+        $policyB = $this->veteranPolicyFor($accommodationB);
+
+        $used = $policyB->usedFreeSessionsInWeek(
+            'veteran_70_spouses',
+            $nationalId,
+            null,
+            $poolB->id,
+            $checkIn,
+        );
+
+        $this->assertSame(3, $used);
+    }
+
     // ──────────────────────────────────────────────────────
     // 8.  Total quota = 6 nights × dependents
     // ──────────────────────────────────────────────────────

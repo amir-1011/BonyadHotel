@@ -1,5 +1,9 @@
 @extends('layouts.host')
 
+@section('pageTitle')
+ویرایش اتاق — {{ $roomType->name }}
+@endsection
+
 @section('content')
 
 <div>

@@ -54,6 +54,7 @@ class ProfileSetup extends Component
             }
             $updateData['national_id']             = $this->nationalId;
             $updateData['veteran_type']            = $result['veteran_type'];
+            $updateData['secondary_veteran_type']  = null;
             $updateData['discount_percentage']     = $result['discount'];
             $updateData['national_id_verified_at'] = now();
         }

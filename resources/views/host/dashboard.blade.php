@@ -3,17 +3,19 @@
 {{-- ── Page header ─────────────────────────────────────────────────── --}}
 <div class="ta-page-head mb-4">
     <div>
-        <h1>داشبورد میزبان</h1>
-        <div class="text-muted small mt-1">نمای کلی اقامتگاه‌ها، رزروها، اشغال و فروش خدمات</div>
+        <div class="text-muted small">نمای کلی اقامتگاه‌ها، رزروها، اشغال و فروش خدمات</div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
+        @if($this->showDashboardAccommodationFilter())
+            @include('components.dashboard.accommodation-filter')
+        @endif
         <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
-        @if($hostUser->hasHostPanelAccess('bookings'))
+        @if($hostUser->hostCan('bookings.list', 'read'))
         <a wire:navigate href="{{ route('host.bookings.index') }}" class="btn btn-light"><i class="bi bi-calendar-check me-2"></i>رزروها</a>
         @endif
-        @if($hostUser->hasHostPanelAccess('accommodations'))
+        <x-host.can page="accommodations.create" action="write">
         <a wire:navigate href="{{ route('host.accommodations.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>اقامتگاه جدید</a>
-        @endif
+        </x-host.can>
     </div>
 </div>
 
@@ -65,12 +67,20 @@
 @if($hostUser->hasHostPanelAccess('bookings'))
 <div class="row g-4 mb-4">
     <div class="col-12">
-        <livewire:room-status-board panel="host" />
+        <livewire:room-status-board
+            panel="host"
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :use-dashboard-filter="true"
+            :wire:key="'host-rsb-'.$filterKey" />
     </div>
 </div>
 <div class="row g-4 mb-4">
     <div class="col-12">
-        <livewire:occupancy-calendar panel="host" />
+        <livewire:occupancy-calendar
+            panel="host"
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :use-dashboard-filter="true"
+            :wire:key="'host-occ-'.$filterKey" />
     </div>
 </div>
 @endif
@@ -119,6 +129,7 @@
                             <div class="small">
                                 <div class="fw-semibold">{{ $b->bookerName() }}</div>
                                 <div class="text-muted" style="font-size:.72rem">{{ Str::limit($b->accommodation->name, 28) }}</div>
+                                <div class="text-muted" style="font-size:.72rem">{{ $b->roomLinesSummary() }}</div>
                                 <div class="text-warning fw-semibold" style="font-size:.72rem">خروج: @jalali($b->check_out)</div>
                             </div>
                             <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-warning" style="font-size:.72rem;padding:.2rem .45rem"><i class="bi bi-eye"></i></a>
@@ -145,6 +156,7 @@
                             <div class="small">
                                 <div class="fw-semibold">{{ $b->bookerName() }}</div>
                                 <div class="text-muted" style="font-size:.72rem">{{ Str::limit($b->accommodation->name, 28) }}</div>
+                                <div class="text-muted" style="font-size:.72rem">{{ $b->roomLinesSummary() }}</div>
                                 <div class="text-muted" style="font-size:.72rem">تا @jalali($b->check_out)</div>
                             </div>
                             <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-success" style="font-size:.72rem;padding:.2rem .45rem"><i class="bi bi-eye"></i></a>
@@ -162,13 +174,13 @@
 
 {{-- ── Charts ────────────────────────────────────────────────────────── --}}
 @if($hostUser->hasHostPanelAccess('bookings'))
-<div class="row g-4 mb-4" wire:ignore>
+<div class="row g-4 mb-4" wire:key="host-charts-{{ $filterKey }}">
     <div class="col-12 col-xl-8">
         <div class="ta-card h-100">
             <div class="ta-card__head">
                 <div>
                     <h2 class="ta-card__title">درآمد و رزرو</h2>
-                    <div class="ta-card__sub">روند ۳۰ روز گذشته — همه اقامتگاه‌ها</div>
+                    <div class="ta-card__sub">روند ۳۰ روز گذشته — بر اساس اقامتگاه‌های انتخاب‌شده</div>
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <span class="ta-legend"><span class="dot" style="background:var(--ta-brand-500)"></span>درآمد</span>
@@ -418,7 +430,7 @@
                         <td><code class="small">{{ $b->tracking_code }}</code></td>
                         <td class="small">{{ $b->bookerName() }}</td>
                         <td class="small">
-                            @if($hostUser->hasHostPanelAccess('accommodations'))
+                            @if($hostUser->hostCanAny('accommodations.edit', ['read', 'edit']))
                             <a wire:navigate href="{{ route('host.accommodations.edit', $b->accommodation) }}" class="text-decoration-none text-dark">{{ Str::limit($b->accommodation->name, 22) }}</a>
                             @else
                             {{ Str::limit($b->accommodation->name, 22) }}
@@ -432,7 +444,7 @@
                         <td>
                             <div class="d-flex gap-1">
                                 <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-primary" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-eye"></i></a>
-                                @if($b->status === 'pending')
+                                @if($b->status === 'pending' && $b->canEditBookingDetails() && $hostUser->hostCan('dashboard', 'edit'))
                                 <button wire:click="confirm({{ $b->id }})" class="btn btn-sm btn-outline-success" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-check-lg"></i></button>
                                 <button wire:click="cancel({{ $b->id }})" data-swal-confirm="لغو شود؟" class="btn btn-sm btn-outline-danger" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-x-lg"></i></button>
                                 @endif
@@ -456,20 +468,62 @@
     $hostStatusCounts = ($statusBreakdown ?? collect())->map(fn ($s) => (int) $s->count)->values()->toArray();
     $hostStatusLabels = ($statusBreakdown ?? collect())->map(fn ($s) => ['confirmed'=>'تأیید‌شده','pending'=>'در انتظار','cancelled'=>'لغو‌شده'][$s->status] ?? $s->status)->values()->toArray();
     $hostStatusColors = ($statusBreakdown ?? collect())->map(fn ($s) => ['confirmed'=>'#12b76a','pending'=>'#f79009','cancelled'=>'#f04438'][$s->status] ?? '#98a2b3')->values()->toArray();
+    $hostChartPayload = [
+        'daily' => $dailyRevenue ?? [],
+        'statusCounts' => $hostStatusCounts,
+        'statusLabels' => $hostStatusLabels,
+        'statusColors' => $hostStatusColors,
+        'statusTotal' => (int) $stTotalCount,
+        'sparks' => $sparklineData ?? [],
+        'hasSparks' => $hostUser->hasHostPanelAccess('accommodations') && $hostUser->hasHostPanelAccess('bookings'),
+    ];
 @endphp
 
+<script type="application/json" id="host-dashboard-chart-payload" wire:ignore wire:key="host-chart-payload-{{ $filterKey }}">{!! json_encode($hostChartPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+
 @push('scripts')
+@vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js'])
 <script>
 (function () {
-    const CHART_DATA = {
-        daily: @json($dailyRevenue ?? []),
-        statusCounts: @json($hostStatusCounts),
-        statusLabels: @json($hostStatusLabels),
-        statusColors: @json($hostStatusColors),
-        statusTotal: @json((int) $stTotalCount),
-        sparks: @json($sparklineData ?? []),
-        hasSparks: @json($hostUser->hasHostPanelAccess('accommodations') && $hostUser->hasHostPanelAccess('bookings')),
-    };
+    function normalizeChartPayload(raw) {
+        const base = {
+            daily: [],
+            statusCounts: [],
+            statusLabels: [],
+            statusColors: [],
+            statusTotal: 0,
+            sparks: {},
+            hasSparks: false,
+        };
+
+        if (!raw || typeof raw !== 'object') {
+            return base;
+        }
+
+        return {
+            ...base,
+            ...raw,
+            daily: Array.isArray(raw.daily) ? raw.daily : [],
+            statusCounts: Array.isArray(raw.statusCounts) ? raw.statusCounts : [],
+            statusLabels: Array.isArray(raw.statusLabels) ? raw.statusLabels : [],
+            statusColors: Array.isArray(raw.statusColors) ? raw.statusColors : [],
+            statusTotal: Number(raw.statusTotal) || 0,
+            sparks: raw.sparks && typeof raw.sparks === 'object' ? raw.sparks : {},
+            hasSparks: !!raw.hasSparks,
+        };
+    }
+
+    function readChartPayload() {
+        const el = document.getElementById('host-dashboard-chart-payload');
+        if (!el) return null;
+        try {
+            return normalizeChartPayload(JSON.parse(el.textContent || '{}'));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    let CHART_DATA = normalizeChartPayload(readChartPayload());
 
     const persianNum = v => new Intl.NumberFormat('fa-IR').format(v);
     const NS = window.HostDashboardCharts = window.HostDashboardCharts || { ready: false, charts: [] };
@@ -508,7 +562,7 @@
         if (!document.getElementById('host-chart-daily')) return;
 
         const dailyEl = document.querySelector('#host-chart-daily');
-        if (dailyEl && canRender(dailyEl) && CHART_DATA.daily.length > 0) {
+        if (dailyEl && canRender(dailyEl) && (CHART_DATA.daily || []).length > 0) {
             const chart = new ApexCharts(dailyEl, {
                 series: [
                     { name: 'درآمد (تومان)', type: 'area', data: CHART_DATA.daily.map(r => Number(r.total) || 0) },
@@ -534,7 +588,7 @@
         }
 
         const statusEl = document.querySelector('#host-chart-status');
-        const hasStatus = CHART_DATA.statusTotal > 0 && CHART_DATA.statusCounts.length > 0;
+        const hasStatus = CHART_DATA.statusTotal > 0 && (CHART_DATA.statusCounts || []).length > 0;
         if (statusEl && canRender(statusEl)) {
             if (hasStatus) {
                 const chart = new ApexCharts(statusEl, {
@@ -590,6 +644,7 @@
     }
 
     function boot() {
+        CHART_DATA = normalizeChartPayload(readChartPayload() || CHART_DATA);
         loadApex(() => requestAnimationFrame(renderCharts));
     }
 
@@ -597,6 +652,16 @@
         window._hostDashboardChartBoot = true;
         document.addEventListener('livewire:navigating', destroyCharts);
         document.addEventListener('livewire:navigated', boot);
+        document.addEventListener('dashboard-accommodation-filter-changed', () => {
+            destroyCharts();
+            boot();
+        });
+        if (window.Livewire) {
+            Livewire.on('dashboard-accommodation-filter-changed', () => {
+                destroyCharts();
+                boot();
+            });
+        }
         boot();
     }
 })();

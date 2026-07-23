@@ -1,5 +1,8 @@
 import './bootstrap';
 import './money-input';
+import './image-upload-gate';
+import './jalali-date-today';
+import './dashboard-accommodation-filter';
 
 // ── Swiper ────────────────────────────────────────────────────────────────
 // Alpine.js is provided by Livewire 4 automatically — do NOT import here

@@ -1,5 +1,9 @@
 @extends('layouts.host')
 
+@section('pageTitle')
+اتاق جدید — {{ $accommodation->name }}
+@endsection
+
 @section('content')
 
 <div>

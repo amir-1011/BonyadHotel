@@ -22,18 +22,18 @@
          'trend'=>$confirmRate,'trendLabel'=>$confirmRate.'٪ تأیید','up'=>$confirmRate>=50],
         ['label'=>'درآمد کل (تومان)','value'=>number_format($stats['revenue']),'icon'=>'cash-stack','href'=>route('admin.bookings.index',['status'=>'confirmed']),
          'trend'=>$revGrowth,'trendLabel'=>($revGrowth!==null?abs($revGrowth).'٪ ماهانه':'—'),'up'=>($revGrowth??0)>=0],
-        ['label'=>'کیف پول کارمزد','value'=>number_format($stats['commission_wallet']),'icon'=>'wallet2','href'=>route('admin.commission-wallet'),
-         'trend'=>null,'trendLabel'=>config('platform_commission.percentage').'٪ تا سقف '.number_format(config('platform_commission.cap')),'up'=>true],
     ];
 @endphp
 
 {{-- ── Page header ─────────────────────────────────────────────────── --}}
 <div class="ta-page-head">
     <div>
-        <h1>داشبورد فروش</h1>
-        <div class="text-muted small mt-1">نمای کلی عملکرد سامانه رزرو</div>
+        <div class="text-muted small">نمای کلی عملکرد سامانه رزرو</div>
     </div>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        @if($this->showDashboardAccommodationFilter())
+            @include('components.dashboard.accommodation-filter')
+        @endif
         <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
         <a href="{{ route('admin.bookings.index') }}" wire:navigate class="btn btn-light"><i class="bi bi-funnel me-2"></i>فیلتر</a>
         <a href="{{ route('admin.bookings.export') }}" class="btn btn-primary"><i class="bi bi-download me-2"></i>خروجی اکسل</a>
@@ -62,17 +62,19 @@
     @endforeach
 </div>
 
-{{-- ── Occupancy calendar — full row ─────────────────────────────────── --}}
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <livewire:occupancy-calendar panel="admin" />
-    </div>
-</div>
+{{-- ── Veteran discount stats by group ─────────────────────────────── --}}
+<livewire:admin.veteran-discount-stats
+    :dashboard-accommodation-ids="$effectiveAccommodationIds"
+    :wire:key="'admin-veteran-stats-'.$filterKey" />
 
 {{-- ── Room status board ─────────────────────────────────────────────── --}}
 <div class="row g-4 mb-4">
     <div class="col-12">
-        <livewire:room-status-board panel="admin" />
+        <livewire:room-status-board
+            panel="admin"
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :use-dashboard-filter="true"
+            :wire:key="'admin-rsb-'.$filterKey" />
     </div>
 </div>
 
@@ -102,8 +104,18 @@
             'bookings'  => (int) $a->total_bookings_count,
             'revenue'   => (float) ($a->total_revenue ?? 0),
         ])->values());
+    $adminDashboardPayload = [
+        'geoCounts' => $geoData->all(),
+        'cityAccom' => $cityAccommodations->all(),
+        'provinceAccom' => $provinceAccommodations->all(),
+        'geoMax' => $geoMax,
+        'sparklines' => collect($accommodationsSales)->mapWithKeys(fn($a) => [
+            $a->id => $sparklineData[$a->id] ?? array_fill(0, 7, 0),
+        ])->all(),
+    ];
 @endphp
-<div class="ta-card mb-4">
+<script type="application/json" id="admin-dashboard-payload" wire:ignore wire:key="admin-dashboard-payload-{{ $filterKey }}">{!! json_encode($adminDashboardPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+<div class="ta-card mb-4" wire:key="admin-geo-{{ $filterKey }}">
     <div class="ta-card__head">
         <div>
             <h2 class="ta-card__title">پراکندگی رزروها در ایران</h2>
@@ -153,8 +165,28 @@
     </div>
 </div>
 
+{{-- ── Host leaderboard ──────────────────────────────────────────────── --}}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <livewire:admin.host-leaderboard
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :wire:key="'admin-lb-'.$filterKey" />
+    </div>
+</div>
+
+{{-- ── Occupancy calendar — full row ─────────────────────────────────── --}}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <livewire:occupancy-calendar
+            panel="admin"
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :use-dashboard-filter="true"
+            :wire:key="'admin-occ-'.$filterKey" />
+    </div>
+</div>
+
 {{-- ═══════════════════  Accommodations Sales Grid (collapsible)  ═══════════════════ --}}
-<div class="card border-0 shadow-sm mb-4" id="salesGridCard">
+<div class="card border-0 shadow-sm mb-4" id="salesGridCard" wire:key="admin-sales-{{ $filterKey }}">
     <div class="card-header bg-white d-flex align-items-center justify-content-between py-2 px-3"
          role="button" data-bs-toggle="collapse" data-bs-target="#salesGridCollapse"
          aria-expanded="true" aria-controls="salesGridCollapse" style="cursor:pointer;user-select:none">
@@ -336,7 +368,7 @@
                     @if($u->hasRole('super_admin'))
                         <span class="badge bg-danger">ادمین</span>
                     @elseif($u->hasRole('host'))
-                        <span class="badge bg-success">میزبان</span>
+                        <span class="badge bg-success">{{ $u->hostRoleLabel() }}</span>
                     @else
                         <span class="badge bg-secondary">کاربر</span>
                     @endif
@@ -356,9 +388,17 @@
 @endpush
 
 @push('scripts')
+@vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js'])
 <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
 <script>
 (function () {
+    function readAdminPayload() {
+        const el = document.getElementById('admin-dashboard-payload');
+        if (!el) return null;
+        try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+    }
+
+    let dashboardPayload = readAdminPayload() || {};
     const VENDOR_LEAFLET = @json(asset('vendor/leaflet/leaflet.js'));
     const GEOJSON_URL = @json(asset('vendor/iran-map/provinces.min.geojson'));
     const ns = window.__taIranMapDashboard = window.__taIranMapDashboard || {};
@@ -368,11 +408,21 @@
     let _geoFetchAbort = null;
     let _mapInitScheduled = false;
 
-    // Iran bookings choropleth (province heatmap)
-    const geoCounts = @json($geoData);
-    const cityAccom = @json($cityAccommodations);
-    const provinceAccom = @json($provinceAccommodations);
-    const geoMax = {{ $geoMax }};
+    let geoCounts = dashboardPayload.geoCounts || {};
+    let cityAccom = dashboardPayload.cityAccom || {};
+    let provinceAccom = dashboardPayload.provinceAccom || {};
+    let geoMax = dashboardPayload.geoMax || 0;
+    let sparklines = dashboardPayload.sparklines || {};
+    let chartsRendered = false;
+
+    function syncAdminPayload() {
+        dashboardPayload = readAdminPayload() || dashboardPayload;
+        geoCounts = dashboardPayload.geoCounts || {};
+        cityAccom = dashboardPayload.cityAccom || {};
+        provinceAccom = dashboardPayload.provinceAccom || {};
+        geoMax = dashboardPayload.geoMax || 0;
+        sparklines = dashboardPayload.sparklines || {};
+    }
     const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
 
     function heatColor(v) {
@@ -709,18 +759,13 @@
     initIranMap();
 
     // ── Per-accommodation sparklines ──────────────────────────────────
-    const sparklines = @json(
-        collect($accommodationsSales)->mapWithKeys(fn($a) => [
-            $a->id => $sparklineData[$a->id] ?? array_fill(0, 7, 0)
-        ])
-    );
-    let chartsRendered = false;
     function renderSparklines() {
-        if (chartsRendered || !window.ApexCharts) return;
+        if (!window.ApexCharts) return;
         chartsRendered = true;
         Object.entries(sparklines).forEach(([id, data]) => {
             const el = document.querySelector('#spark-' + id);
             if (!el) return;
+            el.innerHTML = '';
             new ApexCharts(el, {
                 series: [{ data }],
                 chart: { type: 'bar', height: 60, sparkline: { enabled: true } },
@@ -734,6 +779,15 @@
                 }
             }).render();
         });
+    }
+
+    function refreshAdminDashboardVisuals() {
+        syncAdminPayload();
+        destroyIranMap();
+        chartsRendered = false;
+        _mapInitScheduled = false;
+        initIranMap();
+        renderSparklines();
     }
 
     const collapseEl = document.getElementById('salesGridCollapse');
@@ -753,6 +807,17 @@
     }
     document.getElementById('apexcharts-sdk')?.addEventListener('load', renderSparklines);
     document.addEventListener('livewire:navigated', renderSparklines);
+
+    function bindDashboardFilterRefresh() {
+        if (window._adminDashboardFilterBound) return;
+        window._adminDashboardFilterBound = true;
+        const refresh = () => requestAnimationFrame(refreshAdminDashboardVisuals);
+        document.addEventListener('dashboard-accommodation-filter-changed', refresh);
+        if (window.Livewire) {
+            Livewire.on('dashboard-accommodation-filter-changed', refresh);
+        }
+    }
+    bindDashboardFilterRefresh();
 })();
 </script>
 @endpush

@@ -199,17 +199,17 @@ class StaffLogin extends Component
             $user->update(['mobile_verified_at' => now()]);
         }
 
-        Auth::login($user, true);
+        Auth::login($user, false);
         session()->forget('staff_login_mobile');
-
-        session()->flash('status', 'با موفقیت وارد شدید.');
+        session(['staff_last_activity' => now()->timestamp]);
 
         if (config('test_site.enabled')) {
             session()->flash('show_test_site_notice', true);
         }
 
-        // Full page load so session flash + notice scripts run (wire:navigate skips DOMContentLoaded).
-        $this->redirect($user->staffDashboardUrl(), navigate: false);
+        // Client plays the success toast + "app opening" transition, then performs
+        // the actual full page navigation itself (see staff-auth layout script).
+        $this->dispatch('staff-login-success', url: $user->staffDashboardUrl());
     }
 
     public function render()

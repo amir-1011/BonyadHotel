@@ -15,8 +15,8 @@ class BookingPdfService
     public function render(Booking $booking): string
     {
         $booking->loadMissing([
-            'user', 'accommodation.city.province', 'roomType', 'roomRate',
-            'services', 'guestDetails', 'createdBy',
+            'user.country', 'user.residenceCity', 'accommodation.city.province', 'roomType', 'roomRate',
+            'services', 'guestDetails.country', 'guestDetails.residenceCity', 'createdBy',
             'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
         ]);
 

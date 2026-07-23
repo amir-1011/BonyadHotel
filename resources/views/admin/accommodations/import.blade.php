@@ -2,7 +2,6 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
-        <h5 class="fw-bold mb-1"><i class="bi bi-upload me-2"></i>درون‌ریزی گروهی اقامتگاه‌ها</h5>
         <p class="text-muted small mb-0">فایل CSV شامل اطلاعات اقامتگاه، اتاق‌ها و تعرفه‌ها را بارگذاری کنید.</p>
     </div>
     <a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary">
@@ -115,14 +114,14 @@
 
                 <p class="fw-semibold mb-1">تعرفه</p>
                 <ul class="mb-0 ps-3">
-                    <li>قیمت هر شب (تومان)</li>
+                    <li>قیمت هر شب به ازای هر تخت (تومان)</li>
                     <li>صبحانه رایگان: 1 یا 0</li>
                     <li>لغو: free یا non_refundable</li>
                     <li>پرداخت: pay_at_hotel یا prepay_online</li>
                 </ul>
 
                 <hr>
-                <p class="text-muted mb-0">مسدودسازی تاریخ و ظرفیت روزانه در این فایل نیست و بعد از ثبت از پنل مدیریت می‌شود.</p>
+                <p class="text-muted mb-0">مسدودسازی تاریخ و سیاست‌های قیمتی در این فایل نیست و بعد از ثبت از پنل مدیریت می‌شود.</p>
             </div>
         </div>
     </div>

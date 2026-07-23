@@ -2,7 +2,6 @@
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('host.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <h5 class="fw-bold mb-0">ثبت اقامتگاه جدید</h5>
 </div>
 
 <div class="card shadow-sm">
@@ -16,7 +15,7 @@
             @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
             @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities, 'counties' => $counties])
             <div class="col-md-4 d-none">
-                <label class="form-label small fw-semibold">قیمت/شب (تومان)</label>
+                <label class="form-label small fw-semibold">قیمت/شب/تخت (تومان)</label>
                 <x-money-input wire:model="pricePerNight" class="form-control @error('pricePerNight') is-invalid @enderror" min="0" />
                 @error('pricePerNight')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
@@ -67,21 +66,17 @@
 
                 {{-- Image Upload --}}
                 <div class="col-12">
-                    <label class="form-label small fw-semibold"><i class="bi bi-images me-1"></i>تصاویر اقامتگاه <span class="text-muted fw-normal">(حداکثر ۸ عکس، هر کدام تا ۴ مگابایت)</span></label>
-                    <input wire:model="images" type="file" id="image-input" class="form-control" accept="image/*" multiple>
-                    @error('images.*')<div class="text-danger small">{{ $message }}</div>@enderror
+                    <x-image-upload.livewire-panel model="images" label="تصاویر اقامتگاه">
+                        <div class="mt-3">
+                            <x-image-upload.submit-button action="store" :upload-targets="'images'" label="ثبت اقامتگاه" class="btn btn-success px-4" />
+                        </div>
+                    </x-image-upload.livewire-panel>
                 </div>
 
                 <div class="col-12">
                     <div class="alert alert-info small py-2 mb-0">
                         <i class="bi bi-info-circle me-1"></i>اقامتگاه شما پس از بررسی و تأیید مدیر نمایش داده خواهد شد.
                     </div>
-                </div>
-                <div class="col-12">
-                    <button wire:click="store" wire:loading.attr="disabled" class="btn btn-success px-4">
-                        <span wire:loading wire:target="store" class="spinner-border spinner-border-sm me-1"></span>
-                        ثبت اقامتگاه
-                    </button>
                 </div>
             </div>
         </div>

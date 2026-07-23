@@ -1,5 +1,9 @@
 @extends('layouts.admin')
 
+@section('pageTitle')
+مسدودسازی تاریخ — {{ $roomType->name }}
+@endsection
+
 
 @push('styles')
 <style>
@@ -47,6 +51,7 @@
     color: #dc2626;
     opacity: .6;
 }
+.avail-cal-cell.is-today:not(.past) { box-shadow: 0 0 0 2px #0d6efd; }
 </style>
 @endpush
 
@@ -55,18 +60,13 @@
 
 
 {{-- Breadcrumb --}}
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-        <h5 class="fw-bold mb-1">
-            <i class="bi bi-calendar-x me-2 text-danger"></i>مسدودسازی تاریخ — {{ $roomType->name }}
-        </h5>
-        <div class="text-muted small">
-            <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اتاق‌ها</a>
-            <span class="mx-1">·</span>
-            <span>{{ $accommodation->name }}</span>
-            <span class="mx-1">·</span>
-            <span>{{ $roomType->room_count }} اتاق در کل</span>
-        </div>
+<div class="mb-3">
+    <div class="text-muted small">
+        <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اتاق‌ها</a>
+        <span class="mx-1">·</span>
+        <span>{{ $accommodation->name }}</span>
+        <span class="mx-1">·</span>
+        <span>{{ $roomType->room_count }} اتاق در کل</span>
     </div>
 </div>
 
@@ -87,6 +87,12 @@
                 />
             </div>
         </div>
+
+        <x-room-type.blocked-dates-list
+            :blocked-dates="$blockedDates"
+            :room-type="$roomType"
+            :accommodation="$accommodation"
+            range-destroy-route-name="admin.room-types.blocked-dates-range.destroy" />
 
         {{-- Legend --}}
         <div class="card shadow-sm border-0 rounded-4 mt-3">
@@ -114,7 +120,7 @@
         </div>
     </div>
 
-    {{-- Right: Calendar overview + table --}}
+    {{-- Right: Calendar overview --}}
     <div class="col-lg-8">
         <div class="card shadow-sm border-0 rounded-4 mb-4">
             <div class="card-header bg-white border-bottom rounded-top-4">
@@ -167,8 +173,12 @@
                                 else { $cellClass = 'fully-free'; $roomsInfo = $avail['total'].' اتاق'; }
                             }
                             $jDay = Jalalian::fromCarbon(\Carbon\Carbon::parse($dateStr))->getDay();
+                            $jalaliLabel = Jalalian::fromCarbon(\Carbon\Carbon::parse($dateStr))->format('Y/m/d');
                         @endphp
-                        <div class="avail-cal-cell {{ $cellClass }} {{ $isPast ? 'past' : '' }}"
+                        <div class="avail-cal-cell {{ $cellClass }} {{ $isPast ? 'past' : '' }} {{ $dateStr === now()->toDateString() ? 'is-today' : '' }}{{ $isPast ? '' : ' clickable' }}"
+                             data-greg="{{ $dateStr }}"
+                             data-jalali="{{ $jalaliLabel }}"
+                             @if(!$isPast) onclick="pickBlockedDateRange(this)" @endif
                              title="{{ $dateStr }}@if($avail && $avail['is_blocked']) — مسدود@elseif($avail) — {{ $avail['available_rooms'] }} از {{ $avail['total'] }} اتاق آزاد@endif">
                             <div class="cell-day">{{ $jDay }}</div>
                             @if($roomsInfo && !$isPast)<div class="cell-rooms">{{ $roomsInfo }}</div>@endif
@@ -177,52 +187,6 @@
                     </div>
                 </div>
                 @endforeach
-            </div>
-        </div>
-
-        {{-- Blocked dates list --}}
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header bg-white border-bottom rounded-top-4">
-                <h6 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2"></i>تاریخ‌های مسدود شده ({{ $blockedDates->count() }})</h6>
-            </div>
-            <div class="card-body p-0">
-                @if($blockedDates->isEmpty())
-                <div class="text-center py-5 text-muted">
-                    <i class="bi bi-calendar-check fs-2 d-block mb-2"></i>
-                    هیچ تاریخی مسدود نشده است.
-                </div>
-                @else
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>تاریخ خورشیدی</th>
-                                <th>اتاق</th>
-                                <th>دلیل</th>
-                                <th class="text-end">عملیات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        @foreach($blockedDates as $bd)
-                        <tr>
-                            <td class="fw-semibold">{{ \Morilog\Jalali\Jalalian::fromCarbon($bd->date)->format('Y/m/d') }}</td>
-                            <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ $bd->roomLabel() }}</span></td>
-                            <td class="text-muted">{{ $bd->reason ?: '—' }}</td>
-                            <td class="text-end">
-                                <form action="{{ route('admin.room-types.blocked-dates.destroy', [$accommodation, $roomType, $bd]) }}"
-                                      method="POST" class="d-inline">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" data-swal-confirm="این تاریخ از مسدودی حذف شود؟" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
-                @endif
             </div>
         </div>
     </div>

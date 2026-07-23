@@ -1,12 +1,15 @@
 @extends('layouts.admin')
 
+@section('pageTitle')
+اتاق‌های {{ $accommodation->name }}
+@endsection
+
 @section('content')
 <div>
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <h5 class="fw-bold mb-0"><i class="bi bi-door-open me-2"></i>اتاق‌های {{ $accommodation->name }}</h5>
-        <div class="text-muted small mt-1">
+        <div class="text-muted small">
             <a wire:navigate href="{{ route('admin.accommodations.index') }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اقامتگاه‌ها</a>
         </div>
     </div>
@@ -19,7 +22,7 @@
 <div class="card shadow-sm text-center py-5">
     <div class="text-muted mb-3"><i class="bi bi-door-open fs-1"></i></div>
     <h6>هنوز اتاقی تعریف نشده است</h6>
-    <p class="text-muted small">با تعریف انواع اتاق و تعرفه‌ها، مهمانان می‌توانند اتاق موردنظر را انتخاب کنند.</p>
+    <p class="text-muted small">با تعریف انواع اتاق و تعرفه‌ها (قیمت به ازای هر تخت)، مهمانان می‌توانند اتاق موردنظر را انتخاب کنند.</p>
     <a wire:navigate href="{{ route('admin.room-types.create', $accommodation) }}" class="btn btn-success mt-2">تعریف اولین اتاق</a>
 </div>
 @else
@@ -48,7 +51,7 @@
                                     <span><i class="bi bi-people me-1"></i>ظرفیت {{ $rt->capacity }} نفر</span>
                                     @if($rt->size_sqm)<span><i class="bi bi-aspect-ratio me-1"></i>{{ $rt->size_sqm }} متر مربع</span>@endif
                                     <span><i class="bi bi-door-closed me-1"></i>{{ $rt->room_count }} اتاق</span>
-                                    @if($rt->smoking)<span class="text-warning"><i class="bi bi-slash-circle me-1"></i>سیگاری</span>@else<span class="text-success"><i class="bi bi-slash-circle me-1"></i>غیر سیگاری</span>@endif
+                                    @if($rt->smoking)<span class="text-warning"><i class="bi bi-slash-circle me-1"></i>سیگاری</span>@endif
                                 </div>
                                 @if($rt->amenities && count($rt->amenities))
                                 <div class="mt-1 d-flex flex-wrap gap-1">
@@ -67,7 +70,7 @@
                             <div class="d-flex flex-wrap gap-2">
                                 @foreach($rt->rates as $rate)
                                 <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle" style="font-size:.75rem">
-                                    {{ $rate->name }} — {{ number_format($rate->price_per_night) }} تومان/شب
+                                    {{ $rate->name }} — {{ number_format($rate->price_per_night) }} تومان/شب/تخت
                                     @if($rate->breakfast_included) <i class="bi bi-cup-hot ms-1 text-warning"></i> @endif
                                 </span>
                                 @endforeach
@@ -113,7 +116,7 @@
                     <i class="bi bi-calendar-x me-1"></i>مسدودسازی تاریخ
                 </a>
                 <a wire:navigate href="{{ route('admin.room-types.daily-availability', [$accommodation, $rt]) }}" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-sliders me-1"></i>ظرفیت روزانه
+                    <i class="bi bi-sliders me-1"></i>سیاست‌های قیمتی
                 </a>
                 <form action="{{ route('admin.room-types.destroy', [$accommodation, $rt]) }}" method="POST">
                     @csrf @method('DELETE')

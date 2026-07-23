@@ -56,6 +56,35 @@ class RoomAvailabilityService
         return $result;
     }
 
+    /**
+     * @param  array<int>  $excludeRoomIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function roomsForAccommodation(
+        \App\Models\Accommodation $accommodation,
+        string $checkIn,
+        string $checkOut,
+        array $excludeRoomIds = [],
+    ): array {
+        $result = [];
+
+        $roomTypes = $accommodation->roomTypes()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($roomTypes as $roomType) {
+            foreach ($this->roomsForRange($roomType, $checkIn, $checkOut, $excludeRoomIds) as $room) {
+                $room['room_type_id'] = $roomType->id;
+                $room['room_type_name'] = $roomType->name;
+                $result[] = $room;
+            }
+        }
+
+        return $result;
+    }
+
     public function isRoomAvailable(
         Room $room,
         string $checkIn,
@@ -145,7 +174,7 @@ class RoomAvailabilityService
             'available'        => 'آزاد',
             'booked'           => 'رزرو شده',
             'blocked'          => 'مسدود',
-            'capacity_closed'  => 'بسته (ظرفیت روزانه)',
+            'capacity_closed'  => 'بسته (سیاست قیمتی)',
             'picked'           => 'انتخاب‌شده در این رزرو',
             default            => $status,
         };

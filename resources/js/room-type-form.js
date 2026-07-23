@@ -1,6 +1,4 @@
-/**
- * Room type create/edit form helpers (plain HTML forms, wire:navigate-safe).
- */
+import { bindFormSubmitPending, validateSelectedFiles } from './image-upload-gate';
 
 function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
@@ -67,6 +65,29 @@ const roomTypeCatalogApi = {
 
         return payload;
     },
+
+    async patch(url, body) {
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(body),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            const message = payload?.message || payload?.errors?.name?.[0] || 'عملیات انجام نشد.';
+            throw new Error(message);
+        }
+
+        return payload;
+    },
 };
 
 function bindManualRoomCategory(form) {
@@ -79,9 +100,10 @@ function bindManualRoomCategory(form) {
     const confirmBtn = form.querySelector('[data-action="confirm-add-room-category"]');
     const cancelBtn = form.querySelector('[data-action="cancel-add-room-category"]');
     const storeUrl = form.dataset.categoryStoreUrl;
+    const updateBaseUrl = form.dataset.categoryUpdateUrl;
     const destroyBaseUrl = form.dataset.categoryDestroyUrl;
 
-    if (!select || !catalog || !toggleBtn || !panel || !input || !storeUrl || !destroyBaseUrl) {
+    if (!select || !catalog || !toggleBtn || !panel || !input || !storeUrl || !updateBaseUrl || !destroyBaseUrl) {
         return;
     }
 
@@ -128,7 +150,41 @@ function bindManualRoomCategory(form) {
         return btn;
     };
 
-    const addCategoryUi = (id, name, canDelete = true) => {
+    const buildRenameButton = (id, name) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rt-catalog-pill__rename';
+        btn.dataset.action = 'rename-room-category';
+        btn.dataset.categoryId = String(id);
+        btn.dataset.categoryName = name;
+        btn.title = 'تغییر نام';
+        btn.setAttribute('aria-label', `تغییر نام ${name}`);
+        btn.innerHTML = '<i class="bi bi-pencil"></i>';
+        return btn;
+    };
+
+    const buildPillContent = (id, name, canEdit = false, canDelete = true) => {
+        const pill = document.createElement('span');
+        pill.className = 'rt-catalog-pill';
+        pill.dataset.categoryId = String(id);
+
+        const label = document.createElement('span');
+        label.className = 'rt-catalog-pill__label';
+        label.textContent = name;
+        pill.appendChild(label);
+
+        if (canEdit) {
+            pill.appendChild(buildRenameButton(id, name));
+        }
+
+        if (canDelete) {
+            pill.appendChild(buildRemoveButton(id, name));
+        }
+
+        return pill;
+    };
+
+    const addCategoryUi = (id, name, canDelete = true, canEdit = canDelete) => {
         if (!existingValues().includes(name)) {
             const option = document.createElement('option');
             option.value = name;
@@ -142,21 +198,139 @@ function bindManualRoomCategory(form) {
             return;
         }
 
-        const pill = document.createElement('span');
-        pill.className = 'rt-catalog-pill';
-        pill.dataset.categoryId = String(id);
+        catalog.appendChild(buildPillContent(id, name, canEdit, canDelete));
+        select.value = name;
+    };
 
-        const label = document.createElement('span');
-        label.className = 'rt-catalog-pill__label';
-        label.textContent = name;
-        pill.appendChild(label);
+    const renameCategoryUi = (id, oldName, newName) => {
+        const pill = catalog.querySelector(`.rt-catalog-pill[data-category-id="${id}"]`);
+        if (pill) {
+            const label = pill.querySelector('.rt-catalog-pill__label');
+            if (label) {
+                label.textContent = newName;
+            }
 
-        if (canDelete) {
-            pill.appendChild(buildRemoveButton(id, name));
+            pill.querySelectorAll('[data-category-name]').forEach((el) => {
+                el.dataset.categoryName = newName;
+            });
         }
 
-        catalog.appendChild(pill);
-        select.value = name;
+        Array.from(select.options).forEach((opt) => {
+            if (opt.value === oldName || opt.dataset.categoryId === String(id)) {
+                if (select.value === opt.value) {
+                    select.value = newName;
+                }
+                opt.value = newName;
+                opt.textContent = newName;
+                opt.dataset.categoryId = String(id);
+            }
+        });
+    };
+
+    const cancelRename = (pill) => {
+        if (!pill?.dataset.renaming) {
+            return;
+        }
+
+        const id = pill.dataset.categoryId;
+        const name = pill.dataset.renameOriginal || '';
+        const canEdit = pill.dataset.renameCanEdit === '1';
+        const canDelete = pill.dataset.renameCanDelete === '1';
+        const replacement = buildPillContent(id, name, canEdit, canDelete);
+        pill.replaceWith(replacement);
+    };
+
+    const startRename = (pill) => {
+        if (!pill || pill.dataset.renaming === '1') {
+            return;
+        }
+
+        catalog.querySelectorAll('.rt-catalog-pill[data-renaming="1"]').forEach(cancelRename);
+
+        const id = pill.dataset.categoryId;
+        const label = pill.querySelector('.rt-catalog-pill__label');
+        const currentName = label?.textContent?.trim() || pill.querySelector('[data-category-name]')?.dataset.categoryName || '';
+        const canEdit = Boolean(pill.querySelector('[data-action="rename-room-category"]'));
+        const canDelete = Boolean(pill.querySelector('[data-action="remove-room-category"]'));
+
+        pill.dataset.renaming = '1';
+        pill.dataset.renameOriginal = currentName;
+        pill.dataset.renameCanEdit = canEdit ? '1' : '0';
+        pill.dataset.renameCanDelete = canDelete ? '1' : '0';
+        pill.classList.add('rt-catalog-pill--renaming');
+        pill.innerHTML = '';
+
+        const inputEl = document.createElement('input');
+        inputEl.type = 'text';
+        inputEl.className = 'form-control form-control-sm rt-catalog-pill__rename-input';
+        inputEl.value = currentName;
+        inputEl.maxLength = 60;
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'btn btn-sm btn-success py-0 px-1';
+        confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        confirmBtn.title = 'ذخیره';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-sm btn-outline-secondary py-0 px-1';
+        cancelBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        cancelBtn.title = 'انصراف';
+
+        pill.appendChild(inputEl);
+        pill.appendChild(confirmBtn);
+        pill.appendChild(cancelBtn);
+        inputEl.focus();
+        inputEl.select();
+
+        const finishRename = async () => {
+            const newName = inputEl.value.trim();
+            if (!newName) {
+                showRoomTypeFormError('نام نوع اتاق را وارد کنید.');
+                inputEl.focus();
+                return;
+            }
+
+            if (newName === currentName) {
+                cancelRename(pill);
+                return;
+            }
+
+            if (existingValues().includes(newName)) {
+                showRoomTypeFormError('این نام قبلاً در لیست وجود دارد.');
+                inputEl.focus();
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            cancelBtn.disabled = true;
+            inputEl.disabled = true;
+
+            try {
+                const payload = await roomTypeCatalogApi.patch(`${updateBaseUrl}/${id}`, { name: newName });
+                cancelRename(pill);
+                renameCategoryUi(id, payload.old_name || currentName, payload.name);
+            } catch (error) {
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                inputEl.disabled = false;
+                showRoomTypeFormError(error.message || 'تغییر نام نوع اتاق انجام نشد.');
+            }
+        };
+
+        confirmBtn.addEventListener('click', finishRename);
+        cancelBtn.addEventListener('click', () => cancelRename(pill));
+        inputEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                finishRename();
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelRename(pill);
+            }
+        });
     };
 
     const removeCategoryUi = (id, name) => {
@@ -196,6 +370,15 @@ function bindManualRoomCategory(form) {
     };
 
     catalog.addEventListener('click', (event) => {
+        const renameButton = event.target.closest('[data-action="rename-room-category"]');
+        if (renameButton && catalog.contains(renameButton)) {
+            event.preventDefault();
+            event.stopPropagation();
+            const pill = renameButton.closest('.rt-catalog-pill');
+            startRename(pill);
+            return;
+        }
+
         const button = event.target.closest('[data-action="remove-room-category"]');
         if (!button || !catalog.contains(button)) {
             return;
@@ -224,7 +407,7 @@ function bindManualRoomCategory(form) {
 
         try {
             const payload = await roomTypeCatalogApi.post(storeUrl, { name });
-            addCategoryUi(payload.id, payload.name, Boolean(payload.can_delete));
+            addCategoryUi(payload.id, payload.name, Boolean(payload.can_delete), Boolean(payload.can_edit));
             closePanel();
         } catch (error) {
             showError(error.message || 'افزودن نوع اتاق انجام نشد.');
@@ -499,6 +682,10 @@ function bindImagePreview(form) {
     }
 
     input.addEventListener('change', () => {
+        if (! validateSelectedFiles(input)) {
+            return;
+        }
+
         box.innerHTML = '';
         Array.from(input.files).forEach((file) => {
             const img = document.createElement('img');
@@ -514,6 +701,7 @@ function bindRoomTypeForm(form) {
     bindManualRoomCategory(form);
     bindManualAmenities(form);
     bindImagePreview(form);
+    bindFormSubmitPending(form.closest('form') ?? form);
 }
 
 export function initRoomTypeForms(root = document) {

@@ -468,6 +468,7 @@
                                         'cal-range':       cell && calInRange(cell),
                                         'cal-selected':    cell && isStayNight(cell),
                                         'cal-hover-range': calHoverRange(cell),
+                                        'cal-today':       cell && isTodayDay(cell),
                                         'cal-empty':       !cell
                                     }">
                                     <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
@@ -867,6 +868,7 @@
                                         'cal-range':       cell && calInRange(cell),
                                         'cal-selected':    cell && isStayNight(cell),
                                         'cal-hover-range': calHoverRange(cell),
+                                        'cal-today':       cell && isTodayDay(cell),
                                         'cal-empty':       !cell
                                     }">
                                     <i x-show="cell && isStayNight(cell)" class="bi bi-check-lg cal-day-check"></i>
@@ -919,15 +921,17 @@
 </div>{{-- end mobile search wrapper --}}
 
 {{-- JS Libraries --}}
-<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js"></script>
-<script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
-<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
-<script src="{{ asset('vendor/select2/i18n/fa.js') }}"></script>
-<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
-<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
+<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js" data-navigate-once></script>
+<script src="{{ asset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/bootstrap-collapse-navigate.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/select2/select2.min.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/select2/i18n/fa.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/jalali-date-today.js') }}" data-navigate-once></script>
 
-<script>
+<script data-navigate-once>
 // ─── Shared stay-night date picker helpers ───────────────────────────────────
 window.bnbStayPicker = {
     addDays(greg, days) {
@@ -989,7 +993,21 @@ window.bnbStayPicker = {
             return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 0 };
         }
         return { checkIn: state.checkIn, checkOut: g, calPhase: 0 };
-    }
+    },
+
+    todayGregorian() {
+        if (window.BonyadJalaliDate && typeof window.BonyadJalaliDate.todayGregorian === 'function') {
+            return window.BonyadJalaliDate.todayGregorian();
+        }
+        const d = new Date();
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+
+    isTodayGregorian(greg) {
+        return !!greg && greg === this.todayGregorian();
+    },
 };
 
 window.bnbJalaliCal = window.bnbJalaliCal || {
@@ -1029,6 +1047,9 @@ function bnbCalMixin() {
         },
         calHoverRange(cell) {
             return cell && window.bnbStayPicker.calHoverRange(cell.greg, this.checkIn, this.calHover, this.calPhase);
+        },
+        isTodayDay(cell) {
+            return cell && window.bnbStayPicker.isTodayGregorian(cell.greg);
         },
         isHoverCheckoutDay(cell) {
             if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover <= this.checkIn) return false;

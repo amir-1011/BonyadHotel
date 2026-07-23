@@ -1,6 +1,6 @@
 <div>
 
-
+@php($hostUser = auth()->user())
 {{-- Stats Row --}}
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
@@ -116,11 +116,16 @@
                     <span class="text-muted small me-1">({{ $review->rating }}/۵)</span>
                 </div>
                 {{-- Accommodation badge --}}
+                @if($hostUser->hostCanAny('accommodations.edit', ['read', 'edit']))
                 <a wire:navigate href="{{ route('host.accommodations.edit', $review->accommodation) }}" class="badge bg-primary text-decoration-none">
                     <i class="bi bi-building me-1"></i>{{ Str::limit($review->accommodation->name ?? '', 25) }}
                 </a>
-                {{-- Booking link --}}
-                @if($review->booking_id)
+                @else
+                <span class="badge bg-secondary">
+                    <i class="bi bi-building me-1"></i>{{ Str::limit($review->accommodation->name ?? '', 25) }}
+                </span>
+                @endif
+                @if($review->booking_id && $hostUser->hostCan('bookings.show', 'read'))
                 <a wire:navigate href="{{ route('host.bookings.show', $review->booking_id) }}" class="badge bg-secondary text-decoration-none">
                     <i class="bi bi-calendar-check me-1"></i>رزرو
                 </a>
@@ -150,12 +155,16 @@
             </div>
             <div>{{ $review->host_reply }}</div>
             <div class="mt-2 d-flex gap-2">
+                <x-host.can page="reviews.list" action="edit">
                 <button wire:click="startReply({{ $review->id }})" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-pencil me-1"></i>ویرایش پاسخ
                 </button>
+                </x-host.can>
+                <x-host.can page="reviews.list" action="delete">
                 <button wire:click="deleteReply({{ $review->id }})" data-swal-confirm="پاسخ حذف شود؟" class="btn btn-sm btn-outline-danger">
                     <i class="bi bi-trash me-1"></i>حذف پاسخ
                 </button>
+                </x-host.can>
             </div>
         </div>
         @endif
@@ -186,9 +195,11 @@
             </form>
         </div>
         @elseif(!$review->host_reply)
+        <x-host.can page="reviews.list" action="edit">
         <button wire:click="startReply({{ $review->id }})" class="btn btn-sm btn-outline-success">
             <i class="bi bi-reply me-1"></i>ثبت پاسخ
         </button>
+        </x-host.can>
         @endif
 
     </div>

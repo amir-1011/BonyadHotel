@@ -17,7 +17,7 @@ class AdminUsersExport implements FromQuery, WithHeadings, WithMapping
 
     public function query()
     {
-        $query = User::with('roles');
+        $query = User::with(['roles', 'country', 'residenceCity']);
 
         return AdminUserFilter::make($this->filters)
             ->apply($query, withSort: false)
@@ -30,7 +30,8 @@ class AdminUsersExport implements FromQuery, WithHeadings, WithMapping
             'شناسه',
             'نام',
             'موبایل',
-            'کد ملی',
+            'شناسه هویتی',
+            'محل اقامت',
             'نقش',
             'گروه ایثارگری',
             'تخفیف',
@@ -47,7 +48,8 @@ class AdminUsersExport implements FromQuery, WithHeadings, WithMapping
             $user->id,
             $user->name ?? '—',
             $user->mobile,
-            $user->national_id ?? '—',
+            $user->identityNumber() ?? '—',
+            $user->residenceLocationLabel() ?? '—',
             $roles ? implode('، ', $roles) : 'guest',
             $user->veteranLabel(),
             $user->discount_percentage > 0 ? $user->discount_percentage.'%' : '—',

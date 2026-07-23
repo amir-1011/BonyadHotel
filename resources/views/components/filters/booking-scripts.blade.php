@@ -62,6 +62,7 @@
                 onSelect: function () {
                     var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
                     syncBookingDateToWire(el);
+                    if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(el);
                 },
             });
         });
@@ -88,6 +89,7 @@
             if (!input) return;
             input.value = '';
             syncBookingDateToWire(input);
+            if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(input);
         });
     });
 

@@ -13,6 +13,7 @@ use App\Services\BlockedDatesService;
 use App\Services\DailyAvailabilityService;
 use App\Services\ImageUploadService;
 use App\Services\RoomSyncService;
+use App\Support\DailyOverrideRangeGrouper;
 use App\Support\JalaliCalendarGrid;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\Request;
@@ -70,7 +71,7 @@ class RoomTypeController extends Controller
     {
         $this->authorizeAccommodation($accommodation);
 
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name'                 => ['required', 'string', 'max:120'],
             'description'          => ['nullable', 'string', 'max:1000'],
             'bed_type'             => ['nullable', 'string', 'max:80'],
@@ -84,9 +85,8 @@ class RoomTypeController extends Controller
             'sort_order'           => ['nullable', 'integer', 'min:0'],
             'amenities'            => ['nullable', 'array'],
             'amenities.*'          => ['string', 'max:60'],
-            'images.*'             => ['nullable', 'image', 'max:4096'],
             'is_active'            => ['nullable', 'boolean'],
-        ]);
+        ], ImageUploadService::manyFileRules('images')));
 
         $data['smoking']              = $this->resolveHiddenBoolean($request, 'smoking', false);
         $data['has_private_bathroom'] = $this->resolveHiddenBoolean($request, 'has_private_bathroom', true);
@@ -135,7 +135,7 @@ class RoomTypeController extends Controller
         $this->authorizeAccommodation($accommodation);
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name'                 => ['required', 'string', 'max:120'],
             'description'          => ['nullable', 'string', 'max:1000'],
             'bed_type'             => ['nullable', 'string', 'max:80'],
@@ -149,7 +149,6 @@ class RoomTypeController extends Controller
             'sort_order'           => ['nullable', 'integer', 'min:0'],
             'amenities'            => ['nullable', 'array'],
             'amenities.*'          => ['string', 'max:60'],
-            'new_images.*'         => ['nullable', 'image', 'max:4096'],
             'keep_images'          => ['nullable', 'array'],
             'is_active'            => ['nullable', 'boolean'],
             'physical_rooms'       => ['nullable', 'array'],
@@ -158,7 +157,7 @@ class RoomTypeController extends Controller
             'physical_rooms.*.description' => ['nullable', 'string', 'max:1000'],
             'physical_rooms.*.amenities'   => ['nullable', 'array'],
             'physical_rooms.*.amenities.*' => ['string', 'max:60'],
-        ]);
+        ], ImageUploadService::manyFileRules('new_images')));
 
         $data['smoking']              = $this->resolveHiddenBoolean($request, 'smoking', (bool) $roomType->smoking);
         $data['has_private_bathroom'] = $this->resolveHiddenBoolean($request, 'has_private_bathroom', (bool) ($roomType->has_private_bathroom ?? true));
@@ -222,18 +221,7 @@ class RoomTypeController extends Controller
         $this->authorizeAccommodation($accommodation);
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
 
-        $data = $request->validate([
-            'name'                       => ['required', 'string', 'max:100'],
-            'price_per_night'            => ['required', 'integer', 'min:1'],
-            'breakfast_included'         => ['nullable', 'boolean'],
-            'breakfast_price_per_person' => ['nullable', 'integer', 'min:0'],
-            'cancellation_policy'        => ['required', 'in:free,non_refundable'],
-            'payment_type'               => ['required', 'in:pay_at_hotel,prepay_online'],
-            'is_active'                  => ['nullable', 'boolean'],
-        ]);
-
-        $data['breakfast_included'] = $request->boolean('breakfast_included');
-        $data['is_active']          = $request->boolean('is_active', true);
+        $data = $this->validatedRate($request);
 
         $roomType->rates()->create($data);
 
@@ -247,18 +235,7 @@ class RoomTypeController extends Controller
         $this->authorizeAccommodation($accommodation);
         abort_if($rate->room_type_id !== $roomType->id, 404);
 
-        $data = $request->validate([
-            'name'                       => ['required', 'string', 'max:100'],
-            'price_per_night'            => ['required', 'integer', 'min:1'],
-            'breakfast_included'         => ['nullable', 'boolean'],
-            'breakfast_price_per_person' => ['nullable', 'integer', 'min:0'],
-            'cancellation_policy'        => ['required', 'in:free,non_refundable'],
-            'payment_type'               => ['required', 'in:pay_at_hotel,prepay_online'],
-            'is_active'                  => ['nullable', 'boolean'],
-        ]);
-
-        $data['breakfast_included'] = $request->boolean('breakfast_included');
-        $data['is_active']          = $request->boolean('is_active', true);
+        $data = $this->validatedRate($request);
 
         $rate->update($data);
 
@@ -277,6 +254,26 @@ class RoomTypeController extends Controller
         return redirect()
             ->route('host.room-types.edit', [$accommodation, $roomType])
             ->with('status', 'تعرفه حذف شد.');
+    }
+
+    private function validatedRate(Request $request): array
+    {
+        $data = $request->validate([
+            'rate_name'                  => ['required', 'string', 'max:100'],
+            'price_per_night'            => ['required', 'integer', 'min:1'],
+            'breakfast_included'         => ['nullable', 'boolean'],
+            'breakfast_price_per_person' => ['nullable', 'integer', 'min:0'],
+            'cancellation_policy'        => ['required', 'in:free,non_refundable'],
+            'payment_type'               => ['required', 'in:pay_at_hotel,prepay_online'],
+            'is_active'                  => ['nullable', 'boolean'],
+        ]);
+
+        $data['breakfast_included'] = $request->boolean('breakfast_included');
+        $data['is_active']          = $request->boolean('is_active');
+        $data['name'] = $data['rate_name'];
+        unset($data['rate_name']);
+
+        return $data;
     }
 
     // ─── Blocked Dates ───────────────────────────────────────────────────────
@@ -370,12 +367,52 @@ class RoomTypeController extends Controller
             ->with('status', 'تاریخ مسدودسازی حذف شد.');
     }
 
+    public function destroyBlockedDateRange(Request $request, Accommodation $accommodation, RoomType $roomType, BlockedDatesService $service)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $data = $request->validate([
+            'date_from' => ['required', 'date'],
+            'date_to'   => ['required', 'date', 'after_or_equal:date_from'],
+            'room_ids'  => ['required', 'array', 'min:1'],
+            'room_ids.*'=> ['nullable', 'integer', 'exists:rooms,id'],
+            'reason'    => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $validRoomIds = $roomType->rooms()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $roomIds = collect($data['room_ids'])
+            ->map(fn ($id) => $id === null || $id === '' ? null : (int) $id)
+            ->filter(fn ($id) => $id === null || in_array($id, $validRoomIds, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($roomIds === []) {
+            return back()->withErrors(['room_ids' => 'اتاق انتخاب‌شده معتبر نیست.']);
+        }
+
+        $deleted = $service->destroyRange(
+            $roomType,
+            $data['date_from'],
+            $data['date_to'],
+            $roomIds,
+            $data['reason'] ?? null,
+        );
+
+        return redirect()
+            ->route('host.room-types.blocked-dates', [$accommodation, $roomType])
+            ->with('status', $deleted > 0 ? 'بازه مسدودسازی حذف شد.' : 'موردی برای حذف یافت نشد.');
+    }
+
     // ── Daily availability overrides ─────────────────────────────────────────
 
     public function dailyAvailability(Accommodation $accommodation, RoomType $roomType)
     {
         $this->authorizeAccommodation($accommodation);
         abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $roomType->load('rates');
 
         [$fromGreg, $toGreg] = JalaliCalendarGrid::gregorianRangeForUpcomingMonths(3);
 
@@ -387,10 +424,28 @@ class RoomTypeController extends Controller
             ->orderBy('date')
             ->get();
 
+        $rateDailyOverrides = \App\Models\RoomRateDailyPriceOverride::query()
+            ->whereIn('room_rate_id', $roomType->rates->pluck('id'))
+            ->whereDate('date', '>=', now()->toDateString())
+            ->with('roomRate')
+            ->orderBy('date')
+            ->get()
+            ->groupBy(fn ($o) => $o->date->toDateString());
+
+        $overrideRanges = DailyOverrideRangeGrouper::group($overrides, $rateDailyOverrides->all());
+
         $weeklyRules = $roomType->weeklyPriceRules()->get();
 
+        $rateWeeklyRules = \App\Models\RoomRateWeeklyPriceRule::query()
+            ->whereIn('room_rate_id', $roomType->rates->pluck('id'))
+            ->with('roomRate')
+            ->orderBy('weekday')
+            ->orderBy('room_rate_id')
+            ->get();
+
         return view('host.room_types.daily_availability', compact(
-            'accommodation', 'roomType', 'availabilityMap', 'overrides', 'weeklyRules', 'calendarMonths'
+            'accommodation', 'roomType', 'availabilityMap', 'overrides', 'overrideRanges', 'weeklyRules',
+            'rateWeeklyRules', 'rateDailyOverrides', 'calendarMonths'
         ));
     }
 
@@ -425,15 +480,44 @@ class RoomTypeController extends Controller
             ->with('status', 'قانون هفتگی حذف شد.');
     }
 
-    public function destroyDailyAvailability(Accommodation $accommodation, RoomType $roomType, RoomTypeDailyOverride $override)
+    public function destroyRateWeeklyPriceRule(Accommodation $accommodation, RoomType $roomType, \App\Models\RoomRateWeeklyPriceRule $rateWeeklyRule)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($rateWeeklyRule->roomRate?->room_type_id !== $roomType->id, 404);
+
+        $rateWeeklyRule->delete();
+
+        return redirect()
+            ->route('host.room-types.daily-availability', [$accommodation, $roomType])
+            ->with('status', 'قانون هفتگی تعرفه حذف شد.');
+    }
+
+    public function destroyDailyAvailability(Accommodation $accommodation, RoomType $roomType, RoomTypeDailyOverride $override, \App\Services\DailyOverrideCleanupService $cleanup)
     {
         $this->authorizeAccommodation($accommodation);
         abort_if($override->room_type_id !== $roomType->id, 404);
 
-        $override->delete();
+        $cleanup->deleteSingle($roomType, $override);
 
         return redirect()
             ->route('host.room-types.daily-availability', [$accommodation, $roomType])
             ->with('status', 'تنظیم ظرفیت حذف شد.');
+    }
+
+    public function destroyDailyOverrideRange(Request $request, Accommodation $accommodation, RoomType $roomType, \App\Services\DailyOverrideCleanupService $cleanup)
+    {
+        $this->authorizeAccommodation($accommodation);
+        abort_if($roomType->accommodation_id !== $accommodation->id, 404);
+
+        $data = $request->validate([
+            'date_from' => ['required', 'date'],
+            'date_to'   => ['required', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $deleted = $cleanup->deleteRange($roomType, $data['date_from'], $data['date_to']);
+
+        return redirect()
+            ->route('host.room-types.daily-availability', [$accommodation, $roomType])
+            ->with('status', $deleted > 0 ? 'بازه تنظیمات دستی حذف شد.' : 'موردی برای حذف یافت نشد.');
     }
 }

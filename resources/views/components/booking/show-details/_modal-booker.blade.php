@@ -7,10 +7,16 @@
         <span class="text-muted">موبایل</span>
         <code dir="ltr">{{ $booking->bookerMobile() }}</code>
     </li>
-    @if($booking->bookerNationalId())
+    @if($booking->bookerIdentityNumber())
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
-        <span class="text-muted">کد ملی</span>
-        <code dir="ltr">{{ $booking->bookerNationalId() }}</code>
+        <span class="text-muted">{{ $booking->bookerIdentityLabel() }}</span>
+        <code dir="ltr">{{ $booking->bookerIdentityNumber() }}</code>
+    </li>
+    @endif
+    @if($booking->bookerResidenceLabel())
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">محل اقامت</span>
+        <strong>{{ $booking->bookerResidenceLabel() }}</strong>
     </li>
     @endif
     @if($booking->user_id)

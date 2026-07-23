@@ -22,7 +22,7 @@
             </div>
             <p style="font-size:13px;color:var(--bnb-gray);margin-bottom:20px;">
                 @if($isManual)
-                    نوع اتاق و نرخ را انتخاب کنید، تاریخ و تعداد نفرات را تأیید کنید. می‌توانید چند اتاق مختلف را در یک بازه زمانی به رزرو اضافه کنید.
+                    نوع اتاق و نرخ را انتخاب کنید (قیمت‌ها به ازای هر تخت است)، تاریخ و تعداد نفرات را تأیید کنید. می‌توانید چند اتاق مختلف را در یک بازه زمانی به رزرو اضافه کنید.
                 @else
                     پس از انتخاب تاریخ در ویجت رزرو، اتاق موردنظر را رزرو کنید.
                 @endif
@@ -113,7 +113,7 @@
                                 <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
                             @endauth
                             @endif
-                            <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب</div>
+                            <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب / تخت</div>
                         </div>
                         <div class="bnb-rate-action">
                             @if($isManual)
@@ -123,6 +123,7 @@
                                 <input type="hidden" name="check_in" class="rt-check-in">
                                 <input type="hidden" name="check_out" class="rt-check-out">
                                 <input type="hidden" name="guests" class="rt-guests" value="1">
+                                <input type="hidden" name="children_under_6" class="rt-children-under-6" value="0">
                                 <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
                                 <input type="hidden" name="bill_full_rooms" class="rt-bill-full-rooms" value="0">
                                 @php
@@ -141,6 +142,7 @@
                                 <input type="hidden" name="check_in" class="rt-check-in">
                                 <input type="hidden" name="check_out" class="rt-check-out">
                                 <input type="hidden" name="guests" class="rt-guests" value="1">
+                                <input type="hidden" name="children_under_6" class="rt-children-under-6" value="0">
                                 <input type="hidden" name="extra_guests" class="rt-extra-guests" value="0">
                                 <input type="hidden" name="bill_full_rooms" class="rt-bill-full-rooms" value="0">
                                 @php

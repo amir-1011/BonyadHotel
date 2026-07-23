@@ -2,22 +2,16 @@
 
 @section('title', 'گزارش فروش — ' . $accommodation->name)
 
+@section('pageTitle')
+گزارش فروش — {{ $accommodation->name }}
+@endsection
+
 @section('content')
 
 <div>
 
 {{-- ── Page header ───────────────────────────────────── --}}
-<div class="ta-page-head">
-    <div>
-        <h1>گزارش فروش</h1>
-        <nav aria-label="breadcrumb" class="mt-1">
-            <ol class="breadcrumb mb-0 small">
-                <li class="breadcrumb-item"><a wire:navigate href="{{ route('host.dashboard') }}">داشبورد</a></li>
-                <li class="breadcrumb-item"><a wire:navigate href="{{ route('host.accommodations.index') }}">اقامتگاه‌ها</a></li>
-                <li class="breadcrumb-item active">{{ $accommodation->name }}</li>
-            </ol>
-        </nav>
-    </div>
+<div class="ta-page-head d-flex justify-content-end">
     <div class="d-flex align-items-center gap-2">
         <a wire:navigate href="{{ route('host.accommodations.edit', $accommodation) }}" class="btn btn-light"><i class="bi bi-pencil me-2"></i>ویرایش</a>
         <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id' => $accommodation->id]) }}" class="btn btn-primary"><i class="bi bi-calendar-check me-2"></i>رزروها</a>
@@ -216,7 +210,7 @@
                 <div class="fw-bold fs-5 text-dark mt-2">{{ $accommodation->rooms }} اتاق / {{ $accommodation->capacity }} نفر</div>
                 <div class="text-muted small mt-1">{{ $accommodation->roomTypes->count() }} نوع اتاق ثبت‌شده</div>
                 @if($accommodation->price_per_night > 0)
-                <div class="text-muted small">نرخ پایه: {{ number_format($accommodation->price_per_night) }} ت/شب</div>
+                <div class="text-muted small">نرخ پایه: {{ number_format($accommodation->price_per_night) }} ت/شب/تخت</div>
                 @endif
             </div>
         </div>

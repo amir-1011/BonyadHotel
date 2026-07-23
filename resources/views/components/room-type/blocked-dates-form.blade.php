@@ -5,6 +5,7 @@
     $oldRoomIds = collect(old('room_ids', []))->map(fn ($id) => (int) $id)->all();
     $todayJalali = \Morilog\Jalali\Jalalian::fromCarbon(\Carbon\Carbon::today())->format('Y/m/d');
     $previewUrl = route($routePrefix . '.blocked-dates.preview', [$accommodation, $roomType]);
+    $panel = str_starts_with($routePrefix, 'host.') ? 'host' : 'admin';
 @endphp
 
 <p class="text-muted small mb-3">
@@ -12,6 +13,7 @@
     اتاق‌هایی که در همان بازه رزرو فعال دارند قابل مسدودسازی نیستند.
 </p>
 
+<x-host.can page="room-types.blocked-dates" action="write" :panel="$panel">
 <form action="{{ route($routePrefix . '.blocked-dates.store', [$accommodation, $roomType]) }}" method="POST" id="blocked-dates-form">
     @csrf
     <div class="mb-3">
@@ -86,6 +88,7 @@
         <i class="bi bi-lock-fill me-2"></i>مسدود کردن
     </button>
 </form>
+</x-host.can>
 
 @once
 @push('styles')
@@ -135,6 +138,16 @@
 .blocked-room-chip.is-booked-conflict input {
     pointer-events: none;
 }
+.avail-cal-cell.clickable { cursor: pointer; }
+.avail-cal-cell.cal-range-start,
+.avail-cal-cell.cal-range-end {
+    box-shadow: 0 0 0 2px #0d6efd;
+    z-index: 2;
+}
+.avail-cal-cell.cal-range-between {
+    background: rgba(13, 110, 253, .12) !important;
+    border-color: rgba(13, 110, 253, .45) !important;
+}
 </style>
 @endpush
 @push('scripts')
@@ -159,6 +172,12 @@ document.addEventListener('click', function (e) {
     const alertEl = document.getElementById('blocked-date-conflict-alert');
     const submitBtn = document.getElementById('blocked-dates-submit');
     let previewTimer = null;
+
+    if (window.BonyadJalaliDate) {
+        dateInputs.forEach(function (input) {
+            window.BonyadJalaliDate.bindInput(input);
+        });
+    }
 
     function setRoomConflictState(unavailableIds, conflicts) {
         const unavailable = new Set((unavailableIds || []).map(Number));
@@ -233,6 +252,76 @@ document.addEventListener('click', function (e) {
 
     runPreview();
 })();
+
+window._blockedCalRangePick = window._blockedCalRangePick || { awaitingEnd: false, startJal: '', startGreg: '' };
+
+function _clearBlockedCalRangeHighlight() {
+    document.querySelectorAll('.avail-cal-cell.cal-range-start, .avail-cal-cell.cal-range-end, .avail-cal-cell.cal-range-between')
+        .forEach(el => el.classList.remove('cal-range-start', 'cal-range-end', 'cal-range-between'));
+}
+
+function _highlightBlockedCalRange(fromGreg, toGreg) {
+    _clearBlockedCalRangeHighlight();
+    document.querySelectorAll('.avail-cal-cell[data-greg]').forEach(el => {
+        const g = el.dataset.greg;
+        if (!g || el.classList.contains('past') || g < fromGreg || g > toGreg) return;
+        if (g === fromGreg) el.classList.add('cal-range-start');
+        else if (g === toGreg) el.classList.add('cal-range-end');
+        else el.classList.add('cal-range-between');
+    });
+}
+
+function pickBlockedDateRange(cell) {
+    if (cell.classList.contains('past') || cell.classList.contains('empty')) return;
+    const form = document.getElementById('blocked-dates-form');
+    if (!form) return;
+
+    const jal = cell.dataset.jalali;
+    const greg = cell.dataset.greg;
+    if (!jal || !greg) return;
+
+    const dateFrom = form.querySelector('[name=date_from]');
+    const dateTo = form.querySelector('[name=date_to]');
+    const pick = window._blockedCalRangePick;
+
+    if (!pick.awaitingEnd) {
+        if (dateFrom) dateFrom.value = jal;
+        if (dateTo) dateTo.value = jal;
+        pick.awaitingEnd = true;
+        pick.startJal = jal;
+        pick.startGreg = greg;
+        _highlightBlockedCalRange(greg, greg);
+    } else {
+        let fromJal = pick.startJal;
+        let toJal = jal;
+        let fromGreg = pick.startGreg;
+        let toGreg = greg;
+
+        if (toGreg < fromGreg) {
+            [fromJal, toJal] = [toJal, fromJal];
+            [fromGreg, toGreg] = [toGreg, fromGreg];
+        }
+
+        if (dateFrom) dateFrom.value = fromJal;
+        if (dateTo) dateTo.value = toJal;
+        pick.awaitingEnd = false;
+        _highlightBlockedCalRange(fromGreg, toGreg);
+    }
+
+    if (window.BonyadJalaliDate) {
+        window.BonyadJalaliDate.syncInputTodayClass(dateFrom);
+        window.BonyadJalaliDate.syncInputTodayClass(dateTo);
+    }
+
+    [dateFrom, dateTo].forEach(el => {
+        if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    if (!pick.awaitingEnd) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (dateFrom) dateFrom.focus();
+    }
+}
 </script>
 @endpush
 @endonce

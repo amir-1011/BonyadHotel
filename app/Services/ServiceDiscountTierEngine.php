@@ -323,6 +323,55 @@ class ServiceDiscountTierEngine
     }
 
     /**
+     * Normalize a DB / legacy row for the discount-matrix UI.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    public static function matrixRowFromPersistence(array $row): array
+    {
+        $useTiered = (bool) ($row['use_tiered_discount'] ?? false);
+        $tiers = self::normalizeTiers($row['discount_tiers'] ?? []);
+
+        if ($useTiered && !empty($tiers)) {
+            return self::matrixRowUiState($row, true, $tiers);
+        }
+
+        if (!empty($tiers)) {
+            return self::matrixRowUiState($row, true, $tiers);
+        }
+
+        $hasLegacyLadder = ($row['free_sessions_eligible'] ?? false)
+            && (int) ($row['weekly_free_sessions'] ?? 0) > 0;
+
+        if ($hasLegacyLadder) {
+            return self::matrixRowUiState(
+                $row,
+                true,
+                self::tiersFromLegacyRule($row),
+            );
+        }
+
+        return self::matrixRowUiState($row, false, []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<int, array<string, mixed>>  $tiers
+     * @return array<string, mixed>
+     */
+    private static function matrixRowUiState(array $row, bool $useTiered, array $tiers): array
+    {
+        return [
+            'discount_percentage'    => (int) ($row['discount_percentage'] ?? 0),
+            'free_sessions_eligible' => (bool) ($row['free_sessions_eligible'] ?? false),
+            'weekly_free_sessions'   => (int) ($row['weekly_free_sessions'] ?? 0),
+            'use_tiered_discount'    => $useTiered,
+            'discount_tiers'         => $tiers,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */

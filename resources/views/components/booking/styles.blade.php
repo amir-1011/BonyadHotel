@@ -68,6 +68,7 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 3px;
+    overflow: visible;
 }
 .bnb-cal-square-cell {
     aspect-ratio: 1;
@@ -138,6 +139,153 @@
 }
 .bnb-cal-square-cell.cal-start .cal-day-check,
 .bnb-cal-square-cell.cal-last-night .cal-day-check { color: #fff; }
+
+/* Manual booking: duration input inside start-date calendar cell */
+.bnb-cal-square-cell.cal-duration-entry {
+    z-index: 20;
+    overflow: visible;
+    cursor: default;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none;
+}
+.bnb-cal-day-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+.bnb-cal-duration-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 5px;
+    width: calc(100% + 36px);
+    min-width: 118px;
+    max-width: 156px;
+    padding: 8px 7px 7px;
+    background: #fff;
+    border: 2px solid var(--bnb-red);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+    z-index: 2;
+}
+.bnb-cal-duration-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    padding: 2px;
+    background: #f3f4f6;
+    border-radius: 8px;
+}
+.bnb-cal-duration-toggle-btn {
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--bnb-gray);
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1.2;
+    padding: 5px 3px;
+    cursor: pointer;
+    font-family: var(--bnb-font);
+    white-space: nowrap;
+}
+.bnb-cal-duration-toggle-btn.is-active {
+    background: #fff;
+    color: var(--bnb-red);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.bnb-cal-duration-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.bnb-cal-duration-hint {
+    font-size: 7px;
+    line-height: 1.3;
+    color: var(--bnb-gray);
+    text-align: center;
+}
+.bnb-cal-duration-day {
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--bnb-red);
+    text-align: center;
+    direction: ltr;
+    letter-spacing: 0.02em;
+}
+.bnb-cal-duration-label {
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--bnb-gray);
+    text-align: center;
+    white-space: nowrap;
+}
+.bnb-cal-duration-input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--bnb-border);
+    border-radius: 7px;
+    padding: 6px 4px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--bnb-font);
+    text-align: center;
+    color: var(--bnb-dark);
+    background: #fff;
+    -moz-appearance: textfield;
+}
+.bnb-cal-duration-input::-webkit-outer-spin-button,
+.bnb-cal-duration-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.bnb-cal-duration-input:focus {
+    outline: none;
+    border-color: var(--bnb-red);
+    box-shadow: 0 0 0 2px rgba(255, 56, 92, 0.15);
+}
+.bnb-cal-duration-btn {
+    width: 100%;
+    border: none;
+    border-radius: 7px;
+    background: var(--bnb-red);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.2;
+    padding: 6px 4px;
+    cursor: pointer;
+    font-family: var(--bnb-font);
+}
+.bnb-cal-duration-btn:hover {
+    filter: brightness(0.95);
+}
+@media (min-width: 480px) {
+    .bnb-cal-duration-panel {
+        width: calc(100% + 42px);
+        min-width: 132px;
+        max-width: 168px;
+        padding: 9px 8px 8px;
+        gap: 6px;
+    }
+    .bnb-cal-duration-day { font-size: 11px; }
+    .bnb-cal-duration-toggle-btn { font-size: 9px; padding: 6px 4px; }
+    .bnb-cal-duration-hint { font-size: 8px; }
+    .bnb-cal-duration-input { font-size: 14px; padding: 7px 5px; }
+    .bnb-cal-duration-btn { font-size: 12px; padding: 7px 5px; }
+}
 .bnb-avail-legend {
     display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
     font-size: 11px; color: var(--bnb-gray); margin-bottom: 10px;

@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\BookingBeneficiaryCost;
 use App\Models\BookingGuestDetail;
+use App\Models\ProgramBeneficiary;
 use App\Models\BookingRoom;
 use App\Models\BookingService;
 use App\Models\Room;
@@ -22,6 +24,8 @@ class ManualBookingService
         private readonly VeteranPolicyService $veteranPolicy,
         private readonly PlatformCommissionService $commission,
         private readonly RoomAvailabilityService $roomAvailability,
+        private readonly ProgramDocumentService $documents,
+        private readonly BeneficiaryUserProvisioner $beneficiaryUsers,
     ) {}
 
     /**
@@ -54,6 +58,8 @@ class ManualBookingService
             [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
                 ->forAccommodation($accommodation->id)
                 ->splitVeteranTypes($veteranTypes);
+
+            $this->syncUserVeteranProfile($guestUser, $veteranTypes, $accommodation->id);
             $services = $data['services'] ?? [];
             $guestDetails = $data['guest_details'] ?? [];
             $primaryNationalId = $this->primaryNationalId($guestDetails, $data);
@@ -65,7 +71,16 @@ class ManualBookingService
             $totalGuests = collect($roomLinesInput)->sum('guests');
             $totalChildrenUnder6 = collect($roomLinesInput)->sum('children_under_6');
             $totalExtraGuests = collect($roomLinesInput)->sum('extra_guests');
-            $billingGuests = max(1, $totalGuests - $totalExtraGuests);
+            $billingGuests = $this->pricing->totalBillingGuestsForRoomLines(
+                collect($roomLinesInput)->map(fn ($line) => [
+                    'room_type'        => $line['room_type'],
+                    'guests'           => $line['guests'],
+                    'children_under_6' => $line['children_under_6'],
+                    'extra_guests'     => $line['extra_guests'],
+                    'bill_full_rooms'  => $line['bill_full_rooms'],
+                ])->all(),
+                $accommodation,
+            );
             $veteranDiscountPct = VeteranGroups::accommodationDiscountForTypes($veteranTypes, $accommodation->id);
             $perGuestSlots = $this->pricing->buildPerGuestSlotsFromGuestDetails(
                 $guestDetails,
@@ -191,6 +206,8 @@ class ManualBookingService
                 'tracking_code'         => strtoupper(Str::random(10)),
             ]);
 
+            $bookingRoomIdsBySort = [];
+
             foreach ($roomLinesInput as $i => $line) {
                 $linePricing = $pricing['room_lines'][$i] ?? [];
                 $roomsConsumed = !empty($line['room_id'])
@@ -198,7 +215,7 @@ class ManualBookingService
                     : ($linePricing['rooms_needed']
                         ?? $this->pricing->roomsNeeded($line['guests'], $line['extra_guests'], $line['room_type'], $line['children_under_6'], $accommodation));
 
-                BookingRoom::create([
+                $bookingRoom = BookingRoom::create([
                     'booking_id'       => $booking->id,
                     'room_type_id'     => $line['room_type']?->id,
                     'room_rate_id'     => $line['room_rate']?->id,
@@ -211,28 +228,36 @@ class ManualBookingService
                     'rooms_consumed'   => $roomsConsumed,
                     'sort_order'       => $i,
                 ]);
+
+                $bookingRoomIdsBySort[$i] = $bookingRoom->id;
             }
 
             foreach ($pricing['service_lines'] as $i => $line) {
                 BookingService::create([
                     'booking_id'                 => $booking->id,
+                    'guest_sort_order'           => $line['guest_sort_order'] ?? null,
                     'service_catalog_id'         => $line['service_catalog_id'] ?: null,
-                    'service_catalog_variant_id' => $line['service_catalog_variant_id'] ?? null,
+                    'service_catalog_variant_id'   => $line['service_catalog_variant_id'] ?? null,
                     'name'                       => $line['name'],
-                    'unit_price'          => $line['unit_price'],
-                    'quantity'            => $line['quantity'],
-                    'free_units'          => $line['free_units'] ?? 0,
-                    'discount_percentage' => $line['discount_percentage'],
-                    'discount_amount'     => $line['discount_amount'],
-                    'total'               => $line['line_total'],
-                    'sort_order'          => $i,
-                    'veteran_group_usage' => $line['veteran_group_usage'] ?? null,
+                    'unit_price'                 => $line['unit_price'],
+                    'quantity'                   => $line['quantity'],
+                    'free_units'                 => $line['free_units'] ?? 0,
+                    'discount_percentage'        => $line['discount_percentage'],
+                    'discount_amount'            => $line['discount_amount'],
+                    'total'                      => $line['line_total'],
+                    'sort_order'                 => $i,
+                    'veteran_group_usage'        => $line['veteran_group_usage'] ?? null,
+                    'excluded_from_veteran_quota' => !empty($line['excluded_from_veteran_quota']),
+                    'manual_discount_percentage' => $line['manual_discount_percentage'] ?? null,
+                    'manual_discount_reason'     => $line['manual_discount_reason'] ?? null,
                 ]);
             }
 
-            $this->persistGuestDetails($booking, $guestDetails, $billingGuests, $veteranType, $data);
+            $this->persistGuestDetails($booking, $guestDetails, $billingGuests, $veteranType, $data, $bookingRoomIdsBySort);
 
-            $booking = $booking->fresh(['services.serviceCatalog', 'guestDetails', 'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room', 'user', 'accommodation.city', 'roomType', 'roomRate']);
+            $this->persistBeneficiaryCosts($booking, $data['beneficiary_costs'] ?? []);
+
+            $booking = $booking->fresh(['services.serviceCatalog', 'guestDetails', 'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room', 'user', 'accommodation.city', 'roomType', 'roomRate', 'beneficiaryCosts.beneficiary.user']);
             $this->commission->syncBookingCommissions($booking, $createdBy);
 
             return $booking;
@@ -355,24 +380,29 @@ class ManualBookingService
             return User::findOrFail($data['user_id']);
         }
 
+        if (!empty($data['booker_is_foreign_guest'])) {
+            return $this->resolveForeignGuestUser($data);
+        }
+
         $nationalId = preg_replace('/\D/', '', $data['booker_national_id'] ?? '');
         $name = trim($data['guest_contact_name'] ?? '') ?: 'مهمان';
         $mobile = preg_replace('/\D/', '', $data['guest_contact_mobile'] ?? '');
         $veteranType = $data['veteran_type'] ?? null;
-        $discountPct = VeteranGroups::accommodationDiscountForTypes(
-            $this->veteranPolicy->forAccommodation($accommodationId)->normalizeVeteranTypes(
-                $data['veteran_type'] ?? null,
-                $data['secondary_veteran_type'] ?? null,
-            ),
-            $accommodationId,
+        $secondaryVeteranType = $data['secondary_veteran_type'] ?? null;
+        $veteranTypes = $this->veteranPolicy->forAccommodation($accommodationId)->normalizeVeteranTypes(
+            $data['veteran_types'] ?? [$veteranType, $secondaryVeteranType],
         );
+        [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
+            ->forAccommodation($accommodationId)
+            ->splitVeteranTypes($veteranTypes);
+        $discountPct = VeteranGroups::accommodationDiscountForTypes($veteranTypes, $accommodationId);
 
         if (strlen($nationalId) !== 10) {
-            throw new \RuntimeException('کد ملی رزرو‌کننده معتبر نیست.');
+            throw new \RuntimeException('کد ملی مهمان اصلی معتبر نیست.');
         }
 
         if (!$mobile || !preg_match('/^09[0-9]{9}$/', $mobile)) {
-            throw new \RuntimeException('شماره موبایل رزرو‌کننده معتبر نیست.');
+            throw new \RuntimeException('شماره موبایل مهمان اصلی معتبر نیست.');
         }
 
         $byNationalId = User::query()
@@ -412,9 +442,80 @@ class ManualBookingService
             'mobile'                  => $mobile,
             'national_id'             => $nationalId,
             'veteran_type'            => $veteranType ?: null,
+            'secondary_veteran_type'  => $secondaryVeteranType,
             'discount_percentage'     => $discountPct,
             'national_id_verified_at' => now(),
             'mobile_verified_at'      => now(),
+        ]);
+
+        if (!$user->hasAnyRole(['super_admin', 'host', 'guest'])) {
+            $user->assignRole('guest');
+        }
+
+        return $user;
+    }
+
+    private function resolveForeignGuestUser(array $data): User
+    {
+        $passport = strtoupper(trim($data['booker_passport_number'] ?? ''));
+        $name = trim($data['guest_contact_name'] ?? '') ?: 'مهمان خارجی';
+        $mobile = preg_replace('/\D/', '', $data['guest_contact_mobile'] ?? '');
+        $countryId = !empty($data['foreign_country_id']) ? (int) $data['foreign_country_id'] : null;
+        $residenceCityId = !empty($data['foreign_residence_city_id']) ? (int) $data['foreign_residence_city_id'] : null;
+
+        if ($passport === '' || strlen($passport) < 5) {
+            throw new \RuntimeException('شماره پاسپورت مهمان خارجی معتبر نیست.');
+        }
+
+        if (!$mobile || !preg_match('/^09[0-9]{9}$/', $mobile)) {
+            throw new \RuntimeException('شماره موبایل مهمان خارجی معتبر نیست.');
+        }
+
+        if (!$countryId || !$residenceCityId) {
+            throw new \RuntimeException('کشور و شهر اقامت مهمان خارجی الزامی است.');
+        }
+
+        $byPassport = User::query()
+            ->where('passport_number', $passport)
+            ->where('is_foreign_guest', true)
+            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'host']))
+            ->first();
+
+        if ($byPassport) {
+            if ($byPassport->mobile !== $mobile) {
+                throw new \RuntimeException(
+                    "شماره پاسپورت با شماره موبایل هم‌خوانی ندارد. این پاسپورت متعلق به {$byPassport->mobile} است."
+                );
+            }
+
+            return $byPassport;
+        }
+
+        $byMobile = User::where('mobile', $mobile)->first();
+        if ($byMobile) {
+            if ($this->isStaffUser($byMobile)) {
+                throw new \RuntimeException('این شماره موبایل متعلق به حساب کارکنان است.');
+            }
+
+            throw new \RuntimeException(
+                'این شماره موبایل قبلاً ثبت شده است'
+                . ($byMobile->passport_number ? " (پاسپورت: {$byMobile->passport_number})" : '')
+                . '. لطفاً با همان شماره پاسپورت «بررسی» کنید.'
+            );
+        }
+
+        if (User::where('passport_number', $passport)->exists()) {
+            throw new \RuntimeException('این شماره پاسپورت قبلاً برای کاربر دیگری ثبت شده است.');
+        }
+
+        $user = User::create([
+            'name'               => $name,
+            'mobile'             => $mobile,
+            'is_foreign_guest'   => true,
+            'passport_number'    => $passport,
+            'country_id'         => $countryId,
+            'residence_city_id' => $residenceCityId,
+            'mobile_verified_at' => now(),
         ]);
 
         if (!$user->hasAnyRole(['super_admin', 'host', 'guest'])) {
@@ -429,6 +530,26 @@ class ManualBookingService
         return $user->isAdmin() || $user->isHost();
     }
 
+    /**
+     * @param  array<int, string>  $veteranTypes
+     */
+    private function syncUserVeteranProfile(User $user, array $veteranTypes, int $accommodationId): void
+    {
+        if ($this->isStaffUser($user) || $user->is_foreign_guest) {
+            return;
+        }
+
+        $policy = $this->veteranPolicy->forAccommodation($accommodationId);
+        $veteranTypes = $policy->normalizeVeteranTypes($veteranTypes);
+        [$primary, $secondary] = $policy->splitVeteranTypes($veteranTypes);
+
+        $user->update([
+            'veteran_type'           => $primary,
+            'secondary_veteran_type'   => $secondary,
+            'discount_percentage'      => VeteranGroups::accommodationDiscountForTypes($veteranTypes, $accommodationId),
+        ]);
+    }
+
     public function recalculateTotals(Booking $booking): void
     {
         // Always fetch fresh rows from the database so that any edits made
@@ -437,18 +558,32 @@ class ManualBookingService
         $guestDetails = $booking->guestDetails()->orderBy('sort_order')->get();
 
         $services = $freshServices->map(fn ($s) => [
-            'name'               => $s->name,
-            'unit_price'         => $s->unit_price,
-            'quantity'           => $s->quantity,
-            'service_catalog_id' => $s->service_catalog_id,
-            // Always re-derive from policy matrix so free-session services
-            // (e.g. veteran_70 + pool with matrix discount = 0%) are not
-            // incorrectly clamped to min_discount when the stored value is 0.
-            'discount_override'  => null,
+            'name'                       => $s->name,
+            'unit_price'                 => $s->unit_price,
+            'quantity'                   => $s->quantity,
+            'service_catalog_id'         => $s->service_catalog_id,
+            'service_catalog_variant_id' => $s->service_catalog_variant_id,
+            'guest_sort_order'           => $s->guest_sort_order,
+            'excluded_from_veteran_quota' => $s->excluded_from_veteran_quota,
+            'manual_discount_percentage'   => $s->manual_discount_percentage,
+            'manual_discount_reason'     => $s->manual_discount_reason,
+            'discount_override'          => null,
         ])->all();
 
         $bookingRooms = $booking->bookingRooms()->with(['roomType', 'roomRate'])->orderBy('sort_order')->get();
         $billingGuests = max(1, (int) $booking->guests - (int) $booking->extra_guests);
+        if ($bookingRooms->isNotEmpty()) {
+            $billingGuests = $this->pricing->totalBillingGuestsForRoomLines(
+                $bookingRooms->map(fn ($line) => [
+                    'room_type'        => $line->roomType,
+                    'guests'           => $line->guests,
+                    'children_under_6' => $line->children_under_6,
+                    'extra_guests'     => $line->extra_guests,
+                    'bill_full_rooms'  => $line->bill_full_rooms,
+                ])->all(),
+                $booking->accommodation,
+            );
+        }
         $veteranTypes = $this->veteranPolicy
             ->forAccommodation($booking->accommodation_id)
             ->normalizeVeteranTypes(
@@ -542,6 +677,8 @@ class ManualBookingService
                 'total'               => $line['line_total'],
                 'sort_order'          => $i,
                 'veteran_group_usage' => $line['veteran_group_usage'] ?? null,
+                'manual_discount_percentage' => $line['manual_discount_percentage'] ?? null,
+                'manual_discount_reason'     => $line['manual_discount_reason'] ?? null,
             ]);
         }
 
@@ -568,6 +705,7 @@ class ManualBookingService
         int $billingGuests,
         ?string $veteranType,
         array $data,
+        array $bookingRoomIdsBySort = [],
     ): void {
         for ($i = 0; $i < $billingGuests; $i++) {
             $guest = $guestDetails[$i] ?? [];
@@ -583,11 +721,21 @@ class ManualBookingService
                     : 'مهمان ' . ($i + 1);
             }
 
+            $roomLineIndex = isset($guest['room_line_index']) ? (int) $guest['room_line_index'] : null;
+            $bookingRoomId = ($roomLineIndex !== null && isset($bookingRoomIdsBySort[$roomLineIndex]))
+                ? (int) $bookingRoomIdsBySort[$roomLineIndex]
+                : null;
+
             BookingGuestDetail::create([
                 'booking_id'  => $booking->id,
+                'booking_room_id' => $bookingRoomId,
                 'sort_order'  => $i,
                 'full_name'   => $fullName,
-                'national_id' => $guest['national_id'] ?? null,
+                'national_id' => ($guest['national_id'] ?? '') !== '' ? $guest['national_id'] : null,
+                'is_foreign_guest' => !empty($guest['is_foreign_guest']),
+                'passport_number' => !empty($guest['passport_number']) ? strtoupper(trim((string) $guest['passport_number'])) : null,
+                'country_id' => !empty($guest['country_id']) ? (int) $guest['country_id'] : null,
+                'residence_city_id' => !empty($guest['residence_city_id']) ? (int) $guest['residence_city_id'] : null,
                 'mobile'      => $guest['mobile'] ?? null,
                 'relation'    => $guest['relation'] ?? null,
                 'excluded_from_veteran_discount' => !empty($guest['excluded_from_veteran_discount']),
@@ -679,6 +827,10 @@ class ManualBookingService
             return true;
         }
 
+        if (isset($guest['room_line_index']) && $guest['room_line_index'] !== null && $guest['room_line_index'] !== '') {
+            return true;
+        }
+
         if (trim($guest['full_name'] ?? '') !== '') {
             return true;
         }
@@ -741,5 +893,42 @@ class ManualBookingService
         $reason = trim((string) ($guest['manual_discount_reason'] ?? ''));
 
         return $reason !== '' ? $reason : null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function persistBeneficiaryCosts(Booking $booking, array $rows): void
+    {
+        foreach ($rows as $index => $row) {
+            $beneficiaryId = (int) ($row['program_beneficiary_id'] ?? 0);
+            if ($beneficiaryId <= 0) {
+                continue;
+            }
+
+            $beneficiary = ProgramBeneficiary::find($beneficiaryId);
+            if (!$beneficiary) {
+                continue;
+            }
+
+            if (!$beneficiary->user_id) {
+                $beneficiary = $this->beneficiaryUsers->linkBeneficiary($beneficiary);
+            }
+
+            $docs = $this->documents->storeMany(
+                $row['documents'] ?? [],
+                'booking-documents/beneficiary/' . $booking->id,
+            );
+
+            BookingBeneficiaryCost::create([
+                'booking_id'              => $booking->id,
+                'program_beneficiary_id'  => $beneficiary->id,
+                'user_id'                 => $beneficiary->user_id,
+                'debt_amount'             => (int) ($row['debt_amount'] ?? 0),
+                'description'             => $row['description'] ?? null,
+                'documents'               => $docs,
+                'sort_order'              => $index,
+            ]);
+        }
     }
 }

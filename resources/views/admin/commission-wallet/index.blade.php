@@ -17,12 +17,11 @@
 @endphp
 
 <div class="ta-page-head">
-    <div>
-        <h1>کیف پول کارمزد خدمات</h1>
-        <div class="text-muted small mt-1">
-            {{ config('platform_commission.percentage') }}٪ از هر تراکنش، حداکثر {{ number_format(config('platform_commission.cap')) }} تومان
+    {{-- <div>
+        <div class="text-muted small">
+            مبلغ ثابت {{ number_format(config('platform_commission.fixed_amount')) }} تومان برای هر رزرو (بدون کارمزد خدمات؛ معاف: اردو و رزرو با مبلغ صفر)
         </div>
-    </div>
+    </div> --}}
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <a href="{{ route('admin.commission-wallet.export', $exportQuery) }}" class="btn btn-success btn-sm">
             <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
@@ -230,7 +229,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th class="col-index">#</th>
                     <th>تاریخ</th>
                     <th>نوع</th>
                     <th>دسته</th>
@@ -362,6 +361,7 @@
                 onSelect: function () {
                     var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
                     syncCommissionDateToWire(el);
+                    if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(el);
                 },
             });
         });
@@ -388,6 +388,7 @@
             if (!input) return;
             input.value = '';
             syncCommissionDateToWire(input);
+            if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(input);
         });
     });
 

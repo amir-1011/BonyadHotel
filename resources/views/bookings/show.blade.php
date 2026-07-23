@@ -93,14 +93,11 @@
 
     {{-- Actions --}}
     <div class="d-flex gap-2 flex-wrap mb-4">
-        @if($booking->status === 'confirmed' && $booking->check_out >= now()->toDateString())
-        <form action="{{ route('bookings.cancel', $booking) }}" method="POST">
-            @csrf
-            <button type="submit" data-swal-confirm="آیا از لغو این رزرو مطمئن هستید؟" class="bnb-filter-pill" style="border-color:var(--bnb-red);color:var(--bnb-red);cursor:pointer;background:none;font-family:var(--bnb-font);"><i class="bi bi-x-circle me-1"></i>لغو رزرو</button>
-        </form>
-        @endif
         <a href="{{ route('accommodations.show', $booking->accommodation) }}" class="bnb-filter-pill text-decoration-none" target="_blank"><i class="bi bi-building me-1"></i>مشاهده اقامتگاه</a>
     </div>
+
+    {{-- Cancellation / refund request --}}
+    @include('components.cancellation.status-card', ['booking' => $booking, 'panel' => 'guest'])
 
     {{-- Review section --}}
     @if($canReview)

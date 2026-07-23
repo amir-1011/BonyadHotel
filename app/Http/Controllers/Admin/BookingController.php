@@ -31,6 +31,15 @@ class BookingController extends Controller
     public function updateStatus(Request $request, Booking $booking)
     {
         $request->validate(['status' => ['required', 'in:pending,confirmed,cancelled']]);
+
+        if (
+            $request->status === 'cancelled'
+            && $booking->status === 'confirmed'
+            && $booking->canRequestCancellation()
+        ) {
+            return redirect()->route('admin.bookings.show', ['booking' => $booking, 'cancel' => 1]);
+        }
+
         $booking->update(['status' => $request->status]);
         return back()->with('status', 'وضعیت رزرو به‌روز شد.');
     }

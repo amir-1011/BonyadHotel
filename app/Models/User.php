@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\DisplaysGuestIdentity;
 use App\Support\VeteranGroups;
 use App\Support\HostPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
+    use DisplaysGuestIdentity;
+    use HasApiTokens;
     use HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
@@ -18,10 +22,15 @@ class User extends Authenticatable
         'mobile',
         'password',
         'national_id',
+        'is_foreign_guest',
+        'passport_number',
+        'country_id',
+        'residence_city_id',
         'veteran_type',
+        'secondary_veteran_type',
         'discount_percentage',
         'host_panel_permissions',
-        'room_board_layout',
+        'host_position_title',
         'mobile_verified_at',
         'national_id_verified_at',
     ];
@@ -39,13 +48,33 @@ class User extends Authenticatable
             'national_id_verified_at'=> 'datetime',
             'discount_percentage'    => 'integer',
             'host_panel_permissions' => 'array',
-            'room_board_layout'      => 'array',
+            'is_foreign_guest'       => 'boolean',
         ];
     }
 
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function programBeneficiary()
+    {
+        return $this->hasOne(ProgramBeneficiary::class);
+    }
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function residenceCity()
+    {
+        return $this->belongsTo(ResidenceCity::class);
+    }
+
+    public function beneficiaryBookingCosts()
+    {
+        return $this->hasMany(BookingBeneficiaryCost::class);
     }
 
     public function accommodations()
@@ -75,28 +104,64 @@ class User extends Authenticatable
             ->get();
     }
 
-    public function effectiveHostPermissions(): array
+    /**
+     * @return array<string, list<string>>
+     */
+    public function effectiveHostPermissionGrants(): array
     {
         if ($this->isAdmin()) {
-            return HostPermissions::defaults();
+            return HostPermissions::fullAccessGrants();
         }
 
         if (!$this->isHost()) {
             return [];
         }
 
-        $stored = $this->host_panel_permissions;
-
-        if ($stored === null) {
-            return HostPermissions::defaults();
-        }
-
-        return array_values(array_intersect($stored, HostPermissions::keys()));
+        return HostPermissions::normalizeStored($this->host_panel_permissions);
     }
 
-    public function hasHostPanelAccess(string $permission): bool
+    /**
+     * @return list<string> Enabled module keys (for menu visibility).
+     */
+    public function effectiveHostPermissions(): array
     {
-        return in_array($permission, $this->effectiveHostPermissions(), true);
+        return HostPermissions::enabledModulesFromGrants($this->effectiveHostPermissionGrants());
+    }
+
+    public function hasHostPanelAccess(string $module): bool
+    {
+        return HostPermissions::grantsHaveModuleAccess(
+            $module,
+            $this->effectiveHostPermissionGrants()
+        );
+    }
+
+    public function hostCan(string $pageKey, string $action): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if (!$this->isHost()) {
+            return false;
+        }
+
+        return HostPermissions::grantsAllow(
+            $pageKey,
+            $action,
+            $this->effectiveHostPermissionGrants()
+        );
+    }
+
+    public function hostCanAny(string $pageKey, array $actions): bool
+    {
+        foreach ($actions as $action) {
+            if ($this->hostCan($pageKey, $action)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function reviews()
@@ -117,6 +182,29 @@ class User extends Authenticatable
     public function isHost(): bool
     {
         return $this->hasRole('host');
+    }
+
+    public function hostRoleLabel(): string
+    {
+        if (!$this->isHost()) {
+            return '';
+        }
+
+        return filled($this->host_position_title)
+            ? trim((string) $this->host_position_title)
+            : 'میزبان';
+    }
+
+    public function roleBadgeLabel(?string $roleName = null): string
+    {
+        $roleName ??= $this->roles->first()?->name;
+
+        return match ($roleName) {
+            'host'        => $this->hostRoleLabel(),
+            'super_admin' => 'ادمین',
+            'guest'       => 'مهمان',
+            default       => $roleName ?: 'کاربر',
+        };
     }
 
     public function hasStaffAccess(): bool
@@ -147,16 +235,39 @@ class User extends Authenticatable
 
     public function veteranLabel(?int $accommodationId = null): string
     {
-        return VeteranGroups::label($this->veteran_type, $accommodationId);
+        return VeteranGroups::labelsForTypes($this->normalizedVeteranTypes($accommodationId), $accommodationId);
     }
 
     public function accommodationDiscountFor(?int $accommodationId): int
     {
-        if (!$this->veteran_type || !$accommodationId) {
+        $types = $this->normalizedVeteranTypes($accommodationId);
+
+        if (empty($types)) {
             return (int) $this->discount_percentage;
         }
 
-        return VeteranGroups::accommodationDiscount($this->normalizedVeteranType(), $accommodationId);
+        if ($accommodationId) {
+            return VeteranGroups::accommodationDiscountForTypes($types, $accommodationId);
+        }
+
+        return (int) $this->discount_percentage;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function normalizedVeteranTypes(?int $accommodationId = null): array
+    {
+        $policy = app(\App\Services\VeteranPolicyService::class);
+
+        if ($accommodationId !== null) {
+            $policy = $policy->forAccommodation($accommodationId);
+        }
+
+        return $policy->normalizeVeteranTypes(
+            $this->normalizedVeteranType(),
+            $this->normalizedSecondaryVeteranType(),
+        );
     }
 
     public function normalizedVeteranType(): ?string
@@ -166,5 +277,20 @@ class User extends Authenticatable
         }
 
         return app(\App\Services\VeteranPolicyService::class)->normalizeKey($this->veteran_type) ?? $this->veteran_type;
+    }
+
+    public function normalizedSecondaryVeteranType(): ?string
+    {
+        if (!$this->secondary_veteran_type) {
+            return null;
+        }
+
+        return app(\App\Services\VeteranPolicyService::class)->normalizeKey($this->secondary_veteran_type)
+            ?? $this->secondary_veteran_type;
+    }
+
+    public function hasVeteranGroup(): bool
+    {
+        return $this->veteran_type || $this->secondary_veteran_type;
     }
 }

@@ -47,8 +47,25 @@ class BookingRoom extends Model
         return $this->belongsTo(Room::class);
     }
 
+    public function guestDetails()
+    {
+        return $this->hasMany(BookingGuestDetail::class)->orderBy('sort_order');
+    }
+
     public function physicalRoomLabel(): string
     {
-        return $this->room?->name ?? '—';
+        return $this->physicalRoomDisplayLabel();
+    }
+
+    public function physicalRoomDisplayLabel(): string
+    {
+        $group = $this->roomType?->name;
+        $physical = $this->room?->name;
+
+        if ($group && $physical) {
+            return $group . ' · ' . $physical;
+        }
+
+        return $physical ?? $group ?? '—';
     }
 }

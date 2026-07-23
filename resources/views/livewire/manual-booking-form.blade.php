@@ -1,8 +1,8 @@
-<div>
+<div id="manual-booking-form">
     {{-- Progress --}}
     <div class="mb-4">
         <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
-            @foreach([1=>'اتاق و تاریخ', 2=>'خدمات', 3=>'رزرو‌کننده و ایثارگری', 4=>'پرداخت', 5=>'تأیید'] as $n => $label)
+            @foreach([1=>'اتاق و تاریخ', 2=>'مهمان اصلی و ایثارگری', 3=>'پرداخت', 4=>'ذینفعان', 5=>'تأیید'] as $n => $label)
                 <button type="button" wire:click="goToStep({{ $n }})"
                         class="btn btn-sm {{ $step === $n ? 'btn-primary' : ($step > $n ? 'btn-outline-success' : 'btn-outline-secondary') }}"
                         @if($n > $step) disabled @endif>
@@ -65,7 +65,7 @@
                                 @if(($line['children_under_6'] ?? 0) > 0) · {{ $line['children_under_6'] }} کودک زیر ۶ سال @endif
                                 <span>({{ $lineGuests }} نفر)</span>
                                 @if(($line['extra_guests'] ?? 0) > 0) · {{ $line['extra_guests'] }} کف‌خواب @endif
-                                @if(!empty($line['bill_full_rooms'])) · رزرو کامل اتاق @endif
+                                @if(!empty($line['bill_full_rooms'])) · رزرو کامل اتاق @elseif($rt && $lineGuests < (int) $rt->capacity) · بدون هزینه تخت خالی @endif
                             </div>
                         </div>
                         <button type="button" wire:click="removeRoomLine({{ $i }})" data-swal-confirm="این اتاق از رزرو حذف شود؟" class="btn btn-sm btn-outline-danger flex-shrink-0" title="حذف">
@@ -99,120 +99,100 @@
     </div>
     @endif
 
-    {{-- Step 2: Services --}}
+    {{-- Step 2: Booker identity & veteran discount --}}
     @if($step === 2)
     <div class="card shadow-sm mb-3">
-        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-bag-plus me-2"></i>خدمات اضافی</span>
-            <button type="button" wire:click="addService" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus"></i> ردیف جدید</button>
-        </div>
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2"></i>مهمان اصلی و گروه ایثارگری</div>
         <div class="card-body">
-            @if(!$veteranType)
-            <div class="alert alert-info small py-2 mb-3">
-                <i class="bi bi-info-circle me-1"></i>
-                تخفیف هر خدمت بر اساس گروه ایثارگری که در مرحله بعد انتخاب می‌کنید، به‌صورت خودکار اعمال می‌شود.
-                برای جانباز ۷۰٪، استخر/بدنسازی/سالن تا ۳ جلسه در هفته <strong>رایگان</strong> است.
+            <p class="text-muted small mb-3">ابتدا مشخص کنید مهمان اصلی ایرانی است یا خارجی. برای مهمان ایرانی کد ملی را بررسی کنید؛ برای مهمان خارجی شماره پاسپورت و محل اقامت را وارد کنید.</p>
+
+            <label class="d-flex align-items-center gap-2 border rounded p-3 mb-3 {{ $bookerIsForeignGuest ? 'border-info bg-info-subtle' : '' }}" style="cursor:pointer;">
+                <input type="checkbox" wire:model.live="bookerIsForeignGuest" class="form-check-input m-0" @if($bookerVerified) disabled @endif>
+                <div>
+                    <div class="fw-semibold"><i class="bi bi-globe2 me-1"></i>مهمان خارجی</div>
+                    <div class="small text-muted">ثبت با شماره پاسپورت، کشور و شهر اقامت</div>
+                </div>
+            </label>
+
+            @if($bookerIsForeignGuest)
+            {{-- Foreign guest flow --}}
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">شماره پاسپورت</label>
+                    <input type="text" wire:model="bookerPassportNumber" class="form-control" placeholder="شماره پاسپورت" dir="ltr" maxlength="32"
+                           @if($bookerVerified) readonly @endif>
+                    @error('bookerPassportNumber')<div class="text-danger small">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">نام و نام خانوادگی</label>
+                    <input type="text" wire:model="guestContactName" class="form-control" placeholder="نام مهمان اصلی"
+                           @if($bookerVerified && $bookerIsExistingUser) readonly @endif>
+                    @error('guestContactName')<div class="text-danger small">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">شماره موبایل</label>
+                    <input type="text" wire:model.live="guestContactMobile" class="form-control" placeholder="09xxxxxxxxx" dir="ltr" maxlength="11"
+                           @if($bookerVerified && $bookerIsExistingUser) readonly @endif>
+                    @error('guestContactMobile')<div class="text-danger small">{{ $message }}</div>@enderror
+                </div>
             </div>
-            @else
-            <div class="alert alert-success small py-2 mb-3">
-                <i class="bi bi-check-circle me-1"></i>
-                گروه ایثارگری: <strong>{{ $veteranGroups[$veteranType]['label'] ?? $veteranType }}</strong>
-                — تخفیف خدمات بر اساس این گروه محاسبه می‌شود.
-                @if(($veteranGroups[$veteranType]['discount'] ?? 0) > 0)
-                تخفیف اقامت: {{ $veteranGroups[$veteranType]['discount'] }}٪
+
+            <div class="row g-2 mb-3">
+                @include('components.manual-booking.foreign-guest-location-fields', [
+                    'countries' => $countries,
+                    'residenceCities' => $residenceCities,
+                ])
+            </div>
+
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-3">
+                    <button type="button" wire:click="verifyBooker" class="btn btn-primary w-100" wire:loading.attr="disabled" wire:target="verifyBooker"
+                            @if($bookerVerified) disabled @endif>
+                        <span wire:loading.remove wire:target="verifyBooker"><i class="bi bi-search me-1"></i>بررسی</span>
+                        <span wire:loading wire:target="verifyBooker">در حال بررسی...</span>
+                    </button>
+                </div>
+                @if($bookerVerified)
+                <div class="col-md-3">
+                    <button type="button" wire:click="resetBookerVerificationFromUi" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>بررسی مجدد
+                    </button>
+                </div>
                 @endif
+            </div>
+
+            @if($bookerVerifyMessage)
+            <div class="alert alert-{{ $bookerIsExistingUser ? 'success' : 'info' }} py-2 small mb-3">
+                <i class="bi bi-{{ $bookerIsExistingUser ? 'check-circle' : 'info-circle' }} me-1"></i>{{ $bookerVerifyMessage }}
             </div>
             @endif
-            <p class="text-muted small">از فهرست خدمات انتخاب کنید. اگر خدمت انواع دارد (مثلاً استخر نشاط / پارک آبی)، نوع را هم انتخاب کنید. برای ورود دستی «سایر (دستی)» را بزنید.</p>
-            @foreach($services as $i => $service)
-            @php
-                $catalogId = $service['service_catalog_id'] ?? '';
-                $selectedCatalog = $catalogId && $catalogId !== 'custom'
-                    ? $serviceCatalog->firstWhere('id', (int) $catalogId)
-                    : null;
-                $activeVariants = $selectedCatalog?->variants?->where('is_active', true) ?? collect();
-                $hasVariants = $activeVariants->isNotEmpty();
-                $catalogMissingVariants = $selectedCatalog && !$hasVariants;
-                $hasVariableDiscount = $selectedCatalog && $selectedCatalog->min_discount !== null && $selectedCatalog->max_discount !== null;
-            @endphp
-            <div class="row g-2 align-items-end mb-3 border-bottom pb-3" wire:key="svc-{{ $i }}">
-                <div class="col-md-3">
-                    <label class="form-label small">انتخاب خدمت</label>
-                    <select wire:model.live="services.{{ $i }}.service_catalog_id"
-                            class="form-select form-select-sm @error('services.'.$i.'.service_catalog_id') is-invalid @enderror">
-                        <option value="">— انتخاب کنید —</option>
-                        @foreach($serviceCatalog as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                        @endforeach
-                        <option value="custom">سایر (دستی)</option>
-                    </select>
-                    @error('services.'.$i.'.service_catalog_id')<div class="text-danger small">{{ $message }}</div>@enderror
-                </div>
-                @if($hasVariants)
-                <div class="col-md-3">
-                    <label class="form-label small">نوع خدمت</label>
-                    <select wire:model.live="services.{{ $i }}.service_catalog_variant_id" class="form-select form-select-sm @error('services.'.$i.'.service_catalog_variant_id') is-invalid @enderror">
-                        <option value="">— انتخاب نوع —</option>
-                        @foreach($activeVariants as $variant)
-                        <option value="{{ $variant->id }}">{{ $variant->name }} ({{ number_format($variant->price) }} تومان)</option>
-                        @endforeach
-                    </select>
-                    @error('services.'.$i.'.service_catalog_variant_id')<div class="text-danger small">{{ $message }}</div>@enderror
-                </div>
-                @elseif($catalogMissingVariants)
-                <div class="col-md-9">
-                    <div class="alert alert-warning small py-2 mb-0">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        برای «{{ $selectedCatalog->name }}» هنوز نوع و قیمت در
-                        <a href="{{ route($panel . '.accommodations.veteran-policy', $accommodation) }}" wire:navigate class="alert-link fw-semibold">تنظیمات ایثارگری</a>
-                        تعریف نشده است.
-                        از بخش <strong>خدمات</strong> در همان صفحه انواع این خدمت را اضافه کنید، یا «سایر (دستی)» را انتخاب کنید.
+
+            @if($bookerVerified)
+            <div class="border rounded p-3 bg-light mb-3 small">
+                <div class="row g-2">
+                    <div class="col-md-3"><span class="text-muted">نام:</span> <strong>{{ $guestContactName ?: '—' }}</strong></div>
+                    <div class="col-md-3"><span class="text-muted">موبایل:</span> <strong dir="ltr">{{ $guestContactMobile }}</strong></div>
+                    <div class="col-md-3"><span class="text-muted">پاسپورت:</span> <strong dir="ltr">{{ $bookerPassportNumber }}</strong></div>
+                    <div class="col-md-3"><span class="text-muted">محل اقامت:</span>
+                        <strong>
+                            @php
+                                $country = $countries->firstWhere('id', $foreignCountryId);
+                                $city = $residenceCities->firstWhere('id', $foreignResidenceCityId);
+                            @endphp
+                            {{ $city?->name ?: '—' }}@if($country)، {{ $country->name }}@endif
+                        </strong>
                     </div>
                 </div>
-                @endif
-                <div class="col-md-{{ $hasVariants ? 3 : 4 }}">
-                    <label class="form-label small">نام خدمت</label>
-                    <input type="text" wire:model.live="services.{{ $i }}.name" class="form-control form-control-sm"
-                           placeholder="نام خدمت">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small">قیمت واحد (تومان)</label>
-                    <x-money-input wire:model.live="services.{{ $i }}.unit_price" class="form-control form-control-sm" min="0" />
-                </div>
-                <div class="col-md-1">
-                    <label class="form-label small">تعداد</label>
-                    <input type="number" wire:model.live="services.{{ $i }}.quantity" min="1" class="form-control form-control-sm">
-                </div>
-                @if($hasVariableDiscount && $veteranType)
-                <div class="col-md-2">
-                    <label class="form-label small">تخفیف ٪ ({{ $selectedCatalog->min_discount }}–{{ $selectedCatalog->max_discount }})</label>
-                    <input type="number" wire:model.live="services.{{ $i }}.discount_override"
-                           min="{{ $selectedCatalog->min_discount }}" max="{{ $selectedCatalog->max_discount }}"
-                           class="form-control form-control-sm">
-                </div>
-                @endif
-                <div class="col-md-{{ $hasVariableDiscount && $veteranType ? '12' : '2' }} d-flex justify-content-end">
-                    @if(count($services) > 1)
-                    <button type="button" wire:click="removeService({{ $i }})" data-swal-confirm="این خدمت حذف شود؟" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                    @endif
-                </div>
             </div>
-            @endforeach
-        </div>
-    </div>
-    @endif
-
-    {{-- Step 3: Booker identity & veteran discount --}}
-    @if($step === 3)
-    <div class="card shadow-sm mb-3">
-        <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2"></i>رزرو‌کننده و گروه ایثارگری</div>
-        <div class="card-body">
-            <p class="text-muted small mb-3">ابتدا کد ملی رزرو‌کننده را وارد و بررسی کنید. اگر در سیستم باشد، گروه ایثارگری از پروفایل خوانده می‌شود؛ در غیر این صورت نام و موبایل گرفته شده و پس از ثبت رزرو، کاربر جدید ساخته می‌شود.</p>
+            @endif
+            @else
+            {{-- Iranian guest flow --}}
+            <p class="text-muted small mb-3">اگر در سیستم باشد، گروه ایثارگری از پروفایل خوانده می‌شود؛ در غیر این صورت نام و موبایل گرفته شده و پس از ثبت رزرو، کاربر جدید ساخته می‌شود.</p>
 
             {{-- National ID + Verify --}}
             <div class="row g-2 align-items-end mb-3">
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold">کد ملی رزرو‌کننده</label>
+                    <label class="form-label small fw-semibold">کد ملی مهمان اصلی</label>
                     <input type="text" wire:model="bookerNationalId" class="form-control" placeholder="کد ملی ۱۰ رقمی" dir="ltr" maxlength="10"
                            @if($bookerVerified) readonly @endif>
                     @error('bookerNationalId')<div class="text-danger small">{{ $message }}</div>@enderror
@@ -242,11 +222,11 @@
             {{-- New user: name + mobile --}}
             @if($bookerVerified && !$bookerIsExistingUser)
             <div class="border rounded p-3 bg-light mb-3">
-                <div class="small fw-semibold mb-2"><i class="bi bi-person-plus me-1"></i>اطلاعات رزرو‌کننده (کاربر جدید)</div>
+                <div class="small fw-semibold mb-2"><i class="bi bi-person-plus me-1"></i>اطلاعات مهمان اصلی (کاربر جدید)</div>
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label small">نام و نام خانوادگی</label>
-                        <input type="text" wire:model="guestContactName" class="form-control form-control-sm" placeholder="نام رزرو‌کننده">
+                        <input type="text" wire:model="guestContactName" class="form-control form-control-sm" placeholder="نام مهمان اصلی">
                         @error('guestContactName')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
@@ -264,12 +244,18 @@
                 <div class="row g-2">
                     <div class="col-md-4"><span class="text-muted">نام:</span> <strong>{{ $guestContactName ?: '—' }}</strong></div>
                     <div class="col-md-4"><span class="text-muted">موبایل:</span> <strong dir="ltr">{{ $guestContactMobile }}</strong></div>
+                    @if($bookerIsForeignGuest)
+                    <div class="col-md-4"><span class="text-muted">پاسپورت:</span> <strong dir="ltr">{{ $bookerPassportNumber }}</strong></div>
+                    @else
                     <div class="col-md-4"><span class="text-muted">کد ملی:</span> <strong dir="ltr">{{ $bookerNationalId }}</strong></div>
+                    @endif
                 </div>
             </div>
             @endif
 
-            @if($bookerVerified)
+            @endif
+
+            @if($bookerVerified && !$bookerIsForeignGuest)
             <hr>
             <p class="text-muted small mb-2">گروه ایثارگری (حداکثر ۲ گروه — قابل تغییر دستی در صورت نیاز):</p>
             @error('veteranType')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
@@ -343,15 +329,19 @@
                 $fullRateNights = max(0, $requestedNights - $discountedNights);
                 $groupSummaries = $usageSummary['group_summaries'] ?? [];
                 $dualGroupCaps = count($groupSummaries) > 1;
+                $periodDeductions = $usageSummary['period_deductions'] ?? [];
             @endphp
             <div class="border rounded mt-3" style="font-size:.83rem; overflow:hidden">
 
                 {{-- Header --}}
                 <div class="d-flex align-items-center justify-content-between px-3 py-2 bg-light border-bottom flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
                         <i class="bi bi-shield-fill-check text-primary"></i>
                         <span class="fw-semibold">وضعیت سقف استفاده</span>
                         <span class="badge bg-primary bg-opacity-10 text-primary">{{ $usageSummary['label'] }}</span>
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">
+                            <i class="bi bi-globe2 me-1"></i>سهمیه مشترک بین تمام اقامتگاه‌ها
+                        </span>
                     </div>
                     <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
                         <i class="bi bi-house me-1"></i>
@@ -397,6 +387,24 @@
                                     <span class="text-danger">سقف این گروه در دوره جاری تکمیل شده</span>
                                 @endif
                             </div>
+                            @php $gDeductions = $groupSummary['period_deductions'] ?? []; @endphp
+                            @if(!empty($gDeductions))
+                            <div class="mt-2 ps-2 border-start border-2 border-{{ $gColor }} border-opacity-50">
+                                <div class="small fw-semibold text-muted mb-1">
+                                    <i class="bi bi-clock-history me-1"></i>رزروهای کاهش‌دهنده سهمیه
+                                </div>
+                                @foreach($gDeductions as $deduction)
+                                <div class="small d-flex justify-content-between gap-2 py-1 {{ !$loop->last ? 'border-bottom border-light' : '' }}">
+                                    <span>
+                                        <span dir="ltr" class="text-muted">{{ $deduction['tracking_code'] ?? '—' }}</span>
+                                        · {{ $deduction['accommodation_name'] }}
+                                        · @jalali($deduction['check_in']) تا @jalali($deduction['check_out'])
+                                    </span>
+                                    <span class="text-{{ $gColor }} fw-bold text-nowrap">{{ $deduction['nights'] }} شب</span>
+                                </div>
+                                @endforeach
+                            </div>
+                            @endif
                         </div>
                         @endforeach
                         @if($combinedRemain > 0)
@@ -431,6 +439,27 @@
                             </span>
                             <span class="text-muted">هر {{ $periodMonths }} ماه تجدید می‌شود</span>
                         </div>
+                        @if(!empty($periodDeductions))
+                        <div class="mt-2 ps-2 border-start border-2 border-{{ $periodColor }} border-opacity-50">
+                            <div class="small fw-semibold text-muted mb-1">
+                                <i class="bi bi-clock-history me-1"></i>رزروهای کاهش‌دهنده سهمیه ({{ $periodMonths }} ماه اخیر)
+                            </div>
+                            @foreach($periodDeductions as $deduction)
+                            <div class="small d-flex justify-content-between gap-2 py-1 {{ !$loop->last ? 'border-bottom border-light' : '' }}">
+                                <span>
+                                    <span dir="ltr" class="text-muted">{{ $deduction['tracking_code'] ?? '—' }}</span>
+                                    · {{ $deduction['accommodation_name'] }}
+                                    · @jalali($deduction['check_in']) تا @jalali($deduction['check_out'])
+                                </span>
+                                <span class="text-{{ $periodColor }} fw-bold text-nowrap">{{ $deduction['nights'] }} شب</span>
+                            </div>
+                            @endforeach
+                        </div>
+                        @elseif($usedPeriod === 0)
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-check-circle text-success me-1"></i>هیچ مصرفی در دوره جاری ثبت نشده
+                        </div>
+                        @endif
                     </div>
                     @endif
 
@@ -547,7 +576,7 @@
                         </div>
                         <div class="text-muted mt-2" style="font-size:.75rem">
                             <i class="bi bi-info-circle me-1"></i>
-                            سهمیه رایگان بین تمام رزروهای همان هفته مشترک است — جلسات بیشتر با نرخ عادی محاسبه می‌شود
+                            سهمیه رایگان بین تمام رزروهای همان هفته در تمام اقامتگاه‌ها مشترک است — جلسات بیشتر با نرخ عادی محاسبه می‌شود
                         </div>
                     </div>
                     @endif
@@ -567,19 +596,30 @@
     </div>
     @endif
 
-    {{-- Step 4: Payment & guests --}}
-    @if($step === 4)
+    {{-- Step 3: Payment, guests & per-guest services --}}
+    @if($step === 3)
     <div class="card shadow-sm mb-3">
         <div class="card-header bg-white fw-semibold"><i class="bi bi-credit-card me-2"></i>پرداخت و سایر مهمانان</div>
         <div class="card-body">
-            {{-- Booker summary from step 3 --}}
+            {{-- Booker summary from step 2 --}}
             <div class="alert alert-light border mb-4 small">
-                <div class="fw-semibold mb-2"><i class="bi bi-person-check me-1"></i>رزرو‌کننده</div>
+                <div class="fw-semibold mb-2"><i class="bi bi-person-check me-1"></i>مهمان اصلی @if($bookerIsForeignGuest)<span class="badge bg-info-subtle text-info border border-info-subtle ms-1">خارجی</span>@endif</div>
                 <div class="row g-2">
                     <div class="col-md-3"><span class="text-muted">نام:</span> {{ $guestContactName ?: '—' }}</div>
                     <div class="col-md-3"><span class="text-muted">موبایل:</span> <span dir="ltr">{{ $guestContactMobile }}</span></div>
+                    @if($bookerIsForeignGuest)
+                    <div class="col-md-3"><span class="text-muted">پاسپورت:</span> <span dir="ltr">{{ $bookerPassportNumber }}</span></div>
+                    <div class="col-md-3"><span class="text-muted">محل اقامت:</span>
+                        @php
+                            $summaryCountry = $countries->firstWhere('id', $foreignCountryId);
+                            $summaryCity = $residenceCities->firstWhere('id', $foreignResidenceCityId);
+                        @endphp
+                        {{ $summaryCity?->name ?: '—' }}@if($summaryCountry)، {{ $summaryCountry->name }}@endif
+                    </div>
+                    @else
                     <div class="col-md-3"><span class="text-muted">کد ملی:</span> <span dir="ltr">{{ $bookerNationalId }}</span></div>
                     <div class="col-md-3"><span class="text-muted">گروه:</span> {{ $veteranType ? ($veteranGroups[$veteranType]['label'] ?? '—') : 'عادی' }}</div>
+                    @endif
                 </div>
             </div>
 
@@ -622,12 +662,28 @@
             @endif
 
             <label class="form-label fw-semibold"><i class="bi bi-people me-1"></i>مهمانان ({{ $this->totalGuests }} نفر)</label>
+            @if(count($roomLines) > 1 || collect($guestDetails)->contains(fn ($g) => !empty($g['room_name'])))
+            <div class="alert alert-light border small py-2 mb-3">
+                <i class="bi bi-info-circle me-1"></i>
+                هر مهمان بر اساس اتاق انتخاب‌شده در مرحله قبل، به شماره اتاق خودش اختصاص داده شده است.
+            </div>
+            @endif
+            @php $prevRoomLabel = null; @endphp
             @foreach($guestDetails as $i => $guest)
             @php
                 $excluded = !empty($guest['excluded_from_veteran_discount']);
                 $canManualDiscount = $this->guestCanReceiveManualDiscount($i);
                 $manualPct = (int) ($guest['manual_discount_percentage'] ?? 0);
+                $roomLabel = $this->guestRoomLabel($i);
             @endphp
+            @if($roomLabel && $roomLabel !== $prevRoomLabel)
+            <div class="d-flex align-items-center gap-2 mb-2 mt-1" wire:key="room-heading-{{ $i }}">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+                    <i class="bi bi-door-open me-1"></i>اتاق {{ $roomLabel }}
+                </span>
+            </div>
+            @php $prevRoomLabel = $roomLabel; @endphp
+            @endif
             <div class="rounded p-3 mb-3 border-2 {{ $excluded ? 'border-warning bg-warning-subtle shadow-sm' : 'border bg-light' }}"
                  wire:key="guest-{{ $i }}"
                  style="border-width:{{ $excluded ? '2px' : '1px' }} !important; transition: background .15s, border-color .15s;">
@@ -636,7 +692,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge rounded-pill {{ $excluded ? 'text-bg-warning' : 'text-bg-secondary' }}">نفر {{ $i + 1 }}</span>
                         @if($i === 0)
-                            <span class="small fw-semibold text-muted"><i class="bi bi-person-check me-1"></i>رزرو‌کننده</span>
+                            <span class="small fw-semibold text-muted"><i class="bi bi-person-check me-1"></i>مهمان اصلی</span>
                         @endif
                         @if($veteranType && $this->discountPct > 0)
                             @if($excluded)
@@ -656,6 +712,11 @@
                         @if($manualPct > 0)
                             <span class="badge rounded-pill text-bg-info">
                                 <i class="bi bi-percent me-1"></i>تخفیف دستی {{ $manualPct }}٪
+                            </span>
+                        @endif
+                        @if($roomLabel && count($roomLines) <= 1)
+                            <span class="badge rounded-pill text-bg-primary bg-opacity-75">
+                                <i class="bi bi-door-open me-1"></i>{{ $roomLabel }}
                             </span>
                         @endif
                     </div>
@@ -713,10 +774,27 @@
                 @endif
 
                 <div class="row g-2">
-                    <div class="col-md-4">
+                    <div class="col-md-{{ ($i === 0 && $bookerIsForeignGuest) ? '3' : '4' }}">
                         <input type="text" wire:model="guestDetails.{{ $i }}.full_name" class="form-control form-control-sm" placeholder="نام و نام خانوادگی"
                                @if($i === 0 && $bookerVerified) readonly @endif>
                     </div>
+                    @if($i === 0 && $bookerIsForeignGuest)
+                    <div class="col-md-2">
+                        <input type="text" wire:model="guestDetails.{{ $i }}.passport_number" class="form-control form-control-sm" placeholder="شماره پاسپورت" dir="ltr" readonly>
+                    </div>
+                    <div class="col-md-3">
+                        @php
+                            $guestResidenceCountry = $countries->firstWhere('id', $foreignCountryId);
+                            $guestResidenceCity = $residenceCities->firstWhere('id', $foreignResidenceCityId);
+                        @endphp
+                        <input type="text" class="form-control form-control-sm" readonly
+                               value="{{ $guestResidenceCity?->name ?: '—' }}@if($guestResidenceCountry)، {{ $guestResidenceCountry->name }}@endif"
+                               placeholder="محل اقامت">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" wire:model="guestDetails.{{ $i }}.mobile" class="form-control form-control-sm" placeholder="موبایل" dir="ltr" readonly>
+                    </div>
+                    @else
                     <div class="col-md-3">
                         <input type="text" wire:model="guestDetails.{{ $i }}.national_id" class="form-control form-control-sm" placeholder="کد ملی" dir="ltr"
                                @if($i === 0 && $bookerVerified) readonly @endif>
@@ -725,10 +803,11 @@
                         <input type="text" wire:model="guestDetails.{{ $i }}.mobile" class="form-control form-control-sm" placeholder="موبایل" dir="ltr"
                                @if($i === 0 && $bookerVerified) readonly @endif>
                     </div>
+                    @endif
                     <div class="col-md-2">
                         @if($i === 0)
                         <select wire:model="guestDetails.{{ $i }}.relation" class="form-select form-select-sm" disabled>
-                            <option value="رزرو‌کننده">رزرو‌کننده</option>
+                            <option value="{{ \App\Models\BookingGuestDetail::RELATION_MAIN_GUEST }}">{{ \App\Models\BookingGuestDetail::RELATION_MAIN_GUEST_LABEL }}</option>
                         </select>
                         @else
                         <select wire:model="guestDetails.{{ $i }}.relation" class="form-select form-select-sm">
@@ -740,10 +819,137 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- Per-guest services --}}
+                <div class="border-top mt-3 pt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-semibold"><i class="bi bi-bag-plus me-1"></i>خدمات این مهمان</span>
+                        <button type="button" wire:click="addGuestService({{ $i }})" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus"></i> خدمت
+                        </button>
+                    </div>
+
+                    @if(!empty($guest['services']))
+                    @if($veteranType)
+                    <p class="text-muted mb-2" style="font-size:.78rem;">
+                        تخفیف و سهمیه رایگان خدمات بر اساس گروه ایثارگری مهمان اصلی محاسبه می‌شود.
+                        در صورت نیاز می‌توانید هزینه خدمت را از سهمیه ایثارگری مستثنی کنید.
+                    </p>
+                    @endif
+
+                    @foreach($guest['services'] ?? [] as $si => $service)
+                    @php
+                        $catalogId = $service['service_catalog_id'] ?? '';
+                        $selectedCatalog = $catalogId && $catalogId !== 'custom'
+                            ? $serviceCatalog->firstWhere('id', (int) $catalogId)
+                            : null;
+                        $activeVariants = $selectedCatalog?->variants?->where('is_active', true) ?? collect();
+                        $hasVariants = $activeVariants->isNotEmpty();
+                        $catalogMissingVariants = $selectedCatalog && !$hasVariants;
+                        $hasVariableDiscount = $selectedCatalog && $selectedCatalog->min_discount !== null && $selectedCatalog->max_discount !== null;
+                        $excludedFromQuota = !empty($service['excluded_from_veteran_quota']);
+                        $serviceManualPct = (int) ($service['manual_discount_percentage'] ?? 0);
+                    @endphp
+                    <div class="d-flex align-items-start gap-2 mb-2" wire:key="guest-{{ $i }}-svc-{{ $si }}">
+                        <div class="rounded border bg-white p-2 flex-grow-1">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">خدمت</label>
+                                <select wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.service_catalog_id"
+                                        class="form-select form-select-sm @error('guestDetails.'.$i.'.services.'.$si.'.service_catalog_id') is-invalid @enderror">
+                                    <option value="">— انتخاب —</option>
+                                    @foreach($serviceCatalog as $cat)
+                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                    @endforeach
+                                    <option value="custom">سایر (دستی)</option>
+                                </select>
+                                @error('guestDetails.'.$i.'.services.'.$si.'.service_catalog_id')<div class="text-danger small">{{ $message }}</div>@enderror
+                            </div>
+                            @if($hasVariants)
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">نوع</label>
+                                <select wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.service_catalog_variant_id"
+                                        class="form-select form-select-sm @error('guestDetails.'.$i.'.services.'.$si.'.service_catalog_variant_id') is-invalid @enderror">
+                                    <option value="">— نوع —</option>
+                                    @foreach($activeVariants as $variant)
+                                    <option value="{{ $variant->id }}">{{ $variant->name }} ({{ number_format($variant->price) }})</option>
+                                    @endforeach
+                                </select>
+                                @error('guestDetails.'.$i.'.services.'.$si.'.service_catalog_variant_id')<div class="text-danger small">{{ $message }}</div>@enderror
+                            </div>
+                            @elseif($catalogMissingVariants)
+                            <div class="col-md-9">
+                                <div class="alert alert-warning small py-1 mb-0">نوع و قیمت این خدمت در تنظیمات ایثارگری تعریف نشده.</div>
+                            </div>
+                            @endif
+                            <div class="col-md-{{ $hasVariants ? 3 : 4 }}">
+                                <label class="form-label small mb-1">نام</label>
+                                <input type="text" wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.name" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">قیمت</label>
+                                <x-money-input wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.unit_price" class="form-control form-control-sm" min="0" />
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small mb-1">تعداد</label>
+                                <input type="number" wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.quantity" min="1" class="form-control form-control-sm">
+                            </div>
+                        </div>
+
+                        @if($veteranType && !empty(trim($service['name'] ?? '')))
+                        <label class="d-flex align-items-start gap-2 rounded px-2 py-2 mt-2 mb-0 border user-select-none {{ $excludedFromQuota ? 'border-warning bg-warning-subtle' : 'border-secondary border-opacity-25' }}"
+                               style="cursor:pointer;">
+                            <input type="checkbox"
+                                   class="form-check-input flex-shrink-0 mt-1"
+                                   wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.excluded_from_veteran_quota">
+                            <span class="small lh-sm">
+                                <span class="fw-semibold d-block">هزینه این خدمت از سهمیه ایثارگری مهمان اصلی کسر نشود</span>
+                                <span class="text-muted" style="font-size:.75rem;">
+                                    {{ $excludedFromQuota ? 'این خدمت با نرخ کامل محاسبه می‌شود و سهمیه رایگان/تخفیف ایثارگری مصرف نمی‌کند.' : 'در صورت فعال‌سازی، می‌توانید تخفیف دستی با ذکر دلیل ثبت کنید.' }}
+                                </span>
+                            </span>
+                        </label>
+                        @endif
+
+                        @if($excludedFromQuota && !empty(trim($service['name'] ?? '')))
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">تخفیف دستی ٪</label>
+                                <input type="number"
+                                       wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_percentage"
+                                       class="form-control form-control-sm" min="0" max="100" placeholder="۰">
+                                @error("guestDetails.{$i}.services.{$si}.manual_discount_percentage")<div class="text-danger small">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-md-9">
+                                <label class="form-label small mb-1">دلیل تخفیف @if($serviceManualPct > 0)<span class="text-danger">*</span>@endif</label>
+                                <input type="text"
+                                       wire:model="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_reason"
+                                       class="form-control form-control-sm"
+                                       placeholder="مثلاً: پرداخت مستقیم، توافق مدیر، ...">
+                                @error("guestDetails.{$i}.services.{$si}.manual_discount_reason")<div class="text-danger small">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+                        @endif
+                        </div>
+                        <button type="button"
+                                wire:click="removeGuestService({{ $i }}, {{ $si }})"
+                                class="btn btn-sm btn-outline-danger flex-shrink-0 mt-4"
+                                title="حذف خدمت">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    @endforeach
+                    @endif
+                </div>
             </div>
             @endforeach
         </div>
     </div>
+    @endif
+
+    {{-- Step 4: Beneficiaries --}}
+    @if($step === 4)
+        @include('livewire.concerns.beneficiary-rows-step', ['beneficiaries' => $beneficiaries])
     @endif
 
     {{-- Step 5: Success + full booking details --}}
@@ -860,6 +1066,9 @@
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">
                             {{ $line['name'] }}
+                            @if(isset($line['guest_sort_order']))
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1" style="font-size:.68rem">مهمان {{ (int) $line['guest_sort_order'] + 1 }}</span>
+                            @endif
                             <span class="text-secondary">({{ $line['quantity'] }} × {{ number_format($line['unit_price']) }})</span>
                         </span>
                         <span>{{ number_format($line['line_subtotal']) }} ت</span>
@@ -898,7 +1107,7 @@
     @endif
 
     {{-- Navigation --}}
-    <div class="d-flex justify-content-between">
+    <div id="manual-booking-nav" class="d-flex justify-content-between">
         @if($step > 1 && $step < 5)
         <button type="button" wire:click="prevStep" class="btn btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>قبلی</button>
         @else

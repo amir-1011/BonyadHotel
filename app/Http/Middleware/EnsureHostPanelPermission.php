@@ -16,15 +16,28 @@ class EnsureHostPanelPermission
             return $next($request);
         }
 
-        $permission = HostPermissions::permissionForRoute($request->route()?->getName());
+        $routeName = $request->route()?->getName();
 
-        if ($permission && !$user->hasHostPanelAccess($permission)) {
+        if ($routeName === 'host.profile') {
+            return $next($request);
+        }
+
+        $required = HostPermissions::permissionForRoute($routeName, $request->method());
+
+        if ($required && !$user->hostCan($required['page'], $required['action'])) {
+            $deniedModule = HostPermissions::moduleForPage($required['page']);
+
+            if ($deniedModule && $user->hasHostPanelAccess($deniedModule)) {
+                return redirect()->to(HostPermissions::landingRoute($deniedModule))
+                    ->with('error', 'به این بخش دسترسی ندارید.');
+            }
+
             $fallback = collect($user->effectiveHostPermissions())
-                ->first(fn (string $key) => $key !== $permission);
+                ->first(fn (string $module) => $module !== $deniedModule);
 
             if ($fallback) {
                 return redirect()->to(HostPermissions::landingRoute($fallback))
-                    ->with('status', 'به این بخش دسترسی ندارید.');
+                    ->with('error', 'به این بخش دسترسی ندارید.');
             }
 
             abort(403, 'دسترسی به پنل میزبان برای شما تعریف نشده است.');

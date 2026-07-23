@@ -2,29 +2,34 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\ManagesHostPermissionForm;
+use App\Livewire\Concerns\ManagesHostPositionForm;
 use App\Models\Accommodation;
 use App\Models\User;
 use App\Services\NationalIdVerificationService;
 use App\Support\HostPermissions;
+use App\Support\HostPositionTitles;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 #[Layout('layouts.admin', ['title' => 'افزودن میزبان', 'pageTitle' => 'افزودن میزبان'])]
 class HostCreate extends Component
 {
+    use ManagesHostPermissionForm;
+    use ManagesHostPositionForm;
+
     public string $name                        = '';
     public string $mobile                      = '';
     public string $nationalId                  = '';
     public string $hostPassword                = '';
     public string $hostPassword_confirmation   = '';
-    public array  $hostPanelPermissions        = [];
     public array  $selectedAccommodationIds    = [];
 
     public function mount(): void
     {
-        $this->hostPanelPermissions = HostPermissions::defaults();
+        $this->mountHostPermissionForm();
+        $this->mountHostPositionForm();
     }
 
     public function save(): void
@@ -38,8 +43,6 @@ class HostCreate extends Component
             'nationalId'                => ['nullable', 'digits:10', 'unique:users,national_id'],
             'hostPassword'              => ['required', 'string', 'min:6', 'confirmed'],
             'hostPassword_confirmation' => ['required'],
-            'hostPanelPermissions'      => ['required', 'array', 'min:1'],
-            'hostPanelPermissions.*'    => ['string', Rule::in(HostPermissions::keys())],
             'selectedAccommodationIds'  => ['nullable', 'array'],
             'selectedAccommodationIds.*'=> ['integer', 'exists:accommodations,id'],
         ], [
@@ -52,16 +55,22 @@ class HostCreate extends Component
             'hostPassword.required'          => 'رمز عبور پنل میزبان الزامی است.',
             'hostPassword.min'               => 'رمز عبور باید حداقل ۶ کاراکتر باشد.',
             'hostPassword.confirmed'         => 'تکرار رمز عبور مطابقت ندارد.',
-            'hostPanelPermissions.required'  => 'حداقل یک بخش از پنل میزبان را انتخاب کنید.',
-            'hostPanelPermissions.min'       => 'حداقل یک بخش از پنل میزبان را انتخاب کنید.',
         ]);
+
+        $this->validateHostPermissionForm();
+        $this->validateHostPositionForm();
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
 
         $data = [
             'name'                   => $this->name,
             'mobile'                 => $this->mobile,
             'password'               => $this->hostPassword,
             'mobile_verified_at'     => now(),
-            'host_panel_permissions' => array_values(array_unique($this->hostPanelPermissions)),
+            'host_panel_permissions' => $this->hostPermissionGrantsFromForm(),
+            'host_position_title'    => $this->resolvedHostPositionTitle(),
         ];
 
         if ($this->nationalId) {
@@ -122,6 +131,7 @@ class HostCreate extends Component
         return view('admin.users.create-host', [
             'accommodations'        => $accommodations,
             'hostPermissionCatalog' => HostPermissions::catalog(),
+            'hostPositionOptions'   => HostPositionTitles::optionsForForm($this->hostPositionPreset),
         ]);
     }
 }

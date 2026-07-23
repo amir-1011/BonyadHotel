@@ -56,6 +56,7 @@ class ProfileController extends Controller
 
             $updateData['national_id'] = $nationalId;
             $updateData['veteran_type'] = $result['veteran_type'];
+            $updateData['secondary_veteran_type'] = null;
             $updateData['discount_percentage'] = $result['discount'];
             $updateData['national_id_verified_at'] = now();
         }
@@ -101,6 +102,7 @@ class ProfileController extends Controller
         $user->update([
             'national_id'             => $nationalId,
             'veteran_type'            => $result['veteran_type'],
+            'secondary_veteran_type'  => null,
             'discount_percentage'     => $result['discount'],
             'national_id_verified_at' => now(),
         ]);

@@ -39,7 +39,7 @@
 
             <div class="d-flex flex-wrap gap-2 mb-3" x-show="!loading">
                 <span class="badge bg-success-subtle text-success border border-success-subtle">آزاد</span>
-                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (ظرفیت روزانه)</span>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (سیاست قیمتی)</span>
                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle">مسدود</span>
                 <span class="badge bg-secondary-subtle text-secondary border">رزرو شده</span>
             </div>
@@ -64,6 +64,7 @@
                             </div>
                             <p class="text-muted mb-2 small" style="font-size:.75rem;line-height:1.5;"
                                x-show="room.description" x-text="room.description"></p>
+                            <div class="small text-secondary mb-2" x-show="room.room_type_name" x-text="room.room_type_name"></div>
                             <div class="d-flex flex-wrap gap-1" x-show="room.amenities && room.amenities.length">
                                 <template x-for="a in room.amenities.slice(0, 4)" :key="a">
                                     <span class="badge bg-light text-dark border" style="font-size:.65rem;" x-text="a"></span>
@@ -138,142 +139,5 @@
     background: rgba(var(--bs-primary-rgb), .08);
 }
 </style>
-@endpush
-@push('scripts')
-<script>
-function bnbRoomPicker() {
-    return {
-        open: false,
-        loading: false,
-        error: '',
-        rooms: [],
-        roomTypeName: '',
-        roomTypeId: null,
-        checkIn: '',
-        checkOut: '',
-        excludeRoomIds: [],
-        roomsToSelect: 1,
-        selectedRooms: [],
-        preselectedRoomIds: [],
-        explicitConfirm: false,
-
-        get selectionLabel() {
-            return this.selectedRooms.length + ' از ' + this.roomsToSelect + ' اتاق انتخاب شده';
-        },
-
-        get canConfirm() {
-            return this.selectedRooms.length === this.roomsToSelect;
-        },
-
-        get confirmLabel() {
-            if (this.roomsToSelect <= 1) {
-                return 'تأیید انتخاب';
-            }
-            return 'تأیید ' + this.roomsToSelect + ' اتاق';
-        },
-
-        get needLabel() {
-            return this.roomsToSelect > 1 ? ' · نیاز به ' + this.roomsToSelect + ' اتاق' : '';
-        },
-
-        jalaliStr(g) {
-            if (!g) return '';
-            try { return new persianDate(new Date(g + 'T12:00:00')).format('YYYY/MM/DD'); } catch (e) { return g; }
-        },
-
-        openPicker(detail) {
-            this.roomTypeId = detail.roomTypeId;
-            this.checkIn = detail.checkIn;
-            this.checkOut = detail.checkOut;
-            this.excludeRoomIds = detail.excludeRoomIds || [];
-            this.roomsToSelect = Math.max(1, parseInt(detail.roomsToSelect, 10) || 1);
-            this.selectedRooms = [];
-            this.preselectedRoomIds = (detail.preselectedRoomIds || []).map(Number).filter(Boolean);
-            this.explicitConfirm = !!detail.explicitConfirm || this.preselectedRoomIds.length > 0;
-            this.roomTypeName = detail.roomTypeName || '';
-            this.open = true;
-            this.fetchRooms();
-        },
-
-        close() {
-            this.open = false;
-            this.rooms = [];
-            this.error = '';
-            this.selectedRooms = [];
-            this.roomsToSelect = 1;
-            this.roomTypeName = '';
-            this.preselectedRoomIds = [];
-            this.explicitConfirm = false;
-        },
-
-        isSelected(roomId) {
-            return this.selectedRooms.some(r => r.id === roomId);
-        },
-
-        async fetchRooms() {
-            if (!this.roomTypeId || !this.checkIn || !this.checkOut) return;
-            this.loading = true;
-            this.error = '';
-            try {
-                const params = new URLSearchParams({
-                    check_in: this.checkIn,
-                    check_out: this.checkOut,
-                    exclude_room_ids: this.excludeRoomIds.join(','),
-                });
-                const resp = await fetch('/api/room-types/' + this.roomTypeId + '/physical-rooms?' + params, {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                if (!resp.ok) throw new Error('خطا در بارگذاری');
-                const data = await resp.json();
-                this.rooms = data.rooms || [];
-                this._applyPreselectedRooms();
-            } catch (e) {
-                this.error = 'خطا در بارگذاری لیست اتاق‌ها. دوباره تلاش کنید.';
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        _applyPreselectedRooms() {
-            if (!this.preselectedRoomIds.length) return;
-            for (const roomId of this.preselectedRoomIds) {
-                const room = this.rooms.find(r => r.id === roomId);
-                if (!room) continue;
-                if (!room.selectable && !this.isSelected(room.id)) continue;
-                if (!this.isSelected(room.id)) {
-                    this.selectedRooms.push({ id: room.id, name: room.name });
-                }
-            }
-        },
-
-        toggleRoom(room) {
-            if (this.isSelected(room.id)) {
-                this.selectedRooms = this.selectedRooms.filter(r => r.id !== room.id);
-                return;
-            }
-            if (!room.selectable) return;
-
-            if (this.roomsToSelect <= 1 && !this.explicitConfirm) {
-                this.selectedRooms = [{ id: room.id, name: room.name }];
-                this.confirmSelection();
-                return;
-            }
-
-            if (this.selectedRooms.length >= this.roomsToSelect) return;
-            this.selectedRooms.push({ id: room.id, name: room.name });
-        },
-
-        confirmSelection() {
-            if (!this.canConfirm) return;
-            window.dispatchEvent(new CustomEvent('manual-booking-rooms-selected', {
-                detail: {
-                    rooms: this.selectedRooms.map(r => ({ roomId: r.id, roomName: r.name }))
-                }
-            }));
-            this.close();
-        }
-    };
-}
-</script>
 @endpush
 @endonce

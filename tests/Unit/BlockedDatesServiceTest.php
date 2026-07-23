@@ -219,6 +219,56 @@ class BlockedDatesServiceTest extends TestCase
         $this->assertNotContains($this->roomFree->id, $preview['unavailable_room_ids']);
     }
 
+    public function test_destroy_range_deletes_matching_records_in_one_query(): void
+    {
+        $from = now()->addDays(10)->format('Y-m-d');
+        $to = now()->addDays(12)->format('Y-m-d');
+
+        $this->service->store($this->roomType, $from, $to, [$this->roomBooked->id, $this->roomFree->id], 'تعمیرات');
+
+        $this->assertSame(6, RoomTypeBlockedDate::query()->where('room_type_id', $this->roomType->id)->count());
+
+        $deleted = $this->service->destroyRange(
+            $this->roomType,
+            $from,
+            $to,
+            [$this->roomBooked->id, $this->roomFree->id],
+            'تعمیرات',
+        );
+
+        $this->assertSame(6, $deleted);
+        $this->assertSame(0, RoomTypeBlockedDate::query()->where('room_type_id', $this->roomType->id)->count());
+    }
+
+    public function test_destroy_range_respects_reason_filter(): void
+    {
+        $date = now()->addDays(15)->format('Y-m-d');
+
+        RoomTypeBlockedDate::create([
+            'room_type_id' => $this->roomType->id,
+            'room_id'      => $this->roomBooked->id,
+            'date'         => $date,
+            'reason'       => 'دلیل الف',
+        ]);
+        RoomTypeBlockedDate::create([
+            'room_type_id' => $this->roomType->id,
+            'room_id'      => $this->roomBooked->id,
+            'date'         => Carbon::parse($date)->addDay()->format('Y-m-d'),
+            'reason'       => 'دلیل ب',
+        ]);
+
+        $deleted = $this->service->destroyRange(
+            $this->roomType,
+            $date,
+            Carbon::parse($date)->addDay()->format('Y-m-d'),
+            [$this->roomBooked->id],
+            'دلیل الف',
+        );
+
+        $this->assertSame(1, $deleted);
+        $this->assertSame(1, RoomTypeBlockedDate::query()->where('room_type_id', $this->roomType->id)->count());
+    }
+
     private function createBookingWithRoom(string $checkIn, string $checkOut, Room $room, string $status): Booking
     {
         $user = User::create(['name' => 'مهمان', 'mobile' => '09' . random_int(100000000, 999999999)]);

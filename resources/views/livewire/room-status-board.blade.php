@@ -1,5 +1,9 @@
 <div>
 
+    @php
+        $isViewDateToday = $viewDate === now()->toDateString();
+    @endphp
+
     <div class="ta-card h-100" id="room-status-board-root">
         <div class="ta-card__head flex-wrap gap-2">
             <div>
@@ -7,7 +11,7 @@
                 <div class="ta-card__sub">نمای زنده اتاق‌های فیزیکی بر اساس نقشه ساختمان — رنگ هر باکس وضعیت همان روز را نشان می‌دهد</div>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                @if($panel === 'admin')
+                @if($panel === 'admin' && !$useDashboardFilter)
                 <div class="d-flex align-items-center gap-2">
                     <label class="small text-muted mb-0">اقامتگاه:</label>
                     <select wire:model="accommodationId"
@@ -25,7 +29,7 @@
                     <div class="input-group input-group-sm" style="width:auto;">
                         <input type="text"
                                id="room-status-board-date"
-                               class="form-control form-control-sm rsb-jalali-date @error('viewDateJalali') is-invalid @enderror"
+                               class="form-control form-control-sm rsb-jalali-date @error('viewDateJalali') is-invalid @enderror{{ $isViewDateToday ? ' jalali-date-is-today' : '' }}"
                                data-wire-prop="viewDateJalali"
                                value="{{ $viewDateJalali }}"
                                style="width:8.5rem;"
@@ -41,28 +45,37 @@
                         </button>
                     </div>
                 </div>
-                @if($panel === 'admin')
+                @if($panel === 'admin' && !$useDashboardFilter)
                 <button type="button"
                         wire:click="viewRooms"
                         onclick="window.syncRoomStatusBoardDate && window.syncRoomStatusBoardDate()"
                         class="btn btn-primary btn-sm">
                     <i class="bi bi-eye me-1"></i>مشاهده اتاق‌ها
                 </button>
+                @elseif($panel === 'admin' && $useDashboardFilter && !$boardVisible)
+                <button type="button"
+                        wire:click="showFilteredRooms"
+                        onclick="window.syncRoomStatusBoardDate && window.syncRoomStatusBoardDate()"
+                        class="btn btn-primary btn-sm">
+                    <i class="bi bi-eye me-1"></i>نمایش
+                </button>
                 @else
+                @if(!$layoutEditMode)
                 <button type="button"
                         wire:click="applyDate"
                         onclick="window.syncRoomStatusBoardDate && window.syncRoomStatusBoardDate()"
                         class="btn btn-primary btn-sm">
                     <i class="bi bi-check2 me-1"></i>اعمال
                 </button>
-                @if(!empty($board))
+                @endif
+                @if(!empty($board) && $canEditBuildingLayout)
                 <button type="button"
                         wire:click="toggleLayoutEdit"
                         class="btn btn-sm {{ $layoutEditMode ? 'btn-warning' : 'btn-outline-secondary' }}">
                     <i class="bi bi-{{ $layoutEditMode ? 'x-lg' : 'layout-three-columns' }} me-1"></i>
                     {{ $layoutEditMode ? 'لغو نقشه' : 'نقشه ساختمان' }}
                 </button>
-                @if($layoutEditMode)
+                @if($layoutEditMode && $canEditBuildingLayout)
                 <button type="button" wire:click="saveLayout" class="btn btn-success btn-sm">
                     <i class="bi bi-check-lg me-1"></i>ذخیره چیدمان
                 </button>
@@ -75,22 +88,34 @@
         </div>
 
         <div class="ta-card__body">
+            @if($boardVisible)
             <div class="d-flex flex-wrap gap-2 mb-3 align-items-center" style="font-size:.75rem;">
-                @if($layoutEditMode)
-                <span class="badge bg-warning text-dark"><i class="bi bi-arrows-move me-1"></i>حالت چیدمان — اتاق‌های مختلف (۲ تخته، ۳ تخته و ...) را طبق نقشه ساختمان در ردیف‌ها بچینید</span>
+                @if($layoutEditMode && $canEditBuildingLayout)
+                <div class="d-flex flex-column gap-2 w-100">
+                    <span class="badge bg-warning text-dark align-self-start"><i class="bi bi-arrows-move me-1"></i>حالت چیدمان — ردیف‌ها با ≡ و اتاق‌ها با ⋮⋮</span>
+                    <div class="small text-muted border border-warning border-opacity-25 rounded px-3 py-2 bg-warning-subtle">
+                        <i class="bi bi-info-circle me-1 text-warning"></i>
+                        اتاق فیزیکی را با موس بردارید؛ روی هر اتاقی که قرار دهید، <strong>سمت راست</strong> آن اتاق قرار می‌گیرد.
+                    </div>
+                </div>
                 @else
                 <span class="badge bg-success-subtle text-success border border-success-subtle">آزاد</span>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle">مهمان فعلی</span>
                 <span class="badge bg-info-subtle text-info border border-info-subtle">رزرو آینده</span>
-                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (ظرفیت روزانه)</span>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (سیاست قیمتی)</span>
                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle">مسدود</span>
                 @endif
             </div>
+            @endif
 
             @if($panel === 'admin' && !$boardVisible)
             <div class="text-center text-muted py-4 small">
                 <i class="bi bi-building fs-2 d-block mb-2 opacity-25"></i>
-                ابتدا اقامتگاه را انتخاب کنید، تاریخ شمسی را وارد کنید و روی «مشاهده اتاق‌ها» کلیک کنید.
+                @if($useDashboardFilter)
+                    تاریخ شمسی را بررسی کنید و برای بارگذاری وضعیت اتاق‌های اقامتگاه‌های انتخاب‌شده روی «نمایش» کلیک کنید.
+                @else
+                    ابتدا اقامتگاه را انتخاب کنید، تاریخ شمسی را وارد کنید و روی «مشاهده اتاق‌ها» کلیک کنید.
+                @endif
             </div>
             @elseif(empty($board))
             <div class="text-center text-muted py-4 small">
@@ -109,7 +134,7 @@
             <div class="mb-4" wire:key="rsb-acc-{{ $acc['accommodation_id'] }}">
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <div class="fw-bold"><i class="bi bi-building me-1 text-primary"></i>{{ $acc['accommodation_name'] }}</div>
-                    @if($layoutEditMode && $panel === 'host')
+                    @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
                     <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
                         <label class="small text-muted mb-0 d-flex align-items-center gap-1">
                             حداکثر ستون در هر ردیف:
@@ -138,16 +163,20 @@
                     @endif
                 </div>
 
-                @if($layoutEditMode && $panel === 'host')
+                @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
+                    <div class="room-status-rows-list"
+                         data-rsb-rows-list
+                         data-rsb-accommodation-id="{{ $acc['accommodation_id'] }}"
+                         wire:key="rsb-edit-rows-{{ $acc['accommodation_id'] }}">
                     @foreach($editLayout['rows'] as $rowIndex => $rowIds)
                     @php $rowLabel = trim((string) ($editLayout['row_labels'][$rowIndex] ?? '')); @endphp
-                    <div class="room-status-row room-status-row--editable"
-                         wire:sort="sortRoom"
-                         wire:sort:group="room-board-{{ $acc['accommodation_id'] }}"
-                         wire:sort:group-id="{{ $acc['accommodation_id'] }}:{{ $rowIndex }}"
-                         style="--rsb-cols: {{ (int) ($editLayout['cols'] ?? 6) }};"
-                         wire:key="rsb-edit-row-{{ $acc['accommodation_id'] }}-{{ $rowIndex }}">
+                    <div class="room-status-row-wrapper"
+                         data-rsb-row-index="{{ $rowIndex }}"
+                         wire:key="rsb-edit-row-wrap-{{ $acc['accommodation_id'] }}-{{ $rowIndex }}">
                         <div class="room-status-row__header">
+                            <span class="room-status-row__drag" title="جابجایی ردیف">
+                                <i class="bi bi-list"></i>
+                            </span>
                             <input type="text"
                                    class="form-control form-control-sm room-status-row__name-input"
                                    value="{{ $rowLabel }}"
@@ -156,15 +185,21 @@
                                    wire:change="setRowLabel({{ $acc['accommodation_id'] }}, {{ $rowIndex }}, $event.target.value)">
                             <span class="room-status-row__index">ردیف {{ $rowIndex + 1 }}</span>
                         </div>
+                        <div class="room-status-row room-status-row--editable"
+                             data-rsb-rooms-row
+                             data-rsb-accommodation-id="{{ $acc['accommodation_id'] }}"
+                             data-rsb-row-index="{{ $rowIndex }}"
+                             style="--rsb-cols: {{ (int) ($editLayout['cols'] ?? 6) }};"
+                             wire:key="rsb-edit-row-{{ $acc['accommodation_id'] }}-{{ $rowIndex }}">
                         @foreach($rowIds as $roomId)
                         @php $room = $roomsById->get($roomId); @endphp
                         @if($room)
-                        <div wire:sort:item="{{ $roomId }}"
+                        <div data-rsb-room-id="{{ $roomId }}"
                              wire:key="rsb-edit-room-{{ $roomId }}-{{ $rowIndex }}"
                              class="room-status-sortable-item">
                             <div class="room-status-box room-status-box--{{ $room['color'] }} room-status-box--editable {{ $room['has_future'] ? 'room-status-box--has-future' : '' }}">
                                 <div class="room-status-box__top">
-                                    <span wire:sort:handle class="room-status-box__drag" title="بکشید">
+                                    <span class="room-status-box__drag" title="بکشید">
                                         <i class="bi bi-grip-vertical"></i>
                                     </span>
                                     <span class="room-status-box__name">{{ $room['name'] }}</span>
@@ -177,8 +212,10 @@
                         </div>
                         @endif
                         @endforeach
+                        </div>
                     </div>
                     @endforeach
+                    </div>
                 @else
                     @foreach($displayRows as $rowIndex => $rowData)
                     @php
@@ -198,6 +235,7 @@
                                 wire:click="selectRoom({{ $acc['accommodation_id'] }}, {{ $room['id'] }})"
                                 class="room-status-box room-status-box--{{ $room['color'] }} {{ $room['has_future'] ? 'room-status-box--has-future' : '' }}"
                                 wire:key="rsb-room-{{ $room['id'] }}-{{ $viewDate }}">
+                            <x-room-status.hover-tip :room="$room" />
                             <div class="room-status-box__name">{{ $room['name'] }}</div>
                             @if($room['bed_type'] || $room['room_type_name'])
                             <div class="room-status-box__type">{{ $room['bed_type'] ?: $room['room_type_name'] }}</div>
@@ -265,7 +303,7 @@
                     @if($selectedRoom['status'] === 'capacity_closed')
                     <div class="alert alert-warning py-2 small mb-3">
                         <i class="bi bi-sliders me-1"></i>
-                        این اتاق در تاریخ انتخاب‌شده به‌دلیل <strong>تنظیم ظرفیت روزانه</strong> برای فروش بسته است.
+                        این اتاق در تاریخ انتخاب‌شده به‌دلیل <strong>سیاست قیمتی</strong> برای فروش بسته است.
                     </div>
                     @endif
 
@@ -328,7 +366,7 @@
                     @if($servicesBookingId && in_array($panel, ['host', 'admin'], true))
                     <div class="card border-success border-opacity-25 mt-3">
                         <div class="card-header bg-success-subtle py-2 small fw-semibold d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                            <span><i class="bi bi-bag-check me-1"></i>مدیریت خدمات رزرو</span>
+                            <span><i class="bi bi-people me-1"></i>مهمانان و خدمات این اتاق</span>
                             @if($panel === 'host')
                             <a wire:navigate href="{{ route('host.bookings.show', $servicesBookingId) }}" class="btn btn-xs btn-outline-success" style="font-size:.72rem;">صفحه رزرو</a>
                             @else
@@ -336,10 +374,61 @@
                             @endif
                         </div>
                         <div class="card-body py-2">
-                            <livewire:booking-services-editor
-                                :booking-id="$servicesBookingId"
-                                :panel="$panel"
-                                :key="'rsb-booking-services-'.$servicesBookingId" />
+                            @php
+                                $servicesBooking = $this->servicesBooking;
+                                $canEditServices = $servicesBooking?->canEditServices() ?? false;
+                                $veteranApplied = !empty($servicesBooking?->veteran_type_applied);
+                            @endphp
+                            @forelse($this->selectedRoomGuests as $guest)
+                            <div class="border rounded mb-3 overflow-hidden" wire:key="rsb-room-guest-{{ $servicesBookingId }}-{{ $guest['sort_order'] }}">
+                                <div class="bg-light px-3 py-2 border-bottom">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span class="badge text-bg-secondary">نفر {{ $guest['sort_order'] + 1 }}</span>
+                                        <strong class="small">{{ $guest['full_name'] }}</strong>
+                                        @if($guest['relation'])
+                                        <span class="badge bg-white text-muted border">{{ \App\Models\BookingGuestDetail::formatRelationLabel($guest['relation']) }}</span>
+                                        @endif
+                                    </div>
+                                    @if($guest['identity_number'] || $guest['mobile'] || !empty($guest['residence_label']))
+                                    <div class="text-muted mt-1" style="font-size:.72rem;">
+                                        @if($guest['identity_number'])<span dir="ltr">{{ $guest['identity_label'] ?? 'کد ملی' }}: {{ $guest['identity_number'] }}</span>@endif
+                                        @if(!empty($guest['residence_label']))<span class="ms-2">محل اقامت: {{ $guest['residence_label'] }}</span>@endif
+                                        @if($guest['mobile'])<span class="ms-2" dir="ltr">موبایل: {{ $guest['mobile'] }}</span>@endif
+                                    </div>
+                                    @endif
+                                </div>
+                                <div class="p-2">
+                                    @if($canEditServices)
+                                    <livewire:booking-services-editor
+                                        :booking-id="$servicesBookingId"
+                                        :panel="$panel"
+                                        :guest-sort-order="$guest['sort_order']"
+                                        :key="'rsb-booking-services-'.$servicesBookingId.'-guest-'.$guest['sort_order']" />
+                                    @elseif($servicesBooking)
+                                    @php $guestServices = $servicesBooking->servicesForGuest($guest['sort_order']); @endphp
+                                    @if($guestServices->isNotEmpty())
+                                    <div class="d-flex flex-column gap-2">
+                                        @foreach($guestServices as $service)
+                                        <x-booking.service-line-readonly
+                                            :service="$service"
+                                            :veteran-type-applied="$veteranApplied"
+                                            wire:key="rsb-guest-svc-ro-{{ $service->id }}" />
+                                        @endforeach
+                                    </div>
+                                    @else
+                                    <div class="alert alert-light border small py-2 mb-0">
+                                        <i class="bi bi-info-circle me-1"></i>خدمتی برای این مهمان ثبت نشده است.
+                                    </div>
+                                    @endif
+                                    @endif
+                                </div>
+                            </div>
+                            @empty
+                            <div class="alert alert-light border small py-2 mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                مهمان ثبت‌شده‌ای برای این اتاق یافت نشد. از صفحه رزرو، مهمانان را به اتاق‌ها اختصاص دهید.
+                            </div>
+                            @endforelse
                         </div>
                     </div>
                     @endif
@@ -347,6 +436,34 @@
                     @if($actionMessage)
                     <div class="alert alert-success py-2 small mt-3 mb-0">
                         <i class="bi bi-check-circle me-1"></i>{{ $actionMessage }}
+                    </div>
+                    @endif
+
+                    @if($panel === 'host' && !empty($selectedRoomRates) && empty($selectedRoom['current_booking']))
+                    <div class="card border-primary border-opacity-25 mt-3">
+                        <div class="card-header bg-primary-subtle py-2 small fw-semibold">
+                            <i class="bi bi-calendar-plus me-1"></i>رزرو این اتاق
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small text-muted mb-2">تعرفه را انتخاب کنید (قیمت به ازای هر تخت است)؛ سپس به صفحه رزرو دستی می‌روید تا تاریخ ورود/خروج و تعداد نفرات را مشخص کنید. اتاق «{{ $selectedRoom['name'] }}» از قبل انتخاب می‌شود.</p>
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">تعرفه <span class="text-danger">*</span></label>
+                                <select wire:model="bookingRoomRateId"
+                                        class="form-select form-select-sm @error('bookingRoomRateId') is-invalid @enderror">
+                                    <option value="">انتخاب تعرفه...</option>
+                                    @foreach($selectedRoomRates as $rate)
+                                    <option value="{{ $rate['id'] }}">{{ $rate['name'] }} — {{ number_format($rate['price_per_night']) }} تومان/شب/تخت</option>
+                                    @endforeach
+                                </select>
+                                @error('bookingRoomRateId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            </div>
+                            <button type="button"
+                                    wire:click="goToManualBooking"
+                                    class="btn btn-primary btn-sm w-100"
+                                    @disabled(!$bookingRoomRateId)>
+                                <i class="bi bi-arrow-left-circle me-1"></i>ادامه
+                            </button>
+                        </div>
                     </div>
                     @endif
 
@@ -394,34 +511,6 @@
                         </div>
                     </div>
                     @endif
-
-                    @if($panel === 'host' && !empty($selectedRoomRates))
-                    <div class="card border-primary border-opacity-25 mt-3">
-                        <div class="card-header bg-primary-subtle py-2 small fw-semibold">
-                            <i class="bi bi-calendar-plus me-1"></i>رزرو این اتاق
-                        </div>
-                        <div class="card-body py-2">
-                            <p class="small text-muted mb-2">تعرفه را انتخاب کنید؛ سپس به صفحه رزرو دستی می‌روید تا تاریخ ورود/خروج و تعداد نفرات را مشخص کنید. اتاق «{{ $selectedRoom['name'] }}» از قبل انتخاب می‌شود.</p>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1">تعرفه <span class="text-danger">*</span></label>
-                                <select wire:model="bookingRoomRateId"
-                                        class="form-select form-select-sm @error('bookingRoomRateId') is-invalid @enderror">
-                                    <option value="">انتخاب تعرفه...</option>
-                                    @foreach($selectedRoomRates as $rate)
-                                    <option value="{{ $rate['id'] }}">{{ $rate['name'] }} — {{ number_format($rate['price_per_night']) }} تومان/شب</option>
-                                    @endforeach
-                                </select>
-                                @error('bookingRoomRateId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                            </div>
-                            <button type="button"
-                                    wire:click="goToManualBooking"
-                                    class="btn btn-primary btn-sm w-100"
-                                    @disabled(!$bookingRoomRateId)>
-                                <i class="bi bi-arrow-left-circle me-1"></i>ادامه در رزرو دستی
-                            </button>
-                        </div>
-                    </div>
-                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" wire:click="closeDetail">بستن</button>
@@ -442,16 +531,28 @@
     .room-status-row--editable {
         position: relative;
         min-height: 4.5rem;
-        padding: 2.4rem .5rem .5rem;
+        padding: .5rem;
         border: 1.5px dashed rgba(var(--bs-primary-rgb), .35);
         border-radius: .65rem;
         background: rgba(var(--bs-primary-rgb), .03);
     }
+    .room-status-row-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+        margin-bottom: .15rem;
+    }
+    .room-status-row-wrapper > .room-status-row__header {
+        position: static;
+        top: auto;
+        right: auto;
+        left: auto;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: 0 .15rem;
+    }
     .room-status-row__header {
-        position: absolute;
-        top: .35rem;
-        right: .5rem;
-        left: .5rem;
         display: flex;
         align-items: center;
         gap: .5rem;
@@ -482,9 +583,55 @@
         padding-bottom: .25rem;
         border-bottom: 1px solid rgba(var(--bs-primary-rgb), .15);
     }
-    .room-status-row__heading:first-child { margin-top: 0; }
+    .room-status-rows-list {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+    .room-status-row__drag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--bs-secondary);
+        cursor: grab;
+        padding: .15rem .35rem;
+        border-radius: .25rem;
+        flex-shrink: 0;
+        font-size: 1.1rem;
+        line-height: 1;
+        border: 1px dashed rgba(var(--bs-secondary-rgb), .35);
+        background: rgba(var(--bs-secondary-rgb), .06);
+    }
+    .room-status-row__drag .bi {
+        font-family: "bootstrap-icons" !important;
+        pointer-events: none;
+    }
+    .room-status-row__drag:active { cursor: grabbing; }
+    .room-status-row__drag:hover { color: var(--bs-warning); background: rgba(var(--bs-warning-rgb), .12); }
+    .rsb-dnd-placeholder.room-status-row-wrapper {
+        opacity: .55;
+    }
+    .rsb-dnd-placeholder.room-status-row-wrapper .room-status-row--editable {
+        border-style: solid;
+        border-color: rgba(var(--bs-warning-rgb), .6);
+        background: rgba(var(--bs-warning-rgb), .06);
+    }
+    .rsb-dnd-dragging.room-status-row-wrapper,
+    .rsb-dnd-synth-dragging.room-status-row-wrapper {
+        box-shadow: 0 6px 18px rgba(0,0,0,.1);
+        z-index: 2;
+    }
+    .rsb-dnd-drop-parent.room-status-row--editable {
+        border-color: rgba(var(--bs-primary-rgb), .65);
+        background: rgba(var(--bs-primary-rgb), .07);
+    }
+    .rsb-dnd-drop-zone .room-status-box {
+        outline: 2px dashed rgba(var(--bs-primary-rgb), .55);
+        outline-offset: 2px;
+    }
     .room-status-sortable-item { min-width: 0; }
     .room-status-box {
+        position: relative;
         border: 2px solid var(--bs-border-color);
         border-radius: .65rem;
         padding: .55rem .7rem;
@@ -493,6 +640,59 @@
         background: var(--bs-body-bg);
         cursor: pointer;
         transition: transform .12s, box-shadow .12s;
+        overflow: visible;
+    }
+    .room-status-box__hover-tip {
+        position: absolute;
+        bottom: calc(100% + .4rem);
+        right: 50%;
+        transform: translateX(50%);
+        z-index: 30;
+        max-width: min(18rem, 90vw);
+        padding: .4rem .6rem;
+        font-size: .68rem;
+        line-height: 1.4;
+        text-align: right;
+        color: #fff;
+        background: rgba(33, 37, 41, .94);
+        border-radius: .4rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .12s ease, visibility .12s ease;
+        white-space: normal;
+    }
+    .room-status-box__hover-tip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        right: 50%;
+        transform: translateX(50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(33, 37, 41, .94);
+    }
+    .room-status-box__hover-tip-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: .65rem;
+    }
+    .room-status-box__hover-tip-row + .room-status-box__hover-tip-row {
+        margin-top: .2rem;
+    }
+    .room-status-box__hover-tip-row--muted {
+        opacity: .88;
+        font-size: .64rem;
+    }
+    .room-status-box__hover-tip-key {
+        flex-shrink: 0;
+        font-size: .62rem;
+        opacity: .8;
+    }
+    .room-status-box:hover .room-status-box__hover-tip {
+        opacity: 1;
+        visibility: visible;
     }
     button.room-status-box:hover {
         transform: translateY(-2px);
@@ -528,175 +728,21 @@
     .room-status-box--has-future:not(.room-status-box--primary) {
         box-shadow: inset 0 -3px 0 var(--bs-info);
     }
-    .sortable-ghost .room-status-box {
+    .rsb-dnd-placeholder .room-status-box {
         opacity: .45;
         border-style: dashed;
     }
-    .sortable-chosen .room-status-box {
+    .rsb-dnd-dragging .room-status-box,
+    .rsb-dnd-synth-dragging .room-status-box {
         box-shadow: 0 8px 20px rgba(0,0,0,.12);
         transform: scale(1.02);
+        transition: none;
+    }
+    .room-status-sortable-item.rsb-dnd-dragging,
+    .room-status-sortable-item.rsb-dnd-synth-dragging {
+        z-index: 5;
     }
     </style>
     @endonce
 
-@push('scripts')
-<script>
-(function () {
-    var NS = window.RoomStatusBoardDatepicker = window.RoomStatusBoardDatepicker || { ready: false, docBound: false };
-
-    /** persian-datepicker calls global $ internally — Livewire may replace it. */
-    function ensureJqueryGlobal$() {
-        if (typeof window.jQuery !== 'undefined') {
-            window.$ = window.jQuery;
-        }
-    }
-
-    function roomStatusWire() {
-        var root = document.getElementById('room-status-board-root');
-        if (!root) return null;
-        var host = root.closest('[wire\\:id]');
-        if (!host || typeof Livewire === 'undefined') return null;
-        return Livewire.find(host.getAttribute('wire:id'));
-    }
-
-    function syncRoomStatusDateToWire(input) {
-        var wire = roomStatusWire();
-        var prop = input.getAttribute('data-wire-prop');
-        if (wire && prop) {
-            wire.set(prop, input.value || '');
-        }
-    }
-
-    function syncRoomStatusBoardDate() {
-        var input = document.getElementById('room-status-board-date');
-        if (input) syncRoomStatusDateToWire(input);
-    }
-
-    function rsbInputs() {
-        return document.querySelectorAll('#room-status-board-root .rsb-jalali-date');
-    }
-
-    function destroyRoomStatusDatepicker() {
-        ensureJqueryGlobal$();
-        var jq = window.jQuery;
-        if (!jq || !jq.fn || typeof jq.fn.pDatepicker !== 'function') {
-            NS.ready = false;
-            return;
-        }
-
-        jq(rsbInputs()).each(function () {
-            var $input = jq(this);
-            if ($input.data('pDatepicker')) {
-                try { $input.pDatepicker('destroy'); } catch (e) { /* ignore */ }
-                $input.removeData('pDatepicker');
-            }
-        });
-        NS.ready = false;
-    }
-
-    function initRoomStatusDatepicker() {
-        ensureJqueryGlobal$();
-        var jq = window.jQuery;
-        if (!jq || !jq.fn || typeof jq.fn.pDatepicker !== 'function') return;
-        if (NS.ready) return;
-        if (!document.getElementById('room-status-board-date')) return;
-
-        jq(rsbInputs()).each(function () {
-            var $input = jq(this);
-            if ($input.data('pDatepicker')) return;
-
-            ensureJqueryGlobal$();
-            $input.pDatepicker({
-                format: 'YYYY/MM/DD',
-                viewMode: 'day',
-                autoClose: true,
-                initialValue: false,
-                initialValueType: 'persian',
-                persianDigit: false,
-                toolbox: {
-                    enabled: true,
-                    todayButton: { enabled: true },
-                    submitButton: { enabled: false },
-                },
-                onSelect: function () {
-                    var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
-                    syncRoomStatusDateToWire(el);
-                },
-            });
-        });
-
-        NS.ready = true;
-    }
-
-    function bootRoomStatusDatepicker() {
-        ensureJqueryGlobal$();
-        NS.ready = false;
-        initRoomStatusDatepicker();
-    }
-
-    window.syncRoomStatusBoardDate = syncRoomStatusBoardDate;
-
-    if (!NS.docBound) {
-        NS.docBound = true;
-
-        document.addEventListener('blur', function (e) {
-            if (e.target && e.target.matches && e.target.matches('#room-status-board-root .rsb-jalali-date')) {
-                syncRoomStatusDateToWire(e.target);
-            }
-        }, true);
-
-        document.addEventListener('focus', function (e) {
-            if (!e.target || !e.target.matches || !e.target.matches('#room-status-board-root .rsb-jalali-date')) return;
-            ensureJqueryGlobal$();
-            var jq = window.jQuery;
-            if (!jq || jq(e.target).data('pDatepicker')) return;
-            NS.ready = false;
-            initRoomStatusDatepicker();
-        }, true);
-
-        document.addEventListener('click', function (e) {
-            var btn = e.target.closest && e.target.closest('.room-status-board-clear-date');
-            if (!btn) return;
-            var targetId = btn.getAttribute('data-target');
-            var input = targetId ? document.getElementById(targetId) : null;
-            if (!input) return;
-            input.value = '';
-            syncRoomStatusDateToWire(input);
-        });
-
-        document.addEventListener('livewire:navigated', function () {
-            if (!document.getElementById('room-status-board-date')) return;
-            destroyRoomStatusDatepicker();
-            setTimeout(bootRoomStatusDatepicker, 0);
-        });
-
-        document.addEventListener('livewire:initialized', function () {
-            setTimeout(bootRoomStatusDatepicker, 0);
-            if (typeof Livewire === 'undefined') return;
-            Livewire.hook('commit', function (payload) {
-                payload.succeed(function () {
-                    if (!document.getElementById('room-status-board-date')) return;
-                    ensureJqueryGlobal$();
-                    var jq = window.jQuery;
-                    if (!jq) return;
-                    var $input = jq('#room-status-board-date');
-                    if ($input.length && !$input.data('pDatepicker')) {
-                        NS.ready = false;
-                        initRoomStatusDatepicker();
-                    }
-                });
-            });
-        });
-    }
-
-    if (typeof window.Livewire !== 'undefined') {
-        setTimeout(bootRoomStatusDatepicker, 0);
-    } else {
-        document.addEventListener('livewire:initialized', function () {
-            setTimeout(bootRoomStatusDatepicker, 0);
-        });
-    }
-})();
-</script>
-@endpush
 </div>

@@ -2,7 +2,6 @@
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <h5 class="fw-bold mb-0"><i class="bi bi-person-plus me-2"></i>افزودن میزبان جدید</h5>
 </div>
 
 <div class="row g-3">
@@ -36,6 +35,10 @@
                         @error('nationalId')<div class="text-danger small">{{ $message }}</div>@enderror
                         <div class="form-text">در صورت وارد کردن، گروه ایثارگری از سرویس استعلام بررسی می‌شود.</div>
                     </div>
+
+                    <div class="col-12 col-md-6">
+                        @include('components.admin.host-position-select', ['positionOptions' => $hostPositionOptions])
+                    </div>
                 </div>
             </div>
         </div>
@@ -62,23 +65,10 @@
                 <i class="bi bi-sliders me-1"></i>دسترسی‌های پنل میزبان
             </div>
             <div class="card-body">
-                @error('hostPanelPermissions')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
-                <p class="text-muted small mb-3">بخش‌هایی از پنل میزبان که این کاربر می‌تواند ببیند. داده‌ها بر اساس اقامتگاه‌های انتخاب‌شده فیلتر می‌شوند.</p>
-                <div class="row g-2">
-                    @foreach($hostPermissionCatalog as $key => $item)
-                    <div class="col-12 col-md-6">
-                        <label class="d-flex align-items-start gap-2 border rounded p-2 h-100 mb-0" style="cursor:pointer">
-                            <input type="checkbox" class="form-check-input mt-1" wire:model="hostPanelPermissions" value="{{ $key }}">
-                            <span>
-                                <span class="fw-semibold small d-block">
-                                    <i class="bi bi-{{ $item['icon'] }} me-1 text-primary"></i>{{ $item['label'] }}
-                                </span>
-                                <span class="text-muted small">{{ $item['description'] }}</span>
-                            </span>
-                        </label>
-                    </div>
-                    @endforeach
-                </div>
+                <x-admin.host-permissions-matrix
+                    :catalog="$hostPermissionCatalog"
+                    :form-state="$hostPermissionForm"
+                />
             </div>
         </div>
 
@@ -130,7 +120,7 @@
             <div class="card-header bg-white fw-semibold small">راهنما</div>
             <div class="card-body small text-muted">
                 <p class="mb-2">پس از ایجاد، میزبان می‌تواند با <strong>موبایل</strong> و <strong>رمز عبور</strong> از صفحه ورود پرسنل وارد پنل شود.</p>
-                <p class="mb-2">دسترسی‌های پنل تعیین می‌کند کدام منوها برای میزبان نمایش داده شود.</p>
+                <p class="mb-2">دسترسی‌های پنل برای هر صفحه به‌صورت جداگانه (مشاهده، ایجاد، ویرایش، حذف) تعیین می‌شود.</p>
                 <p class="mb-0">اقامتگاه‌های انتخاب‌شده محدوده داده‌های میزبان (رزرو، اتاق، برنامه و ...) را مشخص می‌کنند.</p>
             </div>
         </div>

@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="{{ asset('vendor/tailadmin/tailadmin.css') }}">
     <style>
         body { font-family: 'Vazirmatn', sans-serif; }
+        .ta-sidebar { height: 100vh; overflow: hidden; }
+        .ta-sidebar__nav { min-height: 0; }
+        table:has(thead th.col-index) thead th.col-index,
+        table:has(thead th.col-index) tbody tr > td:first-child { display: none !important; }
     </style>
     {{-- Anti-flash: apply saved theme before first paint --}}
     <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
@@ -20,6 +24,8 @@
     <style>
         .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; }
     </style>
+    @include('partials._jalali-date-today-styles')
+    @include('partials._scrollable-table-styles')
     @stack('styles')
     @livewireStyles
 </head>
@@ -28,7 +34,7 @@
 @php
     $hostUser = Auth::user();
     $hostPerms = $hostUser->effectiveHostPermissions();
-    $pendingReplies = $hostUser->hasHostPanelAccess('reviews')
+    $pendingReplies = $hostUser->hostCan('reviews.list', 'read')
         ? \App\Models\Review::whereIn('accommodation_id', $hostUser->managedAccommodationIds())->whereNull('host_reply')->count()
         : 0;
 @endphp
@@ -37,10 +43,14 @@
 <aside id="sidebar" class="ta-sidebar">
     <div class="ta-sidebar__brand">
         <div class="ta-sidebar__logo"><i class="bi bi-house-heart-fill"></i></div>
-        <div>
+        <div class="ta-sidebar__brand-text">
             <div class="ta-sidebar__title">پنل میزبان</div>
             <div class="ta-sidebar__subtitle">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
         </div>
+        <button type="button" class="ta-sidebar__toggle d-none d-lg-inline-flex" title="جمع/باز کردن منو" aria-label="جمع/باز کردن منو" onclick="window.taToggleCollapse()">
+            <i class="bi bi-chevron-right ta-toggle-collapse"></i>
+            <i class="bi bi-chevron-left ta-toggle-expand"></i>
+        </button>
     </div>
 
     <nav class="ta-sidebar__nav">
@@ -60,19 +70,32 @@
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>
             <ul class="ta-submenu">
+                @if($hostUser->hostCan('accommodations.list', 'read'))
                 <li><a href="{{ route('host.accommodations.index') }}" wire:navigate
                        class="{{ request()->routeIs('host.accommodations.index') || request()->routeIs('host.accommodations.edit') || request()->routeIs('host.room-types.*') ? 'active' : '' }}">اقامتگاه‌های من</a></li>
+                @endif
+                @if($hostUser->hostCan('accommodations.create', 'write'))
                 <li><a href="{{ route('host.accommodations.create') }}" wire:navigate
                        class="{{ request()->routeIs('host.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
+                @endif
             </ul>
         </div>
         @endif
 
         @if($hostUser->hasHostPanelAccess('bookings'))
+        @if($hostUser->hostCan('bookings.list', 'read'))
         <a href="{{ route('host.bookings.index') }}" wire:navigate data-label="رزروها"
-           class="ta-nav-link {{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">
+           class="ta-nav-link {{ request()->routeIs('host.bookings.*') && !request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">
             <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
         </a>
+        @endif
+
+        @if($hostUser->hostCan('cancellation-requests.list', 'read'))
+        <a href="{{ route('host.cancellation-requests.index') }}" wire:navigate data-label="کنسلی و استرداد وجه"
+           class="ta-nav-link {{ request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">
+            <i class="bi bi-x-circle-fill"></i><span class="ta-nav-link__label">کنسلی و استرداد وجه</span>
+        </a>
+        @endif
         @endif
 
         @if($hostUser->hasHostPanelAccess('programs'))
@@ -83,17 +106,23 @@
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>
             <ul class="ta-submenu">
+                @if($hostUser->hostCan('programs.list', 'read'))
                 <li><a href="{{ route('host.programs.index') }}" wire:navigate
                        class="{{ request()->routeIs('host.programs.index') || request()->routeIs('host.programs.show') || request()->routeIs('host.programs.edit') ? 'active' : '' }}">لیست برنامه‌ها</a></li>
+                @endif
+                @if($hostUser->hostCan('programs.create', 'write'))
                 <li><a href="{{ route('host.programs.create') }}" wire:navigate
                        class="{{ request()->routeIs('host.programs.create') ? 'active' : '' }}">افزودن برنامه</a></li>
+                @endif
+                @if($hostUser->hostCan('programs.supportive-report', 'read'))
                 <li><a href="{{ route('host.programs.supportive-report') }}" wire:navigate
                        class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
+                @endif
             </ul>
         </div>
         @endif
 
-        @if($hostUser->hasHostPanelAccess('reviews'))
+        @if($hostUser->hostCan('reviews.list', 'read'))
         <a href="{{ route('host.reviews.index') }}" wire:navigate data-label="نظرات مهمانان"
            class="ta-nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
             <i class="bi bi-star-fill"></i><span class="ta-nav-link__label">نظرات مهمانان</span>
@@ -103,7 +132,7 @@
         </a>
         @endif
 
-        @if($hostUser->hasHostPanelAccess('users'))
+        @if($hostUser->hostCan('users.list', 'read'))
         <a href="{{ route('host.users.index') }}" wire:navigate data-label="کاربران"
            class="ta-nav-link {{ request()->routeIs('host.users.*') ? 'active' : '' }}">
             <i class="bi bi-people-fill"></i><span class="ta-nav-link__label">کاربران</span>
@@ -133,35 +162,29 @@
 {{-- ─── Main ─────────────────────────────────────────────────────────── --}}
 <div class="ta-main">
     <header class="ta-topbar">
-        <div class="d-flex align-items-center gap-3 flex-grow-1">
-            <button class="ta-hamburger d-lg-none" onclick="window.taToggleSidebar()">
+        <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+            <button class="ta-hamburger d-lg-none flex-shrink-0" onclick="window.taToggleSidebar()">
                 <i class="bi bi-list fs-5"></i>
             </button>
-            <button class="ta-collapse-btn" type="button" title="جمع/باز کردن منو" onclick="window.taToggleCollapse()">
-                <i class="bi bi-list fs-5"></i>
-            </button>
-            <div class="ta-search d-none d-md-block">
-                <i class="bi bi-search"></i>
-                <input type="text" placeholder="جستجو یا تایپ دستور..." aria-label="جستجو">
-            </div>
+            <x-panel.topbar-meta panel="host" :page-title="$pageTitle ?? null" :breadcrumbs="$breadcrumbs ?? null" />
         </div>
 
         <div class="d-flex align-items-center gap-2 gap-lg-3">
-            <button class="ta-icon-btn ta-theme-btn" type="button" title="حالت تیره" onclick="window.taToggleTheme && window.taToggleTheme()">
+            {{-- <button class="ta-icon-btn ta-theme-btn" type="button" title="حالت تیره" onclick="window.taToggleTheme && window.taToggleTheme()">
                 <i class="bi bi-moon"></i>
-            </button>
-            @if($hostUser->hasHostPanelAccess('reviews'))
+            </button> --}}
+            @if($hostUser->hostCan('reviews.list', 'read'))
             <a href="{{ route('host.reviews.index') }}" wire:navigate class="ta-icon-btn" title="نظرات">
                 <i class="bi bi-bell"></i>
                 @if($pendingReplies > 0)<span class="ta-dot"></span>@endif
             </a>
             @endif
             <div class="ta-user dropdown">
-                <div class="d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" role="button">
+                <div class="d-flex align-items-center gap-2" onclick="window.taToggleUserDropdown(this, event)" aria-expanded="false" role="button">
                     <div class="ta-user__avatar">{{ mb_substr(Auth::user()->name ?? 'M', 0, 1) }}</div>
                     <div class="d-none d-sm-block text-start">
                         <div class="ta-user__name">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
-                        <div class="ta-user__role">میزبان</div>
+                        <div class="ta-user__role">{{ Auth::user()->hostRoleLabel() }}</div>
                     </div>
                     <i class="bi bi-chevron-down text-muted d-none d-sm-block" style="font-size:.8rem"></i>
                 </div>
@@ -195,11 +218,14 @@
     @endif
 </div>
 
-<script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
-<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}"></script>
-<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}"></script>
-<script>
+<script src="{{ asset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/bootstrap-collapse-navigate.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
+<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/jalali-date-today.js') }}" data-navigate-once></script>
+<script src="{{ Vite::asset('resources/js/cancellation-settle-datepicker.js') }}" data-navigate-once></script>
+<script data-navigate-once>
 window.bnbJalaliCal = window.bnbJalaliCal || {
     satFirstColumnForJsDow(jsGetDay) { return (jsGetDay + 1) % 7; },
     monthStartOffset(jYear, jMonth) {
@@ -218,7 +244,7 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     },
 };
 </script>
-<script>
+<script data-navigate-once>
     window.taToggleSidebar = function (force) {
         var sb = document.getElementById('sidebar');
         var bd = document.getElementById('sidebarBackdrop');
@@ -246,6 +272,19 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
             }
         } catch (e) {}
     })();
+    window.taToggleUserDropdown = function (el, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        bootstrap.Dropdown.getOrCreateInstance(el).toggle();
+    };
+    function taResetUserDropdowns() {
+        document.querySelectorAll('.ta-topbar .ta-user.dropdown > [role="button"]').forEach(function (el) {
+            var inst = bootstrap.Dropdown.getInstance(el);
+            if (inst) inst.dispose();
+        });
+    }
     document.addEventListener('livewire:navigated', function () {
         try {
             document.body.classList.toggle('ta-collapsed', localStorage.getItem('ta-sidebar-collapsed') === '1');
@@ -254,6 +293,7 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
             document.documentElement.setAttribute('data-bs-theme', saved === 'dark' ? 'dark' : 'light');
         } catch (e) {}
         taSyncThemeBtn();
+        taResetUserDropdowns();
     });
     // ── Dark / Light theme ──
     function taSyncThemeBtn() {
@@ -273,9 +313,12 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     };
     taSyncThemeBtn();
 </script>
-<script src="{{ Vite::asset('resources/js/money-input.js') }}"></script>
+<script src="{{ Vite::asset('resources/js/money-input.js') }}" data-navigate-once></script>
+<script src="{{ Vite::asset('resources/js/bnb-room-picker.js') }}" data-navigate-once></script>
+<script src="{{ Vite::asset('resources/js/dashboard-accommodation-filter.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/image-upload-gate.js') }}" data-navigate-once></script>
 @livewireScripts
-<script>
+<script data-navigate-once>
 (function () {
     function restoreJquery$() {
         if (window.jQuery) window.$ = window.jQuery;
@@ -288,7 +331,7 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
 @stack('scripts')
 @include('partials._btn_loader')
 @include('partials._swal')
-<script src="{{ Vite::asset('resources/js/room-type-form.js') }}"></script>
+<script type="module" src="{{ Vite::asset('resources/js/room-type-form.js') }}" data-navigate-once></script>
 @include('partials._test_site_notice')
 </body>
 </html>

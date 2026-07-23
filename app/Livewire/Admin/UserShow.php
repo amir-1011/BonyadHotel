@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\BookingBeneficiaryCost;
+use App\Models\ProgramBeneficiaryCost;
 use App\Models\User;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -16,7 +18,15 @@ class UserShow extends Component
     public function mount(User $user): void
     {
         $this->user = $user;
-        $this->user->load('roles', 'bookings.accommodation', 'accommodations');
+        $this->user->load([
+            'roles',
+            'bookings.accommodation',
+            'accommodations',
+            'programBeneficiary',
+            'beneficiaryBookingCosts.booking.accommodation',
+            'country',
+            'residenceCity',
+        ]);
         $this->selectedRole = $this->user->roles->first()?->name ?? '';
     }
 
@@ -34,6 +44,24 @@ class UserShow extends Component
     public function render()
     {
         $user = $this->user;
-        return view('admin.users.show', compact('user'));
+
+        $programBeneficiaryHistory = collect();
+        if ($user->programBeneficiary) {
+            $programBeneficiaryHistory = ProgramBeneficiaryCost::query()
+                ->with(['program.booking.accommodation', 'beneficiary'])
+                ->where('program_beneficiary_id', $user->programBeneficiary->id)
+                ->latest('id')
+                ->take(20)
+                ->get();
+        }
+
+        $bookingBeneficiaryHistory = BookingBeneficiaryCost::query()
+            ->with(['booking.accommodation', 'beneficiary'])
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->take(20)
+            ->get();
+
+        return view('admin.users.show', compact('user', 'programBeneficiaryHistory', 'bookingBeneficiaryHistory'));
     }
 }

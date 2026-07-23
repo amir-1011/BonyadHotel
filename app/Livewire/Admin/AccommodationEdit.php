@@ -8,7 +8,9 @@ use App\Models\Province;
 use App\Models\User;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
+use App\Livewire\Concerns\ManagesLivewireImageUploads;
 use App\Models\AccommodationType;
+use App\Services\ImageUploadService;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -20,6 +22,7 @@ class AccommodationEdit extends Component
     use WithFileUploads;
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
+    use ManagesLivewireImageUploads;
 
     public Accommodation $accommodation;
 
@@ -87,8 +90,7 @@ class AccommodationEdit extends Component
             'lat'           => ['nullable', 'numeric'],
             'lng'           => ['nullable', 'numeric'],
             'isActive'      => ['boolean'],
-            'newImages.*'   => ['nullable', 'image', 'max:4096'],
-        ], $this->contactInfoRules());
+        ], $this->imageUploadRules('newImages'), $this->contactInfoRules());
     }
 
     private function parseAmenities(string $raw): array
@@ -118,9 +120,25 @@ class AccommodationEdit extends Component
 
         $finalImages = array_values(array_intersect($existingImages, $this->keepImages));
 
+        try {
+            ImageUploadService::assertTotalImageCount(
+                count($finalImages) + count($this->newImages)
+            );
+        } catch (\RuntimeException $e) {
+            $this->addError('newImages', $e->getMessage());
+
+            return;
+        }
+
         if (!empty($this->newImages)) {
-            foreach ($this->newImages as $img) {
-                $finalImages[] = $img->store('accommodations', 'public');
+            try {
+                $finalImages = array_merge(
+                    $finalImages,
+                    app(ImageUploadService::class)->storeManyWebp($this->newImages, 'accommodations')
+                );
+            } catch (\RuntimeException $e) {
+                $this->addError('newImages', $e->getMessage());
+                return;
             }
         }
 

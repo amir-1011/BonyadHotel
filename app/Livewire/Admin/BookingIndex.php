@@ -7,7 +7,10 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Support\AdminBookingFilter;
 use App\Support\BookingLocationFilterCatalog;
+use App\Support\BookingReserverFilterCatalog;
+use App\Support\BookingRoomFilterCatalog;
 use App\Support\BookingServiceFilterCatalog;
+use App\Support\VeteranGroups;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -28,7 +31,14 @@ class BookingIndex extends Component
             return;
         }
 
-        Booking::findOrFail($bookingId)->update(['status' => $newStatus]);
+        $booking = Booking::findOrFail($bookingId);
+
+        if ($newStatus === 'cancelled' && $booking->status === 'confirmed' && $booking->canRequestCancellation()) {
+            $this->redirect(route('admin.bookings.show', $booking) . '?cancel=1');
+            return;
+        }
+
+        $booking->update(['status' => $newStatus]);
         session()->flash('status', 'وضعیت رزرو به‌روز شد.');
         $this->dispatch('toast', type: 'success', message: 'وضعیت رزرو به‌روز شد.');
     }
@@ -37,7 +47,7 @@ class BookingIndex extends Component
     {
         $filter = AdminBookingFilter::make($this->bookingFilterParams());
 
-        $query = Booking::with('user', 'accommodation.city', 'roomType');
+        $query = Booking::with('user', 'createdBy', 'accommodation.city', 'roomType', 'bookingRooms.room', 'bookingRooms.roomType');
         $filter->apply($query);
 
         $totalFiltered = (clone $query)->sum('total_price');
@@ -59,14 +69,34 @@ class BookingIndex extends Component
         $serviceVariants = $serviceCatalog->variants($this->draftServiceCatalogId);
         $showServiceAccommodation = $serviceCatalog->shouldShowAccommodationInLabels($this->draftAccommodationId);
 
+        $roomCatalog = app(BookingRoomFilterCatalog::class);
+        $roomCategories = $roomCatalog->categories(
+            $this->draftAccommodationId,
+            $this->draftProvinceId,
+            $this->draftCityId,
+            $this->draftCountyId,
+        );
+        $rooms = $roomCatalog->rooms(
+            $this->draftAccommodationId,
+            $this->draftRoomCategory,
+            $this->draftProvinceId,
+            $this->draftCityId,
+            $this->draftCountyId,
+        );
+        $showRoomAccommodation = $roomCatalog->shouldShowAccommodationInLabels($this->draftAccommodationId);
+        $veteranAccommodationId = $this->draftAccommodationId !== '' ? (int) $this->draftAccommodationId : null;
+        $veteranOptions = VeteranGroups::options($veteranAccommodationId);
+
         $accommodations = Accommodation::orderBy('name')->get(['id', 'name']);
+        $reservers = app(BookingReserverFilterCatalog::class)->reservers($this->draftAccommodationId);
         $hasActiveFilters = $filter->hasActiveFilters();
         $exportQuery = $filter->exportQuery();
         extract($this->resolvedBookingSort());
 
         return view('admin.bookings.index', compact(
-            'bookings', 'accommodations', 'provinces', 'cities', 'counties',
+            'bookings', 'accommodations', 'reservers', 'provinces', 'cities', 'counties',
             'serviceCatalogs', 'serviceVariants', 'showServiceAccommodation',
+            'roomCategories', 'rooms', 'showRoomAccommodation', 'veteranOptions',
             'totalFiltered', 'countFiltered', 'sort', 'dir',
             'hasActiveFilters', 'exportQuery',
         ));

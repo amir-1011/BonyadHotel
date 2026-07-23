@@ -21,6 +21,7 @@
      data-amenity-store-url="{{ route('api.room-type-amenities.store') }}"
      data-amenity-destroy-url="{{ url('/api/room-type-amenities') }}"
      data-category-store-url="{{ route('api.room-type-categories.store') }}"
+     data-category-update-url="{{ url('/api/room-type-categories') }}"
      data-category-destroy-url="{{ url('/api/room-type-categories') }}">
 
     {{-- ── اطلاعات اصلی ─────────────────────────────────────────────── --}}
@@ -32,7 +33,7 @@
             </div>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">نام اتاق <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold">نام گروه اتاق <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
                            value="{{ old('name', $roomType?->name) }}" placeholder="مثلاً: اتاق استاندارد دبل">
                     @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -51,6 +52,17 @@
                         @foreach($categoryCatalog as $category)
                         <span class="rt-catalog-pill" data-category-id="{{ $category->id }}">
                             <span class="rt-catalog-pill__label">{{ $category->name }}</span>
+                            @if(CatalogPermissions::canEdit($authUser, $category->created_by))
+                            <button type="button"
+                                    class="rt-catalog-pill__rename"
+                                    data-action="rename-room-category"
+                                    data-category-id="{{ $category->id }}"
+                                    data-category-name="{{ $category->name }}"
+                                    title="تغییر نام"
+                                    aria-label="تغییر نام {{ $category->name }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            @endif
                             @if(CatalogPermissions::canDelete($authUser, $category->created_by))
                             <button type="button"
                                     class="rt-catalog-pill__remove"
@@ -240,9 +252,10 @@
             <label class="form-label small fw-semibold">تصاویر جدید (اضافه کنید)</label>
             @endif
 
-            <input type="file" name="new_images[]" data-room-images-input class="form-control" accept="image/*" multiple>
-            <div data-room-images-preview class="d-flex flex-wrap gap-2 mt-2"></div>
-            <div class="form-text">فرمت‌های JPG, PNG, WebP — حداکثر ۴ مگابایت هر تصویر</div>
+            <x-image-upload.html-field
+                :name="($roomType ?? null) ? 'new_images[]' : 'images[]'"
+                :label="($roomType ?? null) ? null : 'تصاویر اتاق'"
+            />
         </div>
     </div>
 
@@ -396,6 +409,34 @@
 }
 .rt-catalog-pill__label {
     line-height: 1.3;
+}
+.rt-catalog-pill__rename {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(var(--bs-primary-rgb), .12);
+    color: var(--bs-primary);
+    padding: 0;
+    font-size: .6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.rt-catalog-pill__rename:hover {
+    background: rgba(var(--bs-primary-rgb), .22);
+}
+.rt-catalog-pill__rename-input {
+    width: 7rem;
+    min-width: 5rem;
+    font-size: .72rem;
+    padding: .1rem .35rem;
+}
+.rt-catalog-pill--renaming {
+    gap: .25rem;
+    padding-inline: .35rem;
 }
 .rt-catalog-pill__remove {
     display: inline-flex;

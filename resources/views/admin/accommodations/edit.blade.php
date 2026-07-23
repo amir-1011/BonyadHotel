@@ -3,8 +3,8 @@
 <div class="d-flex align-items-center gap-2 mb-3">
     <a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
     <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-door-open me-1"></i>اتاق‌ها</a>
-    <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>ایثارگری و خدمات</a>
-    <h5 class="fw-bold mb-0">ویرایش: {{ $accommodation->name }}</h5>
+    <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>تعاریف اولیه</a>
+    <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-x-circle me-1"></i>سیاست کنسلی</a>
 </div>
 <div class="card shadow-sm">
     <div class="card-body">
@@ -16,8 +16,8 @@
 
             <div class="col-12">
                 <label class="form-label small fw-semibold"><i class="bi bi-geo-alt me-1"></i>موقعیت روی نقشه <span class="text-muted fw-normal">(اختیاری — روی نقشه کلیک کنید)</span></label>
-                <div id="map-picker" style="height:320px;border-radius:10px;border:1px solid #dee2e6;"></div>
-                <div class="d-flex gap-3 mt-2 align-items-center">
+                <div id="map-picker" wire:ignore style="height:320px;border-radius:10px;border:1px solid #dee2e6;"></div>
+                <div class="d-flex gap-3 mt-2 align-items-center" wire:ignore>
                     <div class="text-muted small flex-grow-1" id="map-hint">
                         @if($accommodation->lat)
                             <i class="bi bi-check-circle-fill text-success me-1"></i>موقعیت ذخیره شده: {{ $accommodation->lat }}، {{ $accommodation->lng }}
@@ -50,13 +50,11 @@
             @endif
 
             <div class="col-12">
-                <label class="form-label small fw-semibold"><i class="bi bi-plus-circle me-1"></i>افزودن تصاویر جدید <span class="text-muted fw-normal">(حداکثر ۸ عکس، هر کدام تا ۴ مگابایت)</span></label>
-                <input type="file" wire:model="newImages" id="image-input" class="form-control" accept="image/*" multiple>
-                <div id="image-preview" class="d-flex flex-wrap gap-2 mt-2"></div>
-            </div>
-
-            <div class="col-12">
-                <button wire:click="update" class="btn btn-primary px-4">ذخیره تغییرات</button>
+                <x-image-upload.livewire-panel model="newImages">
+                    <div class="mt-3">
+                        <x-image-upload.submit-button action="update" label="ذخیره تغییرات" />
+                    </div>
+                </x-image-upload.livewire-panel>
             </div>
         </div>
     </div>
@@ -69,24 +67,51 @@
 @endpush
 
 @push('scripts')
-<script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js"></script>
 <script>
-var savedLat = parseFloat('{{ $accommodation->lat ?? "" }}') || null;
-var savedLng = parseFloat('{{ $accommodation->lng ?? "" }}') || null;
-var centerLat = savedLat || 32.4279;
-var centerLng = savedLng || 53.6880;
-var zoom      = savedLat ? 13 : 5;
+var NESHAN_SDK = 'https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js';
+var _accommodationMap = null;
+var _neshanLoading = false;
+var savedLat = parseFloat(@js($accommodation->lat)) || null;
+var savedLng = parseFloat(@js($accommodation->lng)) || null;
+
+function restoreVendorLeafletIfNeeded() {
+    if (!document.getElementById('map-picker') && window.__leafletVendorBackup) {
+        window.L = window.__leafletVendorBackup;
+        delete window.__leafletVendorBackup;
+    }
+}
+
+function destroyAccommodationMap() {
+    if (_accommodationMap) {
+        try { _accommodationMap.remove(); } catch (e) {}
+        _accommodationMap = null;
+    }
+    var el = document.getElementById('map-picker');
+    if (el) el._leafletMap = null;
+}
 
 var leafletReady = function () {
+    var mapEl = document.getElementById('map-picker');
+    if (!mapEl || !window.L || !mapEl.isConnected || !mapEl.offsetWidth) return;
+    if (mapEl._leafletMap) { mapEl._leafletMap.invalidateSize(); return; }
+
+    destroyAccommodationMap();
+
+    var centerLat = savedLat || 32.4279;
+    var centerLng = savedLng || 53.6880;
+    var zoom = savedLat ? 13 : 5;
+
     var map = new L.Map('map-picker', {
         key: 'web.75d28da947f74d85972934574838fa0e',
         maptype: 'dreamy',
         center: [centerLat, centerLng],
         zoom: zoom,
     });
+    mapEl._leafletMap = map;
+    _accommodationMap = map;
 
     var marker = null;
-    if (savedLat) {
+    if (savedLat && savedLng) {
         marker = L.marker([savedLat, savedLng], {draggable: true}).addTo(map);
         marker.on('dragend', updateFromMarker);
     }
@@ -94,8 +119,8 @@ var leafletReady = function () {
     map.on('click', function(e) {
         var lat = e.latlng.lat.toFixed(6);
         var lng = e.latlng.lng.toFixed(6);
-        @this.set('lat', lat);
-        @this.set('lng', lng);
+        @this.set('lat', lat, false);
+        @this.set('lng', lng, false);
         if (marker) { marker.setLatLng(e.latlng); }
         else {
             marker = L.marker(e.latlng, {draggable: true}).addTo(map);
@@ -106,22 +131,69 @@ var leafletReady = function () {
 
     function updateFromMarker(e) {
         var pos = e.target.getLatLng();
-        @this.set('lat', pos.lat.toFixed(6));
-        @this.set('lng', pos.lng.toFixed(6));
+        @this.set('lat', pos.lat.toFixed(6), false);
+        @this.set('lng', pos.lng.toFixed(6), false);
         updateHint(pos.lat.toFixed(6), pos.lng.toFixed(6));
     }
     function updateHint(lat, lng) {
-        document.getElementById('map-hint').innerHTML =
+        var hint = document.getElementById('map-hint');
+        if (!hint) return;
+        hint.innerHTML =
             '<i class="bi bi-check-circle-fill text-success me-1"></i>موقعیت انتخاب شد: ' + lat + '، ' + lng;
     }
     window.clearMapMarker = function () {
         if (marker) { map.removeLayer(marker); marker = null; }
-        @this.set('lat', '');
-        @this.set('lng', '');
-        document.getElementById('map-hint').textContent = 'برای تعیین موقعیت، روی نقشه کلیک کنید.';
-    }
+        @this.set('lat', '', false);
+        @this.set('lng', '', false);
+        var hint = document.getElementById('map-hint');
+        if (hint) hint.textContent = 'برای تعیین موقعیت، روی نقشه کلیک کنید.';
+    };
 };
 
-if (window.L) { leafletReady(); }
+function ensureNeshanSdk(callback) {
+    if (!document.getElementById('map-picker')) return;
+
+    var sdk = document.getElementById('neshan-sdk-accommodation');
+    if (sdk?.dataset.ready === '1' && window.L) {
+        callback();
+        return;
+    }
+
+    if (window.L) {
+        window.__leafletVendorBackup = window.L;
+        delete window.L;
+    }
+
+    if (_neshanLoading) return;
+    _neshanLoading = true;
+
+    if (sdk) sdk.remove();
+
+    var script = document.createElement('script');
+    script.id = 'neshan-sdk-accommodation';
+    script.src = NESHAN_SDK;
+    script.onload = function () {
+        script.dataset.ready = '1';
+        _neshanLoading = false;
+        callback();
+    };
+    script.onerror = function () { _neshanLoading = false; };
+    document.body.appendChild(script);
+}
+
+function tryInitAccommodationMap() {
+    ensureNeshanSdk(function () {
+        requestAnimationFrame(function () { requestAnimationFrame(leafletReady); });
+    });
+}
+
+document.addEventListener('livewire:navigating', function () {
+    destroyAccommodationMap();
+    _neshanLoading = false;
+    restoreVendorLeafletIfNeeded();
+});
+document.addEventListener('livewire:navigated', tryInitAccommodationMap);
+document.addEventListener('DOMContentLoaded', tryInitAccommodationMap);
+tryInitAccommodationMap();
 </script>
 @endpush

@@ -30,6 +30,16 @@ class RoomRate extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function dailyPriceOverrides()
+    {
+        return $this->hasMany(RoomRateDailyPriceOverride::class);
+    }
+
+    public function weeklyPriceRules()
+    {
+        return $this->hasMany(RoomRateWeeklyPriceRule::class)->orderBy('weekday');
+    }
+
     /** Human-readable cancellation label */
     public function cancellationLabel(): string
     {

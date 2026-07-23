@@ -117,19 +117,27 @@ function bootMoneyInput() {
     }
 }
 
-if (window.Alpine) {
-    registerAlpineMoneyInput();
-} else {
-    document.addEventListener('alpine:init', registerAlpineMoneyInput);
-}
+// Avoid double-binding when Livewire re-evaluates this classic script on navigate.
+if (!window.__bonyadMoneyInputReady) {
+    window.__bonyadMoneyInputReady = true;
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootMoneyInput);
-} else {
-    bootMoneyInput();
-}
+    if (window.Alpine) {
+        registerAlpineMoneyInput();
+    } else {
+        document.addEventListener('alpine:init', registerAlpineMoneyInput);
+    }
 
-document.addEventListener('livewire:navigated', () => initMoneyInputs());
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootMoneyInput);
+    } else {
+        bootMoneyInput();
+    }
+
+    document.addEventListener('livewire:navigated', () => {
+        registerAlpineMoneyInput();
+        initMoneyInputs();
+    });
+}
 
 window.parseMoney = parseMoney;
 window.formatMoney = formatMoney;

@@ -1,9 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-star me-2"></i>نظرات ({{ $reviews->total() }})</h5>
-</div>
-
 <div class="card shadow-sm mb-3">
     <div class="card-body py-2">
         <form method="GET" class="row g-2 align-items-end">
@@ -23,7 +19,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th>#</th><th>کاربر</th><th>اقامتگاه</th><th>امتیاز</th><th>متن</th><th>تاریخ</th><th>نمایش</th><th>عملیات</th></tr>
+                <tr><th class="col-index">#</th><th>کاربر</th><th>اقامتگاه</th><th>امتیاز</th><th>متن</th><th>تاریخ</th><th>نمایش</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($reviews as $r)

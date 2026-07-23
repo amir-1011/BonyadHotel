@@ -1,7 +1,6 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-building me-2"></i>اقامتگاه‌ها ({{ $accommodations->total() }})</h5>
+<div class="d-flex align-items-center justify-content-end mb-3">
     <div class="d-flex gap-2">
         <a wire:navigate href="{{ route('admin.accommodations.import') }}" class="btn btn-sm btn-outline-primary">
             <i class="bi bi-upload me-1"></i>درون‌ریزی CSV
@@ -49,7 +48,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th>#</th><th>نام / نوع</th><th>شهر</th><th>قیمت/شب</th><th>میزبان</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
+                <tr><th class="col-index">#</th><th>نام / نوع</th><th>شهر</th><th>میزبان</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($accommodations as $acc)
@@ -70,7 +69,6 @@
                         <br><span style="font-size:.7rem">{{ $acc->city->province->name }}</span>
                         @endif
                     </td>
-                    <td class="small">{{ number_format($acc->price_per_night) }} ت</td>
                     <td class="small">
                         @if($acc->host)
                         <a wire:navigate href="{{ route('admin.users.show', $acc->host) }}" class="text-decoration-none text-dark">
@@ -98,8 +96,10 @@
                         <div class="d-flex gap-1 flex-wrap">
                             <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-xs btn-outline-secondary" style="padding:.2rem .5rem;font-size:.75rem;" title="نمایش در سایت" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.manual-booking', $acc) }}" class="btn btn-xs btn-success" style="padding:.2rem .5rem;font-size:.75rem;" title="رزرو دستی"><i class="bi bi-plus-circle"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.report', $acc) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="گزارش فروش"><i class="bi bi-graph-up-arrow"></i></a>
                             <a wire:navigate href="{{ route('admin.room-types.index', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="مدیریت اتاق‌ها"><i class="bi bi-door-open"></i></a>
-                            <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="ایثارگری و خدمات"><i class="bi bi-shield-check"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="تعاریف اولیه"><i class="bi bi-shield-check"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="سیاست کنسلی"><i class="bi bi-x-circle"></i></a>
                             <a wire:navigate href="{{ route('admin.bookings.index', ['search'=> $acc->name]) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزروها"><i class="bi bi-calendar-check"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.edit', $acc) }}" class="btn btn-xs btn-outline-warning" style="padding:.2rem .5rem;font-size:.75rem;" title="ویرایش"><i class="bi bi-pencil"></i></a>
                             <button wire:click="destroy({{ $acc->id }})" data-swal-confirm="حذف شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>
@@ -107,7 +107,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">اقامتگاهی یافت نشد</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">اقامتگاهی یافت نشد</td></tr>
                 @endforelse
             </tbody>
         </table>

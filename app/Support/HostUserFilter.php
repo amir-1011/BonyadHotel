@@ -29,6 +29,7 @@ class HostUserFilter
         $scopedAccommodationIds = $this->scopedAccommodationIds();
 
         $query->whereHas('bookings', fn (Builder $q) => $q->whereIn('accommodation_id', $scopedAccommodationIds))
+            ->with(['country', 'residenceCity'])
             ->withCount([
                 'bookings as host_bookings_count' => fn (Builder $q) => $q->whereIn('accommodation_id', $scopedAccommodationIds),
             ])
@@ -41,15 +42,20 @@ class HostUserFilter
             $query->where(fn (Builder $w) => $w
                 ->where('name', 'like', "%{$s}%")
                 ->orWhere('mobile', 'like', "%{$s}%")
-                ->orWhere('national_id', 'like', "%{$s}%"));
+                ->orWhere('national_id', 'like', "%{$s}%")
+                ->orWhere('passport_number', 'like', "%{$s}%"));
         }
 
         if (array_key_exists('veteran_type', $this->filters)) {
             $veteranType = (string) ($this->filters['veteran_type'] ?? '');
             if ($veteranType === '__none__') {
-                $query->where(fn (Builder $w) => $w->whereNull('veteran_type')->orWhere('veteran_type', ''));
+                $query->where(fn (Builder $w) => $w
+                    ->where(fn (Builder $inner) => $inner->whereNull('veteran_type')->orWhere('veteran_type', ''))
+                    ->where(fn (Builder $inner) => $inner->whereNull('secondary_veteran_type')->orWhere('secondary_veteran_type', '')));
             } elseif ($veteranType !== '') {
-                $query->where('veteran_type', $veteranType);
+                $query->where(fn (Builder $w) => $w
+                    ->where('veteran_type', $veteranType)
+                    ->orWhere('secondary_veteran_type', $veteranType));
             }
         }
 

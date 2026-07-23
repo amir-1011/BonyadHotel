@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.host', ['title' => 'تنظیمات ایثارگری', 'pageTitle' => 'تنظیمات ایثارگری و خدمات'])]
+#[Layout('layouts.host', ['title' => 'تعاریف اولیه', 'pageTitle' => 'تعاریف اولیه'])]
 class AccommodationVeteranPolicySettings extends Component
 {
     use ManagesVeteranPolicySettings;

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Host;
 
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Models\Review;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -13,6 +14,7 @@ use Livewire\WithPagination;
 class ReviewIndex extends Component
 {
     use WithPagination;
+    use AssertsHostPermissions;
 
     #[Url] public string $search = '';
     #[Url] public int    $accommodationId = 0;
@@ -30,6 +32,7 @@ class ReviewIndex extends Component
 
     public function startReply(int $reviewId): void
     {
+        $this->assertHostCan('reviews.list', 'edit');
         $this->replyingTo = $reviewId;
         $review = Review::findOrFail($reviewId);
         $this->replyText = $review->host_reply ?? '';
@@ -37,6 +40,7 @@ class ReviewIndex extends Component
 
     public function submitReply(): void
     {
+        $this->assertHostCan('reviews.list', 'edit');
         $this->validate([
             'replyText' => ['required', 'string', 'max:1000'],
         ]);
@@ -53,6 +57,7 @@ class ReviewIndex extends Component
 
     public function deleteReply(int $reviewId): void
     {
+        $this->assertHostCan('reviews.list', 'delete');
         $ids    = Auth::user()->managedAccommodationIds();
         $review = Review::whereIn('accommodation_id', $ids)->findOrFail($reviewId);
         $review->update(['host_reply' => null, 'host_replied_at' => null]);

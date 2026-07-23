@@ -14,24 +14,36 @@ class ProgramShow extends Component
 
     public function mount(Program $program): void
     {
-        $this->program = $program;
-        $this->program->load('accommodation.city', 'roomTypes');
+        $this->program = $program->load([
+            'accommodation.city',
+            'booking.bookingRooms.room',
+            'booking.bookingRooms.roomType',
+            'booking.services',
+            'booking.guestDetails.bookingRoom.room',
+            'beneficiaryCosts.beneficiary',
+        ]);
         $this->newStatus = $program->status;
     }
 
     public function updateStatus(): void
     {
-        $allowed = ['active', 'completed', 'cancelled'];
-        if (!in_array($this->newStatus, $allowed, true)) return;
+        $allowed = [Program::STATUS_ACTIVE, Program::STATUS_COMPLETED, Program::STATUS_CANCELLED];
+        if (!in_array($this->newStatus, $allowed, true)) {
+            return;
+        }
 
         $this->program->update(['status' => $this->newStatus]);
+
+        if ($this->newStatus === Program::STATUS_CANCELLED && $this->program->booking) {
+            $this->program->booking->update(['status' => 'cancelled']);
+        }
+
         session()->flash('status', 'وضعیت برنامه به‌روز شد.');
         $this->dispatch('toast', type: 'success', message: 'وضعیت برنامه به‌روز شد.');
     }
 
     public function render()
     {
-        $program = $this->program;
-        return view('admin.programs.show', compact('program'));
+        return view('admin.programs.show', ['program' => $this->program]);
     }
 }

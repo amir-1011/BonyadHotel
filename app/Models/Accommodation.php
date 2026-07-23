@@ -13,6 +13,7 @@ class Accommodation extends Model
         'city_id', 'county_id', 'host_id', 'name', 'description', 'type', 'management_status',
         'price_per_night', 'capacity', 'children_under_6_allocate_bed', 'children_under_6_discount_percentage', 'rooms',
         'address', 'phone_numbers', 'lat', 'lng', 'amenities', 'image', 'images', 'is_active',
+        'veteran_policy_auto_seed', 'cancellation_policy_auto_seed', 'room_board_layout',
     ];
 
     protected function casts(): array
@@ -22,6 +23,9 @@ class Accommodation extends Model
             'phone_numbers'                 => 'array',
             'images'                        => 'array',
             'is_active'                     => 'boolean',
+            'veteran_policy_auto_seed'      => 'boolean',
+            'cancellation_policy_auto_seed' => 'boolean',
+            'room_board_layout'             => 'array',
             'children_under_6_allocate_bed' => 'boolean',
             'lat'                           => 'float',
             'lng'                           => 'float',

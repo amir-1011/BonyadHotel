@@ -3,31 +3,65 @@
 namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\ManagesBookingDetails;
+use App\Livewire\Concerns\ManagesCancellationRequests;
 use App\Models\Booking;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 #[Layout('layouts.admin', ['title' => 'جزئیات رزرو', 'pageTitle' => 'جزئیات رزرو'])]
 class BookingShow extends Component
 {
     use ManagesBookingDetails;
+    use ManagesCancellationRequests;
 
     public Booking $booking;
 
     public function mount(Booking $booking): void
     {
         $this->booking = $booking->load([
-            'user', 'accommodation.city.province', 'roomType', 'roomRate',
-            'services.serviceCatalog', 'guestDetails', 'createdBy',
+            'user.country', 'user.residenceCity', 'accommodation.city.province', 'roomType', 'roomRate',
+            'services.serviceCatalog', 'services.serviceCatalogVariant',
+            'guestDetails.country', 'guestDetails.residenceCity',
+            'guestDetails.bookingRoom.room', 'guestDetails.bookingRoom.roomType',
+            'createdBy',
             'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
+            'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
         ]);
         $this->bootBookingDetails($booking);
+        $this->initCancellationRequestsData();
+        $this->maybeAutoOpenCancellationRequestModal();
+    }
+
+    #[On('booking-services-updated')]
+    public function refreshBookingDetails(): void
+    {
+        $this->booking->refresh()->load([
+            'user.country', 'user.residenceCity', 'accommodation.city.province', 'roomType', 'roomRate',
+            'services.serviceCatalog', 'services.serviceCatalogVariant',
+            'guestDetails.country', 'guestDetails.residenceCity',
+            'guestDetails.bookingRoom.room', 'guestDetails.bookingRoom.roomType',
+            'createdBy',
+            'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
+            'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
+        ]);
+        $this->loadEditableGuests();
     }
 
     public function updateStatus(): void
     {
         $allowed = ['pending', 'confirmed', 'cancelled'];
         if (!in_array($this->selectedStatus, $allowed, true)) {
+            return;
+        }
+
+        if (
+            $this->selectedStatus === 'cancelled'
+            && $this->booking->status !== 'cancelled'
+            && $this->booking->status === 'confirmed'
+        ) {
+            $this->selectedStatus = $this->booking->status;
+            $this->openCancellationRequestModal();
             return;
         }
 

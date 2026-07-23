@@ -9,32 +9,120 @@ use App\Models\VeteranGroupServiceDiscount;
 
 class VeteranPolicyProvisioner
 {
-    public function seedForAccommodation(Accommodation|int $accommodation): void
+    public function seedForAccommodation(Accommodation|int $accommodation, bool $force = false): void
     {
-        $accommodationId = $accommodation instanceof Accommodation ? $accommodation->id : $accommodation;
+        $model = $accommodation instanceof Accommodation
+            ? $accommodation
+            : Accommodation::query()->findOrFail($accommodation);
+        $accommodationId = $model->id;
 
-        if (VeteranGroup::query()->where('accommodation_id', $accommodationId)->exists()) {
+        $hasGroups = VeteranGroup::query()->where('accommodation_id', $accommodationId)->exists();
+        $hasServices = ServiceCatalog::query()->where('accommodation_id', $accommodationId)->exists();
+
+        if ($hasGroups && $hasServices) {
+            return;
+        }
+
+        if (!$force && !($model->veteran_policy_auto_seed ?? true)) {
             return;
         }
 
         $groupIdByKey = [];
         foreach ($this->groupDefinitions() as $data) {
-            $group = VeteranGroup::create(array_merge($data, [
-                'accommodation_id' => $accommodationId,
-            ]));
+            $group = VeteranGroup::query()->firstOrCreate(
+                [
+                    'accommodation_id' => $accommodationId,
+                    'key'            => $data['key'],
+                ],
+                array_merge($data, ['accommodation_id' => $accommodationId]),
+            );
             $groupIdByKey[$group->key] = $group->id;
         }
 
         $serviceIdByKey = [];
         foreach ($this->serviceDefinitions() as $data) {
-            $service = ServiceCatalog::create(array_merge($data, [
-                'accommodation_id' => $accommodationId,
-            ]));
+            $service = ServiceCatalog::query()->firstOrCreate(
+                [
+                    'accommodation_id' => $accommodationId,
+                    'key'            => $data['key'],
+                ],
+                array_merge($data, ['accommodation_id' => $accommodationId]),
+            );
             $serviceIdByKey[$service->key] = $service->id;
         }
 
         $this->seedDiscountMatrix($groupIdByKey, $serviceIdByKey);
         app(VeteranPolicyService::class)->clearCache($accommodationId);
+    }
+
+    public function clearGroupsForAccommodation(Accommodation|int $accommodation): void
+    {
+        $accommodationId = $accommodation instanceof Accommodation ? $accommodation->id : $accommodation;
+
+        VeteranGroup::query()
+            ->where('accommodation_id', $accommodationId)
+            ->delete();
+
+        Accommodation::query()
+            ->where('id', $accommodationId)
+            ->update(['veteran_policy_auto_seed' => false]);
+
+        app(VeteranPolicyService::class)->clearCache($accommodationId);
+    }
+
+    public function clearServicesForAccommodation(Accommodation|int $accommodation): void
+    {
+        $accommodationId = $accommodation instanceof Accommodation ? $accommodation->id : $accommodation;
+
+        ServiceCatalog::query()
+            ->where('accommodation_id', $accommodationId)
+            ->delete();
+
+        Accommodation::query()
+            ->where('id', $accommodationId)
+            ->update(['veteran_policy_auto_seed' => false]);
+
+        app(VeteranPolicyService::class)->clearCache($accommodationId);
+    }
+
+    public function restoreDefaultsForAccommodation(Accommodation|int $accommodation): void
+    {
+        app(VeteranPolicyBroadcastService::class)->copyGlobalPolicyToAccommodation($accommodation);
+    }
+
+    public function restoreHardcodedDefaultsForAccommodation(Accommodation|int $accommodation): void
+    {
+        $model = $accommodation instanceof Accommodation
+            ? $accommodation
+            : Accommodation::query()->findOrFail($accommodation);
+        $accommodationId = $model->id;
+
+        VeteranGroup::query()->where('accommodation_id', $accommodationId)->delete();
+        ServiceCatalog::query()->where('accommodation_id', $accommodationId)->delete();
+
+        $model->update(['veteran_policy_auto_seed' => true]);
+        $model->refresh();
+
+        $this->seedForAccommodation($model, force: true);
+    }
+
+    public function markAutoSeedDisabledIfPolicyEmpty(int $accommodationId): void
+    {
+        $this->disableAutoSeedIfPolicyEmpty($accommodationId);
+    }
+
+    private function disableAutoSeedIfPolicyEmpty(int $accommodationId): void
+    {
+        $hasGroups = VeteranGroup::query()->where('accommodation_id', $accommodationId)->exists();
+        $hasServices = ServiceCatalog::query()->where('accommodation_id', $accommodationId)->exists();
+
+        if ($hasGroups || $hasServices) {
+            return;
+        }
+
+        Accommodation::query()
+            ->where('id', $accommodationId)
+            ->update(['veteran_policy_auto_seed' => false]);
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -213,13 +301,17 @@ class VeteranPolicyProvisioner
                 }
 
                 $is70 = $groupKey === 'veteran_70_spouses';
-                VeteranGroupServiceDiscount::create([
-                    'veteran_group_id'       => $groupId,
-                    'service_catalog_id'     => $serviceId,
-                    'discount_percentage'    => $is70 ? 0 : 65,
-                    'free_sessions_eligible' => $is70,
-                    'weekly_free_sessions'   => $is70 ? 3 : 0,
-                ]);
+                VeteranGroupServiceDiscount::query()->firstOrCreate(
+                    [
+                        'veteran_group_id'   => $groupId,
+                        'service_catalog_id' => $serviceId,
+                    ],
+                    [
+                        'discount_percentage'    => $is70 ? 0 : 65,
+                        'free_sessions_eligible' => $is70,
+                        'weekly_free_sessions'   => $is70 ? 3 : 0,
+                    ],
+                );
             }
 
             foreach ($fixedServices as $serviceKey => $discount) {
@@ -228,13 +320,17 @@ class VeteranPolicyProvisioner
                     continue;
                 }
 
-                VeteranGroupServiceDiscount::create([
-                    'veteran_group_id'       => $groupId,
-                    'service_catalog_id'     => $serviceId,
-                    'discount_percentage'    => $discount,
-                    'free_sessions_eligible' => false,
-                    'weekly_free_sessions'   => 0,
-                ]);
+                VeteranGroupServiceDiscount::query()->firstOrCreate(
+                    [
+                        'veteran_group_id'   => $groupId,
+                        'service_catalog_id' => $serviceId,
+                    ],
+                    [
+                        'discount_percentage'    => $discount,
+                        'free_sessions_eligible' => false,
+                        'weekly_free_sessions'   => 0,
+                    ],
+                );
             }
         }
     }

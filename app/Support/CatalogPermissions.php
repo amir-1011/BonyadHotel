@@ -18,4 +18,9 @@ class CatalogPermissions
 
         return $createdBy !== null && $createdBy === $user->id;
     }
+
+    public static function canEdit(?User $user, ?int $createdBy): bool
+    {
+        return self::canDelete($user, $createdBy);
+    }
 }

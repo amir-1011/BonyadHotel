@@ -6,7 +6,11 @@
 
 @php
     $storeUrl = route($routePrefix . '.rates.store', [$accommodation, $roomType]);
-    $showAddForm = $errors->hasBag('default') || old('price_per_night');
+    $activeScope = old('rate_form_scope');
+    $activeRateId = (int) old('rate_id', 0);
+    $showAddForm = $activeScope === 'create';
+    $isHostPanel = str_starts_with($routePrefix, 'host.');
+    $panel = $isHostPanel ? 'host' : 'admin';
 @endphp
 
 <div class="card shadow-sm rt-rates-card">
@@ -17,15 +21,19 @@
             @if($roomType->rates->isNotEmpty())
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ $roomType->rates->count() }} تعرفه</span>
             @endif
+            <span class="badge bg-light text-dark border small">قیمت به ازای هر تخت</span>
         </div>
+        <x-host.can page="room-types.rates" action="write" :panel="$panel">
         <button class="btn btn-sm btn-success" type="button"
                 data-bs-toggle="collapse" data-bs-target="#addRateForm"
                 aria-expanded="{{ $showAddForm ? 'true' : 'false' }}">
             <i class="bi bi-plus-lg me-1"></i>تعرفه جدید
         </button>
+        </x-host.can>
     </div>
 
     <div class="collapse {{ $showAddForm ? 'show' : '' }}" id="addRateForm">
+        <x-host.can page="room-types.rates" action="write" :panel="$panel">
         <div class="rt-rates-add-panel">
             <div class="rt-rates-add-panel__title">
                 <i class="bi bi-plus-circle text-success"></i>
@@ -33,7 +41,8 @@
             </div>
             <form action="{{ $storeUrl }}" method="POST">
                 @csrf
-                <x-room-type.rate-form :rate="null" />
+                <input type="hidden" name="rate_form_scope" value="create">
+                <x-room-type.rate-form :rate="null" form-scope="create" />
                 <div class="mt-3 d-flex gap-2">
                     <button type="submit" class="btn btn-success btn-sm">
                         <i class="bi bi-check-lg me-1"></i>ذخیره تعرفه
@@ -43,6 +52,7 @@
                 </div>
             </form>
         </div>
+        </x-host.can>
     </div>
 
     <div class="card-body {{ $roomType->rates->isEmpty() ? 'py-5' : 'p-0' }}">
@@ -51,10 +61,12 @@
             <div class="rt-rates-empty__icon"><i class="bi bi-tags"></i></div>
             <p class="fw-semibold mb-1">هنوز تعرفه‌ای تعریف نشده</p>
             <p class="small mb-3">برای نمایش این اتاق در سایت حداقل یک تعرفه اضافه کنید.</p>
+            <x-host.can page="room-types.rates" action="write" :panel="$panel">
             <button class="btn btn-sm btn-success" type="button"
                     data-bs-toggle="collapse" data-bs-target="#addRateForm">
                 <i class="bi bi-plus-lg me-1"></i>اولین تعرفه را اضافه کنید
             </button>
+            </x-host.can>
         </div>
         @else
         <div class="rt-rates-list">
@@ -69,7 +81,7 @@
                         <div class="rt-rate-item__name">{{ $rate->name }}</div>
                         <div class="rt-rate-item__price">
                             {{ number_format($rate->price_per_night) }}
-                            <small>تومان / شب</small>
+                            <small>تومان / شب / تخت</small>
                         </div>
                         <div class="rt-rate-item__badges">
                             @if($rate->breakfast_included)
@@ -88,10 +100,13 @@
                         </div>
                     </div>
                     <div class="rt-rate-item__actions">
+                        <x-host.can page="room-types.rates" action="edit" :panel="$panel">
                         <button class="btn btn-sm btn-outline-warning" title="ویرایش" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#editRate{{ $rate->id }}">
                             <i class="bi bi-pencil me-1"></i>ویرایش
                         </button>
+                        </x-host.can>
+                        <x-host.can page="room-types.rates" action="delete" :panel="$panel">
                         <form action="{{ $destroyUrl }}" method="POST" class="d-inline">
                             @csrf @method('DELETE')
                             <button type="submit" data-swal-confirm="این تعرفه حذف شود؟"
@@ -99,10 +114,12 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
+                        </x-host.can>
                     </div>
                 </div>
 
-                <div class="collapse" id="editRate{{ $rate->id }}">
+                <div class="collapse {{ ($activeScope === 'edit' && $activeRateId === $rate->id) ? 'show' : '' }}" id="editRate{{ $rate->id }}">
+                    <x-host.can page="room-types.rates" action="edit" :panel="$panel">
                     <div class="rt-rate-item__edit">
                         <div class="rt-rates-add-panel__title mb-3">
                             <i class="bi bi-pencil text-warning"></i>
@@ -110,7 +127,9 @@
                         </div>
                         <form action="{{ $updateUrl }}" method="POST">
                             @csrf @method('PUT')
-                            <x-room-type.rate-form :rate="$rate" />
+                            <input type="hidden" name="rate_form_scope" value="edit">
+                            <input type="hidden" name="rate_id" value="{{ $rate->id }}">
+                            <x-room-type.rate-form :rate="$rate" form-scope="edit" :form-rate-id="$rate->id" />
                             <div class="mt-3 d-flex gap-2">
                                 <button type="submit" class="btn btn-warning btn-sm">
                                     <i class="bi bi-check-lg me-1"></i>ذخیره تغییرات
@@ -120,6 +139,7 @@
                             </div>
                         </form>
                     </div>
+                    </x-host.can>
                 </div>
             </div>
             @endforeach
@@ -244,6 +264,19 @@
     border-color: var(--bs-primary);
     background: rgba(var(--bs-primary-rgb), .08);
     font-weight: 600;
+}
+.rt-rate-active-toggle--on .rt-rate-option-body {
+    border-color: var(--bs-primary);
+    background: rgba(var(--bs-primary-rgb), .08);
+    font-weight: 600;
+}
+.rt-rate-active-toggle--off .rt-rate-option-body {
+    border-color: var(--bs-secondary);
+    background: rgba(var(--bs-secondary-rgb), .08);
+    color: var(--bs-secondary);
+}
+.rt-rate-active-toggle--off:hover .rt-rate-option-body {
+    border-color: rgba(var(--bs-secondary-rgb), .65);
 }
 .rt-rate-breakfast-tile {
     display: block;

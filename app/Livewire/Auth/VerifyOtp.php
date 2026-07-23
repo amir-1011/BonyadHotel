@@ -54,8 +54,12 @@ class VerifyOtp extends Component
             $user->update(['mobile_verified_at' => now()]);
         }
 
-        Auth::login($user, true);
+        Auth::login($user, !$user->hasStaffAccess());
         session()->forget('otp_mobile');
+
+        if ($user->hasStaffAccess()) {
+            session(['staff_last_activity' => now()->timestamp]);
+        }
 
         if (!$user->name) {
             session()->flash('status', 'خوش آمدید! لطفاً اطلاعات خود را تکمیل کنید.');

@@ -14,6 +14,7 @@ use App\Services\ServiceDiscountTierEngine;
 trait ManagesVeteranPolicySettings
 {
     use ManagesDiscountTierMatrix;
+    use AssertsHostPermissions;
     public Accommodation $accommodation;
 
     public string $tab = 'groups';
@@ -69,24 +70,29 @@ trait ManagesVeteranPolicySettings
             ->ordered()
             ->with(['variants' => fn ($q) => $q->ordered()])
             ->get()
-            ->map(fn (ServiceCatalog $s) => [
-                'id'                     => $s->id,
-                'key'                    => $s->key,
-                'name'                   => $s->name,
-                'default_price'          => $s->default_price,
-                'supports_free_sessions' => $s->supports_free_sessions,
-                'default_discount'       => $s->default_discount,
-                'min_discount'           => $s->min_discount,
-                'max_discount'           => $s->max_discount,
-                'is_active'              => $s->is_active,
-                'variants'               => $s->variants->map(fn (ServiceCatalogVariant $v) => [
-                    'id'        => $v->id,
-                    'key'       => $v->key,
-                    'name'      => $v->name,
-                    'price'     => $v->price,
-                    'is_active' => $v->is_active,
-                ])->values()->all(),
-            ])->values()->all();
+            ->mapWithKeys(fn (ServiceCatalog $s) => [
+                $s->key => [
+                    'id'                     => $s->id,
+                    'key'                    => $s->key,
+                    'name'                   => $s->name,
+                    'default_price'          => $s->default_price,
+                    'supports_free_sessions' => $s->supports_free_sessions,
+                    'default_discount'       => $s->default_discount,
+                    'min_discount'           => $s->min_discount,
+                    'max_discount'           => $s->max_discount,
+                    'is_active'              => $s->is_active,
+                    'variants'               => $s->variants->map(fn (ServiceCatalogVariant $v) => [
+                        'id'        => $v->id,
+                        'key'       => $v->key,
+                        'name'      => $v->name,
+                        'price'     => $v->price,
+                        'is_active' => $v->is_active,
+                    ])->values()->all(),
+                ],
+            ])
+            ->all();
+
+        $this->pruneNewVariantDrafts();
 
         $this->discountMatrix = [];
         foreach (VeteranGroup::query()->forAccommodation($accommodationId)->ordered()->get() as $group) {
@@ -103,20 +109,23 @@ trait ManagesVeteranPolicySettings
                     ]
                 );
 
-                $this->discountMatrix[$group->key][$service->id] = [
-                    'id'                     => $row->id,
-                    'discount_percentage'    => $row->discount_percentage,
-                    'free_sessions_eligible' => $row->free_sessions_eligible,
-                    'weekly_free_sessions'   => $row->weekly_free_sessions,
-                    'use_tiered_discount'    => (bool) $row->use_tiered_discount,
-                    'discount_tiers'         => $row->discount_tiers ?? [],
-                ];
+                $this->discountMatrix[$group->key][$service->id] = array_merge(
+                    ['id' => $row->id],
+                    ServiceDiscountTierEngine::matrixRowFromPersistence([
+                        'discount_percentage'    => $row->discount_percentage,
+                        'free_sessions_eligible' => $row->free_sessions_eligible,
+                        'weekly_free_sessions'   => $row->weekly_free_sessions,
+                        'use_tiered_discount'    => $row->use_tiered_discount,
+                        'discount_tiers'         => $row->discount_tiers ?? [],
+                    ]),
+                );
             }
         }
     }
 
     public function saveGroups(): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         $this->validate([
             'groups.*.label'                  => ['required', 'string', 'max:200'],
             'groups.*.accommodation_discount' => ['required', 'integer', 'min:0', 'max:100'],
@@ -146,6 +155,7 @@ trait ManagesVeteranPolicySettings
 
     public function saveServices(): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         $this->validate([
             'services.*.name'             => ['required', 'string', 'max:200'],
             'services.*.variants.*.name'  => ['required', 'string', 'max:200'],
@@ -223,6 +233,7 @@ trait ManagesVeteranPolicySettings
 
     public function addServiceVariant(?int $serviceId = null): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         if ($serviceId === null) {
             return;
         }
@@ -256,6 +267,7 @@ trait ManagesVeteranPolicySettings
 
     public function removeServiceVariant(int $variantId): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         ServiceCatalogVariant::query()
             ->where('id', $variantId)
             ->whereHas('serviceCatalog', fn ($q) => $q->where('accommodation_id', $this->accommodation->id))
@@ -268,6 +280,7 @@ trait ManagesVeteranPolicySettings
 
     public function saveDiscountMatrix(): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         $this->validate($this->discountMatrixValidationRules());
 
         foreach ($this->discountMatrix as $groupKey => $serviceRows) {
@@ -291,6 +304,7 @@ trait ManagesVeteranPolicySettings
 
     public function addCustomGroup(): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         $this->validate([
             'newGroupLabel'                 => ['required', 'string', 'max:200'],
             'newGroupAccommodationDiscount' => ['required', 'integer', 'min:0', 'max:100'],
@@ -331,6 +345,7 @@ trait ManagesVeteranPolicySettings
 
     public function addCustomService(): void
     {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
         $this->validate([
             'newServiceName' => ['required', 'string', 'max:200'],
         ]);
@@ -363,8 +378,79 @@ trait ManagesVeteranPolicySettings
         $this->dispatch('toast', type: 'success', message: 'خدمت جدید اضافه شد. انواع و قیمت را در بخش همان خدمت تعریف کنید.');
     }
 
+    public function removeVeteranGroup(int $groupId): void
+    {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
+        VeteranGroup::query()
+            ->where('id', $groupId)
+            ->where('accommodation_id', $this->accommodation->id)
+            ->delete();
+
+        app(VeteranPolicyProvisioner::class)->markAutoSeedDisabledIfPolicyEmpty($this->accommodation->id);
+        $this->clearVeteranPolicyCache();
+        $this->loadVeteranPolicyData();
+        $this->dispatch('toast', type: 'success', message: 'گروه ایثارگری حذف شد.');
+    }
+
+    public function removeService(int $serviceId): void
+    {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
+        ServiceCatalog::query()
+            ->where('id', $serviceId)
+            ->where('accommodation_id', $this->accommodation->id)
+            ->delete();
+
+        app(VeteranPolicyProvisioner::class)->markAutoSeedDisabledIfPolicyEmpty($this->accommodation->id);
+        $this->clearVeteranPolicyCache();
+        $this->loadVeteranPolicyData();
+        $this->dispatch('toast', type: 'success', message: 'خدمت حذف شد.');
+    }
+
+    public function clearAllVeteranGroups(): void
+    {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
+        app(VeteranPolicyProvisioner::class)->clearGroupsForAccommodation($this->accommodation);
+        $this->accommodation->refresh();
+        $this->clearVeteranPolicyCache();
+        $this->loadVeteranPolicyData();
+        $this->dispatch('toast', type: 'success', message: 'همه گروه‌های ایثارگری این اقامتگاه پاک شد.');
+    }
+
+    public function clearAllServices(): void
+    {
+        $this->assertHostCan('accommodations.veteran-policy', 'edit');
+        app(VeteranPolicyProvisioner::class)->clearServicesForAccommodation($this->accommodation);
+        $this->accommodation->refresh();
+        $this->clearVeteranPolicyCache();
+        $this->loadVeteranPolicyData();
+        $this->dispatch('toast', type: 'success', message: 'همه خدمات این اقامتگاه پاک شد.');
+    }
+
+    public function restoreDefaultVeteranPolicy(): void
+    {
+        app(VeteranPolicyProvisioner::class)->restoreDefaultsForAccommodation($this->accommodation);
+        $this->accommodation->refresh();
+        $this->clearVeteranPolicyCache();
+        $this->loadVeteranPolicyData();
+        $this->dispatch('toast', type: 'success', message: 'تنظیمات سراسری ایثارگری روی این اقامتگاه بازگردانی شد.');
+    }
+
     protected function clearVeteranPolicyCache(): void
     {
         app(VeteranPolicyService::class)->clearCache($this->accommodation->id);
+    }
+
+    /** @param  array<int, array{name: string, price: int|string}>  $newVariantDrafts */
+    protected function pruneNewVariantDrafts(): void
+    {
+        $validServiceIds = collect($this->services)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->newVariantDrafts = array_intersect_key(
+            $this->newVariantDrafts,
+            array_flip($validServiceIds),
+        );
     }
 }

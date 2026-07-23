@@ -1,53 +1,61 @@
 @php
-    $servicePricingLines = $pricingBreakdown['service_lines'] ?? [];
+    $guestRows = $booking->guestDetails->sortBy('sort_order');
+    $unassignedServices = $booking->unassignedGuestServices();
+    $veteranApplied = !empty($booking->veteran_type_applied);
+    $quotaEligibleCount = $booking->services->filter(fn ($s) => !$s->excluded_from_veteran_quota)->count();
+    $excludedServiceCount = $booking->services->filter(fn ($s) => $s->excluded_from_veteran_quota)->count();
 @endphp
-@if($booking->services->isNotEmpty())
-<div class="table-responsive">
-    <table class="table table-sm mb-0 align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>خدمت</th>
-                <th>قیمت واحد</th>
-                <th>تعداد</th>
-                <th>جمع</th>
-                <th>نهایی</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($booking->services as $i => $svc)
-            @php
-                $lineSubtotal = $svc->unit_price * $svc->quantity;
-                $pricingLine = $servicePricingLines[$i] ?? null;
-            @endphp
-            <tr>
-                <td>
-                    <strong>{{ $svc->name }}</strong>
-                    @if($svc->serviceCatalog)
-                    <div class="text-muted" style="font-size:.72rem">{{ $svc->serviceCatalog->name }}</div>
-                    @endif
-                    @if($pricingLine)
-                    <div class="mt-1">
-                        <x-booking.service-discount-breakdown :line="$pricingLine" compact />
-                    </div>
-                    @elseif($svc->discount_amount > 0)
-                    <div class="text-danger small mt-1">− {{ number_format($svc->discount_amount) }} ت</div>
-                    @endif
-                </td>
-                <td>{{ number_format($svc->unit_price) }} ت</td>
-                <td>{{ $svc->quantity }}</td>
-                <td>{{ number_format($lineSubtotal) }} ت</td>
-                <td class="fw-semibold">{{ number_format($svc->total) }} ت</td>
-            </tr>
+
+@if($booking->services->isNotEmpty() || $guestRows->isNotEmpty())
+    @if($veteranApplied && $booking->services->isNotEmpty())
+    <div class="alert alert-info small py-2 mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        @if($excludedServiceCount > 0 && $quotaEligibleCount > 0)
+        {{ $quotaEligibleCount }} خدمت از سهمیه/تخفیف گروه <strong>{{ $booking->veteranLabelApplied() }}</strong> مهمان اصلی استفاده می‌کند؛
+        {{ $excludedServiceCount }} خدمت خارج از سهمیه (نرخ کامل یا تخفیف دستی میزبان) محاسبه شده است.
+        @elseif($excludedServiceCount > 0)
+        همه خدمات این رزرو خارج از سهمیه ایثارگری مهمان اصلی ثبت شده‌اند.
+        @else
+        تخفیف و سهمیه رایگان خدمات بر اساس گروه <strong>{{ $booking->veteranLabelApplied() }}</strong> مهمان اصلی محاسبه شده است.
+        @endif
+    </div>
+    @endif
+
+    @if($guestRows->isNotEmpty())
+        @foreach($guestRows as $guest)
+        <x-booking.guest-services-panel
+            :booking="$booking"
+            :guest="$guest"
+            :panel="$panel ?? 'host'"
+            :editable="false" />
+        @endforeach
+    @else
+        <div class="d-flex flex-column gap-2 mb-3">
+            @foreach($booking->services as $service)
+            <x-booking.service-line-readonly
+                :service="$service"
+                :veteran-type-applied="$veteranApplied" />
             @endforeach
-        </tbody>
-        <tfoot class="table-light">
-            <tr>
-                <td colspan="4" class="text-end text-muted">جمع خدمات (قبل تخفیف)</td>
-                <td class="fw-semibold">{{ number_format($booking->services_subtotal) }} ت</td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
+        </div>
+    @endif
+
+    @if($unassignedServices->isNotEmpty())
+    <div class="border rounded p-2 bg-warning-subtle mb-3">
+        <div class="small fw-semibold mb-2">خدمات بدون مهمان مشخص</div>
+        <div class="d-flex flex-column gap-2">
+            @foreach($unassignedServices as $service)
+            <x-booking.service-line-readonly
+                :service="$service"
+                :veteran-type-applied="$veteranApplied" />
+            @endforeach
+        </div>
+    </div>
+    @endif
+
+    <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2 small">
+        <span class="text-muted">جمع خدمات (بعد از تخفیف)</span>
+        <strong>{{ number_format($booking->services_subtotal) }} تومان</strong>
+    </div>
 @else
 <p class="text-muted mb-0">خدمت اضافی ثبت نشده است.</p>
 @endif

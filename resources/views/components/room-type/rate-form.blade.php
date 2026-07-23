@@ -1,30 +1,54 @@
-@props(['rate' => null])
+@props([
+    'rate' => null,
+    'formScope' => 'create',
+    'formRateId' => null,
+])
 
 @php
-$rName         = old('name',                       $rate?->name ?? '');
-$rPrice        = old('price_per_night',            $rate?->price_per_night ?? '');
-$rBreakfast    = old('breakfast_included',         $rate?->breakfast_included ?? false);
-$rCancellation = old('cancellation_policy',       $rate?->cancellation_policy ?? 'free');
-$rPayment      = old('payment_type',               $rate?->payment_type ?? 'pay_at_hotel');
-$rActive       = old('is_active',                  $rate?->is_active ?? true);
-$rateId        = $rate?->id ?? 'new';
+$activeScope = old('rate_form_scope');
+$activeRateId = (int) old('rate_id', 0);
+$isSubmittedForm = $activeScope === $formScope
+    && ($formScope === 'create' || (int) $formRateId === $activeRateId);
+
+$fromOld = fn (string $key, mixed $default) => $isSubmittedForm ? old($key, $default) : $default;
+
+$rName         = $fromOld('rate_name', $rate?->name ?? '');
+$rPrice        = $fromOld('price_per_night', $rate?->price_per_night ?? '');
+$rCancellation = $fromOld('cancellation_policy', $rate?->cancellation_policy ?? 'free');
+$rPayment      = $fromOld('payment_type', $rate?->payment_type ?? 'pay_at_hotel');
+
+if ($isSubmittedForm) {
+    $rBreakfast = old('breakfast_included') !== null ? (bool) old('breakfast_included') : (bool) ($rate?->breakfast_included ?? false);
+    $rActive    = old('is_active') !== null ? (bool) old('is_active') : (bool) ($rate?->is_active ?? true);
+} else {
+    $rBreakfast = (bool) ($rate?->breakfast_included ?? false);
+    $rActive    = (bool) ($rate?->is_active ?? true);
+}
+
+$rateId = $rate?->id ?? 'new';
 @endphp
 
 <div class="rt-rate-form">
     <div class="row g-3">
         <div class="col-md-6">
             <label class="form-label fw-semibold">نام تعرفه <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
+            <input type="text" name="rate_name"
+                   class="form-control {{ $isSubmittedForm && $errors->has('rate_name') ? 'is-invalid' : '' }}"
                    value="{{ $rName }}" placeholder="مثلاً: بدون صبحانه، با صبحانه">
-            @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            @if($isSubmittedForm)
+                @error('rate_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            @endif
         </div>
 
         <div class="col-md-6">
-            <label class="form-label fw-semibold">قیمت هر شب (تومان) <span class="text-danger">*</span></label>
-            <x-money-input name="price_per_night" class="form-control @error('price_per_night') is-invalid @enderror"
+            <label class="form-label fw-semibold">قیمت هر شب به ازای هر تخت (تومان) <span class="text-danger">*</span></label>
+            <x-money-input name="price_per_night"
+                   class="form-control {{ $isSubmittedForm && $errors->has('price_per_night') ? 'is-invalid' : '' }}"
                    value="{{ $rPrice }}" placeholder="مثلاً: 1,500,000" />
-            @error('price_per_night')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            <div class="form-text"><i class="bi bi-info-circle me-1"></i>مبنای محاسبه مبلغ رزرو</div>
+            @if($isSubmittedForm)
+                @error('price_per_night')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            @endif
+            <div class="form-text"><i class="bi bi-info-circle me-1"></i>این مبلغ به ازای هر تخت در هر شب است، نه برای کل اتاق.</div>
         </div>
 
         <div class="col-md-6">
@@ -53,12 +77,13 @@ $rateId        = $rate?->id ?? 'new';
 
         <div class="col-md-6">
             <label class="form-label fw-semibold d-block mb-2">وضعیت تعرفه</label>
-            <label class="rt-rate-option rt-rate-option--wide">
+            <label class="rt-rate-option rt-rate-option--wide rt-rate-active-toggle {{ $rActive ? 'rt-rate-active-toggle--on' : 'rt-rate-active-toggle--off' }}">
                 <input type="checkbox" name="is_active" value="1"
-                       class="rt-rate-option-input" id="rActive{{ $rateId }}" @checked($rActive)>
+                       class="rt-rate-option-input rt-rate-active-toggle__input" id="rActive{{ $rateId }}"
+                       @checked($rActive) onchange="syncRateActiveToggle(this)">
                 <span class="rt-rate-option-body">
-                    <i class="bi bi-toggle-on text-primary"></i>
-                    <span>فعال — نمایش در سایت</span>
+                    <i class="bi {{ $rActive ? 'bi-toggle-on text-primary' : 'bi-toggle-off text-secondary' }} rt-rate-active-toggle__icon"></i>
+                    <span class="rt-rate-active-toggle__text">{{ $rActive ? 'فعال — نمایش در سایت' : 'غیرفعال — مخفی از سایت' }}</span>
                 </span>
             </label>
         </div>
@@ -84,6 +109,25 @@ $rateId        = $rate?->id ?? 'new';
 @once
 @push('scripts')
 <script>
+function syncRateActiveToggle(el) {
+    const toggle = el.closest('.rt-rate-active-toggle');
+    if (!toggle) return;
+
+    const isOn = el.checked;
+    const icon = toggle.querySelector('.rt-rate-active-toggle__icon');
+    const text = toggle.querySelector('.rt-rate-active-toggle__text');
+
+    toggle.classList.toggle('rt-rate-active-toggle--on', isOn);
+    toggle.classList.toggle('rt-rate-active-toggle--off', !isOn);
+
+    if (icon) {
+        icon.className = 'rt-rate-active-toggle__icon bi ' + (isOn ? 'bi-toggle-on text-primary' : 'bi-toggle-off text-secondary');
+    }
+    if (text) {
+        text.textContent = isOn ? 'فعال — نمایش در سایت' : 'غیرفعال — مخفی از سایت';
+    }
+}
+
 function toggleBfTile(el, id) {
     const tile = document.getElementById('bfTile' + id);
     if (tile) tile.classList.toggle('rt-rate-breakfast-tile--on', el.checked);

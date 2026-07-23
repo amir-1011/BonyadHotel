@@ -111,7 +111,7 @@
             <span class="badge text-bg-secondary ms-1" style="font-size:.65rem">بدون مشخصات تماس</span>
             @endif
             @if($g->relation)
-            <span class="text-muted small">({{ $g->relation }})</span>
+            <span class="text-muted small">({{ \App\Models\BookingGuestDetail::formatRelationLabel($g->relation) }})</span>
             @endif
             <span class="badge text-bg-info ms-1">{{ $g->manual_discount_percentage }}٪</span>
             @if($g->manual_discount_reason)

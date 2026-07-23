@@ -107,13 +107,27 @@ class PlatformCommissionEntry extends Model
         return $this->commission_amount > 0;
     }
 
+    public function usesFlatBookingFee(): bool
+    {
+        return $this->commission_percentage === 0
+            || ($this->meta['commission_model'] ?? null) === 'fixed_per_booking';
+    }
+
     public function rawCommissionBeforeCap(): int
     {
+        if ($this->usesFlatBookingFee()) {
+            return $this->commission_cap;
+        }
+
         return (int) round($this->transaction_amount * $this->commission_percentage / 100);
     }
 
     public function wasCapped(): bool
     {
+        if ($this->usesFlatBookingFee()) {
+            return false;
+        }
+
         return $this->rawCommissionBeforeCap() > $this->commission_cap;
     }
 
@@ -141,6 +155,25 @@ class PlatformCommissionEntry extends Model
     public function commissionCalculationSteps(): array
     {
         $steps = [];
+
+        if ($this->usesFlatBookingFee()) {
+            $steps[] = 'نوع کارمزد: مبلغ ثابت برای هر رزرو';
+            $steps[] = 'مبلغ رزرو: ' . number_format($this->transaction_amount) . ' تومان';
+
+            if (($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program') {
+                $steps[] = 'رزرو از نوع اردو / برنامه — کارمزد صفر';
+            } elseif ($this->transaction_amount <= 0) {
+                $steps[] = 'مبلغ رزرو صفر — کارمزد صفر';
+            } else {
+                $steps[] = 'کارمزد ثابت هر رزرو: ' . number_format($this->commission_cap) . ' تومان';
+                $steps[] = 'خدمات: بدون کارمزد';
+            }
+
+            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' تومان';
+
+            return $steps;
+        }
+
         $steps[] = 'مبلغ پایه تراکنش: ' . number_format($this->transaction_amount) . ' تومان';
         $steps[] = 'نرخ کارمزد: ' . $this->commission_percentage . '٪';
         $raw = $this->rawCommissionBeforeCap();
@@ -163,6 +196,21 @@ class PlatformCommissionEntry extends Model
         $amount = number_format(abs($this->commission_amount));
 
         if ($this->entry_type === self::TYPE_CREDIT && $this->reason === self::REASON_BOOKING_CONFIRMED) {
+            if ($this->usesFlatBookingFee()) {
+                if ($this->commission_amount === 0) {
+                    $reason = ($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program'
+                        ? 'رزرو از نوع اردو / برنامه است'
+                        : 'مبلغ رزرو صفر است';
+
+                    return "با ثبت و تأیید رزرو «{$tracking}»، {$reason} و کارمزدی به کیف پول واریز نشد.";
+                }
+
+                return "با ثبت و تأیید رزرو «{$tracking}» به مبلغ "
+                    . number_format($this->transaction_amount) . " تومان، کارمزد ثابت "
+                    . number_format($this->commission_cap) . " تومان (بدون کارمزد خدمات) "
+                    . "به کیف پول کارمزد واریز گردید.";
+            }
+
             return "با ثبت و تأیید رزرو «{$tracking}»، برای بخش «{$category}» به مبلغ "
                 . number_format($this->transaction_amount) . " تومان، کارمزد "
                 . $this->commission_percentage . "٪ محاسبه شد"

@@ -11,39 +11,70 @@ use Morilog\Jalali\Jalalian;
 
 class HostDashboardDataService
 {
-    public function build(User $user): array
+    /**
+     * @param  array<int>|null  $scopedAccommodationIds  Null uses all managed accommodations.
+     * @return array<string, mixed>
+     */
+    public function build(User $user, ?array $scopedAccommodationIds = null): array
     {
-        $accommodationIds = $user->managedAccommodationIds();
-        $ids              = $accommodationIds->all();
+        $managedIds = $user->managedAccommodationIds()->map(fn ($id) => (int) $id);
+
+        if ($scopedAccommodationIds !== null) {
+            $allowed = array_flip($managedIds->all());
+            $ids = array_values(array_filter(
+                array_map('intval', $scopedAccommodationIds),
+                fn (int $id) => isset($allowed[$id]),
+            ));
+        } else {
+            $ids = $managedIds->all();
+        }
+
+        $accommodationIds = collect($ids);
+
+        // Single aggregate query instead of 4 separate COUNT/SUM queries for the base booking stats.
+        $bookingAggregate = Booking::whereIn('accommodation_id', $ids)
+            ->selectRaw(
+                "COUNT(*) as total, ".
+                "SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed, ".
+                "SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending, ".
+                "SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled, ".
+                "SUM(CASE WHEN status = 'confirmed' THEN total_price ELSE 0 END) as revenue, ".
+                "SUM(CASE WHEN status = 'confirmed' AND created_at >= ? THEN total_price ELSE 0 END) as this_month, ".
+                "SUM(CASE WHEN status = 'confirmed' AND created_at >= ? AND created_at < ? THEN total_price ELSE 0 END) as last_month, ".
+                "SUM(CASE WHEN status = 'confirmed' AND created_at >= ? THEN total_price ELSE 0 END) as today_revenue",
+                [
+                    now()->startOfMonth(),
+                    now()->subMonth()->startOfMonth(), now()->startOfMonth(),
+                    today(),
+                ]
+            )
+            ->first();
+
+        $thisMonth = (float) $bookingAggregate->this_month;
+        $lastMonth = (float) $bookingAggregate->last_month;
 
         $stats = [
             'accommodations'  => $accommodationIds->count(),
-            'active_acc'      => $user->accommodations()->where('is_active', true)->count(),
-            'total_bookings'  => Booking::whereIn('accommodation_id', $ids)->count(),
-            'confirmed'       => Booking::whereIn('accommodation_id', $ids)->where('status', 'confirmed')->count(),
-            'pending'         => Booking::whereIn('accommodation_id', $ids)->where('status', 'pending')->count(),
-            'cancelled'       => Booking::whereIn('accommodation_id', $ids)->where('status', 'cancelled')->count(),
-            'revenue'         => Booking::whereIn('accommodation_id', $ids)->where('status', 'confirmed')->sum('total_price'),
+            'active_acc'      => $user->accommodations()->whereIn('accommodations.id', $ids)->where('is_active', true)->count(),
+            'total_bookings'  => (int) $bookingAggregate->total,
+            'confirmed'       => (int) $bookingAggregate->confirmed,
+            'pending'         => (int) $bookingAggregate->pending,
+            'cancelled'       => (int) $bookingAggregate->cancelled,
+            'revenue'         => (float) $bookingAggregate->revenue,
             'services_revenue'=> BookingService::whereHas('booking', fn ($q) => $q->whereIn('accommodation_id', $ids)->where('status', 'confirmed'))->sum('total'),
             'pending_reviews' => Review::whereIn('accommodation_id', $ids)->whereNull('host_reply')->count(),
         ];
 
-        $thisMonth = Booking::whereIn('accommodation_id', $ids)->where('status', 'confirmed')
-            ->where('created_at', '>=', now()->startOfMonth())->sum('total_price');
-        $lastMonth = Booking::whereIn('accommodation_id', $ids)->where('status', 'confirmed')
-            ->where('created_at', '>=', now()->subMonth()->startOfMonth())
-            ->where('created_at', '<', now()->startOfMonth())
-            ->sum('total_price');
         $stats['growth_rate'] = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : null;
         $stats['this_month']  = $thisMonth;
-        $stats['today_revenue'] = Booking::whereIn('accommodation_id', $ids)->where('status', 'confirmed')
-            ->whereDate('created_at', today())->sum('total_price');
+        $stats['today_revenue'] = (float) $bookingAggregate->today_revenue;
 
         $recentBookings = Booking::whereIn('accommodation_id', $ids)
             ->with('user', 'accommodation', 'roomType', 'bookingRooms.room')
             ->latest()->limit(12)->get();
 
         $myAccommodations = $user->accommodations()
+            ->whereIn('accommodations.id', $ids)
             ->withCount([
                 'bookings as total_bookings_count',
                 'bookings as confirmed_count' => fn ($q) => $q->where('status', 'confirmed'),

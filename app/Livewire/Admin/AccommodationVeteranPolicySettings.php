@@ -7,7 +7,7 @@ use App\Models\Accommodation;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.admin', ['title' => 'تنظیمات ایثارگری', 'pageTitle' => 'تنظیمات ایثارگری و خدمات'])]
+#[Layout('layouts.admin', ['title' => 'تعاریف اولیه', 'pageTitle' => 'تعاریف اولیه'])]
 class AccommodationVeteranPolicySettings extends Component
 {
     use ManagesVeteranPolicySettings;

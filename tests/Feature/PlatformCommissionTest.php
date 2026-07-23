@@ -6,15 +6,16 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\PlatformCommissionEntry;
+use App\Models\Program;
 use App\Models\ServiceCatalog;
 use App\Models\User;
 use App\Services\ManualBookingService;
 use App\Services\PlatformCommissionService;
+use App\Services\ProgramBookingService;
 use App\Support\PlatformCommissionEntryFilter;
 use Carbon\Carbon;
 use Database\Seeders\VeteranPolicySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -35,6 +36,7 @@ class PlatformCommissionTest extends TestCase
 
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
 
         $this->adminUser = User::create([
             'name'   => 'ادمین پورسانت',
@@ -42,11 +44,7 @@ class PlatformCommissionTest extends TestCase
         ]);
         $this->adminUser->assignRole('super_admin');
 
-        $provinceId = DB::table('provinces')->insertGetId(['name' => 'استان تست', 'created_at' => now(), 'updated_at' => now()]);
-        $cityId = DB::table('cities')->insertGetId(['province_id' => $provinceId, 'name' => 'شهر تست', 'created_at' => now(), 'updated_at' => now()]);
-
-        $this->accommodation = Accommodation::create([
-            'city_id'         => $cityId,
+        $this->accommodation = $this->createTestAccommodation([
             'name'            => 'اقامتگاه پورسانت',
             'price_per_night' => 10_000_000,
             'capacity'        => 10,
@@ -54,20 +52,50 @@ class PlatformCommissionTest extends TestCase
             'is_active'       => true,
         ]);
 
-        $this->pool = ServiceCatalog::where('key', 'pool')->firstOrFail();
-        $this->gym = ServiceCatalog::where('key', 'gym')->firstOrFail();
+        $this->pool = $this->veteranCatalog($this->accommodation, 'pool');
+        $this->gym = $this->veteranCatalog($this->accommodation, 'gym');
         $this->commission = app(PlatformCommissionService::class);
     }
 
-    public function test_commission_calculation_respects_percentage_and_cap(): void
+    public function test_booking_commission_is_fixed_amount_regardless_of_price(): void
     {
-        $this->assertSame(50_000, $this->commission->calculateCommission(10_000_000));
-        $this->assertSame(15_000, $this->commission->calculateCommission(300_000));
-        $this->assertSame(50_000, $this->commission->calculateCommission(2_000_000));
-        $this->assertSame(0, $this->commission->calculateCommission(0));
+        $cheap = $this->createBareBooking(totalPrice: 100_000, roomAmount: 100_000);
+        $expensive = $this->createBareBooking(totalPrice: 50_000_000, roomAmount: 50_000_000);
+
+        $this->commission->syncBookingCommissions($cheap);
+        $this->commission->syncBookingCommissions($expensive);
+
+        $this->assertSame(50_000, $this->commission->calculateBookingCommission($cheap));
+        $this->assertSame(50_000, $this->commission->calculateBookingCommission($expensive));
+        $this->assertSame(100_000, $this->commission->walletBalance());
     }
 
-    public function test_manual_booking_credits_accommodation_commission_capped(): void
+    public function test_zero_total_booking_has_no_commission(): void
+    {
+        $booking = $this->createBareBooking(totalPrice: 0, roomAmount: 0);
+        $this->commission->syncBookingCommissions($booking);
+
+        $this->assertSame(0, $this->commission->calculateBookingCommission($booking));
+        $this->assertSame(0, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
+    }
+
+    public function test_program_booking_has_no_commission_even_with_positive_total(): void
+    {
+        $booking = $this->createBareBooking(totalPrice: 5_000_000, roomAmount: 5_000_000);
+        $this->assertSame(50_000, $this->commission->walletBalance());
+
+        $booking->update(['booking_source' => 'program']);
+        $this->commission->syncBookingCommissions($booking->fresh());
+
+        $this->assertSame(0, $this->commission->calculateBookingCommission($booking->fresh()));
+        $this->assertSame(0, $this->commission->walletBalance());
+        $this->assertSame(
+            0,
+            (int) PlatformCommissionEntry::where('booking_id', $booking->id)->sum('commission_amount')
+        );
+    }
+
+    public function test_manual_booking_credits_flat_booking_commission(): void
     {
         $booking = $this->createManualBooking(services: []);
 
@@ -80,32 +108,11 @@ class PlatformCommissionTest extends TestCase
         $this->assertSame(PlatformCommissionEntry::TYPE_CREDIT, $entry->entry_type);
         $this->assertSame(10_000_000, $entry->transaction_amount);
         $this->assertSame(50_000, $entry->commission_amount);
+        $this->assertTrue($entry->usesFlatBookingFee());
         $this->assertSame($booking->tracking_code, $entry->meta['tracking_code']);
     }
 
-    public function test_pool_service_commission_is_fifteen_thousand_for_three_hundred_thousand(): void
-    {
-        $booking = $this->createManualBooking(services: [
-            [
-                'name'               => 'استخر',
-                'unit_price'         => 100_000,
-                'quantity'           => 3,
-                'service_catalog_id' => $this->pool->id,
-            ],
-        ]);
-
-        $entry = PlatformCommissionEntry::query()
-            ->where('booking_id', $booking->id)
-            ->where('category', PlatformCommissionEntry::CATEGORY_SERVICE)
-            ->first();
-
-        $this->assertNotNull($entry);
-        $this->assertSame(300_000, $entry->transaction_amount);
-        $this->assertSame(15_000, $entry->commission_amount);
-        $this->assertSame('استخر', $entry->service_name);
-    }
-
-    public function test_room_and_services_create_separate_commission_records(): void
+    public function test_services_do_not_create_commission_entries(): void
     {
         $booking = $this->createManualBooking(services: [
             [
@@ -122,28 +129,17 @@ class PlatformCommissionTest extends TestCase
             ],
         ]);
 
-        $keys = PlatformCommissionEntry::query()
+        $entries = PlatformCommissionEntry::query()
             ->where('booking_id', $booking->id)
             ->where('entry_type', PlatformCommissionEntry::TYPE_CREDIT)
-            ->pluck('category_key')
-            ->sort()
-            ->values()
-            ->all();
+            ->get();
 
-        $this->assertCount(3, $keys);
-        $this->assertContains('accommodation', $keys);
-        $this->assertContains('service:catalog:' . $this->pool->id, $keys);
-        $this->assertContains('service:catalog:' . $this->gym->id, $keys);
-
-        $wallet = PlatformCommissionEntry::query()
-            ->where('booking_id', $booking->id)
-            ->sum('commission_amount');
-
-        // 50k room + 15k pool + 10k gym
-        $this->assertSame(75_000, (int) $wallet);
+        $this->assertCount(1, $entries);
+        $this->assertSame('accommodation', $entries->first()->category_key);
+        $this->assertSame(50_000, (int) $entries->sum('commission_amount'));
     }
 
-    public function test_multiple_pool_lines_are_grouped_into_one_service_commission(): void
+    public function test_multiple_service_lines_still_yield_single_flat_commission(): void
     {
         $booking = $this->createBareBooking(totalPrice: 10_600_000, roomAmount: 10_000_000);
 
@@ -168,18 +164,13 @@ class PlatformCommissionTest extends TestCase
 
         $this->commission->syncBookingCommissions($booking);
 
-        $poolEntries = PlatformCommissionEntry::query()
-            ->where('booking_id', $booking->id)
-            ->where('category_key', 'service:catalog:' . $this->pool->id)
-            ->get();
-
-        $this->assertCount(1, $poolEntries);
-        $this->assertSame(300_000, $poolEntries->first()->transaction_amount);
-        $this->assertSame(15_000, $poolEntries->first()->commission_amount);
-        $this->assertSame(3, $poolEntries->first()->meta['quantity']);
+        $this->assertSame(1, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
+        $entry = PlatformCommissionEntry::where('booking_id', $booking->id)->first();
+        $this->assertSame(10_600_000, $entry->transaction_amount);
+        $this->assertSame(50_000, $entry->commission_amount);
     }
 
-    public function test_cancelling_booking_reverses_all_commissions(): void
+    public function test_cancelling_booking_reverses_commission(): void
     {
         $booking = $this->createManualBooking(services: [
             [
@@ -190,7 +181,7 @@ class PlatformCommissionTest extends TestCase
             ],
         ]);
 
-        $this->assertSame(65_000, $this->commission->walletBalance());
+        $this->assertSame(50_000, $this->commission->walletBalance());
 
         $booking->update(['status' => 'cancelled']);
 
@@ -201,11 +192,11 @@ class PlatformCommissionTest extends TestCase
             ->where('entry_type', PlatformCommissionEntry::TYPE_REVERSAL)
             ->get();
 
-        $this->assertGreaterThanOrEqual(2, $reversals->count());
-        $this->assertTrue($reversals->every(fn ($e) => $e->commission_amount < 0));
+        $this->assertCount(1, $reversals);
+        $this->assertSame(-50_000, $reversals->first()->commission_amount);
     }
 
-    public function test_adding_service_after_booking_creates_adjustment_credit(): void
+    public function test_adding_service_after_booking_does_not_change_commission(): void
     {
         $booking = $this->createManualBooking(services: []);
         $this->assertSame(50_000, $this->commission->walletBalance());
@@ -223,29 +214,57 @@ class PlatformCommissionTest extends TestCase
         $booking->update(['total_price' => $booking->total_price + 300_000]);
         app(ManualBookingService::class)->recalculateTotals($booking->fresh());
 
-        $poolEntry = PlatformCommissionEntry::query()
-            ->where('booking_id', $booking->id)
-            ->where('category_key', 'service:catalog:' . $this->pool->id)
-            ->latest('id')
-            ->first();
-
-        $this->assertNotNull($poolEntry);
-        $this->assertSame(15_000, $poolEntry->commission_amount);
-        $this->assertSame(65_000, $this->commission->walletBalance());
+        $this->assertSame(50_000, $this->commission->walletBalance());
+        $this->assertSame(
+            0,
+            PlatformCommissionEntry::where('booking_id', $booking->id)
+                ->where('category', PlatformCommissionEntry::CATEGORY_SERVICE)
+                ->count()
+        );
     }
 
-    public function test_removing_service_creates_adjustment_debit(): void
+    public function test_removing_service_reverses_legacy_service_commission_but_keeps_flat_booking_fee(): void
     {
-        $booking = $this->createManualBooking(services: [
-            [
-                'name'               => 'استخر',
-                'unit_price'         => 100_000,
-                'quantity'           => 3,
-                'service_catalog_id' => $this->pool->id,
-            ],
+        $booking = $this->createBareBooking(totalPrice: 10_300_000, roomAmount: 10_000_000);
+
+        BookingService::create([
+            'booking_id'         => $booking->id,
+            'service_catalog_id' => $this->pool->id,
+            'name'               => 'استخر',
+            'unit_price'         => 100_000,
+            'quantity'           => 3,
+            'total'              => 300_000,
+            'sort_order'         => 0,
         ]);
 
-        $this->assertSame(65_000, $this->commission->walletBalance());
+        PlatformCommissionEntry::create([
+            'booking_id'            => $booking->id,
+            'accommodation_id'      => $booking->accommodation_id,
+            'category'              => PlatformCommissionEntry::CATEGORY_ACCOMMODATION,
+            'category_key'          => 'accommodation',
+            'entry_type'            => PlatformCommissionEntry::TYPE_CREDIT,
+            'reason'                => PlatformCommissionEntry::REASON_BOOKING_CONFIRMED,
+            'transaction_amount'    => 10_000_000,
+            'commission_percentage' => 5,
+            'commission_cap'        => 50_000,
+            'commission_amount'     => 50_000,
+            'meta'                  => [],
+        ]);
+        PlatformCommissionEntry::create([
+            'booking_id'            => $booking->id,
+            'accommodation_id'      => $booking->accommodation_id,
+            'category'              => PlatformCommissionEntry::CATEGORY_SERVICE,
+            'category_key'          => 'service:catalog:' . $this->pool->id,
+            'service_catalog_id'    => $this->pool->id,
+            'service_name'          => 'استخر',
+            'entry_type'            => PlatformCommissionEntry::TYPE_CREDIT,
+            'reason'                => PlatformCommissionEntry::REASON_BOOKING_CONFIRMED,
+            'transaction_amount'    => 300_000,
+            'commission_percentage' => 5,
+            'commission_cap'        => 50_000,
+            'commission_amount'     => 15_000,
+            'meta'                  => [],
+        ]);
 
         $booking->services()->delete();
         $booking->update([
@@ -257,19 +276,18 @@ class PlatformCommissionTest extends TestCase
 
         $this->assertSame(50_000, $this->commission->walletBalance());
 
-        $debit = PlatformCommissionEntry::query()
+        $serviceReversal = PlatformCommissionEntry::query()
             ->where('booking_id', $booking->id)
             ->where('category_key', 'service:catalog:' . $this->pool->id)
             ->where('commission_amount', '<', 0)
             ->latest('id')
             ->first();
 
-        $this->assertNotNull($debit);
-        $this->assertSame(-15_000, $debit->commission_amount);
-        $this->assertSame(PlatformCommissionEntry::REASON_AMOUNT_ADJUSTED, $debit->reason);
+        $this->assertNotNull($serviceReversal);
+        $this->assertSame(-15_000, $serviceReversal->commission_amount);
     }
 
-    public function test_reducing_room_total_creates_negative_adjustment(): void
+    public function test_reducing_non_zero_room_total_does_not_change_flat_commission(): void
     {
         $booking = $this->createBareBooking(totalPrice: 1_000_000, roomAmount: 1_000_000);
         $this->commission->syncBookingCommissions($booking);
@@ -277,6 +295,26 @@ class PlatformCommissionTest extends TestCase
 
         $booking->update(['total_price' => 500_000]);
         $this->commission->syncBookingCommissions($booking->fresh());
+
+        $this->assertSame(50_000, $this->commission->walletBalance());
+        $this->assertSame(
+            1,
+            PlatformCommissionEntry::where('booking_id', $booking->id)
+                ->where('entry_type', PlatformCommissionEntry::TYPE_CREDIT)
+                ->count()
+        );
+    }
+
+    public function test_reducing_booking_total_to_zero_reverses_commission(): void
+    {
+        $booking = $this->createBareBooking(totalPrice: 1_000_000, roomAmount: 1_000_000);
+        $this->commission->syncBookingCommissions($booking);
+        $this->assertSame(50_000, $this->commission->walletBalance());
+
+        $booking->update(['total_price' => 0]);
+        $this->commission->syncBookingCommissions($booking->fresh());
+
+        $this->assertSame(0, $this->commission->walletBalance());
 
         $adjustment = PlatformCommissionEntry::query()
             ->where('booking_id', $booking->id)
@@ -286,9 +324,7 @@ class PlatformCommissionTest extends TestCase
             ->first();
 
         $this->assertNotNull($adjustment);
-        $this->assertSame(500_000, $adjustment->transaction_amount);
-        $this->assertSame(-25_000, $adjustment->commission_amount);
-        $this->assertSame(25_000, $this->commission->walletBalance());
+        $this->assertSame(-50_000, $adjustment->commission_amount);
     }
 
     public function test_pending_booking_does_not_accrue_commission(): void
@@ -321,6 +357,7 @@ class PlatformCommissionTest extends TestCase
         $this->assertSame($booking->tracking_code, $entry->meta['tracking_code']);
         $this->assertSame($this->accommodation->name, $entry->meta['accommodation_name']);
         $this->assertSame('manual', $entry->meta['booking_source']);
+        $this->assertSame('fixed_per_booking', $entry->meta['commission_model']);
         $this->assertNotEmpty($entry->meta['booker_name']);
         $this->assertSame($this->accommodation->id, $entry->accommodation_id);
         $this->assertNotEmpty($entry->fullExplanation());
@@ -356,7 +393,7 @@ class PlatformCommissionTest extends TestCase
         ]);
 
         $filter = PlatformCommissionEntryFilter::make([
-            'category'   => 'service',
+            'category'   => 'accommodation',
             'entry_type' => 'credit',
         ]);
 
@@ -364,7 +401,7 @@ class PlatformCommissionTest extends TestCase
         $filter->apply($query);
 
         $this->assertSame(1, $query->count());
-        $this->assertSame('service', $query->first()->category);
+        $this->assertSame('accommodation', $query->first()->category);
     }
 
     public function test_admin_can_export_commission_wallet_with_filters(): void
@@ -394,7 +431,66 @@ class PlatformCommissionTest extends TestCase
         $response->assertSee('نتیجه فیلتر');
     }
 
-  /** @param  array<int, array<string, mixed>>  $services */
+    public function test_program_booking_service_does_not_accrue_commission(): void
+    {
+        $roomType = \App\Models\RoomType::create([
+            'accommodation_id' => $this->accommodation->id,
+            'name'             => 'اتاق اردو',
+            'capacity'         => 4,
+            'room_count'       => 1,
+            'is_active'        => true,
+        ]);
+        $roomRate = \App\Models\RoomRate::create([
+            'room_type_id'    => $roomType->id,
+            'name'            => 'نرخ اردو',
+            'price_per_night' => 500_000,
+            'is_active'       => true,
+        ]);
+        $room = \App\Models\Room::create([
+            'room_type_id' => $roomType->id,
+            'name'         => '۱۰۱',
+            'is_active'    => true,
+        ]);
+
+        $checkIn = now()->addDays(5)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(3)->format('Y-m-d');
+
+        $program = app(ProgramBookingService::class)->create(
+            $this->accommodation->fresh(),
+            [
+                'title'           => 'اردوی تست کارمزد',
+                'program_type'    => Program::TYPE_CAMP,
+                'guest_count'     => 10,
+                'rooms_allocated' => 1,
+                'check_in'        => $checkIn,
+                'check_out'       => $checkOut,
+                'room_lines'      => [[
+                    'room_type_id' => $roomType->id,
+                    'room_rate_id' => $roomRate->id,
+                    'room_id'      => $room->id,
+                    'room_name'    => $room->name,
+                ]],
+                'services' => [[
+                    'service_catalog_id' => $this->pool->id,
+                    'name'               => 'استخر',
+                    'unit_price'         => 100_000,
+                    'quantity'           => 2,
+                ]],
+                'guest_details' => [
+                    ['full_name' => 'مهمان اردو', 'national_id' => '1234567890', 'mobile' => '09121111111', 'relation' => ''],
+                ],
+            ],
+            $this->adminUser,
+        );
+
+        $booking = $program->booking;
+        $this->assertTrue($booking->isProgram());
+        $this->assertGreaterThan(0, $booking->total_price);
+        $this->assertSame(0, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
+        $this->assertSame(0, $this->commission->walletBalance());
+    }
+
+    /** @param  array<int, array<string, mixed>>  $services */
     private function createManualBooking(array $services): Booking
     {
         $checkIn = now()->addDays(14)->format('Y-m-d');
@@ -433,7 +529,7 @@ class PlatformCommissionTest extends TestCase
         $checkIn = now()->addDays(20)->format('Y-m-d');
         $checkOut = Carbon::parse($checkIn)->addDay()->format('Y-m-d');
 
-        return Booking::create([
+        $booking = Booking::create([
             'user_id'           => $guest->id,
             'accommodation_id'  => $this->accommodation->id,
             'check_in'          => $checkIn,
@@ -447,5 +543,9 @@ class PlatformCommissionTest extends TestCase
             'booking_source'    => 'manual',
             'tracking_code'     => strtoupper(substr(md5(uniqid()), 0, 10)),
         ]);
+
+        $this->commission->syncBookingCommissions($booking);
+
+        return $booking;
     }
 }

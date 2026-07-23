@@ -1,15 +1,33 @@
 <div>
+    <x-veteran-policy.discount-matrix-styles />
+
+    @php
+        $canEditVeteranPolicy = ($panel ?? 'admin') !== 'host'
+            || auth()->user()?->hostCan('accommodations.veteran-policy', 'edit');
+    @endphp
+
+    @if(($panel ?? 'admin') === 'host' && !$canEditVeteranPolicy)
+    <div class="alert alert-warning small"><i class="bi bi-lock me-1"></i>فقط مجوز مشاهده دارید — دکمه‌های ذخیره و تغییر نمایش داده نمی‌شوند.</div>
+    @endif
+
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
         <a wire:navigate href="{{ $backRoute }}" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-right me-1"></i>بازگشت
         </a>
-        <h5 class="fw-bold mb-0">تنظیمات ایثارگری — {{ $accommodation->name }}</h5>
     </div>
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
             <p class="text-muted small mb-0">مدیریت درصد تخفیف اقامت، سقف استفاده و تخفیف هر خدمت بر اساس گروه ایثارگری — مختص این اقامتگاه</p>
         </div>
+        @if($panel === 'admin')
+        <button type="button"
+                wire:click="restoreDefaultVeteranPolicy"
+                data-swal-confirm="تنظیمات سراسری ایثارگری (صفحه مدیریت کلی) روی این اقامتگاه بازگردانی شود؟ گروه‌ها، خدمات و ماتریس تخفیف فعلی جایگزین می‌شوند."
+                class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>بازگردانی از تنظیمات سراسری
+        </button>
+        @endif
     </div>
 
     <x-tutorial-videos :videos="[
@@ -50,6 +68,9 @@
                                 <th style="width:90px">دوره (ماه)</th>
                                 <th>یادداشت</th>
                                 <th style="width:60px">فعال</th>
+                                @if($panel === 'admin')
+                                <th style="width:50px"></th>
+                                @endif
                             </tr>
                         </thead>
                         <tbody>
@@ -65,14 +86,38 @@
                                 <td><input type="number" wire:model="groups.{{ $i }}.period_months" min="1" class="form-control form-control-sm"></td>
                                 <td><input type="text" wire:model="groups.{{ $i }}.usage_notes" class="form-control form-control-sm" placeholder="توضیح سقف استفاده"></td>
                                 <td class="text-center"><input type="checkbox" wire:model="groups.{{ $i }}.is_active" class="form-check-input"></td>
+                                @if($panel === 'admin')
+                                <td class="text-center">
+                                    <button type="button"
+                                            wire:click="removeVeteranGroup({{ $group['id'] }})"
+                                            data-swal-confirm="گروه «{{ $group['label'] }}» حذف شود؟"
+                                            class="btn btn-xs btn-outline-danger"
+                                            style="padding:.2rem .45rem;font-size:.75rem;"
+                                            title="حذف گروه">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                                @endif
                             </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
             </div>
-            <div class="card-footer bg-white text-end">
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                @if($panel === 'admin' && count($groups) > 0)
+                <button type="button"
+                        wire:click="clearAllVeteranGroups"
+                        data-swal-confirm="همه گروه‌های ایثارگری این اقامتگاه پاک شوند؟"
+                        class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash me-1"></i>پاک کردن همه گروه‌ها
+                </button>
+                @else
+                <span></span>
+                @endif
+                @if($canEditVeteranPolicy)
                 <button type="submit" class="btn btn-primary btn-sm">ذخیره گروه‌ها</button>
+                @endif
             </div>
         </div>
         {{-- <div class="alert alert-info small mt-3 mb-0">
@@ -81,6 +126,7 @@
         </div> --}}
     </form>
 
+    @if($canEditVeteranPolicy)
     <div class="card shadow-sm mt-3">
         <div class="card-header bg-white fw-semibold">افزودن گروه ایثارگری جدید</div>
         <div class="card-body">
@@ -100,39 +146,67 @@
         </div>
     </div>
     @endif
+    @endif
 
     @if($tab === 'services')
     <form wire:submit="saveServices">
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-white fw-semibold">خدمات پیش‌فرض (dropdown رزرو دستی)</div>
             <div class="card-body p-0">
-                @foreach($services as $i => $service)
-                <div class="border-bottom" wire:key="svc-block-{{ $service['id'] }}">
+                @foreach($services as $service)
+                <div class="border-bottom" wire:key="svc-block-{{ $service['key'] }}">
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>نام خدمت</th>
                                     <th style="width:60px">فعال</th>
+                                    @if($panel === 'admin')
+                                    <th style="width:50px"></th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td>
-                                        <input type="text" wire:model="services.{{ $i }}.name" class="form-control form-control-sm">
+                                        <input type="text" wire:model="services.{{ $service['key'] }}.name" class="form-control form-control-sm">
                                         <div class="text-muted" style="font-size:.7rem">{{ $service['key'] }}</div>
                                     </td>
-                                    <td class="text-center"><input type="checkbox" wire:model="services.{{ $i }}.is_active" class="form-check-input"></td>
+                                    <td class="text-center"><input type="checkbox" wire:model="services.{{ $service['key'] }}.is_active" class="form-check-input"></td>
+                                    @if($panel === 'admin')
+                                    <td class="text-center">
+                                        <button type="button"
+                                                wire:click="removeService({{ $service['id'] }})"
+                                                data-swal-confirm="خدمت «{{ $service['name'] }}» حذف شود؟"
+                                                class="btn btn-xs btn-outline-danger"
+                                                style="padding:.2rem .45rem;font-size:.75rem;"
+                                                title="حذف خدمت">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                    @endif
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <x-veteran-policy.service-variants-section :service="$service" :service-index="$i" />
+                    <x-veteran-policy.service-variants-section :service="$service" />
                 </div>
                 @endforeach
             </div>
-            <div class="card-footer bg-white text-end">
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                @if($panel === 'admin' && count($services) > 0)
+                <button type="button"
+                        wire:click="clearAllServices"
+                        data-swal-confirm="همه خدمات این اقامتگاه پاک شوند؟"
+                        class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash me-1"></i>پاک کردن همه خدمات
+                </button>
+                @else
+                <span></span>
+                @endif
+                @if($canEditVeteranPolicy)
                 <button type="submit" class="btn btn-primary btn-sm">ذخیره خدمات و انواع</button>
+                @endif
             </div>
         </div>
         <div class="alert alert-info small mb-3">
@@ -141,6 +215,7 @@
         </div>
     </form>
 
+    @if($canEditVeteranPolicy)
     <div class="card shadow-sm">
         <div class="card-header bg-white fw-semibold">افزودن خدمت جدید</div>
         <div class="card-body">
@@ -157,47 +232,24 @@
         </div>
     </div>
     @endif
+    @endif
 
     @if($tab === 'matrix')
     <form wire:submit="saveDiscountMatrix">
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-semibold">درصد تخفیف هر خدمت بر اساس گروه</div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0" style="font-size:.85rem">
-                        <thead class="table-light">
-                            <tr>
-                                <th>گروه \ خدمت</th>
-                                @foreach($services as $service)
-                                <th class="text-center" style="min-width:100px">{{ $service['name'] }}</th>
-                                @endforeach
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($groups as $group)
-                            <tr wire:key="mx-{{ $group['key'] }}">
-                                <td class="fw-semibold small">{{ $group['label'] }}</td>
-                                @foreach($services as $service)
-                                @php
-                                    $sid = $service['id'];
-                                    $cell = $discountMatrix[$group['key']][$sid] ?? [];
-                                @endphp
-                                <td wire:key="mx-{{ $group['key'] }}-{{ $sid }}">
-                                    <x-veteran-policy.discount-matrix-cell
-                                        :group-key="$group['key']"
-                                        :service-ref="$sid"
-                                        :cell="$cell"
-                                    />
-                                </td>
-                                @endforeach
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                <x-veteran-policy.discount-matrix-table
+                    :groups="$groups"
+                    :services="$services"
+                    :discount-matrix="$discountMatrix"
+                    service-ref-field="id"
+                />
             </div>
             <div class="card-footer bg-white text-end">
+                @if($canEditVeteranPolicy)
                 <button type="submit" class="btn btn-primary btn-sm">ذخیره ماتریس تخفیف</button>
+                @endif
             </div>
         </div>
         <div class="alert alert-info small mt-3 mb-0">

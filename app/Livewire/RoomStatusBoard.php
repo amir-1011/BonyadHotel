@@ -2,21 +2,36 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Models\Accommodation;
+use App\Models\Booking;
+use App\Models\BookingGuestDetail;
 use App\Models\BookingRoom;
 use App\Models\RoomType;
 use App\Services\BlockedDatesService;
 use App\Services\RoomBoardLayoutService;
 use App\Services\RoomStatusBoardService;
 use App\Services\RoomSyncService;
+use App\Support\HostPermissions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Morilog\Jalali\Jalalian;
 
+/**
+ * Deferred: this widget runs a heavy per-room-type availability build, so it is
+ * excluded from the initial dashboard response and loaded asynchronously right
+ * after first paint (via Livewire's defer/lazy mechanism), keeping the page's
+ * first response fast.
+ */
+#[Defer]
 class RoomStatusBoard extends Component
 {
+    use AssertsHostPermissions;
+
     public string $panel = 'host';
 
     public string $viewDateJalali = '';
@@ -28,9 +43,6 @@ class RoomStatusBoard extends Component
     public ?int $activeAccommodationId = null;
 
     public bool $boardVisible = false;
-
-    /** @var array<int, array<string, mixed>> */
-    public array $board = [];
 
     public ?array $selectedRoom = null;
 
@@ -47,6 +59,11 @@ class RoomStatusBoard extends Component
 
     public bool $layoutEditMode = false;
 
+    /** @var array<int> */
+    public array $dashboardAccommodationIds = [];
+
+    public bool $useDashboardFilter = false;
+
     /**
      * Editable layouts keyed by accommodation_id.
      *
@@ -54,15 +71,16 @@ class RoomStatusBoard extends Component
      */
     public array $editLayouts = [];
 
-    public function mount(string $panel = 'host'): void
+    public function mount(string $panel = 'host', array $dashboardAccommodationIds = [], bool $useDashboardFilter = false): void
     {
         $this->panel = $panel;
+        $this->dashboardAccommodationIds = array_values(array_map('intval', $dashboardAccommodationIds));
+        $this->useDashboardFilter = $useDashboardFilter;
         $this->viewDate = now()->toDateString();
         $this->viewDateJalali = Jalalian::fromCarbon(now())->format('Y/m/d');
 
         if ($this->panel === 'host') {
             $this->boardVisible = true;
-            $this->loadBoard();
         }
     }
 
@@ -73,7 +91,7 @@ class RoomStatusBoard extends Component
         }
 
         $this->selectedRoom = null;
-        $this->loadBoard();
+        $this->invalidateBoardCache();
     }
 
     public function viewRooms(): void
@@ -91,7 +109,28 @@ class RoomStatusBoard extends Component
         $this->activeAccommodationId = $this->accommodationId;
         $this->boardVisible = true;
         $this->selectedRoom = null;
-        $this->loadBoard();
+        $this->invalidateBoardCache();
+    }
+
+    public function showFilteredRooms(): void
+    {
+        if ($this->panel !== 'admin' || !$this->useDashboardFilter) {
+            return;
+        }
+
+        if (!$this->resolveViewDate()) {
+            return;
+        }
+
+        if ($this->resolvedAccommodationIds() === []) {
+            $this->addError('accommodationId', 'اقامتگاهی برای نمایش انتخاب نشده است.');
+
+            return;
+        }
+
+        $this->boardVisible = true;
+        $this->selectedRoom = null;
+        $this->invalidateBoardCache();
     }
 
     public function selectRoom(int $accommodationId, int $roomId): void
@@ -150,7 +189,7 @@ class RoomStatusBoard extends Component
         $accId = (int) $this->selectedRoom['accommodation_id'];
         $roomId = (int) $this->selectedRoom['id'];
         $bookingId = $this->servicesBookingId;
-        $this->loadBoard();
+        $this->invalidateBoardCache();
         $this->selectRoom($accId, $roomId);
         if ($bookingId) {
             $this->servicesBookingId = $bookingId;
@@ -216,7 +255,7 @@ class RoomStatusBoard extends Component
         $this->blockReason = '';
         $this->resetErrorBag('blockReason');
         $this->actionMessage = 'اتاق «' . $this->selectedRoom['name'] . '» برای تاریخ ' . $this->viewDateJalali . ' مسدود شد.';
-        $this->loadBoard();
+        $this->invalidateBoardCache();
         $this->selectRoom($accId, $roomId);
     }
 
@@ -255,7 +294,7 @@ class RoomStatusBoard extends Component
         $this->blockReason = '';
         $this->resetErrorBag('blockReason');
         $this->actionMessage = 'مسدودیت اتاق «' . $this->selectedRoom['name'] . '» برای تاریخ ' . $this->viewDateJalali . ' برداشته شد.';
-        $this->loadBoard();
+        $this->invalidateBoardCache();
         $this->selectRoom($accId, $roomId);
     }
 
@@ -358,18 +397,25 @@ class RoomStatusBoard extends Component
         if ($this->layoutEditMode) {
             $this->layoutEditMode = false;
             $this->editLayouts = [];
-            $this->loadBoard();
+            $this->invalidateBoardCache();
+            $this->dispatch('rsb-layout-edit-closed');
 
             return;
         }
 
+        $this->assertCanEditBuildingLayout();
+
         $this->selectedRoom = null;
+        $this->invalidateBoardCache();
         $this->initEditLayouts();
         $this->layoutEditMode = true;
+        $this->dispatch('rsb-layout-edit-opened');
     }
 
     public function addLayoutRow(int $accommodationId): void
     {
+        $this->assertCanEditBuildingLayout();
+
         $key = (string) $accommodationId;
         if (!isset($this->editLayouts[$key])) {
             return;
@@ -381,6 +427,8 @@ class RoomStatusBoard extends Component
 
     public function setRowLabel(int $accommodationId, int $rowIndex, string $label): void
     {
+        $this->assertCanEditBuildingLayout();
+
         $key = (string) $accommodationId;
         if (!isset($this->editLayouts[$key]['row_labels'][$rowIndex])) {
             return;
@@ -392,6 +440,8 @@ class RoomStatusBoard extends Component
 
     public function setLayoutCols(int $accommodationId, int $cols): void
     {
+        $this->assertCanEditBuildingLayout();
+
         $key = (string) $accommodationId;
         if (!isset($this->editLayouts[$key])) {
             return;
@@ -402,6 +452,8 @@ class RoomStatusBoard extends Component
 
     public function sortRoom(int $roomId, int $position, string $groupId): void
     {
+        $this->assertCanEditBuildingLayout();
+
         if (!$this->layoutEditMode || !str_contains($groupId, ':')) {
             return;
         }
@@ -421,22 +473,50 @@ class RoomStatusBoard extends Component
         );
     }
 
+    public function sortLayoutRow(int $rowIndex, int $position, string $accommodationId): void
+    {
+        $this->assertCanEditBuildingLayout();
+
+        if (!$this->layoutEditMode) {
+            return;
+        }
+
+        $key = (string) (int) $accommodationId;
+
+        if (!isset($this->editLayouts[$key])) {
+            return;
+        }
+
+        $this->editLayouts[$key] = app(RoomBoardLayoutService::class)->applyRowSortMove(
+            $this->editLayouts[$key],
+            $rowIndex,
+            $position,
+        );
+    }
+
     public function saveLayout(): void
     {
         if ($this->panel !== 'host' || !$this->layoutEditMode) {
             return;
         }
 
+        $this->assertCanEditBuildingLayout();
+
         $user = Auth::user();
         $service = app(RoomBoardLayoutService::class);
 
         foreach ($this->editLayouts as $accommodationId => $layout) {
-            $service->saveAccommodationLayout($user, (int) $accommodationId, $layout);
+            $accommodation = Accommodation::find((int) $accommodationId);
+            if (!$accommodation?->isManagedBy($user)) {
+                continue;
+            }
+
+            $service->saveAccommodationLayout($accommodation, $layout);
         }
 
         $this->layoutEditMode = false;
         $this->editLayouts = [];
-        $this->loadBoard();
+        $this->invalidateBoardCache();
         session()->flash('status', 'چیدمان نقشه ساختمان ذخیره شد.');
     }
 
@@ -446,24 +526,39 @@ class RoomStatusBoard extends Component
             return;
         }
 
-        app(RoomBoardLayoutService::class)->clearAccommodationLayout(Auth::user(), $accommodationId);
+        $this->assertCanEditBuildingLayout();
+
+        $accommodation = Accommodation::find($accommodationId);
+        if (!$accommodation?->isManagedBy(Auth::user())) {
+            return;
+        }
+
+        app(RoomBoardLayoutService::class)->clearAccommodationLayout($accommodation);
 
         if ($this->layoutEditMode) {
             $this->initEditLayouts();
         } else {
-            $this->loadBoard();
+            $this->invalidateBoardCache();
         }
+    }
+
+    private function assertCanEditBuildingLayout(): void
+    {
+        if ($this->panel !== 'host') {
+            return;
+        }
+
+        $this->assertHostCan('dashboard', HostPermissions::ACTION_EDIT);
     }
 
     private function initEditLayouts(): void
     {
-        $user = Auth::user();
         $service = app(RoomBoardLayoutService::class);
         $this->editLayouts = [];
 
         foreach ($this->board as $acc) {
             $accommodationId = $acc['accommodation_id'];
-            $saved = $service->getAccommodationLayout($user, $accommodationId);
+            $saved = $service->getAccommodationLayout($accommodationId);
             $this->editLayouts[(string) $accommodationId] = $service->buildEditableLayout(
                 $acc['rooms'],
                 $saved,
@@ -514,24 +609,141 @@ class RoomStatusBoard extends Component
         }
     }
 
-    private function loadBoard(): void
+    protected function invalidateBoardCache(): void
     {
-        $service = app(RoomStatusBoardService::class);
-        $date = $this->viewDate ?: now()->toDateString();
+        unset($this->board);
+    }
 
-        if ($this->panel === 'admin') {
-            if (!$this->activeAccommodationId) {
-                $this->board = [];
-
-                return;
-            }
-
-            $this->board = $service->buildForAccommodation($this->activeAccommodationId, $date);
-
-            return;
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    #[Computed]
+    public function board(): array
+    {
+        if ($this->panel === 'admin' && !$this->boardVisible) {
+            return [];
         }
 
-        $this->board = $service->buildForHost(Auth::user(), $date);
+        $service = app(RoomStatusBoardService::class);
+        $date = $this->viewDate ?: now()->toDateString();
+        $ids = $this->resolvedAccommodationIds();
+
+        if ($this->panel === 'admin' && !$this->useDashboardFilter) {
+            if (!$this->activeAccommodationId) {
+                return [];
+            }
+
+            return $service->buildForAccommodation($this->activeAccommodationId, $date);
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $service->buildForAccommodations($ids, $date);
+    }
+
+    /** @return array<int> */
+    private function resolvedAccommodationIds(): array
+    {
+        if ($this->useDashboardFilter) {
+            if ($this->panel === 'host') {
+                $managed = Auth::user()->managedAccommodationIds()->map(fn ($id) => (int) $id)->all();
+
+                return array_values(array_intersect($this->dashboardAccommodationIds, $managed));
+            }
+
+            return $this->dashboardAccommodationIds;
+        }
+
+        if ($this->panel === 'host') {
+            return Auth::user()->managedAccommodationIds()->map(fn ($id) => (int) $id)->all();
+        }
+
+        if ($this->activeAccommodationId) {
+            return [(int) $this->activeAccommodationId];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSelectedRoomGuestsProperty(): array
+    {
+        if (!$this->servicesBookingId || !$this->selectedRoom) {
+            return [];
+        }
+
+        $bookingRoom = BookingRoom::query()
+            ->where('booking_id', $this->servicesBookingId)
+            ->where('room_id', (int) $this->selectedRoom['id'])
+            ->first();
+
+        if (!$bookingRoom) {
+            return [];
+        }
+
+        $guests = BookingGuestDetail::query()
+            ->where('booking_id', $this->servicesBookingId)
+            ->where('booking_room_id', $bookingRoom->id)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($guests->isEmpty()) {
+            $assignedPhysicalRooms = BookingRoom::query()
+                ->where('booking_id', $this->servicesBookingId)
+                ->whereNotNull('room_id')
+                ->count();
+
+            if ($assignedPhysicalRooms === 1) {
+                $guests = BookingGuestDetail::query()
+                    ->with(['country', 'residenceCity'])
+                    ->where('booking_id', $this->servicesBookingId)
+                    ->orderBy('sort_order')
+                    ->get();
+            }
+        }
+
+        return $guests->map(fn (BookingGuestDetail $guest) => [
+            'id'         => $guest->id,
+            'sort_order' => $guest->sort_order,
+            'full_name'  => $guest->full_name,
+            'national_id'=> $guest->national_id,
+            'identity_label' => $guest->identityFieldLabel(),
+            'identity_number' => $guest->identityNumber(),
+            'residence_label' => $guest->residenceLocationLabel(),
+            'mobile'     => $guest->mobile,
+            'relation'   => $guest->relation,
+        ])->all();
+    }
+
+    public function getServicesBookingProperty(): ?Booking
+    {
+        if (!$this->servicesBookingId) {
+            return null;
+        }
+
+        return Booking::query()
+            ->with(['services.serviceCatalog', 'services.serviceCatalogVariant'])
+            ->find($this->servicesBookingId);
+    }
+
+    public function placeholder(array $params = []): string
+    {
+        return <<<'HTML'
+            <div class="ta-card h-100">
+                <div class="ta-card__head">
+                    <h2 class="ta-card__title mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>وضعیت اتاق‌ها</h2>
+                </div>
+                <div class="ta-card__body d-flex align-items-center justify-content-center" style="min-height:220px">
+                    <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;">
+                        <span class="visually-hidden">در حال بارگذاری...</span>
+                    </div>
+                </div>
+            </div>
+            HTML;
     }
 
     public function render()
@@ -540,6 +752,10 @@ class RoomStatusBoard extends Component
             ? Accommodation::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
             : collect();
 
-        return view('livewire.room-status-board', compact('accommodations'));
+        return view('livewire.room-status-board', [
+            'accommodations' => $accommodations,
+            'board' => $this->board,
+            'canEditBuildingLayout' => $this->hostUserCan('dashboard', HostPermissions::ACTION_EDIT),
+        ]);
     }
 }

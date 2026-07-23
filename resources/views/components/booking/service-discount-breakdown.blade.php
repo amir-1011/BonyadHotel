@@ -22,12 +22,24 @@
         </div>
     </div>
 @elseif($lineDisc > 0)
+    @php
+        $discountReason = \App\Models\BookingService::describeDiscountFromAttributes([
+            'discount_amount'             => $lineDisc,
+            'excluded_from_veteran_quota' => $line['excluded_from_veteran_quota'] ?? false,
+            'manual_discount_percentage'  => $line['manual_discount_percentage'] ?? null,
+            'quantity'                    => (int) ($line['quantity'] ?? 0),
+            'unit_price'                  => (int) ($line['unit_price'] ?? 0),
+            'free_units'                  => (int) ($line['free_units'] ?? 0),
+            'discount_percentage'         => (int) ($line['discount_percentage'] ?? 0),
+        ]);
+    @endphp
     <div class="d-flex justify-content-between text-danger" style="padding-right:.5rem;font-size:{{ $compact ? '.72rem' : '.78rem' }}">
         <span>
             <i class="bi bi-tag-fill me-1" style="font-size:.75rem"></i>
-            تخفیف {{ (int) ($line['discount_percentage'] ?? 0) }}٪
-            @if(($line['free_units'] ?? 0) > 0)
-                · {{ $line['free_units'] }} جلسه رایگان
+            @if($discountReason !== '')
+            {{ $discountReason }}
+            @else
+            تخفیف
             @endif
         </span>
         <span class="fw-semibold">− {{ number_format($lineDisc) }} ت</span>

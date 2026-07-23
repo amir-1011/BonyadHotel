@@ -99,6 +99,51 @@ class ServiceDiscountTierEngineTest extends TestCase
         $this->assertSame(65, $tiers[1]['discount_percentage']);
     }
 
+    public function test_matrix_row_from_persistence_enables_tiered_for_legacy_free_sessions(): void
+    {
+        $row = ServiceDiscountTierEngine::matrixRowFromPersistence([
+            'discount_percentage'    => 0,
+            'free_sessions_eligible' => true,
+            'weekly_free_sessions'   => 3,
+            'use_tiered_discount'    => false,
+            'discount_tiers'         => null,
+        ]);
+
+        $this->assertTrue($row['use_tiered_discount']);
+        $this->assertCount(2, $row['discount_tiers']);
+        $this->assertSame('free', $row['discount_tiers'][0]['type']);
+    }
+
+    public function test_matrix_row_from_persistence_enables_tiered_when_tiers_exist_without_flag(): void
+    {
+        $row = ServiceDiscountTierEngine::matrixRowFromPersistence([
+            'discount_percentage'    => 65,
+            'free_sessions_eligible' => false,
+            'weekly_free_sessions'   => 0,
+            'use_tiered_discount'    => false,
+            'discount_tiers'         => [
+                ['type' => 'fixed_pay', 'session_count' => null, 'pay_amount' => 100_000],
+            ],
+        ]);
+
+        $this->assertTrue($row['use_tiered_discount']);
+        $this->assertCount(1, $row['discount_tiers']);
+    }
+
+    public function test_matrix_row_from_persistence_keeps_simple_percentage_mode(): void
+    {
+        $row = ServiceDiscountTierEngine::matrixRowFromPersistence([
+            'discount_percentage'    => 65,
+            'free_sessions_eligible' => false,
+            'weekly_free_sessions'   => 0,
+            'use_tiered_discount'    => false,
+            'discount_tiers'         => null,
+        ]);
+
+        $this->assertFalse($row['use_tiered_discount']);
+        $this->assertSame([], $row['discount_tiers']);
+    }
+
     public function test_finite_tier_ladder_does_not_repeat_last_tier_forever(): void
     {
         $tiers = [

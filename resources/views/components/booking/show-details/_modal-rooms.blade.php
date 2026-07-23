@@ -9,7 +9,7 @@
     @if($booking->roomRate)
     <li class="list-group-item d-flex justify-content-between px-0">
         <span class="text-muted">تعرفه</span>
-        <span>{{ $booking->roomRate->name }} · {{ number_format($booking->roomRate->price_per_night) }} ت/شب</span>
+        <span>{{ $booking->roomRate->name }} · {{ number_format($booking->roomRate->price_per_night) }} ت/شب/تخت</span>
     </li>
     @endif
 </ul>

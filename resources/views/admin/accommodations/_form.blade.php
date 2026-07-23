@@ -8,7 +8,7 @@
     @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
     @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities, 'counties' => $counties])
     <div class="col-md-4 d-none">
-        <label class="form-label small fw-semibold">قیمت/شب (ریال)</label>
+        <label class="form-label small fw-semibold">قیمت/شب/تخت (ریال)</label>
         <x-money-input wire:model="pricePerNight" class="form-control" required min="0" />
         @error('pricePerNight') <div class="text-danger small">{{ $message }}</div> @enderror
     </div>

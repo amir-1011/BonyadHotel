@@ -16,6 +16,25 @@ window.bnbStayPicker = {
         return Math.round((new Date(checkOut + 'T12:00:00') - new Date(checkIn + 'T12:00:00')) / 86400000);
     },
 
+    maxStayNights: 365,
+
+    checkOutFromNights(checkIn, nights) {
+        const n = parseInt(nights, 10);
+        if (!checkIn || !Number.isFinite(n) || n < 1) return '';
+        return this.addDays(checkIn, n);
+    },
+
+    validateNightsInput(nights) {
+        const n = parseInt(nights, 10);
+        if (!Number.isFinite(n) || n < 1) {
+            return { valid: false, message: 'لطفاً تعداد شب اقامت را وارد کنید (حداقل ۱ شب).' };
+        }
+        if (n > this.maxStayNights) {
+            return { valid: false, message: 'حداکثر مدت اقامت ' + this.maxStayNights + ' شب است.' };
+        }
+        return { valid: true, message: '' };
+    },
+
     lastStayNight(checkIn, checkOut) {
         if (!checkIn || !checkOut || checkOut <= checkIn) return '';
         return this.addDays(checkOut, -1);
@@ -62,7 +81,21 @@ window.bnbStayPicker = {
             return { checkIn: g, checkOut: this.addDays(g, 1), calPhase: 0 };
         }
         return { checkIn: state.checkIn, checkOut: g, calPhase: 0 };
-    }
+    },
+
+    todayGregorian() {
+        if (window.BonyadJalaliDate && typeof window.BonyadJalaliDate.todayGregorian === 'function') {
+            return window.BonyadJalaliDate.todayGregorian();
+        }
+        const d = new Date();
+        return d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+    },
+
+    isTodayGregorian(greg) {
+        return !!greg && greg === this.todayGregorian();
+    },
 };
 
 // ─── Jalali calendar grid helpers (headers: ش ی د س چ پ ج = Sat-first) ───────
@@ -93,23 +126,35 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
 
 function bnbCalMixin() {
     return {
+        _effectiveCheckOut() {
+            if (this.checkOut) return this.checkOut;
+            if (typeof this.previewCheckOut === 'string' && this.previewCheckOut) return this.previewCheckOut;
+            return '';
+        },
         isStayNight(cell) {
-            return cell && window.bnbStayPicker.isStayNight(cell.greg, this.checkIn, this.checkOut);
+            const co = this._effectiveCheckOut();
+            return cell && window.bnbStayPicker.isStayNight(cell.greg, this.checkIn, co);
         },
         isCheckInDay(cell) {
             return cell && window.bnbStayPicker.isCheckInDay(cell.greg, this.checkIn);
         },
         isCheckOutDay(cell) {
-            return cell && window.bnbStayPicker.isCheckOutDay(cell.greg, this.checkOut);
+            const co = this._effectiveCheckOut();
+            return cell && window.bnbStayPicker.isCheckOutDay(cell.greg, co);
         },
         isLastStayNight(cell) {
-            return cell && window.bnbStayPicker.isLastStayNight(cell.greg, this.checkIn, this.checkOut);
+            const co = this._effectiveCheckOut();
+            return cell && window.bnbStayPicker.isLastStayNight(cell.greg, this.checkIn, co);
         },
         calInRange(cell) {
-            return cell && window.bnbStayPicker.calInRange(cell.greg, this.checkIn, this.checkOut);
+            const co = this._effectiveCheckOut();
+            return cell && window.bnbStayPicker.calInRange(cell.greg, this.checkIn, co);
         },
         calHoverRange(cell) {
             return cell && window.bnbStayPicker.calHoverRange(cell.greg, this.checkIn, this.calHover, this.calPhase);
+        },
+        isTodayDay(cell) {
+            return cell && window.bnbStayPicker.isTodayGregorian(cell.greg);
         },
         isHoverCheckoutDay(cell) {
             if (!cell || this.calPhase !== 1 || !this.checkIn || !this.calHover || this.calHover <= this.checkIn) return false;
@@ -238,6 +283,9 @@ function mbbDrawer() {
         calMonth: null,
         calPhase: 0,
         calHover: null,
+        stayNightsInput: '',
+        stayCheckOutInput: '',
+        stayDurationMode: 'nights',
         targetForm: null,
         pricePerNight: 0,
         originalPrice: 0,
@@ -253,6 +301,7 @@ function mbbDrawer() {
         billFullRooms: false,     // charge for all beds in reserved rooms
         // Availability
         roomTypeId: null,
+        roomRateId: null,
         roomTypeName: '',
         roomTypeCapacity: '',
         availabilityData: {},
@@ -268,7 +317,26 @@ function mbbDrawer() {
         pendingPreselectedRoomName: '',
 
         get nights() {
-            return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
+            if (this.checkOut) {
+                return window.bnbStayPicker.nights(this.checkIn, this.checkOut);
+            }
+            const preview = this.previewCheckOut;
+            return preview ? window.bnbStayPicker.nights(this.checkIn, preview) : 0;
+        },
+
+        get awaitingStayDuration() {
+            return this.mode === 'manual' && !!this.checkIn && !this.checkOut && this.calPhase === 1;
+        },
+
+        get previewCheckOut() {
+            if (this.mode !== 'manual' || !this.checkIn || this.checkOut) return '';
+            if (this.stayDurationMode === 'checkout') {
+                const g = this._parseJalaliCheckoutInput();
+                return g && g > this.checkIn ? g : '';
+            }
+            const validation = window.bnbStayPicker.validateNightsInput(this.stayNightsInput);
+            if (!validation.valid) return '';
+            return window.bnbStayPicker.checkOutFromNights(this.checkIn, this.stayNightsInput);
         },
 
         get roomsNeeded() {
@@ -457,7 +525,7 @@ function mbbDrawer() {
                 const isUnavailable= avail ? (!avail.is_blocked && avail.available_rooms <= 0) : false;
                 const isLowAvail   = avail ? (!avail.is_blocked && avail.available_rooms > 0 && avail.available_rooms < avail.total) : false;
 
-                const disabledByGap = this.calPhase === 1 && this.checkIn && (
+                const disabledByGap = this.mode !== 'manual' && this.calPhase === 1 && this.checkIn && (
                     greg < this.checkIn
                     || (greg > this.checkIn && this._hasInvalidNightInRange(
                         this.checkIn,
@@ -518,10 +586,10 @@ function mbbDrawer() {
             });
             // Dispatch guest count changes to rooms section
             this.$watch('adults', val => {
-                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.totalGuests } }));
+                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
             });
             this.$watch('childrenUnder6', () => {
-                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.totalGuests } }));
+                window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
             });
             this.$watch('checkIn',  () => { if (this.drawerOpen || this.mode === 'manual') this.datesConfirmed = false; });
             this.$watch('checkOut', () => { if (this.drawerOpen || this.mode === 'manual') this.datesConfirmed = false; });
@@ -569,9 +637,7 @@ function mbbDrawer() {
             window.addEventListener('manual-booking-dates-unlocked', () => {
                 this.datesLocked = false;
                 this.datesConfirmed = false;
-                this.checkIn = '';
-                this.checkOut = '';
-                this.calPhase = 0;
+                this.clearDatesSelection();
             });
             window.addEventListener('manual-booking-room-selected', (e) => {
                 if (this.mode !== 'manual') return;
@@ -600,7 +666,7 @@ function mbbDrawer() {
             if (this.mode === 'manual' && this.$el.dataset.bnbPrefillFocus === '1') {
                 document.addEventListener('livewire:navigated', () => {
                     if (!document.getElementById('manual-booking-prefill-summary')) return;
-                    setTimeout(() => this._scrollToDatePicker(), 350);
+                    setTimeout(() => this._scrollToTodayInCalendar(), 350);
                 }, { once: true });
             }
         },
@@ -627,21 +693,21 @@ function mbbDrawer() {
             form.querySelector('[name="room_rate_id"]').value = roomRateId;
 
             this.openForRoom(form, price, origPrice, roomTypeId, rtName, rtCap, extraCap, extraPrice);
-
-            if (el.dataset.bnbPrefillFocus === '1') {
-                this._scrollToDatePicker();
-            }
         },
 
-        _scrollToDatePicker() {
+        _scrollToTodayInCalendar() {
             const scroll = () => {
                 const panel = document.getElementById('bnb-manual-drawer-panel');
-                if (!panel) return;
-                const top = panel.getBoundingClientRect().top + window.pageYOffset - 88;
-                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                if (!panel) return false;
+                const todayCell = panel.querySelector('.bnb-cal-square-cell.cal-today:not(.cal-empty)');
+                if (!todayCell) return false;
+                todayCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                return true;
             };
-            setTimeout(scroll, 120);
-            setTimeout(scroll, 450);
+            this.$nextTick(() => {
+                if (scroll()) return;
+                setTimeout(() => { if (!scroll()) setTimeout(scroll, 300); }, 180);
+            });
         },
 
         _finalizeManualRoomCommit(rooms) {
@@ -719,6 +785,9 @@ function mbbDrawer() {
             this.availabilityError   = false;
             try {
                 const params = new URLSearchParams({ months: toFetch.join(',') });
+                if (this.roomRateId) {
+                    params.set('room_rate_id', String(this.roomRateId));
+                }
                 const resp = await fetch('/api/room-types/' + this.roomTypeId + '/availability?' + params, {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
@@ -745,6 +814,10 @@ function mbbDrawer() {
             try { return new persianDate(new Date(g + 'T12:00:00')).format('YYYY/MM/DD'); } catch(e) { return g; }
         },
 
+        jalStrLatin(g) {
+            return this._normalizeDigits(this.jalStr(g));
+        },
+
         calPrev() {
             if (this.calMonth === 1) { this.calYear--; this.calMonth = 12; }
             else this.calMonth--;
@@ -760,8 +833,160 @@ function mbbDrawer() {
         selectDay(cell) {
             if (this.mode === 'manual' && this.datesLocked) return;
             if (!cell || cell.past || cell.isUnavailable || cell.isBlocked || cell.disabledByGap) return;
+
+            if (this.mode === 'manual') {
+                if (this._isInvalidStayNight(cell.greg)) {
+                    this._toastStayError('این تاریخ برای اقامت در دسترس نیست (مسدود یا تکمیل ظرفیت).');
+                    return;
+                }
+                if (this.awaitingStayDuration && this.stayDurationMode === 'checkout' && cell.greg > this.checkIn) {
+                    this._applyStayRange(this.checkIn, cell.greg);
+                    return;
+                }
+                if (this.awaitingStayDuration && cell.greg === this.checkIn) {
+                    this._focusStayDurationInput();
+                    return;
+                }
+                this.checkIn = cell.greg;
+                this.checkOut = '';
+                this.calPhase = 1;
+                this.stayNightsInput = '';
+                this.stayCheckOutInput = '';
+                this.stayDurationMode = 'nights';
+                this.calHover = null;
+                this.$nextTick(() => this._focusStayDurationInput());
+                return;
+            }
+
             if (!this.applyStaySelection(cell, (from, to) => !this._hasInvalidNightInRange(from, to))) return;
             this.calHover = null;
+        },
+
+        clearDatesSelection() {
+            this.checkIn = '';
+            this.checkOut = '';
+            this.calPhase = 0;
+            this.stayNightsInput = '';
+            this.stayCheckOutInput = '';
+            this.stayDurationMode = 'nights';
+            this.calHover = null;
+        },
+
+        _focusStayDurationInput() {
+            this.$nextTick(() => {
+                const sel = this.stayDurationMode === 'checkout'
+                    ? '[data-bnb-stay-checkout-input]'
+                    : '[data-bnb-stay-nights-input]';
+                const input = this.$el.querySelector(sel);
+                if (!input) return;
+                input.focus();
+                if (this.stayDurationMode === 'checkout' && input.value) {
+                    input.select();
+                }
+            });
+        },
+
+        _normalizeDigits(str) {
+            const persian = '۰۱۲۳۴۵۶۷۸۹';
+            return String(str).replace(/[۰-۹]/g, (d) => String(persian.indexOf(d)));
+        },
+
+        _parseJalaliCheckoutInput() {
+            const raw = this._normalizeDigits(this.stayCheckOutInput).trim();
+            if (!raw) return '';
+            const parts = raw.replace(/-/g, '/').split('/').map((p) => parseInt(p.trim(), 10));
+            if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n) || n <= 0)) return '';
+            try {
+                return window.bnbJalaliCal.toGregorian(parts[0], parts[1], parts[2]);
+            } catch (e) {
+                return '';
+            }
+        },
+
+        _toastStayError(message) {
+            const msg = message || 'در بازه انتخابی یک یا چند شب در دسترس نیست. تاریخ شروع را دوباره انتخاب کنید.';
+            if (typeof window.bnbToast === 'function') {
+                window.bnbToast('error', msg);
+            } else {
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: { type: 'error', message: msg }
+                }));
+            }
+        },
+
+        async _ensureRangeMonthsLoaded(checkIn, checkOut) {
+            if (!this.roomTypeId || !checkIn || !checkOut) return;
+            const months = new Set();
+            let d = new Date(checkIn + 'T12:00:00');
+            const end = new Date(checkOut + 'T12:00:00');
+            while (d < end) {
+                try {
+                    const pDate = new persianDate(d);
+                    months.add(this._gregYmForJalali(pDate.year(), pDate.month()));
+                } catch (e) {}
+                d.setDate(d.getDate() + 1);
+            }
+            if (months.size) {
+                await this.fetchAvailability([...months]);
+            }
+        },
+
+        async _applyStayRange(checkIn, checkOut) {
+            if (!checkIn || !checkOut || checkOut <= checkIn) {
+                this._toastStayError('تاریخ خروج باید بعد از تاریخ ورود باشد.');
+                return false;
+            }
+
+            const nights = window.bnbStayPicker.nights(checkIn, checkOut);
+            const maxValidation = window.bnbStayPicker.validateNightsInput(nights);
+            if (!maxValidation.valid) {
+                this._toastStayError(maxValidation.message);
+                return false;
+            }
+
+            const lastNight = window.bnbStayPicker.lastStayNight(checkIn, checkOut);
+            await this._ensureRangeMonthsLoaded(checkIn, checkOut);
+
+            if (this._hasInvalidNightInRange(checkIn, lastNight)) {
+                this._toastStayError('در این بازه یک یا چند شب مسدود یا پر است. با «پاک کردن» تاریخ شروع را دوباره انتخاب کنید.');
+                this.clearDatesSelection();
+                return false;
+            }
+
+            this.checkIn = checkIn;
+            this.checkOut = checkOut;
+            this.calPhase = 0;
+            this.stayNightsInput = '';
+            this.stayCheckOutInput = '';
+            this.stayDurationMode = 'nights';
+            this.calHover = null;
+            return true;
+        },
+
+        async confirmStayDuration() {
+            if (this.mode !== 'manual' || this.datesLocked) return;
+
+            if (this.stayDurationMode === 'checkout') {
+                const checkOut = this._parseJalaliCheckoutInput();
+                if (!checkOut) {
+                    this._toastStayError('تاریخ خروج را به شکل ۱۴۰۴/۰۴/۱۵ وارد کنید یا روز خروج را در تقویم بزنید.');
+                    return;
+                }
+                await this._applyStayRange(this.checkIn, checkOut);
+                return;
+            }
+
+            const validation = window.bnbStayPicker.validateNightsInput(this.stayNightsInput);
+            if (!validation.valid) {
+                this._toastStayError(validation.message);
+                return;
+            }
+
+            const checkOut = window.bnbStayPicker.checkOutFromNights(
+                this.checkIn,
+                parseInt(String(this.stayNightsInput).trim(), 10),
+            );
+            await this._applyStayRange(this.checkIn, checkOut);
         },
 
         onBookClick() {
@@ -818,19 +1043,61 @@ function mbbDrawer() {
             </div>`;
         },
 
+        _swalEmptyBedsManualHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal) {
+            return `<div style="font-family:var(--bnb-font);line-height:1.8;color:#374151;text-align:right;">
+                <p style="margin:0 0 14px;">
+                    برای <strong>${guests} نفر</strong> نیاز به <strong>${rn} اتاق</strong> (هر اتاق ${capacity} نفر) دارید.
+                    <br>در این ترکیب، <strong style="color:#dc2626;">${emptyBeds} تخت خالی</strong> باقی می‌ماند (${totalBeds} تخت رزرو شده).
+                </p>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <label style="display:flex;align-items:flex-start;gap:12px;background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-partial">
+                        <input type="radio" name="swal-bed-choice" value="partial" checked style="margin-top:4px;accent-color:#16a34a;">
+                        <div style="flex:1;">
+                            <div style="font-weight:700;color:#15803d;margin-bottom:4px;"><i class="bi bi-person-check"></i> رزرو فقط برای ${guests} نفر (بدون هزینه تخت خالی)</div>
+                            <div style="font-size:13px;color:#374151;">هزینه اقامت فقط برای مهمانان حاضر محاسبه می‌شود؛ ${emptyBeds} تخت خالی بدون هزینه است.</div>
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-top:8px;">
+                                <span style="color:#6b7280;">مبلغ اقامت:</span>
+                                <strong style="color:#15803d;font-size:16px;">${partialTotal.toLocaleString('fa-IR')} تومان</strong>
+                            </div>
+                        </div>
+                    </label>
+                    <label style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-full">
+                        <input type="radio" name="swal-bed-choice" value="full" style="margin-top:4px;accent-color:#ea580c;">
+                        <div style="flex:1;">
+                            <div style="font-weight:700;color:#c2410c;margin-bottom:4px;"><i class="bi bi-door-closed-fill"></i> رزرو کامل اتاق‌ها (هزینه همه تخت‌ها)</div>
+                            <div style="font-size:13px;color:#374151;">هزینه برای <strong>${totalBeds} تخت</strong> (${rn} اتاق کامل) محاسبه می‌شود.</div>
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-top:8px;">
+                                <span style="color:#6b7280;">مبلغ اقامت:</span>
+                                <div>
+                                    ${partialTotal < fullRoomTotal ? `<span style="font-size:12px;text-decoration:line-through;color:#9ca3af;margin-left:6px;">${partialTotal.toLocaleString('fa-IR')}</span>` : ''}
+                                    <strong style="color:#c2410c;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} تومان</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>`;
+        },
+
         _showEmptyBedsPopup(guests, rn, capacity, totalBeds, emptyBeds) {
             const fullRoomTotal = this._calcNightTotal(totalBeds, 0);
             const partialTotal  = this._calcNightTotal(guests, this.effectiveChildGuests);
+            const isManual = this.mode === 'manual';
+
             return _loadSwal().then(() => Swal.fire({
                 title: '<span style="font-family:var(--bnb-font);font-size:17px;">⚠️ تخت‌های خالی در رزرو شما</span>',
-                html: this._swalEmptyBedsHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal),
+                html: isManual
+                    ? this._swalEmptyBedsManualHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal)
+                    : this._swalEmptyBedsHtml(guests, rn, capacity, totalBeds, emptyBeds, fullRoomTotal, partialTotal),
                 icon: 'warning',
                 showConfirmButton: true,
-                confirmButtonText: '<i class="bi bi-check-circle me-1"></i> رزرو کامل اتاق‌ها و پرداخت',
+                confirmButtonText: isManual
+                    ? '<i class="bi bi-check-circle me-1"></i> تأیید و ادامه'
+                    : '<i class="bi bi-check-circle me-1"></i> رزرو کامل اتاق‌ها و پرداخت',
                 confirmButtonColor: '#16a34a',
                 showCancelButton: true,
                 cancelButtonText: '<i class="bi bi-pencil-square me-1"></i> اصلاح فرم رزرو',
-                cancelButtonColor: '#ff385c',
+                cancelButtonColor: isManual ? '#6b7280' : '#ff385c',
                 reverseButtons: true,
                 customClass: { popup: 'swal-bnb-popup' },
                 didOpen: () => {
@@ -840,7 +1107,11 @@ function mbbDrawer() {
                     if (container) container.style.zIndex = '9999';
                 }
             })).then((result) => {
-                if (result.isConfirmed) {
+                if (!result.isConfirmed) return;
+                if (isManual) {
+                    const choice = document.querySelector('input[name="swal-bed-choice"]:checked')?.value;
+                    this._proceedBooking(0, choice === 'full');
+                } else {
                     this._proceedBooking(0, true);
                 }
             });
@@ -1003,9 +1274,11 @@ function mbbDrawer() {
             const g   = form.querySelector('.rt-guests') || form.querySelector('input[name="guests"]');
             const eg  = form.querySelector('.rt-extra-guests') || form.querySelector('input[name="extra_guests"]');
             const bfr = form.querySelector('.rt-bill-full-rooms') || form.querySelector('input[name="bill_full_rooms"]');
+            const cu6 = form.querySelector('.rt-children-under-6') || form.querySelector('input[name="children_under_6"]');
             if (ci) ci.value = this.checkIn;
             if (co) co.value = this.checkOut;
             if (g)  g.value  = this.totalGuests;
+            if (cu6) cu6.value = this.childrenUnder6 || 0;
             if (eg) eg.value = this.extraGuests || 0;
             if (bfr) bfr.value = this.billFullRooms ? '1' : '0';
             form.submit();
@@ -1026,11 +1299,18 @@ function mbbDrawer() {
             this.billFullRooms       = false;
             this.datesConfirmed      = this.datesLocked;
 
-            // Always clear cached availability so new room type gets fresh data
+            const rateInput = form ? form.querySelector('[name="room_rate_id"]') : null;
+            const newRateId = rateInput ? (parseInt(rateInput.value, 10) || null) : null;
+
+            // Always clear cached availability when room type or tariff changes
             const roomChanged     = this.roomTypeId !== (roomTypeId || null);
+            const rateChanged     = this.roomRateId !== newRateId;
             this.roomTypeId       = roomTypeId || null;
-            this.availabilityData = {};
-            this.loadedMonths     = [];
+            this.roomRateId       = newRateId;
+            if (roomChanged || rateChanged) {
+                this.availabilityData = {};
+                this.loadedMonths     = [];
+            }
 
             // Reset calendar to current month when switching rooms so user picks fresh dates
             if (roomChanged && typeof persianDate !== 'undefined') {
@@ -1042,14 +1322,16 @@ function mbbDrawer() {
 
             this.drawerOpen = true;
             if (this.mode === 'manual') {
-                this.$nextTick(() => {
-                    const panel = document.getElementById('bnb-manual-drawer-panel');
-                    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                });
+                if (typeof persianDate !== 'undefined') {
+                    const t = new persianDate();
+                    this.calYear  = t.year();
+                    this.calMonth = t.month();
+                }
+                this._scrollToTodayInCalendar();
             }
 
             // Sync guest count to rooms section
-            window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.totalGuests } }));
+            window.dispatchEvent(new CustomEvent('bnb-guests-changed', { detail: { guests: this.guestsForBeds, totalGuests: this.totalGuests } }));
 
             if (roomTypeId) {
                 // Load current + next 2 Gregorian months (converted from Jalali calendar state)

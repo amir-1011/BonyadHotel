@@ -6,14 +6,14 @@ class RoomTypePriceResolver
 {
     /**
      * Compute nightly price after custom price and percentage adjustment.
-     * Positive discount = cheaper; negative = surcharge (e.g. -20 → 20% more expensive).
+     * Positive = surcharge (e.g. +20 → 20% more expensive); negative = discount (e.g. -50 → 50% off).
      */
     public static function effectivePrice(int $basePrice, ?int $customPrice, ?int $discountPercentage): int
     {
         $price = self::resolveBasePrice($basePrice, $customPrice);
 
         if ($discountPercentage !== null && $discountPercentage !== 0) {
-            $price = (int) round($price * (1 - $discountPercentage / 100));
+            $price = (int) round($price * (1 + $discountPercentage / 100));
         }
 
         return max(0, $price);

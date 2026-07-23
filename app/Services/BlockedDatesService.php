@@ -254,4 +254,46 @@ class BlockedDatesService
             ->whereDate('date', $dateGreg)
             ->delete() > 0;
     }
+
+    /**
+     * @param  array<int|null>  $roomIds
+     */
+    public function destroyRange(RoomType $roomType, string $dateFrom, string $dateTo, array $roomIds, ?string $reason = null): int
+    {
+        if ($dateTo < $dateFrom) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
+        $roomIds = array_values(array_unique($roomIds, SORT_REGULAR));
+        if ($roomIds === []) {
+            return 0;
+        }
+
+        $query = RoomTypeBlockedDate::query()
+            ->where('room_type_id', $roomType->id)
+            ->whereDate('date', '>=', $dateFrom)
+            ->whereDate('date', '<=', $dateTo)
+            ->where(function ($q) use ($roomIds) {
+                $nullRequested = in_array(null, $roomIds, true);
+                $numericIds = array_values(array_filter($roomIds, fn ($id) => $id !== null));
+
+                if ($numericIds !== [] && $nullRequested) {
+                    $q->whereIn('room_id', $numericIds)->orWhereNull('room_id');
+                } elseif ($numericIds !== []) {
+                    $q->whereIn('room_id', $numericIds);
+                } else {
+                    $q->whereNull('room_id');
+                }
+            });
+
+        if ($reason === null || $reason === '') {
+            $query->where(function ($q) {
+                $q->whereNull('reason')->orWhere('reason', '');
+            });
+        } else {
+            $query->where('reason', $reason);
+        }
+
+        return $query->delete();
+    }
 }

@@ -76,6 +76,14 @@ class AccommodationController extends Controller
 
         // Add newly uploaded images
         if ($request->hasFile('new_images')) {
+            try {
+                ImageUploadService::assertTotalImageCount(
+                    count($finalImages) + count($request->file('new_images', []))
+                );
+            } catch (\RuntimeException $e) {
+                return back()->withErrors(['new_images' => $e->getMessage()])->withInput();
+            }
+
             $finalImages = array_merge(
                 $finalImages,
                 app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'accommodations')
@@ -105,7 +113,7 @@ class AccommodationController extends Controller
 
     private function validated(Request $request, ?Accommodation $accommodation = null): array
     {
-        return $request->validate([
+        return $request->validate(array_merge([
             'city_id'         => ['required', 'exists:cities,id'],
             'county_id'       => ['nullable', 'exists:counties,id'],
             'name'            => ['required', 'string', 'max:200'],
@@ -117,9 +125,7 @@ class AccommodationController extends Controller
             'address'         => ['nullable', 'string'],
             'lat'             => ['nullable', 'numeric', 'between:-90,90'],
             'lng'             => ['nullable', 'numeric', 'between:-180,180'],
-            'images.*'        => ['nullable', 'image', 'max:4096'],
-            'new_images.*'    => ['nullable', 'image', 'max:4096'],
-        ]);
+        ], ImageUploadService::manyFileRules('images'), ImageUploadService::manyFileRules('new_images')));
     }
 
     private function parseAmenities(string $raw): array

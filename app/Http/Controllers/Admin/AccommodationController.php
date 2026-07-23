@@ -92,6 +92,14 @@ class AccommodationController extends Controller
         $finalImages = array_values(array_intersect($existingImages, $keepImages));
 
         if ($request->hasFile('new_images')) {
+            try {
+                ImageUploadService::assertTotalImageCount(
+                    count($finalImages) + count($request->file('new_images', []))
+                );
+            } catch (\RuntimeException $e) {
+                return back()->withErrors(['new_images' => $e->getMessage()])->withInput();
+            }
+
             $finalImages = array_merge(
                 $finalImages,
                 app(ImageUploadService::class)->storeManyWebp($request->file('new_images', []), 'accommodations')
@@ -123,7 +131,7 @@ class AccommodationController extends Controller
 
     private function validated(Request $request, ?Accommodation $accommodation = null): array
     {
-        return $request->validate([
+        return $request->validate(array_merge([
             'city_id'        => ['required', 'exists:cities,id'],
             'county_id'      => ['nullable', 'exists:counties,id'],
             'host_id'        => ['nullable', 'exists:users,id'],
@@ -138,9 +146,7 @@ class AccommodationController extends Controller
             'lng'            => ['nullable', 'numeric'],
             'image'          => ['nullable', 'string'],
             'is_active'      => ['boolean'],
-            'images.*'       => ['nullable', 'image', 'max:4096'],
-            'new_images.*'   => ['nullable', 'image', 'max:4096'],
-        ]);
+        ], ImageUploadService::manyFileRules('images'), ImageUploadService::manyFileRules('new_images')));
     }
 
     public function salesReport(Accommodation $accommodation)

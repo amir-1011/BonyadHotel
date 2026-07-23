@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\City;
+use App\Models\Country;
 use App\Models\County;
 use App\Models\Province;
+use App\Models\ResidenceCity;
 
 class LocationCatalogService
 {
@@ -162,6 +164,58 @@ class LocationCatalogService
         return County::create([
             'province_id' => $provinceId,
             'name'        => $this->normalizeFa($name),
+        ]);
+    }
+
+    public function createCountry(string $name): Country
+    {
+        return Country::create(['name' => $this->normalizeFa($name)]);
+    }
+
+    /**
+     * @return array{id:int, country_created:bool, city_created:bool, country_name:string, city_name:string}
+     */
+    public function resolveOrCreateResidenceCity(string $countryName, string $cityName): array
+    {
+        $countryName = $this->normalizeFa($countryName);
+        $cityName = $this->normalizeFa($cityName);
+
+        $countryCreated = false;
+        $cityCreated = false;
+
+        $country = Country::query()->where('name', $countryName)->first();
+        if (!$country) {
+            $country = Country::create(['name' => $countryName]);
+            $countryCreated = true;
+        }
+
+        $city = ResidenceCity::query()
+            ->where('country_id', $country->id)
+            ->where('name', $cityName)
+            ->first();
+
+        if (!$city) {
+            $city = ResidenceCity::create([
+                'country_id' => $country->id,
+                'name'       => $cityName,
+            ]);
+            $cityCreated = true;
+        }
+
+        return [
+            'id'             => $city->id,
+            'country_created' => $countryCreated,
+            'city_created'   => $cityCreated,
+            'country_name'   => $country->name,
+            'city_name'      => $city->name,
+        ];
+    }
+
+    public function createResidenceCity(int $countryId, string $name): ResidenceCity
+    {
+        return ResidenceCity::create([
+            'country_id' => $countryId,
+            'name'       => $this->normalizeFa($name),
         ]);
     }
 }

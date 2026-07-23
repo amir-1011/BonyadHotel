@@ -4,6 +4,8 @@ namespace App\Livewire\Admin;
 
 use App\Models\Accommodation;
 use App\Models\Program;
+use App\Models\ProgramBeneficiary;
+use App\Support\ProgramFilter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -16,37 +18,60 @@ class ProgramIndex extends Component
 
     #[Url] public string $search = '';
     #[Url] public string $status = '';
+    #[Url] public string $programType = '';
+    #[Url] public string $paymentType = '';
+    #[Url] public int $accommodationId = 0;
+    #[Url] public string $counterparty = '';
+    #[Url] public string $employer = '';
+    #[Url] public string $contractor = '';
+    #[Url] public int $beneficiaryId = 0;
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedStatus(): void { $this->resetPage(); }
+    public function updated($property): void
+    {
+        if (!in_array($property, ['page'], true)) {
+            $this->resetPage();
+        }
+    }
 
     public function updateStatus(int $programId, string $newStatus): void
     {
-        $allowed = ['active', 'completed', 'cancelled'];
-        if (!in_array($newStatus, $allowed, true)) return;
+        $allowed = [Program::STATUS_ACTIVE, Program::STATUS_COMPLETED, Program::STATUS_CANCELLED];
+        if (!in_array($newStatus, $allowed, true)) {
+            return;
+        }
 
-        Program::findOrFail($programId)->update(['status' => $newStatus]);
+        $program = Program::with('booking')->findOrFail($programId);
+        $program->update(['status' => $newStatus]);
+
+        if ($newStatus === Program::STATUS_CANCELLED && $program->booking) {
+            $program->booking->update(['status' => 'cancelled']);
+        }
+
         session()->flash('status', 'وضعیت برنامه به‌روز شد.');
         $this->dispatch('toast', type: 'success', message: 'وضعیت برنامه به‌روز شد.');
     }
 
     public function render()
     {
-        $query = Program::with('accommodation.city');
+        $filters = [
+            'search'           => $this->search,
+            'status'           => $this->status,
+            'program_type'     => $this->programType,
+            'payment_type'     => $this->paymentType,
+            'accommodation_id' => $this->accommodationId,
+            'counterparty'     => $this->counterparty,
+            'employer'         => $this->employer,
+            'contractor'       => $this->contractor,
+            'beneficiary_id'   => $this->beneficiaryId,
+        ];
 
-        if ($this->search) {
-            $s = $this->search;
-            $query->where(fn($w) =>
-                $w->where('title', 'like', "%$s%")
-                    ->orWhereHas('accommodation', fn($q) => $q->where('name', 'like', "%$s%"))
-            );
-        }
-        if ($this->status) {
-            $query->where('status', $this->status);
-        }
+        $programs = ProgramFilter::make($filters)
+            ->apply(Program::query()->with(['accommodation.city', 'booking']))
+            ->paginate(20);
 
-        $programs       = $query->latest()->paginate(20);
         $accommodations = Accommodation::orderBy('name')->get(['id', 'name']);
-        return view('admin.programs.index', compact('programs', 'accommodations'));
+        $beneficiaries = ProgramBeneficiary::orderBy('name')->get();
+
+        return view('admin.programs.index', compact('programs', 'accommodations', 'beneficiaries', 'filters'));
     }
 }

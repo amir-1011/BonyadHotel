@@ -30,12 +30,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout')->
 Route::get('/api/provinces/{province}/cities',                       [AccommodationController::class, 'citiesByProvince'])->name('api.cities');
 Route::get('/api/room-types/{roomType}/availability',                [AvailabilityController::class, 'roomType'])->name('api.room-types.availability');
 Route::get('/api/room-types/{roomType}/physical-rooms',            [AvailabilityController::class, 'physicalRooms'])->name('api.room-types.physical-rooms');
+Route::get('/api/accommodations/{accommodation}/physical-rooms',   [AvailabilityController::class, 'accommodationPhysicalRooms'])->name('api.accommodations.physical-rooms');
 Route::get('/api/accommodations/{accommodation}/rooms-availability', [AvailabilityController::class, 'accommodationRooms'])->name('api.accommodations.rooms-availability');
 
 Route::middleware('auth')->group(function () {
     Route::post('/api/room-type-amenities', [RoomTypeAmenityCatalogController::class, 'store'])->name('api.room-type-amenities.store');
     Route::delete('/api/room-type-amenities/{roomTypeAmenity}', [RoomTypeAmenityCatalogController::class, 'destroy'])->name('api.room-type-amenities.destroy');
     Route::post('/api/room-type-categories', [RoomTypeCategoryCatalogController::class, 'store'])->name('api.room-type-categories.store');
+    Route::patch('/api/room-type-categories/{roomTypeCategory}', [RoomTypeCategoryCatalogController::class, 'update'])->name('api.room-type-categories.update');
     Route::delete('/api/room-type-categories/{roomTypeCategory}', [RoomTypeCategoryCatalogController::class, 'destroy'])->name('api.room-type-categories.destroy');
 });
 
@@ -106,6 +108,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/accommodations/create',               \App\Livewire\Admin\AccommodationCreate::class)->name('accommodations.create');
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Admin\AccommodationEdit::class)->name('accommodations.edit');
     Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Admin\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
+    Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Admin\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Admin\ManualBooking::class)->name('accommodations.manual-booking');
     // Sales report (keep as controller — complex chart data)
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Admin\AccommodationController::class, 'salesReport'])->name('accommodations.report');
@@ -125,10 +128,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
         Route::get('/{roomType}/blocked-dates/preview',      [\App\Http\Controllers\Admin\RoomTypeController::class, 'previewBlockedDate'])->name('blocked-dates.preview');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
+        Route::delete('/{roomType}/blocked-dates-range', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyBlockedDateRange'])->name('blocked-dates-range.destroy');
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Admin\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
         Route::post('/{roomType}/daily-availability',               [\App\Http\Controllers\Admin\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
         Route::delete('/{roomType}/daily-availability/{override}',  [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
+        Route::delete('/{roomType}/daily-availability-range', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyDailyOverrideRange'])->name('daily-availability-range.destroy');
         Route::delete('/{roomType}/weekly-price-rules/{weeklyRule}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyWeeklyPriceRule'])->name('weekly-price-rules.destroy');
+        Route::delete('/{roomType}/rate-weekly-price-rules/{rateWeeklyRule}', [\App\Http\Controllers\Admin\RoomTypeController::class, 'destroyRateWeeklyPriceRule'])->name('rate-weekly-price-rules.destroy');
     });
 
     // Bookings — export must come before {booking} wildcard
@@ -136,6 +142,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/bookings',           \App\Livewire\Admin\BookingIndex::class)->name('bookings.index');
     Route::get('/bookings/{booking}/pdf', [\App\Http\Controllers\BookingReceiptController::class, 'download'])->name('bookings.pdf');
     Route::get('/bookings/{booking}', \App\Livewire\Admin\BookingShow::class)->name('bookings.show');
+
+    // Cancellation / refund requests
+    Route::get('/cancellation-settings', \App\Livewire\Admin\CancellationSettings::class)->name('cancellation-settings');
+    Route::get('/cancellation-requests', \App\Livewire\Admin\CancellationRequestIndex::class)->name('cancellation-requests.index');
 
     // Developer commission wallet
     Route::get('/commission-wallet/export', [\App\Http\Controllers\Admin\CommissionWalletController::class, 'export'])->name('commission-wallet.export');
@@ -153,6 +163,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 
     // Programs — supportive-report must come before {program} wildcard
     Route::get('/programs/supportive-report', \App\Livewire\Admin\ProgramSupportiveReport::class)->name('programs.supportive-report');
+    Route::get('/programs/create',            \App\Livewire\Admin\ProgramCreate::class)->name('programs.create');
     Route::get('/programs',           \App\Livewire\Admin\ProgramIndex::class)->name('programs.index');
     Route::get('/programs/{program}', \App\Livewire\Admin\ProgramShow::class)->name('programs.show');
 });
@@ -172,6 +183,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Host\AccommodationController::class, 'salesReport'])->name('accommodations.report');
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Host\AccommodationEdit::class)->name('accommodations.edit');
     Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Host\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
+    Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Host\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Host\ManualBooking::class)->name('accommodations.manual-booking');
 
     // Bookings
@@ -179,6 +191,9 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/bookings',           \App\Livewire\Host\BookingIndex::class)->name('bookings.index');
     Route::get('/bookings/{booking}/pdf', [\App\Http\Controllers\BookingReceiptController::class, 'download'])->name('bookings.pdf');
     Route::get('/bookings/{booking}', \App\Livewire\Host\BookingShow::class)->name('bookings.show');
+
+    // Cancellation / refund requests
+    Route::get('/cancellation-requests', \App\Livewire\Host\CancellationRequestIndex::class)->name('cancellation-requests.index');
 
     // Reviews
     Route::get('/reviews', \App\Livewire\Host\ReviewIndex::class)->name('reviews.index');
@@ -202,10 +217,13 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
         Route::get('/{roomType}/blocked-dates/preview',      [\App\Http\Controllers\Host\RoomTypeController::class, 'previewBlockedDate'])->name('blocked-dates.preview');
         Route::post('/{roomType}/blocked-dates',             [\App\Http\Controllers\Host\RoomTypeController::class, 'storeBlockedDate'])->name('blocked-dates.store');
         Route::delete('/{roomType}/blocked-dates/{blocked}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyBlockedDate'])->name('blocked-dates.destroy');
+        Route::delete('/{roomType}/blocked-dates-range', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyBlockedDateRange'])->name('blocked-dates-range.destroy');
         Route::get('/{roomType}/daily-availability',                [\App\Http\Controllers\Host\RoomTypeController::class, 'dailyAvailability'])->name('daily-availability');
         Route::post('/{roomType}/daily-availability',               [\App\Http\Controllers\Host\RoomTypeController::class, 'storeDailyAvailability'])->name('daily-availability.store');
         Route::delete('/{roomType}/daily-availability/{override}',  [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyDailyAvailability'])->name('daily-availability.destroy');
+        Route::delete('/{roomType}/daily-availability-range', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyDailyOverrideRange'])->name('daily-availability-range.destroy');
         Route::delete('/{roomType}/weekly-price-rules/{weeklyRule}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyWeeklyPriceRule'])->name('weekly-price-rules.destroy');
+        Route::delete('/{roomType}/rate-weekly-price-rules/{rateWeeklyRule}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyRateWeeklyPriceRule'])->name('rate-weekly-price-rules.destroy');
     });
 
     // Programs — supportive-report and create must come before {program} wildcard
@@ -213,7 +231,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/programs/create',            \App\Livewire\Host\ProgramCreate::class)->name('programs.create');
     Route::get('/programs',                   \App\Livewire\Host\ProgramIndex::class)->name('programs.index');
     Route::get('/programs/{program}',         \App\Livewire\Host\ProgramShow::class)->name('programs.show');
-    Route::get('/programs/{program}/edit',    \App\Livewire\Host\ProgramEdit::class)->name('programs.edit');
+    // Edit removed — programs are created via multi-step wizard only
     // Delete (Livewire handles this in ProgramIndex/Show via actions; keep controller fallback)
     Route::delete('/programs/{program}',      [\App\Http\Controllers\Host\ProgramController::class, 'destroy'])->name('programs.destroy');
 });

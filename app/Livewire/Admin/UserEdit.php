@@ -2,11 +2,14 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\ManagesHostPermissionForm;
+use App\Livewire\Concerns\ManagesHostPositionForm;
 use App\Models\Accommodation;
 use App\Models\User;
 use App\Services\NationalIdVerificationService;
 use App\Support\VeteranGroups;
 use App\Support\HostPermissions;
+use App\Support\HostPositionTitles;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -15,48 +18,112 @@ use Spatie\Permission\Models\Role;
 #[Layout('layouts.admin', ['title' => 'ویرایش کاربر', 'pageTitle' => 'ویرایش کاربر'])]
 class UserEdit extends Component
 {
+    use ManagesHostPermissionForm;
+    use ManagesHostPositionForm;
+
     public User $user;
 
     public string $name             = '';
     public string $mobile           = '';
     public string $nationalId       = '';
     public string $veteranType      = '';
+    public string $secondaryVeteranType = '';
+
+    /** @var array<int, string> */
+    public array $selectedVeteranTypes = [];
+
     public int    $discountPct      = 0;
     public bool   $isActive         = true;
     public string $role             = 'guest';
     public ?int   $accommodationToAssign = null;
-    public array  $hostPanelPermissions  = [];
     public string $hostPassword         = '';
     public string $hostPassword_confirmation = '';
 
     public function mount(User $user): void
     {
-        $this->user = $user;
+        $this->user = $user->load(['country', 'residenceCity']);
         $this->name = $user->name ?? '';
         $this->mobile = $user->mobile ?? '';
         $this->nationalId = $user->national_id ?? '';
         $this->veteranType = $user->normalizedVeteranType() ?? '';
+        $this->secondaryVeteranType = $user->normalizedSecondaryVeteranType() ?? '';
+        $this->selectedVeteranTypes = $user->normalizedVeteranTypes();
         $this->discountPct = $user->discount_percentage ?? 0;
         $this->isActive = (bool) ($user->is_active ?? true);
         $this->role = $user->roles->first()?->name ?? 'guest';
-        $this->hostPanelPermissions = $user->effectiveHostPermissions();
+        $this->mountHostPermissionForm($user->host_panel_permissions);
+        $this->mountHostPositionForm($user);
     }
 
     public function updatedRole(string $value): void
     {
-        if ($value === 'host' && empty($this->hostPanelPermissions)) {
-            $this->hostPanelPermissions = HostPermissions::defaults();
+        if ($value === 'host' && $this->hostPermissionGrantsFromForm() === []) {
+            $this->mountHostPermissionForm();
         }
     }
 
     public function updatedVeteranType(): void
     {
-        $this->discountPct = VeteranGroups::accommodationDiscount($this->veteranType ?: null);
+        $this->syncSelectedVeteranTypesFromFields();
+        $this->syncDiscountFromGroups();
+    }
+
+    public function updatedSecondaryVeteranType(): void
+    {
+        $this->syncSelectedVeteranTypesFromFields();
+        $this->syncDiscountFromGroups();
+    }
+
+    public function updatedSelectedVeteranTypes(): void
+    {
+        $this->normalizeSelectedVeteranTypes();
+        $this->syncDiscountFromGroups();
     }
 
     public function syncDiscountFromGroup(): void
     {
-        $this->discountPct = VeteranGroups::accommodationDiscount($this->veteranType ?: null);
+        $this->syncDiscountFromGroups();
+    }
+
+    private function syncSelectedVeteranTypesFromFields(): void
+    {
+        $types = array_values(array_filter([
+            $this->veteranType ?: null,
+            $this->secondaryVeteranType ?: null,
+        ]));
+
+        $this->selectedVeteranTypes = app(\App\Services\VeteranPolicyService::class)
+            ->normalizeVeteranTypes($types);
+        [$primary, $secondary] = app(\App\Services\VeteranPolicyService::class)
+            ->splitVeteranTypes($this->selectedVeteranTypes);
+        $this->veteranType = $primary ?? '';
+        $this->secondaryVeteranType = $secondary ?? '';
+    }
+
+    private function normalizeSelectedVeteranTypes(): void
+    {
+        $policy = app(\App\Services\VeteranPolicyService::class);
+        $this->selectedVeteranTypes = $policy->normalizeVeteranTypes($this->selectedVeteranTypes);
+
+        if (count($this->selectedVeteranTypes) > 2) {
+            $this->selectedVeteranTypes = array_slice($this->selectedVeteranTypes, 0, 2);
+        }
+
+        [$primary, $secondary] = $policy->splitVeteranTypes($this->selectedVeteranTypes);
+        $this->veteranType = $primary ?? '';
+        $this->secondaryVeteranType = $secondary ?? '';
+    }
+
+    private function syncDiscountFromGroups(): void
+    {
+        $types = $this->selectedVeteranTypes ?: array_values(array_filter([
+            $this->veteranType ?: null,
+            $this->secondaryVeteranType ?: null,
+        ]));
+
+        $this->discountPct = empty($types)
+            ? 0
+            : VeteranGroups::accommodationDiscountForTypes($types);
     }
 
     public function assignAccommodation(): void
@@ -96,23 +163,21 @@ class UserEdit extends Component
     public function saveHostPanelAccess(): void
     {
         if ($this->role !== 'host') {
-            $this->addError('hostPanelPermissions', 'تنظیم دسترسی پنل فقط برای نقش میزبان (host) امکان‌پذیر است.');
+            $this->addError('hostPermissionForm', 'تنظیم دسترسی پنل فقط برای نقش میزبان (host) امکان‌پذیر است.');
             return;
         }
 
-        $this->validate([
-            'hostPanelPermissions'   => ['required', 'array', 'min:1'],
-            'hostPanelPermissions.*' => ['string', Rule::in(HostPermissions::keys())],
-        ], [
-            'hostPanelPermissions.required' => 'حداقل یک بخش از پنل میزبان را انتخاب کنید.',
-            'hostPanelPermissions.min'      => 'حداقل یک بخش از پنل میزبان را انتخاب کنید.',
-        ]);
+        $this->validateHostPermissionForm();
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
 
         $this->user->update([
-            'host_panel_permissions' => array_values(array_unique($this->hostPanelPermissions)),
+            'host_panel_permissions' => $this->hostPermissionGrantsFromForm(),
         ]);
 
-        session()->flash('status', 'دسترسی‌های پنل میزبان ذخیره شد.');
+        $this->dispatch('toast', type: 'success', message: 'دسترسی‌های پنل میزبان ذخیره شد.');
     }
 
     public function updateHostPassword(): void
@@ -153,6 +218,9 @@ class UserEdit extends Component
                 Rule::unique('users', 'national_id')->ignore($this->user->id),
             ],
             'veteranType' => ['nullable', 'string', Rule::in($veteranKeys)],
+            'secondaryVeteranType' => ['nullable', 'string', Rule::in($veteranKeys)],
+            'selectedVeteranTypes' => ['array', 'max:2'],
+            'selectedVeteranTypes.*' => ['string', Rule::in($veteranKeys)],
             'discountPct' => ['required', 'integer', 'min:0', 'max:100'],
             'role'        => ['required', 'string', Rule::in($roleNames)],
         ], [
@@ -160,12 +228,17 @@ class UserEdit extends Component
             'nationalId.digits' => 'کد ملی باید دقیقاً ۱۰ رقم باشد.',
         ]);
 
+        $this->normalizeSelectedVeteranTypes();
+        [$primaryType, $secondaryType] = app(\App\Services\VeteranPolicyService::class)
+            ->splitVeteranTypes($this->selectedVeteranTypes);
+
         $data = [
-            'name'                => $this->name ?: null,
-            'national_id'         => $this->nationalId ?: null,
-            'veteran_type'        => $this->veteranType ?: null,
-            'discount_percentage' => $this->discountPct,
-            'is_active'           => $this->isActive,
+            'name'                   => $this->name ?: null,
+            'national_id'            => $this->nationalId ?: null,
+            'veteran_type'           => $primaryType,
+            'secondary_veteran_type' => $secondaryType,
+            'discount_percentage'    => $this->discountPct,
+            'is_active'              => $this->isActive,
         ];
 
         if ($this->nationalId && $this->nationalId !== $this->user->national_id) {
@@ -175,27 +248,37 @@ class UserEdit extends Component
                 return;
             }
             $data['veteran_type']            = $result['veteran_type'];
+            $data['secondary_veteran_type']  = null;
             $data['discount_percentage']     = $result['discount'];
             $data['national_id_verified_at'] = now();
             $this->veteranType = $result['veteran_type'] ?? '';
+            $this->secondaryVeteranType = '';
+            $this->selectedVeteranTypes = array_values(array_filter([$this->veteranType ?: null]));
             $this->discountPct = $result['discount'];
         } elseif (!$this->nationalId && $this->user->national_id) {
             $data['national_id_verified_at'] = null;
         }
 
-        if (!$this->veteranType) {
+        if (empty($this->selectedVeteranTypes) && !$this->veteranType) {
             $data['discount_percentage'] = 0;
+            $data['secondary_veteran_type'] = null;
         }
 
         if ($this->role === 'host') {
-            $data['host_panel_permissions'] = array_values(array_unique(
-                array_intersect($this->hostPanelPermissions, HostPermissions::keys())
-            ));
-            if (empty($data['host_panel_permissions'])) {
-                $data['host_panel_permissions'] = HostPermissions::defaults();
+            $this->validateHostPositionForm();
+
+            if ($this->getErrorBag()->isNotEmpty()) {
+                return;
             }
+
+            $grants = $this->hostPermissionGrantsFromForm();
+            $data['host_panel_permissions'] = $grants !== []
+                ? $grants
+                : HostPermissions::defaults();
+            $data['host_position_title'] = $this->resolvedHostPositionTitle();
         } else {
             $data['host_panel_permissions'] = null;
+            $data['host_position_title'] = null;
         }
 
         $this->user->update($data);
@@ -247,6 +330,7 @@ class UserEdit extends Component
             'assignedAccommodations'  => $assignedAccommodations,
             'availableAccommodations' => $availableAccommodations,
             'hostPermissionCatalog'   => HostPermissions::catalog(),
+            'hostPositionOptions'     => HostPositionTitles::optionsForForm($this->hostPositionPreset),
         ]);
     }
 }

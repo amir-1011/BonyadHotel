@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Livewire\Admin\BookingIndex;
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\BookingRoom;
 use App\Models\BookingService;
+use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\ServiceCatalog;
 use App\Models\ServiceCatalogVariant;
 use App\Models\User;
@@ -37,6 +40,7 @@ class AdminBookingFilterTest extends TestCase
 
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
 
         $this->admin = User::create([
             'name'   => 'ادمین رزرو',
@@ -363,7 +367,7 @@ class AdminBookingFilterTest extends TestCase
             ->set('draftStatus', 'pending')
             ->call('applyFilters')
             ->assertSee($pending->tracking_code)
-            ->assertDontSee($confirmed->tracking_code);
+            ->assertSee('1 رزرو');
     }
 
     public function test_livewire_apply_county_filter(): void
@@ -393,7 +397,7 @@ class AdminBookingFilterTest extends TestCase
             ->call('applyFilters')
             ->assertSet('countyId', (string) $countyId)
             ->assertSee($match->tracking_code)
-            ->assertDontSee($other->tracking_code);
+            ->assertSee('1 رزرو');
     }
 
     public function test_livewire_reset_filters_clears_county(): void
@@ -453,7 +457,7 @@ class AdminBookingFilterTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('URLCNTYAAA');
-        $response->assertDontSee('URLCNTYBBB');
+        $response->assertSee('۱ رزرو');
     }
 
     public function test_admin_can_export_bookings_with_county_filter(): void
@@ -547,9 +551,54 @@ class AdminBookingFilterTest extends TestCase
             ->test(BookingIndex::class)
             ->set('draftServiceCatalogId', (string) $pool->id)
             ->set('draftServiceCatalogVariantId', (string) $variant->id)
+            ->set('draftReserverId', '99')
             ->set('draftAccommodationId', (string) $this->accommodationB->id)
             ->assertSet('draftServiceCatalogId', '')
-            ->assertSet('draftServiceCatalogVariantId', '');
+            ->assertSet('draftServiceCatalogVariantId', '')
+            ->assertSet('draftReserverId', '');
+    }
+
+    public function test_livewire_accommodation_scopes_reserver_and_service_options(): void
+    {
+        $reserverA = User::create(['name' => 'رزروکننده آلفا', 'mobile' => '09123000001']);
+        $reserverB = User::create(['name' => 'رزروکننده بتا', 'mobile' => '09123000002']);
+
+        $poolA = $this->createService($this->accommodationA, 'pool_a', 'استخر آلفا');
+        $poolB = $this->createService($this->accommodationB, 'pool_b', 'استخر بتا');
+
+        $this->createBooking([
+            'accommodation_id' => $this->accommodationA->id,
+            'created_by'       => $reserverA->id,
+            'booking_source'   => 'manual',
+            'tracking_code'    => 'SCOPERSVA',
+        ]);
+        $this->createBooking([
+            'accommodation_id' => $this->accommodationB->id,
+            'created_by'       => $reserverB->id,
+            'booking_source'   => 'manual',
+            'tracking_code'    => 'SCOPERSVB',
+        ]);
+
+        $catalog = app(\App\Support\BookingReserverFilterCatalog::class);
+        $this->assertCount(2, $catalog->reservers(null));
+        $this->assertCount(1, $catalog->reservers((string) $this->accommodationA->id));
+        $this->assertSame($reserverA->id, $catalog->reservers((string) $this->accommodationA->id)->first()->id);
+
+        $serviceCatalog = app(\App\Support\BookingServiceFilterCatalog::class);
+        $this->assertCount(2, $serviceCatalog->parentServices(null, null, null, null));
+        $this->assertCount(1, $serviceCatalog->parentServices((string) $this->accommodationA->id, null, null, null));
+        $this->assertSame($poolA->id, $serviceCatalog->parentServices((string) $this->accommodationA->id, null, null, null)->first()->id);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->assertSee('همه رزروکنندگان')
+            ->set('draftAccommodationId', (string) $this->accommodationA->id)
+            ->assertSee('همه رزروکنندگان این اقامتگاه')
+            ->assertSee('همه خدمات این اقامتگاه')
+            ->set('draftServiceCatalogId', (string) $poolA->id)
+            ->assertSet('draftServiceCatalogId', (string) $poolA->id);
+
+        $this->assertNotContains($poolB->id, $serviceCatalog->parentServices((string) $this->accommodationA->id, null, null, null)->pluck('id'));
     }
 
     public function test_livewire_apply_service_filter(): void
@@ -566,7 +615,7 @@ class AdminBookingFilterTest extends TestCase
             ->set('draftServiceCatalogVariantId', (string) $variant->id)
             ->call('applyFilters')
             ->assertSee($match->tracking_code)
-            ->assertDontSee('LWSRVFILTB');
+            ->assertSee('1 رزرو');
     }
 
     public function test_admin_can_export_bookings_with_service_filter(): void
@@ -679,6 +728,290 @@ class AdminBookingFilterTest extends TestCase
         $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
+    public function test_filter_by_host_id_limits_to_host_accommodations(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+
+        $host = User::create(['name' => 'میزبان الف', 'mobile' => '09120000001']);
+        $host->assignRole('host');
+        $this->accommodationA->grantHostAccess($host);
+
+        $match = $this->createBooking(['accommodation_id' => $this->accommodationA->id, 'tracking_code' => 'HOSTFLT01']);
+        $other = $this->createBooking(['accommodation_id' => $this->accommodationB->id, 'tracking_code' => 'HOSTFLT02']);
+
+        $this->assertSame([$match->id], $this->filterIds(['host_id' => $host->id]));
+        $this->assertNotContains($other->id, $this->filterIds(['host_id' => $host->id]));
+    }
+
+    public function test_filter_by_reserver_id_matches_created_by_or_self_booking(): void
+    {
+        $staff = User::create(['name' => 'کارمند رزرو', 'mobile' => '09120000002']);
+        $guest = $this->createGuest('مهمان خودرزرو', '09120000003');
+
+        $manual = $this->createBooking([
+            'user_id'        => $guest->id,
+            'created_by'     => $staff->id,
+            'booking_source' => 'manual',
+            'tracking_code'  => 'RSRVFLT01',
+        ]);
+        $selfBooked = $this->createBooking([
+            'user_id'        => $guest->id,
+            'created_by'     => null,
+            'booking_source' => 'manual',
+            'tracking_code'  => 'RSRVFLT02',
+        ]);
+        $other = $this->createBooking(['tracking_code' => 'RSRVFLT03']);
+
+        $this->assertSame([$manual->id], $this->filterIds(['reserver_id' => $staff->id]));
+        $this->assertSame([$selfBooked->id], $this->filterIds(['reserver_id' => $guest->id]));
+        $this->assertNotContains($other->id, $this->filterIds(['reserver_id' => $staff->id]));
+    }
+
+    public function test_online_bookings_are_excluded_from_reserver_catalog_and_filter(): void
+    {
+        $staff = User::create(['name' => 'کارمند حضوری', 'mobile' => '09120000010']);
+        $guest = $this->createGuest('مهمان آنلاین', '09120000011');
+
+        $manual = $this->createBooking([
+            'user_id'        => $guest->id,
+            'created_by'     => $staff->id,
+            'booking_source' => 'manual',
+            'tracking_code'  => 'RSRVMAN01',
+        ]);
+        $online = $this->createBooking([
+            'user_id'        => $guest->id,
+            'created_by'     => null,
+            'booking_source' => 'online',
+            'tracking_code'  => 'RSRVONL01',
+        ]);
+
+        $catalog = app(\App\Support\BookingReserverFilterCatalog::class);
+        $this->assertSame([$staff->id], $catalog->reservers(null)->pluck('id')->all());
+        $this->assertNotContains($guest->id, $catalog->reservers(null)->pluck('id')->all());
+
+        $this->assertSame([$manual->id], $this->filterIds(['reserver_id' => $staff->id]));
+        $this->assertNotContains($online->id, $this->filterIds(['reserver_id' => $guest->id]));
+    }
+
+    public function test_selecting_online_booking_source_clears_reserver_filter(): void
+    {
+        $reserver = User::create(['name' => 'رزروکننده حضوری', 'mobile' => '09120000012']);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftReserverId', (string) $reserver->id)
+            ->set('draftBookingSource', 'online')
+            ->assertSet('draftReserverId', '')
+            ->call('applyFilters')
+            ->assertSet('reserverId', '');
+    }
+
+    public function test_livewire_loads_reserver_id_from_url(): void
+    {
+        $reserver = User::create(['name' => 'میزبان بتا', 'mobile' => '09120000004']);
+
+        $match = $this->createBooking([
+            'created_by'     => $reserver->id,
+            'booking_source' => 'manual',
+            'tracking_code'  => 'URLRSRV01',
+        ]);
+        $this->createBooking(['tracking_code' => 'URLRSRV02']);
+
+        Livewire::actingAs($this->admin)
+            ->withQueryParams(['reserver_id' => (string) $reserver->id])
+            ->test(BookingIndex::class)
+            ->assertSet('reserverId', (string) $reserver->id)
+            ->assertSet('draftReserverId', (string) $reserver->id)
+            ->assertSee($match->tracking_code);
+    }
+
+    public function test_filter_by_room_category_matches_booking_and_booking_room_lines(): void
+    {
+        $suite = $this->createRoomType($this->accommodationA, 'گروه سوئیت', 'سوئیت');
+        $standard = $this->createRoomType($this->accommodationA, 'گروه استاندارد', 'استاندارد');
+
+        $direct = $this->createBooking([
+            'room_type_id' => $suite->id,
+            'tracking_code' => 'RTDIRECT01',
+        ]);
+        $lineBooking = $this->createBooking(['tracking_code' => 'RTLINE0001']);
+        BookingRoom::create([
+            'booking_id'   => $lineBooking->id,
+            'room_type_id' => $standard->id,
+            'guests'       => 2,
+            'sort_order'   => 0,
+        ]);
+        $other = $this->createBooking(['tracking_code' => 'RTOTHER001']);
+
+        $this->assertSame([$direct->id], $this->filterIds(['room_category' => 'سوئیت']));
+        $this->assertSame([$lineBooking->id], $this->filterIds(['room_category' => 'استاندارد']));
+        $this->assertNotContains($other->id, $this->filterIds(['room_category' => 'سوئیت']));
+    }
+
+    public function test_filter_by_physical_room_id(): void
+    {
+        $roomType = $this->createRoomType($this->accommodationA, 'گروه دو تخته', 'دو تخته');
+        $room101 = Room::create(['room_type_id' => $roomType->id, 'name' => '۱۰۱', 'sort_order' => 1, 'is_active' => true]);
+        $room102 = Room::create(['room_type_id' => $roomType->id, 'name' => '۱۰۲', 'sort_order' => 2, 'is_active' => true]);
+
+        $match = $this->createBooking(['tracking_code' => 'ROOM101001']);
+        BookingRoom::create([
+            'booking_id'   => $match->id,
+            'room_type_id' => $roomType->id,
+            'room_id'      => $room101->id,
+            'guests'       => 2,
+            'sort_order'   => 0,
+        ]);
+
+        $other = $this->createBooking(['tracking_code' => 'ROOM102001']);
+        BookingRoom::create([
+            'booking_id'   => $other->id,
+            'room_type_id' => $roomType->id,
+            'room_id'      => $room102->id,
+            'guests'       => 2,
+            'sort_order'   => 0,
+        ]);
+
+        $this->assertSame([$match->id], $this->filterIds(['room_id' => $room101->id]));
+        $this->assertNotContains($other->id, $this->filterIds(['room_id' => $room101->id]));
+    }
+
+    public function test_filter_by_booking_source(): void
+    {
+        $manual = $this->createBooking(['booking_source' => 'manual', 'tracking_code' => 'SRCMANUAL1']);
+        $online = $this->createBooking(['booking_source' => 'online', 'tracking_code' => 'SRCONLINE1']);
+
+        $this->assertSame([$manual->id], $this->filterIds(['booking_source' => 'manual']));
+        $this->assertSame([$online->id], $this->filterIds(['booking_source' => 'online']));
+    }
+
+    public function test_filter_by_veteran_type_on_booking_snapshot(): void
+    {
+        $match = $this->createBooking([
+            'veteran_type_applied' => 'veteran_70_spouses',
+            'tracking_code'        => 'VETSNAP001',
+        ]);
+        $other = $this->createBooking(['tracking_code' => 'VETSNAP002']);
+
+        $this->assertSame([$match->id], $this->filterIds(['veteran_type' => 'veteran_70_spouses']));
+        $this->assertNotContains($other->id, $this->filterIds(['veteran_type' => 'veteran_70_spouses']));
+    }
+
+    public function test_filter_by_veteran_type_falls_back_to_user_profile(): void
+    {
+        $guest = $this->createGuest('ایثارگر مهمان', '09129990001');
+        $guest->update(['veteran_type' => 'martyr_children']);
+
+        $match = $this->createBooking([
+            'user_id'       => $guest->id,
+            'tracking_code' => 'VETUSER001',
+        ]);
+        $other = $this->createBooking(['tracking_code' => 'VETUSER002']);
+
+        $this->assertSame([$match->id], $this->filterIds(['veteran_type' => 'martyr_children']));
+        $this->assertNotContains($other->id, $this->filterIds(['veteran_type' => 'martyr_children']));
+    }
+
+    public function test_filter_by_veteran_none_excludes_veteran_bookings(): void
+    {
+        $veteranGuest = $this->createGuest('ایثارگر', '09129990002');
+        $veteranGuest->update(['veteran_type' => 'veteran_70_spouses']);
+
+        $normal = $this->createBooking(['tracking_code' => 'VETNONE001']);
+        $fromUser = $this->createBooking([
+            'user_id'       => $veteranGuest->id,
+            'tracking_code' => 'VETNONE002',
+        ]);
+        $fromSnapshot = $this->createBooking([
+            'veteran_type_applied' => 'martyr_children',
+            'tracking_code'        => 'VETNONE003',
+        ]);
+
+        $ids = $this->filterIds(['veteran_type' => '__none__']);
+
+        $this->assertContains($normal->id, $ids);
+        $this->assertNotContains($fromUser->id, $ids);
+        $this->assertNotContains($fromSnapshot->id, $ids);
+    }
+
+    public function test_livewire_apply_room_and_booking_source_filters(): void
+    {
+        $roomType = $this->createRoomType($this->accommodationA, 'گروه فیلتر', 'دو تخته');
+        $match = $this->createBooking([
+            'room_type_id'   => $roomType->id,
+            'booking_source' => 'manual',
+            'tracking_code'  => 'LWFILTROOM',
+        ]);
+        $this->createBooking([
+            'booking_source' => 'online',
+            'tracking_code'  => 'LWFILTONLN',
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftRoomCategory', 'دو تخته')
+            ->set('draftBookingSource', 'manual')
+            ->call('applyFilters')
+            ->assertSee($match->tracking_code)
+            ->assertSee('1 رزرو');
+    }
+
+    public function test_livewire_accommodation_change_resets_room_filters(): void
+    {
+        $roomType = $this->createRoomType($this->accommodationA, 'گروه آلفا', 'دو تخته');
+        $room = Room::create(['room_type_id' => $roomType->id, 'name' => '۲۰۱', 'sort_order' => 1, 'is_active' => true]);
+
+        Livewire::actingAs($this->admin)
+            ->test(BookingIndex::class)
+            ->set('draftAccommodationId', (string) $this->accommodationA->id)
+            ->set('draftRoomCategory', 'دو تخته')
+            ->set('draftRoomId', (string) $room->id)
+            ->set('draftAccommodationId', (string) $this->accommodationB->id)
+            ->assertSet('draftRoomCategory', '')
+            ->assertSet('draftRoomId', '');
+    }
+
+    public function test_physical_room_display_shows_group_then_physical_name(): void
+    {
+        $roomType = $this->createRoomType($this->accommodationA, 'گروه نمایشی', 'سوئیت');
+        $room = Room::create(['room_type_id' => $roomType->id, 'name' => '۳۰۵', 'sort_order' => 1, 'is_active' => true]);
+        $booking = $this->createBooking(['tracking_code' => 'PHYROOM001']);
+        BookingRoom::create([
+            'booking_id'   => $booking->id,
+            'room_type_id' => $roomType->id,
+            'room_id'      => $room->id,
+            'guests'       => 2,
+            'sort_order'   => 0,
+        ]);
+
+        $booking->load('bookingRooms.room', 'bookingRooms.roomType');
+
+        $this->assertSame('گروه نمایشی · ۳۰۵', $booking->physicalRoomNamesDisplay());
+    }
+
+    public function test_room_filter_catalog_scopes_categories_by_accommodation(): void
+    {
+        $this->createRoomType($this->accommodationA, 'گروه آلفا', 'دو تخته');
+        $this->createRoomType($this->accommodationB, 'گروه بتا', 'سوئیت');
+
+        $catalog = app(\App\Support\BookingRoomFilterCatalog::class);
+
+        $this->assertSame(['دو تخته'], $catalog->categories((string) $this->accommodationA->id)->all());
+    }
+
+    public function test_admin_can_export_bookings_with_new_filters(): void
+    {
+        $this->createBooking([
+            'booking_source' => 'manual',
+            'tracking_code'  => 'EXPNEWFILT',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.bookings.export', ['booking_source' => 'manual']));
+
+        $response->assertOk();
+    }
+
     /** @param  array<string, mixed>  $overrides */
     private function createBooking(array $overrides = []): Booking
     {
@@ -775,5 +1108,17 @@ class AdminBookingFilterTest extends TestCase
         ]);
 
         return $booking;
+    }
+
+    private function createRoomType(Accommodation $accommodation, string $name, ?string $bedType = null): RoomType
+    {
+        return RoomType::create([
+            'accommodation_id' => $accommodation->id,
+            'name'             => $name,
+            'bed_type'         => $bedType ?? $name,
+            'capacity'         => 2,
+            'room_count'       => 2,
+            'is_active'        => true,
+        ]);
     }
 }

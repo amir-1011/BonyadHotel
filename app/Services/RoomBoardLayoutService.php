@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Models\Accommodation;
 
 class RoomBoardLayoutService
 {
@@ -13,12 +13,10 @@ class RoomBoardLayoutService
     /**
      * @return array{cols: int, rows: array<int, array<int>>, row_labels: array<int, string>}|null
      */
-    public function getAccommodationLayout(User $user, int $accommodationId): ?array
+    public function getAccommodationLayout(Accommodation|int $accommodation): ?array
     {
-        $stored = $user->room_board_layout ?? [];
-        $layouts = $stored['accommodations'] ?? $stored['groups'] ?? [];
-        $key = (string) $accommodationId;
-        $layout = $layouts[$key] ?? null;
+        $accommodation = $this->resolveAccommodation($accommodation);
+        $layout = $accommodation->room_board_layout;
 
         if (!$layout || empty($layout['rows'])) {
             return null;
@@ -124,50 +122,89 @@ class RoomBoardLayoutService
     public function buildEditableLayout(array $rooms, ?array $savedLayout): array
     {
         $roomIds = array_map(fn ($r) => (int) $r['id'], $rooms);
+        $validIds = array_flip($roomIds);
 
-        if ($savedLayout !== null && !empty($savedLayout['rows'])) {
+        if ($savedLayout === null || empty($savedLayout['rows'])) {
             return [
-                'cols'       => max(1, min(12, (int) ($savedLayout['cols'] ?? self::DEFAULT_COLS))),
-                'rows'       => $savedLayout['rows'],
-                'row_labels' => $this->normalizeRowLabels($savedLayout['row_labels'] ?? [], count($savedLayout['rows'])),
+                'cols'       => self::DEFAULT_COLS,
+                'rows'       => [$roomIds],
+                'row_labels' => [''],
+            ];
+        }
+
+        $cols = max(1, min(12, (int) ($savedLayout['cols'] ?? self::DEFAULT_COLS)));
+        $labels = $this->normalizeRowLabels($savedLayout['row_labels'] ?? [], count($savedLayout['rows']));
+        $used = [];
+        $rows = [];
+        $rowLabels = [];
+
+        foreach ($savedLayout['rows'] as $rowIndex => $rowIds) {
+            $row = [];
+            foreach ($this->extractRoomIds($rowIds) as $id) {
+                $id = (int) $id;
+                if (!isset($validIds[$id]) || isset($used[$id])) {
+                    continue;
+                }
+                $row[] = $id;
+                $used[$id] = true;
+            }
+            if ($row !== []) {
+                $rows[] = $row;
+                $rowLabels[] = $labels[$rowIndex] ?? '';
+            }
+        }
+
+        $remaining = array_values(array_filter($roomIds, fn ($id) => !isset($used[$id])));
+        if ($remaining !== []) {
+            if ($rows === []) {
+                $rows[] = $remaining;
+                $rowLabels = [''];
+            } else {
+                $last = count($rows) - 1;
+                $rows[$last] = array_merge($rows[$last], $remaining);
+            }
+        }
+
+        if ($rows === []) {
+            return [
+                'cols'       => self::DEFAULT_COLS,
+                'rows'       => [$roomIds],
+                'row_labels' => [''],
             ];
         }
 
         return [
-            'cols'       => self::DEFAULT_COLS,
-            'rows'       => [$roomIds],
-            'row_labels' => [''],
+            'cols'       => $cols,
+            'rows'       => $rows,
+            'row_labels' => $rowLabels,
         ];
     }
 
     /**
      * @param  array{cols: int, rows: array<int, array<int>>, row_labels?: array<int, string>}  $layout
      */
-    public function saveAccommodationLayout(User $user, int $accommodationId, array $layout): void
+    public function saveAccommodationLayout(Accommodation|int $accommodation, array $layout): void
     {
+        $accommodation = $this->resolveAccommodation($accommodation);
+
         $rows = array_values(array_map(
             fn ($row) => array_values(array_map('intval', (array) $row)),
             $layout['rows'] ?? [],
         ));
 
-        $stored = $user->room_board_layout ?? [];
-        $stored['accommodations'] ??= [];
-        $stored['accommodations'][(string) $accommodationId] = [
+        $accommodation->room_board_layout = [
             'cols'       => max(1, min(12, (int) ($layout['cols'] ?? self::DEFAULT_COLS))),
             'rows'       => $rows,
             'row_labels' => $this->normalizeRowLabels($layout['row_labels'] ?? [], count($rows)),
         ];
-
-        $user->room_board_layout = $stored;
-        $user->save();
+        $accommodation->save();
     }
 
-    public function clearAccommodationLayout(User $user, int $accommodationId): void
+    public function clearAccommodationLayout(Accommodation|int $accommodation): void
     {
-        $stored = $user->room_board_layout ?? [];
-        unset($stored['accommodations'][(string) $accommodationId]);
-        $user->room_board_layout = $stored;
-        $user->save();
+        $accommodation = $this->resolveAccommodation($accommodation);
+        $accommodation->room_board_layout = null;
+        $accommodation->save();
     }
 
     /**
@@ -211,9 +248,45 @@ class RoomBoardLayoutService
         return $layout;
     }
 
+    /**
+     * @param  array{cols: int, rows: array<int, array<int>>, row_labels?: array<int, string>}  $layout
+     * @return array{cols: int, rows: array<int, array<int>>, row_labels: array<int, string>}
+     */
+    public function applyRowSortMove(array $layout, int $rowIndex, int $position): array
+    {
+        $rows = array_values($layout['rows']);
+        $labels = $this->normalizeRowLabels($layout['row_labels'] ?? [], count($rows));
+
+        if (!isset($rows[$rowIndex])) {
+            return $layout;
+        }
+
+        $movedRow = $rows[$rowIndex];
+        $movedLabel = $labels[$rowIndex] ?? '';
+
+        array_splice($rows, $rowIndex, 1);
+        array_splice($labels, $rowIndex, 1);
+
+        $position = max(0, min($position, count($rows)));
+        array_splice($rows, $position, 0, [$movedRow]);
+        array_splice($labels, $position, 0, [$movedLabel]);
+
+        $layout['rows'] = array_values($rows);
+        $layout['row_labels'] = array_values($labels);
+
+        return $layout;
+    }
+
     public function sanitizeRowLabel(string $label): string
     {
         return mb_substr(trim($label), 0, self::MAX_ROW_LABEL_LENGTH);
+    }
+
+    private function resolveAccommodation(Accommodation|int $accommodation): Accommodation
+    {
+        return $accommodation instanceof Accommodation
+            ? $accommodation
+            : Accommodation::findOrFail($accommodation);
     }
 
     /**

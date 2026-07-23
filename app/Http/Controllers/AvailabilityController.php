@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Accommodation;
+use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Services\RoomAvailabilityService;
+use App\Support\StayDurationPicker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -49,6 +51,14 @@ class AvailabilityController extends Controller
             }
         }
 
+        $roomRate = null;
+        if ($request->filled('room_rate_id')) {
+            $roomRate = RoomRate::query()
+                ->where('id', (int) $request->input('room_rate_id'))
+                ->where('room_type_id', $roomType->id)
+                ->first();
+        }
+
         $dates = [];
         $today = new \DateTime('today');
 
@@ -68,7 +78,8 @@ class AvailabilityController extends Controller
 
             $chunk = $roomType->availabilityMap(
                 $rangeStart->format('Y-m-d'),
-                $rangeEnd->format('Y-m-d')
+                $rangeEnd->format('Y-m-d'),
+                $roomRate,
             );
             $dates = array_merge($dates, $chunk);
         }
@@ -96,8 +107,8 @@ class AvailabilityController extends Controller
             return response()->json([]);
         }
 
-        // Limit to 90 days to prevent abuse
-        if ((new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days > 90) {
+        // Limit range length to prevent abuse
+        if ($this->isStayRangeTooLong($checkIn, $checkOut)) {
             return response()->json([]);
         }
 
@@ -136,7 +147,7 @@ class AvailabilityController extends Controller
             return response()->json(['rooms' => [], 'error' => 'invalid_dates'], 422);
         }
 
-        if ((new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days > 90) {
+        if ($this->isStayRangeTooLong($checkIn, $checkOut)) {
             return response()->json(['rooms' => [], 'error' => 'range_too_long'], 422);
         }
 
@@ -151,5 +162,37 @@ class AvailabilityController extends Controller
                 'name' => $roomType->name,
             ],
         ]);
+    }
+
+    public function accommodationPhysicalRooms(
+        Request $request,
+        Accommodation $accommodation,
+        RoomAvailabilityService $service,
+    ): JsonResponse {
+        if (!$accommodation->is_active) {
+            return response()->json(['rooms' => []]);
+        }
+
+        $checkIn  = $request->input('check_in');
+        $checkOut = $request->input('check_out');
+
+        if (!$checkIn || !$checkOut || $checkIn >= $checkOut) {
+            return response()->json(['rooms' => [], 'error' => 'invalid_dates'], 422);
+        }
+
+        if ($this->isStayRangeTooLong($checkIn, $checkOut)) {
+            return response()->json(['rooms' => [], 'error' => 'range_too_long'], 422);
+        }
+
+        $excludeIds = array_filter(array_map('intval', explode(',', (string) $request->input('exclude_room_ids', ''))));
+
+        return response()->json([
+            'rooms' => $service->roomsForAccommodation($accommodation, $checkIn, $checkOut, $excludeIds),
+        ]);
+    }
+
+    private function isStayRangeTooLong(string $checkIn, string $checkOut): bool
+    {
+        return (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days > StayDurationPicker::MAX_NIGHTS;
     }
 }

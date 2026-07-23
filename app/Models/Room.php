@@ -37,4 +37,16 @@ class Room extends Model
     {
         return array_values(array_filter($this->amenities ?? []));
     }
+
+    public function displayLabelWithGroup(): string
+    {
+        $group = $this->roomType?->name;
+        $physical = $this->name;
+
+        if ($group && $physical) {
+            return $group . ' · ' . $physical;
+        }
+
+        return $physical ?? $group ?? '—';
+    }
 }

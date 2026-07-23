@@ -21,7 +21,7 @@ class HostPanelPermissionsTest extends TestCase
         Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
     }
 
-    public function test_admin_can_save_host_panel_permissions(): void
+    public function test_admin_can_save_granular_host_panel_permissions(): void
     {
         $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
         $admin->assignRole('super_admin');
@@ -29,27 +29,55 @@ class HostPanelPermissionsTest extends TestCase
         $host = User::create(['name' => 'میزبان', 'mobile' => '09100000002']);
         $host->assignRole('host');
 
+        $grants = [
+            'bookings.list' => ['read', 'edit'],
+            'users.list'    => ['read'],
+        ];
+
         $this->actingAs($admin);
 
         Livewire::test(UserEdit::class, ['user' => $host])
             ->set('role', 'host')
-            ->set('hostPanelPermissions', ['bookings', 'users'])
+            ->set('hostPermissionForm', HostPermissions::grantsToFormState($grants))
             ->call('saveHostPanelAccess')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertDispatched('toast', type: 'success', message: 'دسترسی‌های پنل میزبان ذخیره شد.');
 
         $host->refresh();
 
-        $this->assertSame(['bookings', 'users'], $host->host_panel_permissions);
+        $this->assertSame($grants, $host->host_panel_permissions);
         $this->assertTrue($host->hasHostPanelAccess('bookings'));
+        $this->assertTrue($host->hostCan('bookings.list', 'read'));
+        $this->assertTrue($host->hostCan('bookings.list', 'edit'));
+        $this->assertFalse($host->hostCan('bookings.list', 'delete'));
         $this->assertFalse($host->hasHostPanelAccess('accommodations'));
+    }
+
+    public function test_legacy_module_permissions_expand_to_full_module_access(): void
+    {
+        $host = User::create([
+            'name'                   => 'میزبان',
+            'mobile'                 => '09100000008',
+            'host_panel_permissions' => ['bookings', 'users'],
+        ]);
+        $host->assignRole('host');
+
+        $this->assertTrue($host->hostCan('bookings.list', 'read'));
+        $this->assertTrue($host->hostCan('bookings.export', 'read'));
+        $this->assertTrue($host->hostCan('cancellation-requests.list', 'read'));
+        $this->assertTrue($host->hostCan('cancellation-requests.decide', 'edit'));
+        $this->assertTrue($host->hostCan('cancellation-requests.settle', 'edit'));
+        $this->assertFalse($host->hostCan('accommodations.list', 'read'));
     }
 
     public function test_host_without_permission_is_redirected_from_accommodations(): void
     {
         $host = User::create([
-            'name'                    => 'میزبان محدود',
-            'mobile'                  => '09100000003',
-            'host_panel_permissions'  => ['bookings'],
+            'name'                   => 'میزبان محدود',
+            'mobile'                 => '09100000003',
+            'host_panel_permissions' => [
+                'bookings.list' => ['read'],
+            ],
         ]);
         $host->assignRole('host');
 
@@ -63,7 +91,9 @@ class HostPanelPermissionsTest extends TestCase
         $host = User::create([
             'name'                   => 'میزبان',
             'mobile'                 => '09100000004',
-            'host_panel_permissions' => ['users'],
+            'host_panel_permissions' => [
+                'users.list' => ['read'],
+            ],
         ]);
         $host->assignRole('host');
 
@@ -72,12 +102,29 @@ class HostPanelPermissionsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_host_without_write_permission_cannot_open_create_accommodation_page(): void
+    {
+        $host = User::create([
+            'name'                   => 'میزبان',
+            'mobile'                 => '09100000009',
+            'host_panel_permissions' => [
+                'accommodations.list' => ['read'],
+            ],
+        ]);
+        $host->assignRole('host');
+
+        $this->actingAs($host)
+            ->get(route('host.accommodations.create'))
+            ->assertRedirect(route('host.accommodations.index'));
+    }
+
     public function test_null_permissions_mean_full_access_for_backward_compatibility(): void
     {
         $host = User::create(['name' => 'میزبان', 'mobile' => '09100000005']);
         $host->assignRole('host');
 
-        $this->assertSame(HostPermissions::defaults(), $host->effectiveHostPermissions());
+        $this->assertSame(HostPermissions::fullAccessGrants(), $host->effectiveHostPermissionGrants());
+        $this->assertSame(HostPermissions::moduleKeys(), $host->effectiveHostPermissions());
     }
 
     public function test_host_login_redirects_to_dashboard_when_dashboard_permission_is_granted(): void
@@ -85,7 +132,11 @@ class HostPanelPermissionsTest extends TestCase
         $host = User::create([
             'name'                   => 'میزبان',
             'mobile'                 => '09100000006',
-            'host_panel_permissions' => ['bookings', 'dashboard', 'users'],
+            'host_panel_permissions' => [
+                'dashboard'    => ['read'],
+                'bookings.list'=> ['read'],
+                'users.list'   => ['read'],
+            ],
         ]);
         $host->assignRole('host');
 
@@ -97,7 +148,10 @@ class HostPanelPermissionsTest extends TestCase
         $host = User::create([
             'name'                   => 'میزبان',
             'mobile'                 => '09100000007',
-            'host_panel_permissions' => ['bookings', 'users'],
+            'host_panel_permissions' => [
+                'bookings.list' => ['read'],
+                'users.list'    => ['read'],
+            ],
         ]);
         $host->assignRole('host');
 

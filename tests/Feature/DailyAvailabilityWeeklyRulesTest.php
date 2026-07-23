@@ -74,16 +74,16 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
 
     public function test_price_resolver_handles_discount_and_surcharge(): void
     {
-        $this->assertSame(500_000, RoomTypePriceResolver::effectivePrice(1_000_000, null, 50));
-        $this->assertSame(1_200_000, RoomTypePriceResolver::effectivePrice(1_000_000, null, -20));
+        $this->assertSame(500_000, RoomTypePriceResolver::effectivePrice(1_000_000, null, -50));
+        $this->assertSame(1_200_000, RoomTypePriceResolver::effectivePrice(1_000_000, null, 20));
         $this->assertSame(800_000, RoomTypePriceResolver::effectivePrice(1_000_000, 800_000, 0));
-        $this->assertSame(500_000, RoomTypePriceResolver::effectivePrice(1_000_000, 0, 50));
-        $this->assertSame(400_000, RoomTypePriceResolver::effectivePrice(1_000_000, 0, 60));
+        $this->assertSame(500_000, RoomTypePriceResolver::effectivePrice(1_000_000, 0, -50));
+        $this->assertSame(400_000, RoomTypePriceResolver::effectivePrice(1_000_000, 0, -60));
         $this->assertNull(RoomTypePriceResolver::normalizeCustomPrice(''));
         $this->assertNull(RoomTypePriceResolver::normalizeCustomPrice(0));
         $this->assertNull(RoomTypePriceResolver::normalizeCustomPrice('0'));
         $this->assertSame(500_000, RoomTypePriceResolver::normalizeCustomPrice(500_000));
-        $this->assertTrue(RoomTypePriceResolver::hasPriceAdjustment(null, -20));
+        $this->assertTrue(RoomTypePriceResolver::hasPriceAdjustment(null, 20));
         $this->assertFalse(RoomTypePriceResolver::hasPriceAdjustment(0, 0));
         $this->assertFalse(RoomTypePriceResolver::hasPriceAdjustment(null, 0));
     }
@@ -93,7 +93,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $result = $this->service->store($this->roomType, [
             'is_permanent_weekly' => true,
             'weekdays'            => [2], // Tuesday
-            'discount_percentage' => 50,
+            'discount_percentage' => -50,
             'price_label'         => 'سه‌شنبه ویژه',
         ]);
 
@@ -101,7 +101,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $this->assertDatabaseHas('room_type_weekly_price_rules', [
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 2,
-            'discount_percentage' => 50,
+            'discount_percentage' => -50,
             'price_label'         => 'سه‌شنبه ویژه',
         ]);
 
@@ -128,7 +128,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $result = $this->service->store($this->roomType, [
             'is_permanent_weekly' => true,
             'weekdays'            => [4, 5], // Thu, Fri
-            'discount_percentage' => -20,
+            'discount_percentage' => 20,
             'price_label'         => 'پیک آخر هفته',
         ]);
 
@@ -154,19 +154,19 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 2,
-            'discount_percentage' => 50,
+            'discount_percentage' => -50,
         ]);
 
         RoomTypeDailyOverride::create([
             'room_type_id'        => $this->roomType->id,
             'date'                => $dateStr,
             'available_count'     => 5,
-            'discount_percentage' => 10,
+            'discount_percentage' => -10,
         ]);
 
         $this->assertDatabaseHas('room_type_daily_overrides', [
             'room_type_id'        => $this->roomType->id,
-            'discount_percentage' => 10,
+            'discount_percentage' => -10,
         ]);
 
         $end = (clone $tuesday)->modify('+1 day');
@@ -190,7 +190,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
             'date_to'             => $toJ,
             'available_count'     => 2,
             'weekdays'            => [5], // Friday only
-            'discount_percentage' => 30,
+            'discount_percentage' => -30,
         ]);
 
         $this->assertTrue($result['ok']);
@@ -220,7 +220,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 2,
-            'discount_percentage' => 50,
+            'discount_percentage' => -50,
         ]);
 
         $tuesday = $this->nextWeekday(2);
@@ -247,7 +247,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
             [
                 'is_permanent_weekly' => '1',
                 'weekdays'            => [2],
-                'discount_percentage' => 50,
+                'discount_percentage' => -50,
                 'price_label'         => 'سه‌شنبه',
             ]
         );
@@ -272,7 +272,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         ]);
 
         $this->assertFalse($result['ok']);
-        $this->assertArrayHasKey('discount_percentage', $result['errors']);
+        $this->assertArrayHasKey('rate_adjustments', $result['errors']);
     }
 
     public function test_negative_discount_on_daily_override_increases_price(): void
@@ -284,7 +284,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
             'date_from'           => $dateJ,
             'date_to'             => $dateJ,
             'available_count'     => 5,
-            'discount_percentage' => -20,
+            'discount_percentage' => 20,
         ]);
 
         $this->assertTrue($result['ok']);
@@ -306,7 +306,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
             'date_to'             => $dateJ,
             'available_count'     => 5,
             'custom_price'        => 0,
-            'discount_percentage' => 30,
+            'discount_percentage' => -30,
         ]);
 
         $this->assertTrue($result['ok']);
@@ -322,7 +322,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $map = $this->roomType->fresh()->availabilityMap($date->toDateString(), $end->toDateString());
 
         $this->assertSame(700_000, $map[$date->toDateString()]['effective_price']);
-        $this->assertSame(30, $map[$date->toDateString()]['discount_percentage']);
+        $this->assertSame(-30, $map[$date->toDateString()]['discount_percentage']);
     }
 
     public function test_legacy_zero_custom_price_in_database_still_prices_from_base_rate(): void
@@ -335,7 +335,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
             'date'                => $dateStr,
             'available_count'     => 5,
             'custom_price'        => 0,
-            'discount_percentage' => 25,
+            'discount_percentage' => -25,
         ]);
 
         $end = $date->copy()->addDay();
@@ -356,7 +356,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
                 'date_to'             => $dateJ,
                 'available_count'     => 5,
                 'custom_price'        => 0,
-                'discount_percentage' => 40,
+                'discount_percentage' => -40,
             ]
         );
 
@@ -373,14 +373,14 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $this->service->store($this->roomType, [
             'is_permanent_weekly' => true,
             'weekdays'            => [4, 5],
-            'discount_percentage' => 25,
+            'discount_percentage' => -25,
             'price_label'         => 'آخر هفته',
         ]);
 
         $thursday = $this->nextWeekday(4);
-        $friday   = $this->nextWeekday(5);
-        $saturday = $this->nextWeekday(6);
-        $sunday   = $this->nextWeekday(7);
+        $friday   = (clone $thursday)->modify('+1 day');
+        $saturday = (clone $thursday)->modify('+2 days');
+        $sunday   = (clone $thursday)->modify('+3 days');
 
         $end = (clone $sunday)->modify('+1 day');
         $map = $this->roomType->fresh()->availabilityMap(
@@ -393,8 +393,8 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $satKey = $saturday->format('Y-m-d');
         $sunKey = $sunday->format('Y-m-d');
 
-        $this->assertSame(25, $map[$thuKey]['discount_percentage']);
-        $this->assertSame(25, $map[$friKey]['discount_percentage']);
+        $this->assertSame(-25, $map[$thuKey]['discount_percentage']);
+        $this->assertSame(-25, $map[$friKey]['discount_percentage']);
         $this->assertSame(750_000, $map[$thuKey]['effective_price']);
         $this->assertSame(750_000, $map[$friKey]['effective_price']);
 
@@ -411,12 +411,12 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 4,
-            'discount_percentage' => 30,
+            'discount_percentage' => -30,
         ]);
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 5,
-            'discount_percentage' => 30,
+            'discount_percentage' => -30,
         ]);
 
         $thursday = $this->nextWeekday(4);
@@ -430,7 +430,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         foreach ($dates as $dateStr => $day) {
             $dow = (int) (new \DateTime($dateStr))->format('N');
             if (in_array($dow, [4, 5], true)) {
-                $this->assertSame(30, $day['discount_percentage'], "Expected discount on {$dateStr} (dow {$dow})");
+                $this->assertSame(-30, $day['discount_percentage'], "Expected discount on {$dateStr} (dow {$dow})");
             } elseif (in_array($dow, [6, 7], true)) {
                 $this->assertNull($day['discount_percentage'], "Unexpected discount on {$dateStr} (dow {$dow})");
             }
@@ -442,7 +442,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 5,
-            'discount_percentage' => 40,
+            'discount_percentage' => -40,
             'price_label'         => 'جمعه',
         ]);
 
@@ -459,7 +459,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
                 $disc = $map[$cell['greg']]['discount_percentage'] ?? null;
 
                 if ($cell['column'] === 6) {
-                    $this->assertSame(40, $disc, "Friday {$cell['greg']} in column ج must have 40% discount");
+                    $this->assertSame(-40, $disc, "Friday {$cell['greg']} in column ج must have 40% discount");
                 } else {
                     $this->assertNull($disc, "Non-Friday {$cell['greg']} in column {$cell['column']} must not have Friday discount");
                 }
@@ -472,7 +472,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 5,
-            'discount_percentage' => 50,
+            'discount_percentage' => -50,
         ]);
 
         $today = now()->toDateString();
@@ -499,7 +499,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
 
                 $disc = $dates[$cell['greg']]['discount_percentage'] ?? null;
                 if ($cell['column'] === 6) {
-                    $this->assertSame(50, $disc, "Friday {$cell['greg']} must have 50% in API");
+                    $this->assertSame(-50, $disc, "Friday {$cell['greg']} must have 50% in API");
                 } else {
                     $this->assertNull($disc, "Non-Friday {$cell['greg']} must not have Friday discount in API");
                 }
@@ -512,7 +512,7 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         RoomTypeWeeklyPriceRule::create([
             'room_type_id'        => $this->roomType->id,
             'weekday'             => 5,
-            'discount_percentage' => 35,
+            'discount_percentage' => -35,
             'price_label'         => 'جمعه',
         ]);
 
@@ -523,12 +523,12 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
 
         $html = $response->getContent();
         $this->assertMatchesRegularExpression(
-            '/data-weekday-col="6"[\s\S]*?<div class="disc-badge">[0-9۰-۹]+%<\/div>/u',
+            '#data-weekday-col="6"[\s\S]*?<div class="rate-pill-row">[\s\S]*?<span class="rate-pill is-disc">[0-9۰-۹٪%↑]+</span>#u',
             $html,
-            'Expected a Friday (column ج) cell with a visible discount badge',
+            'Expected a Friday (column ج) cell with per-rate discount pills',
         );
         $this->assertMatchesRegularExpression(
-            '/data-weekday-col="6"[\s\S]*?<div class="weekly-badge">هفتگی<\/div>/u',
+            '/data-weekday-col="6"[\s\S]*?(?:<div class="weekly-badge">هفتگی<\/div>|<span class="day-cal-tip__weekly">قانون هفتگی دائمی<\/span>)/u',
             $html,
             'Expected a Friday cell marked as weekly rule',
         );

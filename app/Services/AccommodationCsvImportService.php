@@ -290,7 +290,7 @@ class AccommodationCsvImportService
 
             $ratePrice = $this->toInt($data['rate_price_per_night'] ?? '');
             if ($ratePrice === null || $ratePrice < 1) {
-                $errors[] = "ردیف {$line}: قیمت تعرفه باید بزرگ‌تر از صفر باشد.";
+                $errors[] = "ردیف {$line}: قیمت تعرفه (به ازای هر تخت) باید بزرگ‌تر از صفر باشد.";
             }
 
             if ($this->normalizeCancellationPolicy($data['cancellation_policy'] ?? '') === null) {
@@ -396,6 +396,7 @@ class AccommodationCsvImportService
         }
 
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         $roomRows = [];
         foreach ($rows as $row) {

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\RoomType;
 use App\Models\RoomTypeCategory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RoomTypeCategoryCatalogService
@@ -64,6 +65,40 @@ class RoomTypeCategoryCatalogService
             'sort_order' => $maxSort + 1,
             'created_by' => $createdBy,
         ]);
+    }
+
+    public function rename(RoomTypeCategory $category, string $newName): RoomTypeCategory
+    {
+        $oldName = $category->name;
+        $newName = $this->normalize($newName);
+
+        if ($newName === '') {
+            throw ValidationException::withMessages(['name' => 'نام نوع اتاق را وارد کنید.']);
+        }
+
+        if (mb_strlen($newName) > 60) {
+            throw ValidationException::withMessages(['name' => 'نام نوع اتاق نباید بیشتر از ۶۰ کاراکتر باشد.']);
+        }
+
+        if ($newName === $oldName) {
+            return $category;
+        }
+
+        $duplicate = RoomTypeCategory::query()
+            ->where('name', $newName)
+            ->whereKeyNot($category->id)
+            ->exists();
+
+        if ($duplicate) {
+            throw ValidationException::withMessages(['name' => 'این نام قبلاً در لیست وجود دارد.']);
+        }
+
+        DB::transaction(function () use ($category, $oldName, $newName): void {
+            RoomType::query()->where('bed_type', $oldName)->update(['bed_type' => $newName]);
+            $category->update(['name' => $newName]);
+        });
+
+        return $category->fresh();
     }
 
     public function remove(RoomTypeCategory $category): void
