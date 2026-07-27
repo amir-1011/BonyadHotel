@@ -101,6 +101,7 @@
                 @else
                 <span class="badge bg-success-subtle text-success border border-success-subtle">آزاد</span>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle">مهمان فعلی</span>
+                <span class="badge room-status-legend-purple">اردو / برنامه</span>
                 <span class="badge bg-info-subtle text-info border border-info-subtle">رزرو آینده</span>
                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (سیاست قیمتی)</span>
                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle">مسدود</span>
@@ -233,7 +234,7 @@
                         @foreach($rowRooms as $room)
                         <button type="button"
                                 wire:click="selectRoom({{ $acc['accommodation_id'] }}, {{ $room['id'] }})"
-                                class="room-status-box room-status-box--{{ $room['color'] }} {{ $room['has_future'] ? 'room-status-box--has-future' : '' }}"
+                                class="room-status-box room-status-box--{{ $room['color'] }} {{ ($room['has_future'] && empty($room['has_future_program'])) ? 'room-status-box--has-future' : '' }} {{ !empty($room['has_future_program']) ? 'room-status-box--has-future-program' : '' }}"
                                 wire:key="rsb-room-{{ $room['id'] }}-{{ $viewDate }}">
                             <x-room-status.hover-tip :room="$room" />
                             <div class="room-status-box__name">{{ $room['name'] }}</div>
@@ -242,7 +243,7 @@
                             @endif
                             <div class="room-status-box__status">{{ $room['status_label'] }}</div>
                             @if($room['has_future'])
-                            <div class="room-status-box__future"><i class="bi bi-calendar-event"></i> رزرو آینده</div>
+                            <div class="room-status-box__future"><i class="bi bi-calendar-event"></i> {{ !empty($room['has_future_program']) ? 'اردوی آینده' : 'رزرو آینده' }}</div>
                             @endif
                             @if($room['current_booking'])
                             <div class="room-status-box__guest text-truncate">{{ $room['current_booking']['guest_name'] }}</div>
@@ -270,7 +271,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="d-flex flex-wrap gap-2 mb-3">
-                        <span class="badge text-bg-{{ $selectedRoom['color'] }}">{{ $selectedRoom['status_label'] }}</span>
+                        <span class="badge {{ $selectedRoom['color'] === 'purple' ? 'room-status-badge-purple' : 'text-bg-' . $selectedRoom['color'] }}">{{ $selectedRoom['status_label'] }}</span>
                         <span class="badge bg-light text-dark border">{{ $selectedRoom['accommodation_name'] }}</span>
                         <span class="badge bg-light text-dark border">{{ $selectedRoom['room_type_name'] }}</span>
                         @if($selectedRoom['bed_type'])
@@ -319,7 +320,9 @@
                                 <code>{{ $cb['tracking_code'] }}</code>
                                 <span class="badge bg-{{ $cb['status'] === 'confirmed' ? 'success' : 'warning' }} ms-1">{{ $cb['status_label'] }}</span>
                             </div>
-                            @if($panel === 'host')
+                            @if(!empty($cb['is_program']))
+                            <a wire:navigate href="{{ route($panel === 'admin' ? 'admin.programs.show' : 'host.programs.show', \App\Models\Program::where('booking_id', $cb['booking_id'])->value('id')) }}" class="btn btn-sm btn-outline-primary mt-2">مشاهده برنامه</a>
+                            @elseif($panel === 'host')
                             <a wire:navigate href="{{ route('host.bookings.show', $cb['booking_id']) }}" class="btn btn-sm btn-outline-primary mt-2">مشاهده رزرو</a>
                             @elseif($panel === 'admin')
                             <a wire:navigate href="{{ route('admin.bookings.show', $cb['booking_id']) }}" class="btn btn-sm btn-outline-primary mt-2">مشاهده رزرو</a>
@@ -723,10 +726,27 @@
     .room-status-box__future { font-size: .62rem; margin-top: .2rem; color: var(--bs-info); }
     .room-status-box--success { border-color: rgba(var(--bs-success-rgb), .5); background: rgba(var(--bs-success-rgb), .08); }
     .room-status-box--primary { border-color: rgba(var(--bs-primary-rgb), .5); background: rgba(var(--bs-primary-rgb), .1); }
+    .room-status-box--purple {
+        --rsb-purple-rgb: 111, 66, 193;
+        border-color: rgba(var(--rsb-purple-rgb), .55);
+        background: rgba(var(--rsb-purple-rgb), .12);
+    }
+    .room-status-legend-purple,
+    .room-status-badge-purple {
+        color: #5a32a3 !important;
+        background: rgba(111, 66, 193, .12) !important;
+        border: 1px solid rgba(111, 66, 193, .35) !important;
+    }
     .room-status-box--warning { border-color: rgba(var(--bs-warning-rgb), .55); background: rgba(var(--bs-warning-rgb), .1); background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(var(--bs-warning-rgb), .08) 4px, rgba(var(--bs-warning-rgb), .08) 5px); }
     .room-status-box--danger { border-color: rgba(var(--bs-danger-rgb), .5); background: rgba(var(--bs-danger-rgb), .08); background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(var(--bs-danger-rgb), .1) 4px, rgba(var(--bs-danger-rgb), .1) 5px); }
-    .room-status-box--has-future:not(.room-status-box--primary) {
+    .room-status-box--has-future:not(.room-status-box--primary):not(.room-status-box--purple) {
         box-shadow: inset 0 -3px 0 var(--bs-info);
+    }
+    .room-status-box--has-future-program:not(.room-status-box--purple) {
+        box-shadow: inset 0 -3px 0 #6f42c1;
+    }
+    .room-status-box--purple .room-status-box__future {
+        color: #6f42c1;
     }
     .rsb-dnd-placeholder .room-status-box {
         opacity: .45;

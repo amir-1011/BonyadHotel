@@ -23,7 +23,12 @@
     @if(!empty($tip['future']))
     <div class="room-status-box__hover-tip-row room-status-box__hover-tip-row--muted">
         <span class="room-status-box__hover-tip-key">وضعیت</span>
-        <span>رزرو آینده</span>
+        <span>{{ !empty($b['is_program']) ? 'اردوی آینده' : 'رزرو آینده' }}</span>
+    </div>
+    @elseif(!empty($b['is_program']))
+    <div class="room-status-box__hover-tip-row room-status-box__hover-tip-row--muted">
+        <span class="room-status-box__hover-tip-key">نوع</span>
+        <span>اردو / برنامه</span>
     </div>
     @endif
     @if(!empty($b['guest_name']))

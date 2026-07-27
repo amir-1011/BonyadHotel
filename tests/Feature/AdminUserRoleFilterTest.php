@@ -109,8 +109,10 @@ class AdminUserRoleFilterTest extends TestCase
         $this->actingAs($admin);
 
         \Livewire\Livewire::test(\App\Livewire\Admin\UserIndex::class)
-            ->set('role', 'guest')
+            ->call('setSection', 'users')
+            ->assertSet('section', 'users')
             ->assertSee('مهمان فیلتر')
-            ->assertSee('value="guest" selected', escape: false);
+            ->assertDontSee('09120004003')
+            ->assertSeeHtml('wire:click="setSection(\'users\')" class="nav-link py-2 active');
     }
 }

@@ -3,8 +3,10 @@
 namespace App\Livewire\Admin;
 
 use App\Models\BookingBeneficiaryCost;
+use App\Models\Program;
 use App\Models\ProgramBeneficiaryCost;
 use App\Models\User;
+use App\Services\HostPersonnelCodeProvisioner;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Spatie\Permission\Models\Role;
@@ -21,12 +23,33 @@ class UserShow extends Component
         $this->user->load([
             'roles',
             'bookings.accommodation',
-            'accommodations',
-            'programBeneficiary',
+            'accommodations.city.province',
+            'accommodations.county.province',
+            'province',
+            'programBeneficiary.province',
+            'programEmployer.province',
             'beneficiaryBookingCosts.booking.accommodation',
             'country',
             'residenceCity',
         ]);
+
+        if ($this->user->isHost() && blank($this->user->personnel_code)) {
+            $this->user = app(HostPersonnelCodeProvisioner::class)
+                ->provisionIfNeeded($this->user)
+                ->load([
+                    'roles',
+                    'bookings.accommodation',
+                    'accommodations.city.province',
+                    'accommodations.county.province',
+                    'province',
+                    'programBeneficiary.province',
+                    'programEmployer.province',
+                    'beneficiaryBookingCosts.booking.accommodation',
+                    'country',
+                    'residenceCity',
+                ]);
+        }
+
         $this->selectedRole = $this->user->roles->first()?->name ?? '';
     }
 
@@ -62,6 +85,16 @@ class UserShow extends Component
             ->take(20)
             ->get();
 
-        return view('admin.users.show', compact('user', 'programBeneficiaryHistory', 'bookingBeneficiaryHistory'));
+        $programEmployerHistory = collect();
+        if ($user->programEmployer) {
+            $programEmployerHistory = Program::query()
+                ->with(['booking.accommodation', 'employer'])
+                ->where('program_employer_id', $user->programEmployer->id)
+                ->latest('id')
+                ->take(20)
+                ->get();
+        }
+
+        return view('admin.users.show', compact('user', 'programBeneficiaryHistory', 'bookingBeneficiaryHistory', 'programEmployerHistory'));
     }
 }

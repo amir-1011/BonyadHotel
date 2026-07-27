@@ -218,6 +218,43 @@ class RoomTypeRateFormTest extends TestCase
         ]);
     }
 
+    public function test_can_store_rate_with_formatted_price_per_night(): void
+    {
+        $editUrl = route('admin.room-types.edit', [$this->accommodation, $this->roomType]);
+        $storeUrl = route('admin.room-types.rates.store', [$this->accommodation, $this->roomType]);
+
+        $this->actingAs($this->admin)
+            ->from($editUrl)
+            ->post($storeUrl, $this->ratePayload('create', [
+                'rate_name'       => 'تعرفه با جداکننده',
+                'price_per_night' => '2,350,000',
+            ]))
+            ->assertRedirect($editUrl)
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('room_rates', [
+            'room_type_id'    => $this->roomType->id,
+            'name'            => 'تعرفه با جداکننده',
+            'price_per_night' => 2_350_000,
+        ]);
+    }
+
+    public function test_can_update_rate_with_formatted_price_per_night(): void
+    {
+        $editUrl = route('admin.room-types.edit', [$this->accommodation, $this->roomType]);
+        $updateUrl = route('admin.room-types.rates.update', [$this->accommodation, $this->roomType, $this->rate]);
+
+        $this->actingAs($this->admin)
+            ->from($editUrl)
+            ->put($updateUrl, $this->ratePayload('edit', [
+                'price_per_night' => '1,750,000',
+            ]))
+            ->assertRedirect($editUrl)
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1_750_000, $this->rate->fresh()->price_per_night);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>

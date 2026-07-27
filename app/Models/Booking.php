@@ -144,6 +144,27 @@ class Booking extends Model
         return $this->booking_source === 'program';
     }
 
+    public function panelShowUrl(string $panel): string
+    {
+        if ($this->isProgram()) {
+            $program = $this->relationLoaded('program')
+                ? $this->program
+                : $this->program()->first();
+
+            if ($program) {
+                return route(
+                    $panel === 'admin' ? 'admin.programs.show' : 'host.programs.show',
+                    $program,
+                );
+            }
+        }
+
+        return route(
+            $panel === 'admin' ? 'admin.bookings.show' : 'host.bookings.show',
+            $this,
+        );
+    }
+
     public function hasReserver(): bool
     {
         return $this->isManual();

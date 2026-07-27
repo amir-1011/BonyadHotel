@@ -1,5 +1,5 @@
-@push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
+﻿@push('styles')
+<link rel="stylesheet" href="{{ vasset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
 <style>
 .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; }
 </style>

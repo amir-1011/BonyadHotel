@@ -1,29 +1,4 @@
-<div>
-
-@php
-    // ── Revenue trend (last 6 months) for the area chart ──────────────
-    $revLabels = [];
-    $revValues = [];
-    foreach ($monthlyRevenue as $row) {
-        $revLabels[] = $row->month;
-        $revValues[] = (float) $row->total;
-    }
-    $thisMonthRev = end($revValues) ?: 0;
-    $prevMonthRev = count($revValues) > 1 ? $revValues[count($revValues) - 2] : 0;
-    $revGrowth    = $prevMonthRev > 0 ? round((($thisMonthRev - $prevMonthRev) / $prevMonthRev) * 100, 1) : null;
-    $confirmRate  = $stats['bookings'] > 0 ? round(($stats['confirmed'] / $stats['bookings']) * 100) : 0;
-
-    $metrics = [
-        ['label'=>'کل کاربران','value'=>number_format($stats['users']),'icon'=>'people','href'=>route('admin.users.index'),
-         'trend'=>$stats['hosts'],'trendLabel'=>$stats['hosts'].' میزبان','up'=>true],
-        ['label'=>'اقامتگاه‌ها','value'=>number_format($stats['accommodations']),'icon'=>'building','href'=>route('admin.accommodations.index'),
-         'trend'=>$stats['active_acc'],'trendLabel'=>$stats['active_acc'].' فعال','up'=>true],
-        ['label'=>'کل رزروها','value'=>number_format($stats['bookings']),'icon'=>'calendar-check','href'=>route('admin.bookings.index'),
-         'trend'=>$confirmRate,'trendLabel'=>$confirmRate.'٪ تأیید','up'=>$confirmRate>=50],
-        ['label'=>'درآمد کل (تومان)','value'=>number_format($stats['revenue']),'icon'=>'cash-stack','href'=>route('admin.bookings.index',['status'=>'confirmed']),
-         'trend'=>$revGrowth,'trendLabel'=>($revGrowth!==null?abs($revGrowth).'٪ ماهانه':'—'),'up'=>($revGrowth??0)>=0],
-    ];
-@endphp
+﻿<div>
 
 {{-- ── Page header ─────────────────────────────────────────────────── --}}
 <div class="ta-page-head">
@@ -40,45 +15,13 @@
     </div>
 </div>
 
-{{-- ── Metric cards ────────────────────────────────────────────────── --}}
-<div class="row g-4 mb-4">
-    @foreach($metrics as $m)
-    <div class="col-6 col-xl-3">
-        <a href="{{ $m['href'] }}" wire:navigate class="text-decoration-none">
-            <div class="ta-metric">
-                <div class="d-flex align-items-start justify-content-between">
-                    <div class="ta-metric__icon"><i class="bi bi-{{ $m['icon'] }}"></i></div>
-                    @if($m['trend'] !== null)
-                    <span class="ta-trend {{ $m['up'] ? 'up' : 'down' }}">
-                        <i class="bi bi-arrow-{{ $m['up'] ? 'up' : 'down' }}"></i>{{ $m['trendLabel'] }}
-                    </span>
-                    @endif
-                </div>
-                <div class="ta-metric__label">{{ $m['label'] }}</div>
-                <div class="ta-metric__value">{{ $m['value'] }}</div>
-            </div>
-        </a>
-    </div>
-    @endforeach
-</div>
+<div wire:key="admin-dashboard-{{ $filterKey }}">
 
-{{-- ── Veteran discount stats by group ─────────────────────────────── --}}
-<livewire:admin.veteran-discount-stats
-    :dashboard-accommodation-ids="$effectiveAccommodationIds"
-    :wire:key="'admin-veteran-stats-'.$filterKey" />
+{{-- ── Overview metrics + veteran discount stats (deferred) ─────────── --}}
+<livewire:admin.reservation-overview-stats
+    :dashboard-accommodation-ids="$effectiveAccommodationIds" />
 
-{{-- ── Room status board ─────────────────────────────────────────────── --}}
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <livewire:room-status-board
-            panel="admin"
-            :dashboard-accommodation-ids="$effectiveAccommodationIds"
-            :use-dashboard-filter="true"
-            :wire:key="'admin-rsb-'.$filterKey" />
-    </div>
-</div>
-
-{{-- ── Revenue statistics area chart ───────────────────────────────── --}}
+{{-- ── Iran booking distribution map ───────────────────────────────── --}}
 @php
     $faDigits = ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹'];
     $geoData  = $geoProvince->mapWithKeys(fn($r) => [$r->province => (int) $r->bookings]);
@@ -114,8 +57,8 @@
         ])->all(),
     ];
 @endphp
-<script type="application/json" id="admin-dashboard-payload" wire:ignore wire:key="admin-dashboard-payload-{{ $filterKey }}">{!! json_encode($adminDashboardPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-<div class="ta-card mb-4" wire:key="admin-geo-{{ $filterKey }}">
+<script type="application/json" id="admin-dashboard-payload" wire:ignore>{!! json_encode($adminDashboardPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+<div class="ta-card mb-4">
     <div class="ta-card__head">
         <div>
             <h2 class="ta-card__title">پراکندگی رزروها در ایران</h2>
@@ -165,12 +108,21 @@
     </div>
 </div>
 
+{{-- ── Room status board ─────────────────────────────────────────────── --}}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <livewire:room-status-board
+            panel="admin"
+            :dashboard-accommodation-ids="$effectiveAccommodationIds"
+            :use-dashboard-filter="true" />
+    </div>
+</div>
+
 {{-- ── Host leaderboard ──────────────────────────────────────────────── --}}
 <div class="row g-4 mb-4">
     <div class="col-12">
         <livewire:admin.host-leaderboard
-            :dashboard-accommodation-ids="$effectiveAccommodationIds"
-            :wire:key="'admin-lb-'.$filterKey" />
+            :dashboard-accommodation-ids="$effectiveAccommodationIds" />
     </div>
 </div>
 
@@ -180,13 +132,12 @@
         <livewire:occupancy-calendar
             panel="admin"
             :dashboard-accommodation-ids="$effectiveAccommodationIds"
-            :use-dashboard-filter="true"
-            :wire:key="'admin-occ-'.$filterKey" />
+            :use-dashboard-filter="true" />
     </div>
 </div>
 
 {{-- ═══════════════════  Accommodations Sales Grid (collapsible)  ═══════════════════ --}}
-<div class="card border-0 shadow-sm mb-4" id="salesGridCard" wire:key="admin-sales-{{ $filterKey }}">
+<div class="card border-0 shadow-sm mb-4" id="salesGridCard">
     <div class="card-header bg-white d-flex align-items-center justify-content-between py-2 px-3"
          role="button" data-bs-toggle="collapse" data-bs-target="#salesGridCollapse"
          aria-expanded="true" aria-controls="salesGridCollapse" style="cursor:pointer;user-select:none">
@@ -380,16 +331,17 @@
     </div>
 </div>
 
+</div>
 
 </div>
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ vasset('vendor/leaflet/leaflet.css') }}">
 @endpush
 
 @push('scripts')
-@vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js'])
-<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
+@vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js', 'resources/js/admin-overview-stats.js'])
+<script src="{{ vasset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
 <script>
 (function () {
     function readAdminPayload() {
@@ -399,8 +351,8 @@
     }
 
     let dashboardPayload = readAdminPayload() || {};
-    const VENDOR_LEAFLET = @json(asset('vendor/leaflet/leaflet.js'));
-    const GEOJSON_URL = @json(asset('vendor/iran-map/provinces.min.geojson'));
+    const VENDOR_LEAFLET = @json(vasset('vendor/leaflet/leaflet.js'));
+    const GEOJSON_URL = @json(vasset('vendor/iran-map/provinces.min.geojson'));
     const ns = window.__taIranMapDashboard = window.__taIranMapDashboard || {};
     let _iranMapInstance = ns.instance || null;
     let _vendorLeafletLoading = false;

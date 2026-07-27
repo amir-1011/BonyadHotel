@@ -4,10 +4,13 @@ namespace App\Livewire;
 
 use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Livewire\Concerns\ManagesProgramBeneficiaries;
+use App\Livewire\Concerns\ResolvesAccountingProvince;
+use App\Livewire\Concerns\ManagesProgramEmployers;
 use App\Livewire\Concerns\ManagesProgramGuests;
 use App\Models\Accommodation;
 use App\Models\Program;
 use App\Models\ProgramBeneficiary;
+use App\Models\ProgramEmployer;
 use App\Models\RoomType;
 use App\Models\ServiceCatalog;
 use App\Services\ProgramBookingService;
@@ -21,7 +24,9 @@ use Morilog\Jalali\Jalalian;
 class ProgramBookingForm extends Component
 {
     use ManagesProgramBeneficiaries;
+    use ManagesProgramEmployers;
     use ManagesProgramGuests;
+    use ResolvesAccountingProvince;
     use WithFileUploads;
     use AssertsHostPermissions;
 
@@ -38,8 +43,6 @@ class ProgramBookingForm extends Component
     public string $endDate = '';
     public int $guestCount = 1;
     public int $roomsAllocated = 1;
-    public string $counterparty = '';
-    public string $employer = '';
     public string $contractor = '';
     public string $description = '';
 
@@ -288,6 +291,8 @@ class ProgramBookingForm extends Component
         $this->validate([
             'paymentDocuments.*' => ProgramDocumentService::fileRules(),
             'beneficiaryRows.*.documents.*' => ProgramDocumentService::fileRules(),
+            'beneficiaryDocumentUploads.*' => ['nullable', 'array'],
+            'beneficiaryDocumentUploads.*.*' => ProgramDocumentService::fileRules(),
             'guestListDocuments.*' => ProgramDocumentService::spreadsheetRules(),
         ]);
 
@@ -300,8 +305,7 @@ class ProgramBookingForm extends Component
                 'title'              => $this->title,
                 'description'        => $this->description,
                 'program_type'       => $this->programType,
-                'counterparty'       => $this->counterparty,
-                'employer'           => $this->employer,
+                'program_employer_id' => $this->resolvedProgramEmployerId(),
                 'contractor'         => $this->contractor,
                 'guest_count'        => $this->guestCount,
                 'rooms_allocated'    => $this->roomsAllocated,
@@ -385,6 +389,7 @@ class ProgramBookingForm extends Component
         }
 
         $beneficiaries = ProgramBeneficiary::orderBy('name')->get();
+        $employers = ProgramEmployer::orderBy('name')->get();
 
         if ($this->panel === 'host') {
             $myAccommodations = Auth::user()->managedAccommodationOptions();
@@ -397,6 +402,7 @@ class ProgramBookingForm extends Component
             'roomTypes',
             'serviceCatalog',
             'beneficiaries',
+            'employers',
             'myAccommodations',
         ));
     }
@@ -412,8 +418,7 @@ class ProgramBookingForm extends Component
                 'endDate'           => ['required', 'string'],
                 'guestCount'        => ['required', 'integer', 'min:1'],
                 'roomsAllocated'    => ['required', 'integer', 'min:1'],
-                'counterparty'      => ['required', 'string', 'max:200'],
-                'employer'          => ['nullable', 'string', 'max:200'],
+                'programEmployerId' => ['required', 'integer', 'min:1', 'exists:program_employers,id'],
                 'contractor'        => ['nullable', 'string', 'max:200'],
                 'description'       => ['nullable', 'string', 'max:5000'],
             ], [], [
@@ -424,7 +429,7 @@ class ProgramBookingForm extends Component
                 'endDate'         => 'تاریخ پایان',
                 'guestCount'      => 'تعداد نفرات',
                 'roomsAllocated'  => 'تعداد اتاق اختصاص داده شده به این رزرو',
-                'counterparty'    => 'طرف حساب',
+                'programEmployerId' => 'کارفرما',
             ]),
             2 => $this->validateStepRooms(),
             3 => null,
@@ -596,5 +601,18 @@ class ProgramBookingForm extends Component
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    protected function accountingProvince(): ?\App\Models\Province
+    {
+        if ($this->accommodationId <= 0) {
+            return null;
+        }
+
+        $accommodation = Accommodation::query()
+            ->with(['city.province', 'county.province'])
+            ->find($this->accommodationId);
+
+        return $this->resolveAccountingProvinceFromAccommodation($accommodation);
     }
 }

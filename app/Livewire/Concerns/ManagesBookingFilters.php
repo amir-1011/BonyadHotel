@@ -87,8 +87,8 @@ trait ManagesBookingFilters
     #[Url(as: 'program_payment_type')]
     public string $programPaymentType = '';
 
-    #[Url(as: 'program_counterparty')]
-    public string $programCounterparty = '';
+    #[Url(as: 'program_employer_id')]
+    public string $programEmployerId = '';
 
     #[Url(as: 'sort')]
     public string $sort = 'created_at';
@@ -148,7 +148,7 @@ trait ManagesBookingFilters
 
     public string $draftProgramPaymentType = '';
 
-    public string $draftProgramCounterparty = '';
+    public string $draftProgramEmployerId = '';
 
     public function mountBookingFilters(): void
     {
@@ -179,7 +179,7 @@ trait ManagesBookingFilters
         $this->bookingSource = $this->draftBookingSource;
         $this->programType = $this->draftProgramType;
         $this->programPaymentType = $this->draftProgramPaymentType;
-        $this->programCounterparty = trim($this->draftProgramCounterparty);
+        $this->programEmployerId = $this->draftProgramEmployerId;
         if ($this->draftBookingSource === 'online') {
             $this->draftReserverId = '';
         }
@@ -200,7 +200,7 @@ trait ManagesBookingFilters
             'checkInFrom', 'checkInTo', 'checkOutFrom', 'checkOutTo',
             'nightsMin', 'nightsMax', 'priceMin', 'priceMax', 'guestsMin',
             'hasDiscount', 'roomCategory', 'roomId', 'veteranType', 'bookingSource',
-            'programType', 'programPaymentType', 'programCounterparty',
+            'programType', 'programPaymentType', 'programEmployerId',
         ]);
         $this->sort = 'created_at';
         $this->dir = 'desc';
@@ -290,7 +290,7 @@ trait ManagesBookingFilters
             'booking_source'   => $this->bookingSource,
             'program_type'          => $this->programType,
             'program_payment_type'  => $this->programPaymentType,
-            'program_counterparty'  => $this->programCounterparty,
+            'program_employer_id'   => $this->programEmployerId,
             'sort'             => $this->sort,
             'dir'              => $this->dir,
         ];
@@ -335,7 +335,7 @@ trait ManagesBookingFilters
         $this->draftBookingSource = $this->bookingSource;
         $this->draftProgramType = $this->programType;
         $this->draftProgramPaymentType = $this->programPaymentType;
-        $this->draftProgramCounterparty = $this->programCounterparty;
+        $this->draftProgramEmployerId = $this->programEmployerId;
     }
 
     /** @return array{sort: string, dir: string} */

@@ -51,4 +51,28 @@ class HostPermissionsTest extends TestCase
         $this->assertTrue(HostPermissions::grantsAllow('cancellation-requests.settle', 'edit', $grants));
         $this->assertFalse(HostPermissions::grantsAllow('cancellation-requests.list', 'edit', $grants));
     }
+
+    public function test_legacy_dashboard_grants_expand_to_widget_pages(): void
+    {
+        $grants = HostPermissions::sanitizeGrants([
+            'dashboard' => ['read', 'edit'],
+        ]);
+
+        $this->assertTrue(HostPermissions::grantsAllow('dashboard.kpi-accommodations', 'read', $grants));
+        $this->assertTrue(HostPermissions::grantsAllow('dashboard.room-status-board', 'read', $grants));
+        $this->assertTrue(HostPermissions::grantsAllow('dashboard.room-status-board', 'edit', $grants));
+        $this->assertTrue(HostPermissions::grantsAllow('dashboard.booking-actions', 'edit', $grants));
+        $this->assertFalse(HostPermissions::grantsAllow('dashboard.booking-actions', 'read', $grants));
+        $this->assertArrayNotHasKey('dashboard', $grants);
+    }
+
+    public function test_grants_have_dashboard_read_access(): void
+    {
+        $grants = [
+            'dashboard.recent-bookings' => ['read'],
+        ];
+
+        $this->assertTrue(HostPermissions::grantsHaveDashboardReadAccess($grants));
+        $this->assertTrue(HostPermissions::grantsHaveDashboardAccess($grants));
+    }
 }

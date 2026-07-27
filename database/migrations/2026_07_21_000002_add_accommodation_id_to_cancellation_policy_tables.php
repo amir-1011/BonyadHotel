@@ -30,7 +30,9 @@ return new class extends Migration
     }
 
     // Adding columns after `id` can drop AUTO_INCREMENT on some MySQL versions.
-    DB::statement('ALTER TABLE refund_policy_tiers MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
+    if (DB::getDriverName() === 'mysql') {
+      DB::statement('ALTER TABLE refund_policy_tiers MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
+    }
 
     $tierKeys = [
       1 => 'tier_more_than_5_days',

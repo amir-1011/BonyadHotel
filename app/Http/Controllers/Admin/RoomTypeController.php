@@ -179,6 +179,11 @@ class RoomTypeController extends Controller
 
     private function validatedRate(Request $request): array
     {
+        $request->merge([
+            'price_per_night' => parse_money_input($request->input('price_per_night')),
+            'breakfast_price_per_person' => parse_money_input($request->input('breakfast_price_per_person')),
+        ]);
+
         $data = $request->validate([
             'rate_name'                  => ['required', 'string', 'max:100'],
             'price_per_night'            => ['required', 'integer', 'min:1'],

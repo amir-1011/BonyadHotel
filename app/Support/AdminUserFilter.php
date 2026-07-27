@@ -22,7 +22,14 @@ class AdminUserFilter
             $query->where(fn (Builder $w) => $w
                 ->where('name', 'like', "%{$s}%")
                 ->orWhere('mobile', 'like', "%{$s}%")
-                ->orWhere('national_id', 'like', "%{$s}%"));
+                ->orWhere('national_id', 'like', "%{$s}%")
+                ->orWhere('personnel_code', 'like', "%{$s}%")
+                ->orWhereHas('programEmployer', fn (Builder $employer) => $employer
+                    ->where('employer_code', 'like', "%{$s}%")
+                    ->orWhere('name', 'like', "%{$s}%"))
+                ->orWhereHas('programBeneficiary', fn (Builder $beneficiary) => $beneficiary
+                    ->where('beneficiary_code', 'like', "%{$s}%")
+                    ->orWhere('name', 'like', "%{$s}%")));
         }
 
         if (!empty($this->filters['role'])) {
@@ -32,14 +39,28 @@ class AdminUserFilter
                 $query->where(function (Builder $guestQuery) {
                     $guestQuery->doesntHave('roles')
                         ->orWhereHas('roles', fn (Builder $roleQuery) => $roleQuery->where('name', 'guest'));
-                });
+                })->whereDoesntHave('programBeneficiary')
+                    ->whereDoesntHave('programEmployer');
+            } elseif ($role === 'beneficiary') {
+                $query->whereHas('programBeneficiary');
+            } elseif ($role === 'employer') {
+                $query->whereHas('programEmployer');
             } elseif (str_starts_with($role, 'host_position:')) {
                 $title = substr($role, strlen('host_position:'));
-                $query->role('host')->where('host_position_title', $title);
+                if ($title === HostPositionTitles::DEFAULT_LABEL) {
+                    $query->role('host')->where(function (Builder $roleQuery) {
+                        $roleQuery->whereNull('host_position_title')
+                            ->orWhere('host_position_title', '')
+                            ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
+                    });
+                } else {
+                    $query->role('host')->where('host_position_title', $title);
+                }
             } elseif ($role === 'host') {
                 $query->role('host')->where(function (Builder $roleQuery) {
                     $roleQuery->whereNull('host_position_title')
-                        ->orWhere('host_position_title', '');
+                        ->orWhere('host_position_title', '')
+                        ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
                 });
             } else {
                 $query->role($role);

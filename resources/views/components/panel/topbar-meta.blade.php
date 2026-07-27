@@ -45,6 +45,7 @@
                     <a href="{{ $crumb['url'] }}" wire:navigate class="ta-breadcrumb-btn">{{ $crumb['label'] }}</a>
                 @else
                     <span class="ta-breadcrumb-btn ta-breadcrumb-btn--current" @if($isCurrent) aria-current="page" @endif>
+                        <i class="bi bi-house-fill ta-breadcrumb-btn__icon" aria-hidden="true"></i>
                         {{ $crumb['label'] }}
                     </span>
                 @endif

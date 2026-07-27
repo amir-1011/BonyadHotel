@@ -45,14 +45,14 @@
                     </div>
                     @endif
 
-                    <div class="col-12 col-md-6">
+                    {{-- <div class="col-12 col-md-6">
                         <label class="form-label small text-muted">نقش</label>
                         <select wire:model="role" class="form-select">
                             @foreach($roles as $r)
                                 <option value="{{ $r->name }}">{{ $r->name }}</option>
                             @endforeach
                         </select>
-                    </div>
+                    </div> --}}
 
                     @if($role === 'host')
                     <div class="col-12 col-md-6">
@@ -119,6 +119,12 @@
                         </div>
                     </div>
 
+                    @if($user->hasAccountingProfile())
+                    <div class="col-12">
+                        <x-profile.accounting-code-card :user="$user" variant="compact" />
+                    </div>
+                    @endif
+
                     <div class="col-12 d-flex gap-2 justify-content-end">
                         <a wire:navigate href="{{ route('admin.users.show', $user) }}" class="btn btn-outline-secondary">انصراف</a>
                         <button wire:click="update" class="btn btn-primary">ذخیره تغییرات</button>
@@ -155,21 +161,11 @@
             </div>
         </div>
 
-        <div class="card shadow-sm mt-3">
-            <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-sliders me-1"></i>دسترسی‌های پنل میزبان
-            </div>
-            <div class="card-body">
-                <x-admin.host-permissions-matrix
-                    :catalog="$hostPermissionCatalog"
-                    :form-state="$hostPermissionForm"
-                />
-                <div class="d-flex justify-content-end mt-3">
-                    <button type="button" wire:click="saveHostPanelAccess" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-check2-circle me-1"></i>ذخیره دسترسی‌های پنل
-                    </button>
-                </div>
-            </div>
+        <div class="alert alert-info small mt-3">
+            <i class="bi bi-info-circle me-1"></i>
+            دسترسی‌های پنل میزبان بر اساس <strong>سمت</strong> انتخاب‌شده از
+            <a href="{{ route('admin.host-positions.index') }}" wire:navigate>تنظیمات سمت‌ها و دسترسی میزبان</a>
+            اعمال می‌شوند. با ذخیره این فرم، دسترسی‌ها از الگوی سمت به‌روز می‌شوند.
         </div>
 
         <div class="card shadow-sm mt-3">

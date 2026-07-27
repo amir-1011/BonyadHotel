@@ -1,7 +1,7 @@
 @props(['paths' => [], 'compact' => false])
 
 @php
-    $paths = collect($paths)->filter(fn ($path) => is_string($path) && $path !== '')->values();
+    $paths = collect(\App\Support\ProgramDocumentPaths::normalize($paths));
 @endphp
 
 @if($paths->isNotEmpty())

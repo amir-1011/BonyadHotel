@@ -25,8 +25,8 @@ class AdminUserEditTest extends TestCase
 
     private function createAccommodation(?int $hostId = null, string $name = 'اقامتگاه تست'): Accommodation
     {
-        $provinceId = DB::table('provinces')->insertGetId(['name' => 'استان تست', 'created_at' => now(), 'updated_at' => now()]);
-        $cityId = DB::table('cities')->insertGetId(['province_id' => $provinceId, 'name' => 'شهر تست', 'created_at' => now(), 'updated_at' => now()]);
+        $provinceId = $this->ensureTestProvinceId();
+        $cityId = $this->ensureTestCityId($provinceId);
 
         $accommodation = Accommodation::create([
             'city_id'         => $cityId,

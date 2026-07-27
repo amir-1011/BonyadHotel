@@ -3,11 +3,15 @@
 namespace Tests\Feature;
 
 use App\Livewire\RoomStatusBoard;
+use App\Models\Booking;
+use App\Models\BookingRoom;
 use App\Models\Room;
+use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Services\RoomBoardLayoutService;
 use App\Services\RoomStatusBoardService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -189,5 +193,71 @@ class RoomStatusBoardLayoutTest extends TestCase
         $this->assertSame($roomB->id, $rows[0]['rooms'][0]['id']);
         $this->assertSame('پایین', $rows[1]['label']);
         $this->assertSame($roomA->id, $rows[1]['rooms'][0]['id']);
+    }
+
+    public function test_program_booking_room_uses_purple_status_on_board(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
+
+        $accommodation = $this->createTestAccommodation();
+        $roomType = RoomType::create([
+            'accommodation_id' => $accommodation->id,
+            'name'             => 'دو تخته',
+            'capacity'         => 2,
+            'room_count'       => 2,
+            'is_active'        => true,
+        ]);
+        $roomRate = RoomRate::create([
+            'room_type_id'    => $roomType->id,
+            'name'            => 'نرخ اردو',
+            'price_per_night' => 500_000,
+            'is_active'       => true,
+        ]);
+        $room = Room::create(['room_type_id' => $roomType->id, 'name' => '۱۰۱', 'sort_order' => 1, 'is_active' => true]);
+
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000555']);
+        $host->assignRole('host');
+        $accommodation->hosts()->attach($host->id);
+
+        $checkIn = now()->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDays(3)->format('Y-m-d');
+
+        $booking = Booking::create([
+            'user_id'              => $host->id,
+            'accommodation_id'     => $accommodation->id,
+            'booking_source'       => 'program',
+            'check_in'             => $checkIn,
+            'check_out'            => $checkOut,
+            'nights'               => 3,
+            'guests'               => 10,
+            'base_price'           => 1_000_000,
+            'services_subtotal'    => 0,
+            'discount_amount'      => 0,
+            'total_price'          => 1_000_000,
+            'status'               => 'confirmed',
+            'tracking_code'        => 'PROGCAMP01',
+            'guest_contact_name'   => 'سازمان اردو',
+            'guest_contact_mobile' => '09123334444',
+        ]);
+
+        BookingRoom::create([
+            'booking_id'   => $booking->id,
+            'room_type_id' => $roomType->id,
+            'room_rate_id' => $roomRate->id,
+            'room_id'      => $room->id,
+            'adults'       => 1,
+            'guests'       => 1,
+            'sort_order'   => 0,
+        ]);
+
+        $board = app(RoomStatusBoardService::class)->buildForHost($host, $checkIn);
+        $programRoom = collect($board[0]['rooms'])->firstWhere('id', $room->id);
+
+        $this->assertNotNull($programRoom);
+        $this->assertSame('program_occupied', $programRoom['status']);
+        $this->assertSame('purple', $programRoom['color']);
+        $this->assertSame('اردو / برنامه', $programRoom['status_label']);
+        $this->assertTrue($programRoom['current_booking']['is_program']);
     }
 }

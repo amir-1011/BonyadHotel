@@ -82,6 +82,10 @@ class Accommodation extends Model
         if (!$this->host_id) {
             $this->update(['host_id' => $user->id]);
         }
+
+        if ($user->isHost()) {
+            app(\App\Services\HostPersonnelCodeProvisioner::class)->provisionIfNeeded($user, $this);
+        }
     }
 
     public function revokeHostAccess(User $user): void
@@ -116,6 +120,11 @@ class Accommodation extends Model
     public function county()
     {
         return $this->belongsTo(County::class);
+    }
+
+    public function resolvedProvince(): ?Province
+    {
+        return $this->city?->province ?? $this->county?->province;
     }
 
     public function bookings()

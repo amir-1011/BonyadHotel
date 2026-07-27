@@ -12,6 +12,7 @@ use App\Models\BookingService;
 use App\Models\Program;
 use App\Models\ProgramBeneficiary;
 use App\Models\ProgramBeneficiaryCost;
+use App\Models\ProgramEmployer;
 use App\Models\Room;
 use App\Models\RoomRate;
 use App\Models\User;
@@ -27,6 +28,7 @@ class ProgramBookingService
         private readonly ProgramDocumentService $documents,
         private readonly PlatformCommissionService $commission,
         private readonly BeneficiaryUserProvisioner $beneficiaryUsers,
+        private readonly EmployerUserProvisioner $employerUsers,
     ) {}
 
     /**
@@ -61,6 +63,15 @@ class ProgramBookingService
                 'program-documents/guest-list/' . $accommodation->id,
             );
 
+            $employerId = (int) ($data['program_employer_id'] ?? 0);
+            $employer = $employerId > 0 ? ProgramEmployer::find($employerId) : null;
+
+            if ($employer && !$employer->user_id) {
+                $employer = $this->employerUsers->linkEmployer($employer);
+            }
+
+            $guestContactName = $employer?->name ?? (string) ($data['title'] ?? 'برنامه');
+
             $booking = Booking::create([
                 'user_id'              => $createdBy->id,
                 'created_by'           => $createdBy->id,
@@ -71,7 +82,7 @@ class ProgramBookingService
                 'check_out'            => $checkOut,
                 'guests'               => (int) ($data['guest_count'] ?? 1),
                 'children_under_6'     => 0,
-                'guest_contact_name'   => (string) ($data['counterparty'] ?? $data['title'] ?? 'برنامه'),
+                'guest_contact_name'   => $guestContactName,
                 'guest_contact_mobile' => '',
                 'rooms_consumed'       => count($roomLines),
                 'extra_guests'         => 0,
@@ -116,7 +127,7 @@ class ProgramBookingService
                 $booking,
                 $data['guest_details'] ?? [],
                 $bookingRoomIdsBySort,
-                (string) ($data['counterparty'] ?? $data['title'] ?? 'برنامه'),
+                (string) $guestContactName,
             );
 
             foreach ($services as $index => $service) {
@@ -145,8 +156,7 @@ class ProgramBookingService
                 'title'             => (string) $data['title'],
                 'description'       => $data['description'] ?? null,
                 'program_type'      => (string) ($data['program_type'] ?? Program::TYPE_CAMP),
-                'counterparty'      => $data['counterparty'] ?? null,
-                'employer'          => $data['employer'] ?? null,
+                'program_employer_id' => $employer?->id,
                 'contractor'        => $data['contractor'] ?? null,
                 'guest_count'       => (int) ($data['guest_count'] ?? 1),
                 'rooms_allocated'   => (int) ($data['rooms_allocated'] ?? count($roomLines)),
@@ -189,7 +199,7 @@ class ProgramBookingService
 
             $this->commission->syncBookingCommissions($booking, $createdBy);
 
-            return $program->load(['booking.bookingRooms.room', 'booking.services', 'booking.guestDetails.bookingRoom.room', 'beneficiaryCosts.beneficiary', 'accommodation']);
+            return $program->load(['booking.bookingRooms.room', 'booking.services', 'booking.guestDetails.bookingRoom.room', 'beneficiaryCosts.beneficiary', 'employer', 'accommodation']);
         });
     }
 
@@ -301,7 +311,7 @@ class ProgramBookingService
         Booking $booking,
         array $guestDetails,
         array $bookingRoomIdsBySort,
-        string $counterparty,
+        string $guestContactName,
     ): void {
         if ($guestDetails === []) {
             return;

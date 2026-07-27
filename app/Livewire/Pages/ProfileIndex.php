@@ -46,7 +46,11 @@ class ProfileIndex extends Component
 
     public function render()
     {
-        $user     = Auth::user();
+        $user = Auth::user()->load([
+            'province',
+            'programBeneficiary.province',
+            'programEmployer.province',
+        ]);
         $bookings = $user->bookings()->with('accommodation.city.province')
             ->latest()->paginate(10);
 

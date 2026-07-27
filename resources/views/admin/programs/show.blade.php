@@ -17,5 +17,9 @@
         </div>
     </div>
 
-    <x-program.show-details :program="$program" panel="admin" />
+    <x-program.show-details :program="$program" panel="admin">
+        <x-slot name="guestManager">
+            @include('components.program.guest-list-manager', ['program' => $program, 'panel' => 'admin'])
+        </x-slot>
+    </x-program.show-details>
 </div>

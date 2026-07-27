@@ -2,13 +2,12 @@
 
 namespace App\Livewire\Admin;
 
-use App\Livewire\Concerns\ManagesHostPermissionForm;
 use App\Livewire\Concerns\ManagesHostPositionForm;
 use App\Models\Accommodation;
 use App\Models\User;
+use App\Services\HostPersonnelCodeProvisioner;
 use App\Services\NationalIdVerificationService;
 use App\Support\VeteranGroups;
-use App\Support\HostPermissions;
 use App\Support\HostPositionTitles;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -18,7 +17,6 @@ use Spatie\Permission\Models\Role;
 #[Layout('layouts.admin', ['title' => 'ویرایش کاربر', 'pageTitle' => 'ویرایش کاربر'])]
 class UserEdit extends Component
 {
-    use ManagesHostPermissionForm;
     use ManagesHostPositionForm;
 
     public User $user;
@@ -41,8 +39,31 @@ class UserEdit extends Component
 
     public function mount(User $user): void
     {
-        $this->user = $user->load(['country', 'residenceCity']);
-        $this->name = $user->name ?? '';
+        $this->user = $user->load([
+            'country',
+            'residenceCity',
+            'province',
+            'accommodations.city.province',
+            'accommodations.county.province',
+            'programBeneficiary.province',
+            'programEmployer.province',
+        ]);
+
+        if ($this->user->isHost() && blank($this->user->personnel_code)) {
+            $this->user = app(HostPersonnelCodeProvisioner::class)
+                ->provisionIfNeeded($this->user)
+                ->load([
+                    'country',
+                    'residenceCity',
+                    'province',
+                    'accommodations.city.province',
+                    'accommodations.county.province',
+                    'programBeneficiary.province',
+                    'programEmployer.province',
+                ]);
+        }
+
+        $this->name = $this->user->name ?? '';
         $this->mobile = $user->mobile ?? '';
         $this->nationalId = $user->national_id ?? '';
         $this->veteranType = $user->normalizedVeteranType() ?? '';
@@ -51,15 +72,7 @@ class UserEdit extends Component
         $this->discountPct = $user->discount_percentage ?? 0;
         $this->isActive = (bool) ($user->is_active ?? true);
         $this->role = $user->roles->first()?->name ?? 'guest';
-        $this->mountHostPermissionForm($user->host_panel_permissions);
         $this->mountHostPositionForm($user);
-    }
-
-    public function updatedRole(string $value): void
-    {
-        if ($value === 'host' && $this->hostPermissionGrantsFromForm() === []) {
-            $this->mountHostPermissionForm();
-        }
     }
 
     public function updatedVeteranType(): void
@@ -143,9 +156,17 @@ class UserEdit extends Component
 
         $accommodation->grantHostAccess($this->user);
 
+        $this->user = app(\App\Services\HostPersonnelCodeProvisioner::class)
+            ->provisionIfNeeded($this->user->fresh(['province', 'accommodations.city.province', 'accommodations.county.province']))
+            ->load(['province', 'accommodations.city', 'accommodations.county']);
+
         $this->accommodationToAssign = null;
 
-        session()->flash('status', "اقامتگاه «{$accommodation->name}» به این میزبان نسبت داده شد.");
+        $codeMessage = filled($this->user->personnel_code)
+            ? " کد پرسنلی: {$this->user->personnel_code}."
+            : '';
+
+        session()->flash('status', "اقامتگاه «{$accommodation->name}» به این میزبان نسبت داده شد.{$codeMessage}");
     }
 
     public function revokeAccommodation(int $accommodationId): void
@@ -158,26 +179,6 @@ class UserEdit extends Component
         $accommodation->revokeHostAccess($this->user);
 
         session()->flash('status', "دسترسی میزبان به اقامتگاه «{$name}» لغو شد.");
-    }
-
-    public function saveHostPanelAccess(): void
-    {
-        if ($this->role !== 'host') {
-            $this->addError('hostPermissionForm', 'تنظیم دسترسی پنل فقط برای نقش میزبان (host) امکان‌پذیر است.');
-            return;
-        }
-
-        $this->validateHostPermissionForm();
-
-        if ($this->getErrorBag()->isNotEmpty()) {
-            return;
-        }
-
-        $this->user->update([
-            'host_panel_permissions' => $this->hostPermissionGrantsFromForm(),
-        ]);
-
-        $this->dispatch('toast', type: 'success', message: 'دسترسی‌های پنل میزبان ذخیره شد.');
     }
 
     public function updateHostPassword(): void
@@ -271,11 +272,9 @@ class UserEdit extends Component
                 return;
             }
 
-            $grants = $this->hostPermissionGrantsFromForm();
-            $data['host_panel_permissions'] = $grants !== []
-                ? $grants
-                : HostPermissions::defaults();
-            $data['host_position_title'] = $this->resolvedHostPositionTitle();
+            $positionTitle = $this->resolvedHostPositionTitle();
+            $data['host_panel_permissions'] = HostPositionTitles::grantsForPositionLabel($positionTitle);
+            $data['host_position_title'] = $positionTitle;
         } else {
             $data['host_panel_permissions'] = null;
             $data['host_position_title'] = null;
@@ -329,7 +328,6 @@ class UserEdit extends Component
             'veteranGroups'           => VeteranGroups::options(),
             'assignedAccommodations'  => $assignedAccommodations,
             'availableAccommodations' => $availableAccommodations,
-            'hostPermissionCatalog'   => HostPermissions::catalog(),
             'hostPositionOptions'     => HostPositionTitles::optionsForForm($this->hostPositionPreset),
         ]);
     }

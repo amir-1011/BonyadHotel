@@ -19,7 +19,7 @@
     <div class="card-body py-2">
         <div class="row g-2">
             <div class="col-md-3">
-                <input type="text" wire:model.live.debounce.400ms="search" class="form-control form-control-sm" placeholder="جستجو عنوان، طرف حساب، کد رزرو...">
+                <input type="text" wire:model.live.debounce.400ms="search" class="form-control form-control-sm" placeholder="جستجو عنوان، کارفرما، کد رزرو...">
             </div>
             <div class="col-md-2">
                 <select wire:model.live="status" class="form-select form-select-sm">
@@ -54,10 +54,12 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <input type="text" wire:model.live.debounce.400ms="counterparty" class="form-control form-control-sm" placeholder="طرف حساب">
-            </div>
-            <div class="col-md-3">
-                <input type="text" wire:model.live.debounce.400ms="employer" class="form-control form-control-sm" placeholder="کارفرما">
+                <select wire:model.live="employerId" class="form-select form-select-sm">
+                    <option value="0">همه کارفرمایان</option>
+                    @foreach($employers as $employer)
+                        <option value="{{ $employer->id }}">{{ $employer->displayLabel() }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="col-md-3">
                 <select wire:model.live="beneficiaryId" class="form-select form-select-sm">

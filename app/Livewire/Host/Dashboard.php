@@ -32,7 +32,7 @@ class Dashboard extends Component
 
     public function confirm(int $bookingId): void
     {
-        $this->assertHostCan('dashboard', 'edit');
+        $this->assertHostCan('dashboard.booking-actions', 'edit');
         $booking = Booking::findOrFail($bookingId);
         abort_unless(Auth::user()->managesAccommodation($booking->accommodation_id), 403);
         abort_unless($booking->canEditBookingDetails(Auth::user()), 403, 'پس از پایان دوره رزرو امکان ویرایش وجود ندارد.');
@@ -43,7 +43,7 @@ class Dashboard extends Component
 
     public function cancel(int $bookingId): void
     {
-        $this->assertHostCan('dashboard', 'edit');
+        $this->assertHostCan('dashboard.booking-actions', 'edit');
         $booking = Booking::findOrFail($bookingId);
         abort_unless(Auth::user()->managesAccommodation($booking->accommodation_id), 403);
         abort_unless($booking->canEditBookingDetails(Auth::user()), 403, 'پس از پایان دوره رزرو امکان ویرایش وجود ندارد.');

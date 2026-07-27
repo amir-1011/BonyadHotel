@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Livewire\Concerns\ManagesForeignGuestLocation;
 use App\Livewire\Concerns\ManagesProgramBeneficiaries;
+use App\Livewire\Concerns\ResolvesAccountingProvince;
 use App\Models\Country;
 use App\Models\ResidenceCity;
 use App\Models\Accommodation;
@@ -29,6 +30,7 @@ use Livewire\WithFileUploads;
 class ManualBookingForm extends Component
 {
     use ManagesProgramBeneficiaries;
+    use ResolvesAccountingProvince;
     use ManagesForeignGuestLocation;
     use WithFileUploads;
     use AssertsHostPermissions;
@@ -332,31 +334,41 @@ class ManualBookingForm extends Component
         }
 
         $this->resetErrorBag('bookerNationalId');
-        $this->validate([
-            'bookerNationalId' => ['required', 'digits:10'],
-        ]);
+        $identifier = preg_replace('/\D/', '', $this->bookerNationalId) ?? '';
+        $this->bookerNationalId = $identifier;
 
-        $nationalId = preg_replace('/\D/', '', $this->bookerNationalId);
-        $this->bookerNationalId = $nationalId;
+        if (!preg_match('/^\d{6}$/', $identifier) && !preg_match('/^\d{10}$/', $identifier)) {
+            $this->addError('bookerNationalId', 'کد ملی باید ۱۰ رقم یا کد حسابداری ۶ رقمی باشد.');
+            $this->bookerVerified = false;
 
-        $existing = $this->findGuestUserByNationalId($nationalId);
+            return;
+        }
+
+        $existing = $this->findGuestUserByNationalId($identifier);
 
         if ($existing) {
             $this->applyExistingBooker($existing);
             $this->bookerVerifyMessage = 'کاربر در سیستم یافت شد: ' . ($existing->name ?: $existing->mobile);
         } else {
-            $anyUser = User::where('national_id', $nationalId)->first();
+            $anyUser = app(\App\Services\AccountingEntityLookup::class)->findUserByIdentifier($identifier);
             if ($anyUser) {
                 if ($anyUser->isAdmin() || $anyUser->isHost()) {
-                    $this->addError('bookerNationalId', 'این کد ملی متعلق به حساب کارکنان است و قابل استفاده برای رزرو مهمان نیست.');
+                    $this->addError('bookerNationalId', 'این کد متعلق به حساب کارکنان است و قابل استفاده برای رزرو مهمان نیست.');
                 } else {
-                    $this->addError('bookerNationalId', 'این کد ملی قبلاً ثبت شده است. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.');
+                    $this->addError('bookerNationalId', 'این کد قبلاً ثبت شده است. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.');
                 }
                 $this->bookerVerified = false;
                 return;
             }
 
-            $result = app(NationalIdVerificationService::class)->verify($nationalId);
+            if (strlen($identifier) !== 10) {
+                $this->addError('bookerNationalId', 'کد حسابداری واردشده در سیستم یافت نشد.');
+                $this->bookerVerified = false;
+
+                return;
+            }
+
+            $result = app(NationalIdVerificationService::class)->verify($identifier);
             if (!$result['valid']) {
                 $this->addError('bookerNationalId', $result['message']);
                 $this->bookerVerified = false;
@@ -1238,10 +1250,17 @@ class ManualBookingForm extends Component
 
     private function findGuestUserByNationalId(string $nationalId): ?User
     {
-        return User::query()
-            ->where('national_id', $nationalId)
-            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'host']))
-            ->first();
+        $lookup = app(\App\Services\AccountingEntityLookup::class)->findUserByIdentifier($nationalId);
+
+        if (!$lookup) {
+            return null;
+        }
+
+        if ($lookup->isAdmin() || $lookup->isHost()) {
+            return null;
+        }
+
+        return $lookup;
     }
 
     private function findGuestUserByPassport(string $passport): ?User
@@ -1810,5 +1829,10 @@ class ManualBookingForm extends Component
                 ? route($this->panel . '.bookings.show', $this->createdBookingId)
                 : null,
         ]);
+    }
+
+    protected function accountingProvince(): ?\App\Models\Province
+    {
+        return $this->resolveAccountingProvinceFromAccommodation($this->accommodation);
     }
 }

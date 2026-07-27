@@ -1,4 +1,4 @@
-<div>
+﻿<div>
 
 {{-- ── Page header ─────────────────────────────────────────────────── --}}
 <div class="ta-page-head mb-4">
@@ -6,7 +6,7 @@
         <div class="text-muted small">نمای کلی اقامتگاه‌ها، رزروها، اشغال و فروش خدمات</div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        @if($this->showDashboardAccommodationFilter())
+        @if($this->showDashboardAccommodationFilter() && $hostUser->hostCan('dashboard.accommodation-filter', 'read'))
             @include('components.dashboard.accommodation-filter')
         @endif
         <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
@@ -19,24 +19,26 @@
     </div>
 </div>
 
+<div wire:key="host-dashboard-{{ $filterKey }}">
+
 {{-- ── KPI cards ───────────────────────────────────────────────────── --}}
 <div class="row g-4 mb-4">
     @php
     $allMetrics = [
-        ['perm'=>'accommodations', 'label'=>'اقامتگاه‌های من', 'value'=>number_format($stats['accommodations']), 'icon'=>'building',
+        ['page'=>'dashboard.kpi-accommodations', 'label'=>'اقامتگاه‌های من', 'value'=>number_format($stats['accommodations']), 'icon'=>'building',
          'sub'=>$stats['active_acc'].' فعال', 'href'=>route('host.accommodations.index')],
-        ['perm'=>'bookings', 'label'=>'رزرو تأیید‌شده', 'value'=>number_format($stats['confirmed']), 'icon'=>'check-circle',
+        ['page'=>'dashboard.kpi-confirmed-bookings', 'label'=>'رزرو تأیید‌شده', 'value'=>number_format($stats['confirmed']), 'icon'=>'check-circle',
          'sub'=>$stats['pending'].' در انتظار', 'href'=>route('host.bookings.index',['status'=>'confirmed'])],
-        ['perm'=>'bookings', 'label'=>'درآمد کل (تومان)', 'value'=>number_format($stats['revenue']), 'icon'=>'cash-stack',
+        ['page'=>'dashboard.kpi-total-revenue', 'label'=>'درآمد کل (تومان)', 'value'=>number_format($stats['revenue']), 'icon'=>'cash-stack',
          'sub'=>number_format($stats['today_revenue']).' ت امروز', 'href'=>route('host.bookings.index',['status'=>'confirmed'])],
-        ['perm'=>'bookings', 'label'=>'درآمد این ماه', 'value'=>number_format($stats['this_month']), 'icon'=>'calendar-month',
+        ['page'=>'dashboard.kpi-month-revenue', 'label'=>'درآمد این ماه', 'value'=>number_format($stats['this_month']), 'icon'=>'calendar-month',
          'sub'=>$stats['growth_rate']!==null ? ($stats['growth_rate']>=0?'+':'').$stats['growth_rate'].'٪ نسبت به ماه قبل' : 'ماه اول', 'href'=>null, 'pill'=>$stats['growth_rate']],
-        ['perm'=>'bookings', 'label'=>'فروش خدمات', 'value'=>number_format($stats['services_revenue']), 'icon'=>'bag-check',
+        ['page'=>'dashboard.kpi-services-revenue', 'label'=>'فروش خدمات', 'value'=>number_format($stats['services_revenue']), 'icon'=>'bag-check',
          'sub'=>'تومان از خدمات اضافی', 'href'=>null],
-        ['perm'=>'reviews', 'label'=>'نظرات بی‌پاسخ', 'value'=>number_format($stats['pending_reviews']), 'icon'=>'chat-square-text',
+        ['page'=>'dashboard.kpi-pending-reviews', 'label'=>'نظرات بی‌پاسخ', 'value'=>number_format($stats['pending_reviews']), 'icon'=>'chat-square-text',
          'sub'=>'نیاز به پاسخ', 'href'=>route('host.reviews.index',['replied'=>'0'])],
     ];
-    $metrics = array_values(array_filter($allMetrics, fn($m) => $hostUser->hasHostPanelAccess($m['perm'])));
+    $metrics = array_values(array_filter($allMetrics, fn($m) => $hostUser->hostCan($m['page'], 'read')));
     @endphp
     @foreach($metrics as $m)
     <div class="col-6 col-md-4 col-xl-2">
@@ -64,30 +66,31 @@
 </div>
 
 {{-- ── Occupancy calendar — full row ─────────────────────────────────── --}}
-@if($hostUser->hasHostPanelAccess('bookings'))
+@if($hostUser->hostCan('dashboard.room-status-board', 'read'))
 <div class="row g-4 mb-4">
     <div class="col-12">
         <livewire:room-status-board
             panel="host"
             :dashboard-accommodation-ids="$effectiveAccommodationIds"
-            :use-dashboard-filter="true"
-            :wire:key="'host-rsb-'.$filterKey" />
+            :use-dashboard-filter="true" />
     </div>
 </div>
+@endif
+@if($hostUser->hostCan('dashboard.occupancy-calendar', 'read'))
 <div class="row g-4 mb-4">
     <div class="col-12">
         <livewire:occupancy-calendar
             panel="host"
             :dashboard-accommodation-ids="$effectiveAccommodationIds"
-            :use-dashboard-filter="true"
-            :wire:key="'host-occ-'.$filterKey" />
+            :use-dashboard-filter="true" />
     </div>
 </div>
 @endif
 
 {{-- ── Check-outs today / soon + active stays ────────────────────────── --}}
-@if($hostUser->hasHostPanelAccess('bookings'))
+@if($hostUser->hostCanAny('dashboard.checkouts-today', ['read']) || $hostUser->hostCanAny('dashboard.checkouts-soon', ['read']) || $hostUser->hostCanAny('dashboard.active-stays', ['read']))
 <div class="row g-4 mb-4">
+    @if($hostUser->hostCan('dashboard.checkouts-today', 'read'))
     <div class="col-12 col-lg-4">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -115,6 +118,8 @@
             </div>
         </div>
     </div>
+    @endif
+    @if($hostUser->hostCan('dashboard.checkouts-soon', 'read'))
     <div class="col-12 col-lg-4">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -142,6 +147,8 @@
             </div>
         </div>
     </div>
+    @endif
+    @if($hostUser->hostCan('dashboard.active-stays', 'read'))
     <div class="col-12 col-lg-4">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -169,12 +176,14 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 @endif
 
 {{-- ── Charts ────────────────────────────────────────────────────────── --}}
-@if($hostUser->hasHostPanelAccess('bookings'))
-<div class="row g-4 mb-4" wire:key="host-charts-{{ $filterKey }}">
+@if($hostUser->hostCanAny('dashboard.revenue-chart', ['read']) || $hostUser->hostCanAny('dashboard.booking-status-chart', ['read']))
+<div class="row g-4 mb-4">
+    @if($hostUser->hostCan('dashboard.revenue-chart', 'read'))
     <div class="col-12 col-xl-8">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -192,6 +201,8 @@
             </div>
         </div>
     </div>
+    @endif
+    @if($hostUser->hostCan('dashboard.booking-status-chart', 'read'))
     <div class="col-12 col-xl-4">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -215,11 +226,12 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 @endif
 
 {{-- ═══ Accommodations performance (charts inside are wire:ignore) ═══ --}}
-@if($hostUser->hasHostPanelAccess('accommodations'))
+@if($hostUser->hostCan('dashboard.accommodations-performance', 'read'))
 <div class="ta-card mb-4" wire:ignore>
     <div class="ta-card__head">
         <h2 class="ta-card__title"><i class="bi bi-bar-chart-line me-2 text-primary"></i>عملکرد اقامتگاه‌ها</h2>
@@ -244,17 +256,17 @@
                                 <span class="badge {{ $acc->is_active ? 'bg-success' : 'bg-secondary' }} bg-opacity-75 ms-1" style="font-size:.65rem">{{ $acc->is_active ? 'فعال' : 'غیرفعال' }}</span>
                             </div>
                         </div>
-                        @if($hostUser->hasHostPanelAccess('bookings'))
+                        @if($hostUser->hostCan('accommodations.report', 'read'))
                         <a wire:navigate href="{{ route('host.accommodations.report', $acc) }}" class="btn btn-sm btn-primary" style="font-size:.75rem">
                             <i class="bi bi-graph-up-arrow me-1"></i>گزارش
                         </a>
                         @endif
                     </div>
-                    @if($hostUser->hasHostPanelAccess('bookings'))
+                    @if($hostUser->hostCan('dashboard.accommodations-performance', 'read'))
                     <div class="px-3" id="host-spark-{{ $acc->id }}" wire:ignore style="min-height:56px"></div>
                     @endif
                     <div class="card-body pt-1 pb-2 px-3">
-                        @if($hostUser->hasHostPanelAccess('bookings'))
+                        @if($hostUser->hostCan('dashboard.accommodations-performance', 'read'))
                         <div class="row g-2 text-center mb-2">
                             <div class="col-4">
                                 <div class="bg-light rounded p-2">
@@ -283,7 +295,7 @@
                         @endif
                         <div class="d-flex gap-1 mt-2">
                             <a wire:navigate href="{{ route('host.accommodations.edit', $acc) }}" class="btn btn-xs btn-outline-warning" style="padding:.15rem .4rem;font-size:.7rem"><i class="bi bi-pencil"></i></a>
-                            @if($hostUser->hasHostPanelAccess('bookings'))
+                            @if($hostUser->hostCan('bookings.list', 'read'))
                             <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id' => $acc->id]) }}" class="btn btn-xs btn-outline-primary" style="padding:.15rem .4rem;font-size:.7rem"><i class="bi bi-calendar-check"></i></a>
                             @endif
                             <a href="{{ route('accommodations.show', $acc) }}" target="_blank" class="btn btn-xs btn-outline-secondary" style="padding:.15rem .4rem;font-size:.7rem"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -304,8 +316,9 @@
 @endif
 
 {{-- ── Services sold ───────────────────────────────────────────────────── --}}
-@if($hostUser->hasHostPanelAccess('bookings'))
+@if($hostUser->hostCanAny('dashboard.services-summary', ['read']) || $hostUser->hostCanAny('dashboard.services-details', ['read']))
 <div class="row g-4 mb-4">
+    @if($hostUser->hostCan('dashboard.services-summary', 'read'))
     <div class="col-12 col-lg-4">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -342,6 +355,8 @@
             </div>
         </div>
     </div>
+    @endif
+    @if($hostUser->hostCan('dashboard.services-details', 'read'))
     <div class="col-12 col-lg-8">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -398,11 +413,12 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 @endif
 
 {{-- ── Recent bookings — full width table ──────────────────────────────── --}}
-@if($hostUser->hasHostPanelAccess('bookings'))
+@if($hostUser->hostCan('dashboard.recent-bookings', 'read'))
 <div class="ta-card">
     <div class="ta-card__head">
         <h2 class="ta-card__title">آخرین رزروها</h2>
@@ -444,7 +460,7 @@
                         <td>
                             <div class="d-flex gap-1">
                                 <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-primary" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-eye"></i></a>
-                                @if($b->status === 'pending' && $b->canEditBookingDetails() && $hostUser->hostCan('dashboard', 'edit'))
+                                @if($b->status === 'pending' && $b->canEditBookingDetails() && $hostUser->hostCan('dashboard.booking-actions', 'edit'))
                                 <button wire:click="confirm({{ $b->id }})" class="btn btn-sm btn-outline-success" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-check-lg"></i></button>
                                 <button wire:click="cancel({{ $b->id }})" data-swal-confirm="لغو شود؟" class="btn btn-sm btn-outline-danger" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-x-lg"></i></button>
                                 @endif
@@ -461,8 +477,6 @@
 </div>
 @endif
 
-</div>
-
 @php
     $stTotalCount = ($statusBreakdown ?? collect())->sum('count');
     $hostStatusCounts = ($statusBreakdown ?? collect())->map(fn ($s) => (int) $s->count)->values()->toArray();
@@ -475,11 +489,15 @@
         'statusColors' => $hostStatusColors,
         'statusTotal' => (int) $stTotalCount,
         'sparks' => $sparklineData ?? [],
-        'hasSparks' => $hostUser->hasHostPanelAccess('accommodations') && $hostUser->hasHostPanelAccess('bookings'),
+        'hasSparks' => $hostUser->hostCan('dashboard.accommodations-performance', 'read'),
     ];
 @endphp
 
-<script type="application/json" id="host-dashboard-chart-payload" wire:ignore wire:key="host-chart-payload-{{ $filterKey }}">{!! json_encode($hostChartPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+<script type="application/json" id="host-dashboard-chart-payload" wire:ignore>{!! json_encode($hostChartPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+
+</div>
+
+</div>
 
 @push('scripts')
 @vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js'])
@@ -537,7 +555,7 @@
         }
         tag = document.createElement('script');
         tag.id = 'apexcharts-sdk';
-        tag.src = @json(asset('vendor/apexcharts/apexcharts.min.js'));
+        tag.src = @json(vasset('vendor/apexcharts/apexcharts.min.js'));
         tag.onload = cb;
         document.head.appendChild(tag);
     }

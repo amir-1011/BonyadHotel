@@ -17,6 +17,7 @@ export default defineConfig({
                 'resources/js/occupancy-calendar.js',
                 'resources/js/jalali-date-today.js',
                 'resources/js/dashboard-accommodation-filter.js',
+                'resources/js/admin-overview-stats.js',
                 'resources/js/bnb-room-picker.js',
                 'resources/js/program-datepicker.js',
                 'resources/js/cancellation-settle-datepicker.js',

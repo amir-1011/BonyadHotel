@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Models\Concerns\DisplaysGuestIdentity;
+use App\Models\Concerns\DisplaysAccountingProfile;
 use App\Support\VeteranGroups;
 use App\Support\HostPermissions;
+use App\Support\HostPositionTitles;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,6 +16,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     use DisplaysGuestIdentity;
+    use DisplaysAccountingProfile;
     use HasApiTokens;
     use HasFactory, Notifiable, HasRoles;
 
@@ -31,6 +34,8 @@ class User extends Authenticatable
         'discount_percentage',
         'host_panel_permissions',
         'host_position_title',
+        'province_id',
+        'personnel_code',
         'mobile_verified_at',
         'national_id_verified_at',
     ];
@@ -62,6 +67,11 @@ class User extends Authenticatable
         return $this->hasOne(ProgramBeneficiary::class);
     }
 
+    public function programEmployer()
+    {
+        return $this->hasOne(ProgramEmployer::class);
+    }
+
     public function country()
     {
         return $this->belongsTo(Country::class);
@@ -70,6 +80,11 @@ class User extends Authenticatable
     public function residenceCity()
     {
         return $this->belongsTo(ResidenceCity::class);
+    }
+
+    public function province()
+    {
+        return $this->belongsTo(Province::class);
     }
 
     public function beneficiaryBookingCosts()
@@ -117,7 +132,44 @@ class User extends Authenticatable
             return [];
         }
 
+        if ($this->resolvesPermissionsFromDefaultTemplate()) {
+            return HostPositionTitles::grantsForPositionLabel(HostPositionTitles::DEFAULT_LABEL);
+        }
+
         return HostPermissions::normalizeStored($this->host_panel_permissions);
+    }
+
+    public function usesDefaultHostPosition(): bool
+    {
+        if (!$this->isHost()) {
+            return false;
+        }
+
+        return HostPositionTitles::isDefaultPositionLabel($this->host_position_title);
+    }
+
+    public function resolvesPermissionsFromDefaultTemplate(): bool
+    {
+        if (!$this->isHost()) {
+            return false;
+        }
+
+        $title = trim((string) ($this->host_position_title ?? ''));
+
+        if ($title === HostPositionTitles::DEFAULT_LABEL) {
+            return true;
+        }
+
+        if ($title !== '') {
+            return false;
+        }
+
+        if ($this->host_panel_permissions === null) {
+            return true;
+        }
+
+        return HostPermissions::normalizeStored($this->host_panel_permissions)
+            === HostPermissions::fullAccessGrants();
     }
 
     /**
@@ -195,8 +247,34 @@ class User extends Authenticatable
             : 'میزبان';
     }
 
+    public function isProgramEmployer(): bool
+    {
+        if ($this->relationLoaded('programEmployer')) {
+            return $this->programEmployer !== null;
+        }
+
+        return $this->programEmployer()->exists();
+    }
+
+    public function isProgramBeneficiary(): bool
+    {
+        if ($this->relationLoaded('programBeneficiary')) {
+            return $this->programBeneficiary !== null;
+        }
+
+        return $this->programBeneficiary()->exists();
+    }
+
     public function roleBadgeLabel(?string $roleName = null): string
     {
+        if ($this->isProgramEmployer() && !$this->hasStaffAccess()) {
+            return 'ادارات و ارگان‌ها';
+        }
+
+        if ($this->isProgramBeneficiary() && !$this->hasStaffAccess()) {
+            return 'ذینفع';
+        }
+
         $roleName ??= $this->roles->first()?->name;
 
         return match ($roleName) {
@@ -223,7 +301,7 @@ class User extends Authenticatable
             return route('admin.dashboard');
         }
 
-        if ($this->hasHostPanelAccess('dashboard')) {
+        if (HostPermissions::grantsHaveDashboardReadAccess($this->effectiveHostPermissionGrants())) {
             return route('host.dashboard');
         }
 

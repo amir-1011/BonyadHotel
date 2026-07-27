@@ -11,6 +11,10 @@ trait ManagesDashboardAccommodationFilter
     #[Url(as: 'acc')]
     public array $selectedAccommodationIds = [];
 
+    /** Empty = all or subset via acc; "none" = explicit empty selection. */
+    #[Url(as: 'acc_filter')]
+    public string $dashboardAccommodationAccFilter = '';
+
     public bool $dashboardAccommodationAllSelected = true;
 
     /** @var array<int> */
@@ -29,8 +33,14 @@ trait ManagesDashboardAccommodationFilter
 
     protected function bootDashboardAccommodationFilter(): void
     {
-        $this->selectedAccommodationIds = $this->sanitizeDashboardAccommodationIds($this->selectedAccommodationIds);
-        $this->dashboardAccommodationAllSelected = $this->selectedAccommodationIds === [];
+        if ($this->dashboardAccommodationAccFilter === 'none') {
+            $this->dashboardAccommodationAllSelected = false;
+            $this->selectedAccommodationIds = [];
+        } else {
+            $this->selectedAccommodationIds = $this->sanitizeDashboardAccommodationIds($this->selectedAccommodationIds);
+            $this->dashboardAccommodationAllSelected = $this->selectedAccommodationIds === [];
+        }
+
         $this->syncDraftDashboardAccommodationFilter();
     }
 
@@ -131,7 +141,19 @@ trait ManagesDashboardAccommodationFilter
             ? []
             : $this->sanitizeDashboardAccommodationIds($this->draftDashboardAccommodationIds);
 
-        $this->onDashboardAccommodationFilterChanged();
+        $this->dashboardAccommodationAccFilter = (!$this->dashboardAccommodationAllSelected && $this->selectedAccommodationIds === [])
+            ? 'none'
+            : '';
+
+        $this->syncDraftDashboardAccommodationFilter();
+
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        // Deferred nested Livewire widgets break parent morphing (snapshot missing / duplicate DOM).
+        // Reload the current page via wire:navigate instead of re-rendering in place.
+        $this->redirect($this->dashboardAccommodationFilterUrl(), navigate: true);
     }
 
     public function applyDashboardAccommodationFilterFromClient(bool $allSelected, array $ids): void
@@ -231,5 +253,47 @@ trait ManagesDashboardAccommodationFilter
     {
         $this->syncDraftDashboardAccommodationFilter();
         $this->dispatch('dashboard-accommodation-filter-changed');
+    }
+
+    protected function dashboardAccommodationFilterUrl(): string
+    {
+        $pageUrl = $this->dashboardAccommodationFilterPageUrl();
+
+        $query = [];
+        $basePath = parse_url($pageUrl, PHP_URL_PATH) ?: '/';
+
+        $existingQuery = parse_url($pageUrl, PHP_URL_QUERY);
+        if (is_string($existingQuery) && $existingQuery !== '') {
+            parse_str($existingQuery, $query);
+        }
+
+        unset($query['acc'], $query['acc_filter']);
+
+        if (! $this->dashboardAccommodationAllSelected) {
+            if ($this->selectedAccommodationIds === []) {
+                $query['acc_filter'] = 'none';
+            } else {
+                $query['acc'] = $this->selectedAccommodationIds;
+            }
+        }
+
+        return $query === []
+            ? url($basePath)
+            : url($basePath).'?'.http_build_query($query);
+    }
+
+    protected function dashboardAccommodationFilterPageUrl(): string
+    {
+        foreach ([request()->headers->get('referer'), url()->previous()] as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            if (! Str::contains($candidate, '/livewire')) {
+                return $candidate;
+            }
+        }
+
+        return request()->url();
     }
 }

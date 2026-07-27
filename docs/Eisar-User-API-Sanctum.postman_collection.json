@@ -121,6 +121,14 @@
           }
         },
         {
+          "name": "Locations (Provinces + Cities)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/api/v1/locations"
+          }
+        },
+        {
           "name": "Accommodations Index",
           "request": {
             "method": "GET",

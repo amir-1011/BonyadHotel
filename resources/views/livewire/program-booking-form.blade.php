@@ -72,14 +72,26 @@
                     <label class="form-label small fw-semibold">تعداد اتاق اختصاص داده شده به این رزرو <span class="text-danger">*</span></label>
                     <input type="number" wire:model="roomsAllocated" min="1" class="form-control">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">طرف حساب <span class="text-danger">*</span></label>
-                    <input type="text" wire:model="counterparty" class="form-control @error('counterparty') is-invalid @enderror">
-                    @error('counterparty')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                </div>
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold">کارفرما</label>
-                    <input type="text" wire:model="employer" class="form-control">
+                    <label class="form-label small fw-semibold">کارفرما <span class="text-danger">*</span></label>
+                    <select wire:model="programEmployerId" class="form-select @error('programEmployerId') is-invalid @enderror">
+                        <option value="">— انتخاب کارفرما —</option>
+                        @foreach($employers as $employer)
+                            <option value="{{ $employer->id }}">{{ $employer->displayLabel() }}</option>
+                        @endforeach
+                    </select>
+                    @error('programEmployerId')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <button type="button"
+                            wire:click="openEmployerModal"
+                            class="btn btn-link btn-sm p-0 text-decoration-none mt-1"
+                            @disabled($accommodationId <= 0)>
+                        <i class="bi bi-plus-circle me-1"></i>کارفرما در لیست نیست؟ افزودن
+                    </button>
+                    @if($accommodationId <= 0)
+                    <div class="form-text text-warning small mt-1">
+                        <i class="bi bi-exclamation-triangle me-1"></i>برای افزودن کارفرما جدید، ابتدا اقامتگاه را انتخاب کنید.
+                    </div>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label small fw-semibold">پیمانکار</label>
@@ -355,9 +367,17 @@
                                 <option value="{{ $b->id }}">{{ $b->displayLabel() }}</option>
                             @endforeach
                         </select>
-                        <button type="button" wire:click="openBeneficiaryModal({{ $bi }})" class="btn btn-link btn-sm p-0 text-decoration-none mt-1">
+                        <button type="button"
+                                wire:click="openBeneficiaryModal({{ $bi }})"
+                                class="btn btn-link btn-sm p-0 text-decoration-none mt-1"
+                                @disabled($accommodationId <= 0)>
                             <i class="bi bi-plus-circle me-1"></i>ذینفع در لیست نیست؟ افزودن
                         </button>
+                        @if($accommodationId <= 0)
+                        <div class="form-text text-warning small mt-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i>برای افزودن ذینفع جدید، ابتدا اقامتگاه را انتخاب کنید.
+                        </div>
+                        @endif
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small mb-1">میزان بدهی (تومان)</label>
@@ -365,8 +385,10 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small mb-1">مدارک ضمیمه (PDF یا تصویر)</label>
-                        <input type="file" wire:model="beneficiaryRows.{{ $bi }}.documents" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" class="form-control form-control-sm">
-                        @error('beneficiaryRows.'.$bi.'.documents.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        <input type="file" wire:model="beneficiaryDocumentUploads.{{ $bi }}" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" class="form-control form-control-sm">
+                        @error('beneficiaryDocumentUploads.'.$bi)<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        @error('beneficiaryDocumentUploads.'.$bi.'.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        <div wire:loading wire:target="beneficiaryDocumentUploads.{{ $bi }}" class="small text-muted mt-1">در حال بارگذاری فایل...</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label small mb-1">توضیح</label>
@@ -397,7 +419,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info small mb-3">
-                        ذینفعان در کل سامانه یکپارچه هستند و پس از ثبت در همه اقامتگاه‌ها قابل انتخاب‌اند.
+                        ذینفعان در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان اقامتگاه انتخاب‌شده صادر می‌شود.
                     </div>
                     <div class="row g-2">
                         <div class="col-md-6">
@@ -406,9 +428,9 @@
                             @error('newBeneficiaryName')<div class="text-danger small">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small">شناسه ذینفع <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="newBeneficiaryCode" class="form-control form-control-sm">
-                            @error('newBeneficiaryCode')<div class="text-danger small">{{ $message }}</div>@enderror
+                            <label class="form-label small">کد حسابداری ذینفع</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextBeneficiaryCode() }}" readonly dir="ltr">
+                            <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۱</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>
@@ -434,6 +456,58 @@
     @endif
     @endif
 
+    @if($showAddEmployer)
+    <div class="modal-backdrop fade show" style="z-index:1080;"></div>
+    <div class="modal fade show" style="display:block;z-index:1085;" tabindex="-1" role="dialog" wire:keydown.escape="closeEmployerModal">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-top:4px solid #0ea5e9;">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-info-subtle" style="width:36px;height:36px;">
+                            <i class="bi bi-building-add text-info"></i>
+                        </span>
+                        افزودن کارفرما جدید
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeEmployerModal" aria-label="بستن"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">
+                        کارفرمایان (ادارات و ارگان‌ها) در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان اقامتگاه انتخاب‌شده صادر می‌شود.
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">نام کارفرما <span class="text-danger">*</span></label>
+                            <input type="text" wire:model="newEmployerName" class="form-control form-control-sm">
+                            @error('newEmployerName')<div class="text-danger small">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">کد حسابداری کارفرما</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextEmployerCode() }}" readonly dir="ltr">
+                            <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۴</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>
+                            <input type="text" wire:model="newEmployerNationalId" class="form-control form-control-sm">
+                            @error('newEmployerNationalId')<div class="text-danger small">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">شماره همراه <span class="text-danger">*</span></label>
+                            <input type="text" wire:model="newEmployerMobile" class="form-control form-control-sm" placeholder="09xxxxxxxxx">
+                            @error('newEmployerMobile')<div class="text-danger small">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" wire:click="closeEmployerModal" class="btn btn-outline-secondary">انصراف</button>
+                    <button type="button" wire:click="addEmployerToCatalog" class="btn btn-info text-white">
+                        <i class="bi bi-check-lg me-1"></i>ذخیره و انتخاب
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Step 7 — Confirmation --}}
     @if($step === 7 && $createdProgram)
     <div class="card shadow-sm border-success">
@@ -446,9 +520,6 @@
             @endif
             <div class="d-flex justify-content-center gap-2 flex-wrap">
                 <a wire:navigate href="{{ route($showRoute, $createdProgram) }}" class="btn btn-primary">مشاهده برنامه</a>
-                @if($createdProgram->booking)
-                <a wire:navigate href="{{ route($panel === 'admin' ? 'admin.bookings.show' : 'host.bookings.show', $createdProgram->booking) }}" class="btn btn-outline-primary">مشاهده رزرو</a>
-                @endif
                 <a wire:navigate href="{{ route($indexRoute) }}" class="btn btn-outline-secondary">بازگشت به لیست</a>
             </div>
         </div>

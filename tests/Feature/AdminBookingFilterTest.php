@@ -48,15 +48,9 @@ class AdminBookingFilterTest extends TestCase
         ]);
         $this->admin->assignRole('super_admin');
 
-        $provinceId = DB::table('provinces')->insertGetId([
-            'name' => 'استان تست', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $this->cityAId = DB::table('cities')->insertGetId([
-            'province_id' => $provinceId, 'name' => 'شهر الف', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $this->cityBId = DB::table('cities')->insertGetId([
-            'province_id' => $provinceId, 'name' => 'شهر ب', 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $provinceId = $this->ensureTestProvinceId();
+        $this->cityAId = $this->ensureTestCityId($provinceId, 'شهر الف');
+        $this->cityBId = $this->ensureTestCityId($provinceId, 'شهر ب');
 
         $this->accommodationA = Accommodation::create([
             'city_id'         => $this->cityAId,

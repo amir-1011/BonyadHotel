@@ -198,12 +198,16 @@ class RoomStatusBoardService
         if ($isRoomBlocked) {
             $status = 'blocked';
         } elseif ($current) {
-            $status = 'occupied';
+            $status = $this->isProgramBookingLine($current) ? 'program_occupied' : 'occupied';
         } elseif ($capacityClosed) {
             $status = 'capacity_closed';
         } else {
             $status = 'available';
         }
+
+        $hasFutureProgram = $future->isNotEmpty()
+            && $this->isProgramBookingLine($future->first())
+            && $status === 'available';
 
         return [
             'id'              => $room->id,
@@ -217,6 +221,7 @@ class RoomStatusBoardService
             'status_label' => $this->statusLabel($status),
             'color'        => $this->statusColor($status),
             'has_future'   => $future->isNotEmpty() && $status === 'available',
+            'has_future_program' => $hasFutureProgram,
             'block_reason' => $isRoomBlocked ? ($blockReason ?: 'مسدود توسط میزبان') : null,
             'current_booking' => $current ? $this->formatBookingLine($current) : null,
             'future_bookings' => $future->map(fn (BookingRoom $l) => $this->formatBookingLine($l))->all(),
@@ -239,28 +244,37 @@ class RoomStatusBoardService
             'room_rate'     => $line->roomRate?->name,
             'status'        => $booking->status,
             'status_label'  => $booking->statusLabel(),
+            'booking_source'=> $booking->booking_source,
+            'is_program'    => $booking->booking_source === 'program',
         ];
+    }
+
+    private function isProgramBookingLine(BookingRoom $line): bool
+    {
+        return $line->booking?->booking_source === 'program';
     }
 
     private function statusLabel(string $status): string
     {
         return match ($status) {
-            'available'       => 'آزاد',
-            'occupied'        => 'مهمان فعلی',
-            'blocked'         => 'مسدود',
-            'capacity_closed' => 'بسته (سیاست قیمتی)',
-            default           => $status,
+            'available'         => 'آزاد',
+            'occupied'          => 'مهمان فعلی',
+            'program_occupied'  => 'اردو / برنامه',
+            'blocked'           => 'مسدود',
+            'capacity_closed'   => 'بسته (سیاست قیمتی)',
+            default             => $status,
         };
     }
 
     private function statusColor(string $status): string
     {
         return match ($status) {
-            'available'       => 'success',
-            'occupied'        => 'primary',
-            'blocked'         => 'danger',
-            'capacity_closed' => 'warning',
-            default           => 'secondary',
+            'available'         => 'success',
+            'occupied'          => 'primary',
+            'program_occupied'  => 'purple',
+            'blocked'           => 'danger',
+            'capacity_closed'   => 'warning',
+            default             => 'secondary',
         };
     }
 }

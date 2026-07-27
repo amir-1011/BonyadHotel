@@ -24,6 +24,14 @@ class AdminUserRoleFilterCatalog
             $options[] = ['value' => 'guest', 'label' => 'مهمان'];
         }
 
+        if (User::query()->whereHas('programBeneficiary')->exists()) {
+            $options[] = ['value' => 'beneficiary', 'label' => 'ذینفع'];
+        }
+
+        if (User::query()->whereHas('programEmployer')->exists()) {
+            $options[] = ['value' => 'employer', 'label' => 'ادارات و ارگان‌ها'];
+        }
+
         foreach (Role::query()->whereHas('users')->orderBy('name')->get() as $role) {
             if (in_array($role->name, ['host', 'guest'], true)) {
                 continue;
@@ -44,6 +52,10 @@ class AdminUserRoleFilterCatalog
             ->pluck('host_position_title');
 
         foreach ($hostTitles as $title) {
+            if ($title === HostPositionTitles::DEFAULT_LABEL) {
+                continue;
+            }
+
             $options[] = [
                 'value' => 'host_position:' . $title,
                 'label' => (string) $title,
@@ -51,12 +63,27 @@ class AdminUserRoleFilterCatalog
         }
 
         if (User::query()->role('host')->where(function ($query) {
-            $query->whereNull('host_position_title')->orWhere('host_position_title', '');
+            $query->whereNull('host_position_title')
+                ->orWhere('host_position_title', '')
+                ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
         })->exists()) {
-            $options[] = ['value' => 'host', 'label' => 'میزبان'];
+            $options[] = ['value' => 'host', 'label' => HostPositionTitles::DEFAULT_LABEL];
         }
 
         return self::uniqueByValue($options);
+    }
+
+    /**
+     * Role tab options for the «نقش‌ها» section (excludes guest and super_admin).
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function roleTabOptions(): array
+    {
+        return array_values(array_filter(
+            self::options(),
+            fn (array $option) => !in_array($option['value'], ['guest', 'super_admin'], true),
+        ));
     }
 
     public static function hasGuestUsers(): bool

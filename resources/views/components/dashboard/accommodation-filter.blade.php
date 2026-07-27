@@ -94,9 +94,9 @@
     .dashboard-acc-filter .dropdown-menu,
     .dashboard-acc-filter .dropdown-menu.show {
         z-index: 1065 !important;
-        width: min(360px, calc(100vw - var(--ta-sidebar-w, 290px) - 24px));
-        min-width: min(300px, calc(100vw - var(--ta-sidebar-w, 290px) - 24px));
-        max-width: calc(100vw - var(--ta-sidebar-w, 290px) - 24px);
+        width: min(360px, calc(100vw - var(--ta-sidebar-w, 250px) - 24px));
+        min-width: min(300px, calc(100vw - var(--ta-sidebar-w, 250px) - 24px));
+        max-width: calc(100vw - var(--ta-sidebar-w, 250px) - 24px);
     }
 
     @media (min-width: 992px) {

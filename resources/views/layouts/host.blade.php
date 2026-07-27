@@ -1,16 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fa" dir="rtl" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'پنل میزبان') | سامانه رزرو</title>
-    <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/tailadmin/tailadmin.css') }}">
+    <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ vasset('logo/site-logo.png') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/tailadmin/tailadmin.css') }}">
     <style>
         body { font-family: 'Vazirmatn', sans-serif; }
         .ta-sidebar { height: 100vh; overflow: hidden; }
@@ -20,7 +20,7 @@
     </style>
     {{-- Anti-flash: apply saved theme before first paint --}}
     <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
-    <link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/persian-datepicker/persian-datepicker.min.css') }}">
     <style>
         .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; }
     </style>
@@ -55,7 +55,7 @@
 
     <nav class="ta-sidebar__nav">
         <div class="ta-sidebar__section">منو</div>
-        @if($hostUser->hasHostPanelAccess('dashboard'))
+        @if(\App\Support\HostPermissions::grantsHaveDashboardReadAccess($hostUser->effectiveHostPermissionGrants()))
         <a href="{{ route('host.dashboard') }}" wire:navigate data-label="داشبورد"
            class="ta-nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
             <i class="bi bi-grid-1x2-fill"></i><span class="ta-nav-link__label">داشبورد</span>
@@ -218,11 +218,11 @@
     @endif
 </div>
 
-<script src="{{ asset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
 <script type="module" src="{{ Vite::asset('resources/js/bootstrap-collapse-navigate.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
 <script type="module" src="{{ Vite::asset('resources/js/jalali-date-today.js') }}" data-navigate-once></script>
 <script src="{{ Vite::asset('resources/js/cancellation-settle-datepicker.js') }}" data-navigate-once></script>
 <script data-navigate-once>

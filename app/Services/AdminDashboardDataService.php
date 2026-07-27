@@ -13,29 +13,30 @@ class AdminDashboardDataService
 {
     /**
      * @param  array<int>|null  $accommodationIds  Null means all accommodations.
-     * @return array<string, mixed>
+     * @return array{stats: array<string, int|float>, monthlyRevenue: \Illuminate\Support\Collection}
      */
-    public function build(?array $accommodationIds = null): array
+    public function buildOverviewStats(?array $accommodationIds = null): array
     {
-        $scoped = $this->normalizeScope($accommodationIds);
-        $hasScope = $scoped !== null;
+        return $this->buildOverviewStatsFromScopes($this->scopedQueries($accommodationIds));
+    }
 
-        $bookingQuery = Booking::query();
-        if ($hasScope) {
-            $bookingQuery->whereIn('accommodation_id', $scoped);
-        }
+    /**
+     * @param  array{
+     *     scoped: array<int>|null,
+     *     hasScope: bool,
+     *     bookingQuery: \Illuminate\Database\Eloquent\Builder,
+     *     accommodationQuery: \Illuminate\Database\Eloquent\Builder
+     * }  $scopes
+     * @return array{stats: array<string, int|float>, monthlyRevenue: \Illuminate\Support\Collection}
+     */
+    private function buildOverviewStatsFromScopes(array $scopes): array
+    {
+        ['hasScope' => $hasScope, 'scoped' => $scoped, 'bookingQuery' => $bookingQuery, 'accommodationQuery' => $accommodationQuery] = $scopes;
 
-        $accommodationQuery = Accommodation::query();
-        if ($hasScope) {
-            $accommodationQuery->whereIn('id', $scoped);
-        }
-
-        // Single aggregate query instead of 2 separate COUNT queries for accommodations.
         $accAggregate = (clone $accommodationQuery)
             ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
             ->first();
 
-        // Single aggregate query instead of 4 separate COUNT/SUM queries for bookings.
         $bookingAggregate = (clone $bookingQuery)
             ->selectRaw(
                 "COUNT(*) as total, ".
@@ -62,6 +63,37 @@ class AdminDashboardDataService
                 : Review::count(),
         ];
 
+        $driver = DB::getDriverName();
+        $monthExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            'pgsql'  => "to_char(created_at, 'YYYY-MM')",
+            default  => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
+
+        $monthlyRevenue = (clone $bookingQuery)
+            ->where('status', 'confirmed')
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->selectRaw("{$monthExpr} as month, SUM(total_price) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        return compact('stats', 'monthlyRevenue');
+    }
+
+    /**
+     * @param  array<int>|null  $accommodationIds  Null means all accommodations.
+     * @return array<string, mixed>
+     */
+    public function build(?array $accommodationIds = null): array
+    {
+        $scopes = $this->scopedQueries($accommodationIds);
+        ['hasScope' => $hasScope, 'scoped' => $scoped, 'bookingQuery' => $bookingQuery, 'accommodationQuery' => $accommodationQuery] = $scopes;
+
+        $overview = $this->buildOverviewStatsFromScopes($scopes);
+        $stats = $overview['stats'];
+        $monthlyRevenue = $overview['monthlyRevenue'];
+
         $recentBookings = (clone $bookingQuery)
             ->with('user', 'accommodation.city')
             ->latest()
@@ -78,19 +110,6 @@ class AdminDashboardDataService
             ->get();
 
         $driver = DB::getDriverName();
-        $monthExpr = match ($driver) {
-            'sqlite' => "strftime('%Y-%m', created_at)",
-            'pgsql'  => "to_char(created_at, 'YYYY-MM')",
-            default  => "DATE_FORMAT(created_at, '%Y-%m')",
-        };
-
-        $monthlyRevenue = (clone $bookingQuery)
-            ->where('status', 'confirmed')
-            ->where('created_at', '>=', now()->subMonths(6))
-            ->selectRaw("{$monthExpr} as month, SUM(total_price) as total")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
 
         $accommodationsSales = (clone $accommodationQuery)
             ->with('city.province')
@@ -219,6 +238,33 @@ class AdminDashboardDataService
             ->orderByDesc('bookings')
             ->limit(8)
             ->get();
+    }
+
+    /**
+     * @param  array<int>|null  $accommodationIds
+     * @return array{
+     *     scoped: array<int>|null,
+     *     hasScope: bool,
+     *     bookingQuery: \Illuminate\Database\Eloquent\Builder,
+     *     accommodationQuery: \Illuminate\Database\Eloquent\Builder
+     * }
+     */
+    private function scopedQueries(?array $accommodationIds): array
+    {
+        $scoped = $this->normalizeScope($accommodationIds);
+        $hasScope = $scoped !== null;
+
+        $bookingQuery = Booking::query();
+        if ($hasScope) {
+            $bookingQuery->whereIn('accommodation_id', $scoped);
+        }
+
+        $accommodationQuery = Accommodation::query();
+        if ($hasScope) {
+            $accommodationQuery->whereIn('id', $scoped);
+        }
+
+        return compact('scoped', 'hasScope', 'bookingQuery', 'accommodationQuery');
     }
 
     /**

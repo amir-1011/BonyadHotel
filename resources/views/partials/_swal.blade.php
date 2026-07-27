@@ -1,4 +1,4 @@
-{{--
+﻿{{--
     ██████████████████████████████████████████████████████████
     GLOBAL SWEETALERT2 — TOASTS + CONFIRMATIONS
     Included once in all 3 layouts (admin, host, app).
@@ -13,8 +13,8 @@
 --}}
 
 {{-- SweetAlert2 (vendor copy; ~100KB one-time download, cached thereafter) --}}
-<link rel="stylesheet" href="{{ asset('vendor/sweetalert2/sweetalert2.min.css') }}">
-<script src="{{ asset('vendor/sweetalert2/sweetalert2.min.js') }}"></script>
+<link rel="stylesheet" href="{{ vasset('vendor/sweetalert2/sweetalert2.min.css') }}">
+<script src="{{ vasset('vendor/sweetalert2/sweetalert2.min.js') }}"></script>
 
 <style>
 /* ── BNB Toast — LinkedIn-inspired notification card ───────── */

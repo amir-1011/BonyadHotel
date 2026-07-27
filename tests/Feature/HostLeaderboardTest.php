@@ -33,12 +33,8 @@ class HostLeaderboardTest extends TestCase
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
-        $provinceId = DB::table('provinces')->insertGetId([
-            'name' => 'استان تست', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $cityId = DB::table('cities')->insertGetId([
-            'province_id' => $provinceId, 'name' => 'شهر تست', 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $provinceId = $this->ensureTestProvinceId();
+        $cityId = $this->ensureTestCityId($provinceId);
 
         $this->hostA = User::create(['name' => 'میزبان آلفا', 'mobile' => '09121000001']);
         $this->hostA->assignRole('host');

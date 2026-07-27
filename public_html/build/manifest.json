@@ -8,8 +8,14 @@
       "app.css"
     ]
   },
+  "resources/js/admin-overview-stats.js": {
+    "file": "assets/admin-overview-stats-D45SX1-N.js",
+    "name": "admin-overview-stats",
+    "src": "resources/js/admin-overview-stats.js",
+    "isEntry": true
+  },
   "resources/js/app.js": {
-    "file": "assets/app-CrzEotQg.js",
+    "file": "assets/app-C4PhwqSu.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -39,7 +45,7 @@
     "isEntry": true
   },
   "resources/js/dashboard-accommodation-filter.js": {
-    "file": "assets/dashboard-accommodation-filter-C6B4m80s.js",
+    "file": "assets/dashboard-accommodation-filter-XoFAl_CT.js",
     "name": "dashboard-accommodation-filter",
     "src": "resources/js/dashboard-accommodation-filter.js",
     "isEntry": true

@@ -36,9 +36,8 @@ class ProgramFilter
             $s = trim((string) $this->filters['search']);
             $query->where(function ($w) use ($s) {
                 $w->where('title', 'like', "%{$s}%")
-                    ->orWhere('counterparty', 'like', "%{$s}%")
-                    ->orWhere('employer', 'like', "%{$s}%")
                     ->orWhere('contractor', 'like', "%{$s}%")
+                    ->orWhereHas('employer', fn ($q) => $q->where('name', 'like', "%{$s}%")->orWhere('employer_code', 'like', "%{$s}%"))
                     ->orWhereHas('accommodation', fn ($q) => $q->where('name', 'like', "%{$s}%"))
                     ->orWhereHas('booking', fn ($q) => $q->where('tracking_code', 'like', "%{$s}%"));
             });
@@ -63,16 +62,12 @@ class ProgramFilter
             }
         }
 
-        if (!empty($this->filters['employer'])) {
-            $query->where('employer', 'like', '%' . trim((string) $this->filters['employer']) . '%');
+        if (!empty($this->filters['employer_id'])) {
+            $query->where('program_employer_id', (int) $this->filters['employer_id']);
         }
 
         if (!empty($this->filters['contractor'])) {
             $query->where('contractor', 'like', '%' . trim((string) $this->filters['contractor']) . '%');
-        }
-
-        if (!empty($this->filters['counterparty'])) {
-            $query->where('counterparty', 'like', '%' . trim((string) $this->filters['counterparty']) . '%');
         }
 
         if (!empty($this->filters['start_from']) && ($d = $this->toGregorian((string) $this->filters['start_from']))) {
@@ -145,9 +140,8 @@ class ProgramFilter
             'program_type'     => $this->filters['program_type'] ?? '',
             'payment_type'     => $this->filters['payment_type'] ?? '',
             'accommodation_id' => $this->filters['accommodation_id'] ?? '',
-            'employer'         => $this->filters['employer'] ?? '',
+            'employer_id'      => $this->filters['employer_id'] ?? '',
             'contractor'       => $this->filters['contractor'] ?? '',
-            'counterparty'     => $this->filters['counterparty'] ?? '',
             'start_from'       => $this->filters['start_from'] ?? '',
             'start_to'         => $this->filters['start_to'] ?? '',
             'end_from'         => $this->filters['end_from'] ?? '',

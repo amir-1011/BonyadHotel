@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\Admin\HostCreate;
 use App\Models\Accommodation;
+use App\Models\HostPositionTitle;
 use App\Models\User;
 use App\Support\HostPermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,8 +28,8 @@ class AdminHostCreateTest extends TestCase
 
     private function createAccommodation(string $name = 'اقامتگاه تست'): Accommodation
     {
-        $provinceId = DB::table('provinces')->insertGetId(['name' => 'استان تست', 'created_at' => now(), 'updated_at' => now()]);
-        $cityId = DB::table('cities')->insertGetId(['province_id' => $provinceId, 'name' => 'شهر تست', 'created_at' => now(), 'updated_at' => now()]);
+        $provinceId = $this->ensureTestProvinceId();
+        $cityId = $this->ensureTestCityId($provinceId);
 
         return Accommodation::create([
             'city_id'         => $cityId,
@@ -40,14 +41,34 @@ class AdminHostCreateTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_create_host_with_full_details(): void
+    private function admin(): User
     {
         $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
         $admin->assignRole('super_admin');
 
+        return $admin;
+    }
+
+    public function test_admin_can_create_host_with_position_template_permissions(): void
+    {
+        $grants = [
+            'dashboard'           => ['read'],
+            'accommodations.list' => ['read'],
+            'bookings.list'       => ['read'],
+        ];
+
+        HostPositionTitle::query()->updateOrCreate(
+            ['label' => 'مدیر مالی'],
+            [
+                'is_system'              => true,
+                'sort_order'             => 5,
+                'host_panel_permissions' => $grants,
+            ],
+        );
+
         $accommodation = $this->createAccommodation();
 
-        $this->actingAs($admin);
+        $this->actingAs($this->admin());
 
         Livewire::test(HostCreate::class)
             ->set('name', 'میزبان جدید')
@@ -55,11 +76,7 @@ class AdminHostCreateTest extends TestCase
             ->set('nationalId', '1110000001')
             ->set('hostPassword', 'secret12')
             ->set('hostPassword_confirmation', 'secret12')
-            ->set('hostPermissionForm', HostPermissions::grantsToFormState([
-                'dashboard'          => ['read'],
-                'accommodations.list'=> ['read'],
-                'bookings.list'      => ['read'],
-            ]))
+            ->set('hostPositionPreset', 'مدیر مالی')
             ->set('selectedAccommodationIds', [$accommodation->id])
             ->call('save')
             ->assertHasNoErrors()
@@ -71,21 +88,74 @@ class AdminHostCreateTest extends TestCase
         $this->assertTrue($host->isHost());
         $this->assertSame('میزبان جدید', $host->name);
         $this->assertTrue(Hash::check('secret12', $host->password));
-        $this->assertNotNull($host->mobile_verified_at);
-        $this->assertSame([
-            'dashboard'           => ['read'],
-            'accommodations.list' => ['read'],
-            'bookings.list'       => ['read'],
-        ], $host->host_panel_permissions);
+        $this->assertSame('مدیر مالی', $host->host_position_title);
+        $this->assertSame(HostPermissions::normalizeStored($grants), $host->host_panel_permissions);
         $this->assertTrue($host->accommodations()->where('accommodations.id', $accommodation->id)->exists());
     }
 
-    public function test_admin_can_create_host_with_custom_position_title(): void
+    public function test_admin_can_create_host_without_position_gets_default_permissions(): void
     {
-        $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
-        $admin->assignRole('super_admin');
+        $accommodation = $this->createAccommodation();
 
-        $this->actingAs($admin);
+        $this->actingAs($this->admin());
+
+        Livewire::test(HostCreate::class)
+            ->set('name', 'میزبان بدون سمت')
+            ->set('mobile', '09120000002')
+            ->set('hostPassword', 'secret12')
+            ->set('hostPassword_confirmation', 'secret12')
+            ->set('selectedAccommodationIds', [$accommodation->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $host = User::where('mobile', '09120000002')->first();
+
+        $this->assertSame('میزبان', $host->host_position_title);
+        $this->assertSame(HostPermissions::defaults(), $host->host_panel_permissions);
+        $this->assertSame('515701', $host->personnel_code);
+    }
+
+    public function test_admin_can_create_host_with_default_position_template(): void
+    {
+        $grants = [
+            'dashboard.overview' => ['read'],
+            'bookings.list'    => ['read'],
+        ];
+
+        HostPositionTitle::query()->updateOrCreate(
+            ['label' => 'میزبان'],
+            [
+                'is_system'              => true,
+                'sort_order'             => 0,
+                'host_panel_permissions' => $grants,
+            ],
+        );
+
+        $accommodation = $this->createAccommodation();
+
+        $this->actingAs($this->admin());
+
+        Livewire::test(HostCreate::class)
+            ->set('name', 'میزبان با سمت پیش‌فرض')
+            ->set('mobile', '09120000003')
+            ->set('hostPassword', 'secret12')
+            ->set('hostPassword_confirmation', 'secret12')
+            ->set('hostPositionPreset', 'میزبان')
+            ->set('selectedAccommodationIds', [$accommodation->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $host = User::where('mobile', '09120000003')->first();
+
+        $this->assertSame('میزبان', $host->host_position_title);
+        $this->assertSame(HostPermissions::normalizeStored($grants), $host->host_panel_permissions);
+    }
+
+    public function test_admin_can_create_host_with_existing_position_label(): void
+    {
+        $accommodation = $this->createAccommodation();
+
+        $this->actingAs($this->admin());
 
         Livewire::test(HostCreate::class)
             ->set('name', 'کاربر تست')
@@ -93,6 +163,7 @@ class AdminHostCreateTest extends TestCase
             ->set('hostPassword', 'secret12')
             ->set('hostPassword_confirmation', 'secret12')
             ->set('hostPositionPreset', 'مدیر مالی')
+            ->set('selectedAccommodationIds', [$accommodation->id])
             ->call('save')
             ->assertHasNoErrors();
 
@@ -102,58 +173,11 @@ class AdminHostCreateTest extends TestCase
         $this->assertSame('مدیر مالی', $host->hostRoleLabel());
     }
 
-    public function test_admin_can_create_host_with_manual_position_title(): void
-    {
-        $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
-        $admin->assignRole('super_admin');
-
-        $this->actingAs($admin);
-
-        Livewire::test(HostCreate::class)
-            ->set('name', 'کاربر تست')
-            ->set('mobile', '09120000098')
-            ->set('hostPassword', 'secret12')
-            ->set('hostPassword_confirmation', 'secret12')
-            ->set('newHostPositionTitle', 'سرپرست شیفت')
-            ->call('addHostPosition')
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $host = User::where('mobile', '09120000098')->first();
-
-        $this->assertSame('سرپرست شیفت', $host->host_position_title);
-        $this->assertSame('سرپرست شیفت', $host->hostRoleLabel());
-        $this->assertDatabaseHas('host_position_titles', ['label' => 'سرپرست شیفت']);
-    }
-
-    public function test_added_host_position_persists_in_catalog_for_next_form(): void
-    {
-        $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
-        $admin->assignRole('super_admin');
-
-        $this->actingAs($admin);
-
-        Livewire::test(HostCreate::class)
-            ->set('newHostPositionTitle', 'سمت دائمی')
-            ->call('addHostPosition')
-            ->assertSet('hostPositionPreset', 'سمت دائمی');
-
-        $this->assertDatabaseHas('host_position_titles', ['label' => 'سمت دائمی']);
-
-        Livewire::test(HostCreate::class)
-            ->assertViewHas('hostPositionOptions', function (array $options): bool {
-                return in_array('سمت دائمی', $options, true);
-            });
-    }
-
     public function test_duplicate_mobile_is_rejected(): void
     {
-        $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
-        $admin->assignRole('super_admin');
-
         User::create(['name' => 'موجود', 'mobile' => '09120000002']);
 
-        $this->actingAs($admin);
+        $this->actingAs($this->admin());
 
         Livewire::test(HostCreate::class)
             ->set('name', 'میزبان')

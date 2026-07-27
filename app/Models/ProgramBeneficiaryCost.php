@@ -31,4 +31,10 @@ class ProgramBeneficiaryCost extends Model
     {
         return $this->belongsTo(ProgramBeneficiary::class, 'program_beneficiary_id');
     }
+
+    /** @return list<string> */
+    public function documentPaths(): array
+    {
+        return \App\Support\ProgramDocumentPaths::normalize($this->documents);
+    }
 }

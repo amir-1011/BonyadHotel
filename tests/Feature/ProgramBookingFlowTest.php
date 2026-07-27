@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use App\Models\Program;
+use App\Models\ProgramEmployer;
 use App\Models\Room;
 use App\Models\RoomRate;
 use App\Models\RoomType;
@@ -26,6 +27,7 @@ class ProgramBookingFlowTest extends TestCase
     private RoomRate $roomRate;
     private Room $room;
     private User $hostUser;
+    private ProgramEmployer $employer;
 
     protected function setUp(): void
     {
@@ -60,6 +62,13 @@ class ProgramBookingFlowTest extends TestCase
         ]);
         $this->hostUser->assignRole('host');
         $this->accommodation->hosts()->attach($this->hostUser->id);
+
+        $this->employer = ProgramEmployer::create([
+            'name'                    => 'کارفرمای تست',
+            'employer_code'           => 'EMP-TEST-01',
+            'national_or_economic_id' => '5566778899',
+            'mobile'                  => '09125556677',
+        ]);
     }
 
     public function test_program_booking_service_creates_linked_booking_and_program(): void
@@ -81,8 +90,7 @@ class ProgramBookingFlowTest extends TestCase
                 'title'           => 'اردوی تست',
                 'description'     => 'توضیح تست',
                 'program_type'    => Program::TYPE_CAMP,
-                'counterparty'    => 'سازمان تست',
-                'employer'        => 'کارفرمای تست',
+                'program_employer_id' => $this->employer->id,
                 'contractor'      => 'پیمانکار تست',
                 'guest_count'     => 20,
                 'rooms_allocated' => 1,
@@ -138,7 +146,7 @@ class ProgramBookingFlowTest extends TestCase
             [
                 'title'        => 'رویداد فیلتر',
                 'program_type' => Program::TYPE_EVENT,
-                'counterparty' => 'طرف ۱',
+                'program_employer_id' => $this->employer->id,
                 'guest_count'  => 5,
                 'rooms_allocated' => 1,
                 'check_in'     => $checkIn,
@@ -178,7 +186,7 @@ class ProgramBookingFlowTest extends TestCase
             [
                 'title'           => 'اردوی مهمان',
                 'program_type'    => Program::TYPE_CAMP,
-                'counterparty'    => 'سازمان تست',
+                'program_employer_id' => $this->employer->id,
                 'guest_count'     => 3,
                 'rooms_allocated' => 2,
                 'check_in'        => $checkIn,
@@ -257,7 +265,7 @@ class ProgramBookingFlowTest extends TestCase
             [
                 'title'                => 'اردوی لیست مهمان',
                 'program_type'         => Program::TYPE_CAMP,
-                'counterparty'         => 'سازمان تست',
+                'program_employer_id'  => $this->employer->id,
                 'guest_count'          => 5,
                 'rooms_allocated'      => 1,
                 'check_in'             => $checkIn,
@@ -315,7 +323,7 @@ class ProgramBookingFlowTest extends TestCase
             [
                 'title'             => 'اردوی مدارک',
                 'program_type'      => Program::TYPE_CAMP,
-                'counterparty'      => 'سازمان تست',
+                'program_employer_id' => $this->employer->id,
                 'guest_count'       => 1,
                 'rooms_allocated'   => 1,
                 'check_in'          => $checkIn,

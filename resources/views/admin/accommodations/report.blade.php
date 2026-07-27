@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
 @section('pageTitle')
 گزارش فروش — {{ $accommodation->name }}
@@ -271,7 +271,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
+<script src="{{ vasset('vendor/apexcharts/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     const persianNum = v => new Intl.NumberFormat('fa-IR').format(v);

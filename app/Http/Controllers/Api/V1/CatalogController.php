@@ -15,6 +15,25 @@ class CatalogController extends Controller
         return response()->json(['data' => $cities]);
     }
 
+    public function locations(): JsonResponse
+    {
+        $provinces = Province::query()
+            ->with(['cities' => fn ($query) => $query->orderBy('name')->select('id', 'name', 'province_id')])
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Province $province) => [
+                'id' => $province->id,
+                'name' => $province->name,
+                'cities' => $province->cities->map(fn ($city) => [
+                    'id' => $city->id,
+                    'name' => $city->name,
+                ])->values(),
+            ])
+            ->values();
+
+        return response()->json(['data' => $provinces]);
+    }
+
     public function provinces(): JsonResponse
     {
         $provinces = Province::orderBy('name')->get(['id', 'name']);

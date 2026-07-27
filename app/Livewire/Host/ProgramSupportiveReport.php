@@ -35,8 +35,8 @@ class ProgramSupportiveReport extends Component
             ->where('payment_type', Program::PAYMENT_SUPPORTIVE)
             ->where('status', '!=', Program::STATUS_CANCELLED)
             ->whereHas('booking', fn ($q) => $q->whereBetween('check_in', [$startDate, $endDate]))
-            ->with('accommodation')
-            ->latest('start_date')
+            ->with(['accommodation', 'booking', 'employer'])
+            ->latest('id')
             ->get();
 
         $totalDiscount  = $programs->sum('discount_amount');

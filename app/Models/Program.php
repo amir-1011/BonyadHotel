@@ -27,8 +27,7 @@ class Program extends Model
         'title',
         'description',
         'program_type',
-        'counterparty',
-        'employer',
+        'program_employer_id',
         'contractor',
         'guest_count',
         'rooms_allocated',
@@ -70,6 +69,11 @@ class Program extends Model
     public function beneficiaryCosts(): HasMany
     {
         return $this->hasMany(ProgramBeneficiaryCost::class);
+    }
+
+    public function employer(): BelongsTo
+    {
+        return $this->belongsTo(ProgramEmployer::class, 'program_employer_id');
     }
 
     public function statusLabel(): string

@@ -7,37 +7,11 @@ use App\Support\HostPositionTitles;
 
 trait ManagesHostPositionForm
 {
-    public string $hostPositionPreset = '';
-
-    public bool $showAddHostPosition = false;
-
-    public string $newHostPositionTitle = '';
+    public string $hostPositionPreset = HostPositionTitles::DEFAULT_LABEL;
 
     protected function mountHostPositionForm(?User $user = null): void
     {
         $this->hostPositionPreset = HostPositionTitles::formStateFromStored($user?->host_position_title);
-    }
-
-    public function toggleAddHostPosition(): void
-    {
-        $this->showAddHostPosition = !$this->showAddHostPosition;
-        $this->newHostPositionTitle = '';
-        $this->resetErrorBag('newHostPositionTitle');
-    }
-
-    public function addHostPosition(): void
-    {
-        $this->validate([
-            'newHostPositionTitle' => ['required', 'string', 'max:100'],
-        ], [
-            'newHostPositionTitle.required' => 'نام سمت را وارد کنید.',
-        ]);
-
-        $this->hostPositionPreset = HostPositionTitles::remember($this->newHostPositionTitle);
-        $this->showAddHostPosition = false;
-        $this->newHostPositionTitle = '';
-
-        $this->dispatch('toast', type: 'success', message: 'سمت به فهرست اضافه و انتخاب شد.');
     }
 
     protected function resolvedHostPositionTitle(): ?string

@@ -2,12 +2,11 @@
 
 namespace App\Livewire\Admin;
 
-use App\Livewire\Concerns\ManagesHostPermissionForm;
 use App\Livewire\Concerns\ManagesHostPositionForm;
 use App\Models\Accommodation;
 use App\Models\User;
+use App\Services\HostPersonnelCodeProvisioner;
 use App\Services\NationalIdVerificationService;
-use App\Support\HostPermissions;
 use App\Support\HostPositionTitles;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -16,7 +15,6 @@ use Livewire\Component;
 #[Layout('layouts.admin', ['title' => 'افزودن میزبان', 'pageTitle' => 'افزودن میزبان'])]
 class HostCreate extends Component
 {
-    use ManagesHostPermissionForm;
     use ManagesHostPositionForm;
 
     public string $name                        = '';
@@ -28,8 +26,29 @@ class HostCreate extends Component
 
     public function mount(): void
     {
-        $this->mountHostPermissionForm();
         $this->mountHostPositionForm();
+    }
+
+    public function updatedSelectedAccommodationIds(): void
+    {
+        $this->selectedAccommodationIds = array_values(array_unique(array_map('intval', $this->selectedAccommodationIds)));
+    }
+
+    public function previewNextPersonnelCode(): string
+    {
+        $accommodation = $this->firstSelectedAccommodation();
+
+        $preview = app(HostPersonnelCodeProvisioner::class)->previewNextForAccommodation($accommodation);
+
+        return $preview ?? '—';
+    }
+
+    public function previewPersonnelProvinceLabel(): string
+    {
+        $accommodation = $this->firstSelectedAccommodation();
+        $province = $accommodation?->resolvedProvince();
+
+        return $province?->displayLabel() ?? 'ابتدا یک اقامتگاه انتخاب کنید';
     }
 
     public function save(): void
@@ -43,7 +62,7 @@ class HostCreate extends Component
             'nationalId'                => ['nullable', 'digits:10', 'unique:users,national_id'],
             'hostPassword'              => ['required', 'string', 'min:6', 'confirmed'],
             'hostPassword_confirmation' => ['required'],
-            'selectedAccommodationIds'  => ['nullable', 'array'],
+            'selectedAccommodationIds'  => ['required', 'array', 'min:1'],
             'selectedAccommodationIds.*'=> ['integer', 'exists:accommodations,id'],
         ], [
             'name.required'                  => 'نام میزبان الزامی است.',
@@ -55,22 +74,33 @@ class HostCreate extends Component
             'hostPassword.required'          => 'رمز عبور پنل میزبان الزامی است.',
             'hostPassword.min'               => 'رمز عبور باید حداقل ۶ کاراکتر باشد.',
             'hostPassword.confirmed'         => 'تکرار رمز عبور مطابقت ندارد.',
+            'selectedAccommodationIds.required'=> 'حداقل یک اقامتگاه برای تعیین استان و کد پرسنلی الزامی است.',
+            'selectedAccommodationIds.min'   => 'حداقل یک اقامتگاه برای تعیین استان و کد پرسنلی الزامی است.',
         ]);
 
-        $this->validateHostPermissionForm();
         $this->validateHostPositionForm();
 
         if ($this->getErrorBag()->isNotEmpty()) {
             return;
         }
 
+        $firstAccommodation = $this->firstSelectedAccommodation();
+
+        if (!$firstAccommodation?->resolvedProvince()) {
+            $this->addError('selectedAccommodationIds', 'استان اقامتگاه انتخاب‌شده مشخص نیست. لطفاً اقامتگاه دیگری انتخاب کنید یا کد استان را در مدیریت استان‌ها ثبت کنید.');
+
+            return;
+        }
+
+        $positionTitle = $this->resolvedHostPositionTitle();
+
         $data = [
             'name'                   => $this->name,
             'mobile'                 => $this->mobile,
             'password'               => $this->hostPassword,
             'mobile_verified_at'     => now(),
-            'host_panel_permissions' => $this->hostPermissionGrantsFromForm(),
-            'host_position_title'    => $this->resolvedHostPositionTitle(),
+            'host_panel_permissions' => HostPositionTitles::grantsForPositionLabel($positionTitle),
+            'host_position_title'    => $positionTitle,
         ];
 
         if ($this->nationalId) {
@@ -90,21 +120,45 @@ class HostCreate extends Component
             $user = User::create($data);
             $user->assignRole('host');
 
-            $accommodationIds = array_values(array_unique(array_map('intval', $this->selectedAccommodationIds)));
+            foreach ($this->orderedSelectedAccommodationIds() as $accommodationId) {
+                $accommodation = Accommodation::query()->find($accommodationId);
 
-            if ($accommodationIds !== []) {
-                Accommodation::query()
-                    ->whereIn('id', $accommodationIds)
-                    ->get()
-                    ->each(fn (Accommodation $accommodation) => $accommodation->grantHostAccess($user));
+                if ($accommodation) {
+                    $accommodation->grantHostAccess($user);
+                }
             }
 
-            return $user;
+            return $user->fresh(['province', 'accommodations.city.province', 'accommodations.county.province']);
         });
 
-        session()->flash('status', "میزبان «{$user->name}» با موفقیت ایجاد شد.");
+        if (!filled($user->personnel_code)) {
+            $this->addError('selectedAccommodationIds', 'کد پرسنلی تخصیص داده نشد. کد حسابداری استان مربوط به اقامتگاه را در پنل مدیریت استان‌ها بررسی کنید.');
+
+            return;
+        }
+
+        session()->flash('status', "میزبان «{$user->name}» با کد پرسنلی {$user->personnel_code} ایجاد شد.");
 
         $this->redirectRoute('admin.users.edit', $user, navigate: true);
+    }
+
+    private function firstSelectedAccommodation(): ?Accommodation
+    {
+        $firstId = $this->orderedSelectedAccommodationIds()[0] ?? null;
+
+        if (!$firstId) {
+            return null;
+        }
+
+        return Accommodation::query()
+            ->with(['city.province', 'county.province'])
+            ->find($firstId);
+    }
+
+    /** @return list<int> */
+    private function orderedSelectedAccommodationIds(): array
+    {
+        return array_values(array_unique(array_map('intval', $this->selectedAccommodationIds)));
     }
 
     private function nationalIdDuplicateMessage(): string
@@ -123,15 +177,14 @@ class HostCreate extends Component
     public function render()
     {
         $accommodations = Accommodation::query()
-            ->with(['city', 'hosts'])
+            ->with(['city.province', 'county.province', 'hosts'])
             ->withCount('hosts')
             ->orderBy('name')
             ->get();
 
         return view('admin.users.create-host', [
-            'accommodations'        => $accommodations,
-            'hostPermissionCatalog' => HostPermissions::catalog(),
-            'hostPositionOptions'   => HostPositionTitles::optionsForForm($this->hostPositionPreset),
+            'accommodations'      => $accommodations,
+            'hostPositionOptions' => HostPositionTitles::optionsForForm($this->hostPositionPreset),
         ]);
     }
 }

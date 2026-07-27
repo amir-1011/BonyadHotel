@@ -75,17 +75,8 @@ abstract class TestCase extends BaseTestCase
 
     protected function createTestAccommodation(array $overrides = []): Accommodation
     {
-        $provinceId = DB::table('provinces')->insertGetId([
-            'name'       => 'استان تست',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $cityId = DB::table('cities')->insertGetId([
-            'province_id' => $provinceId,
-            'name'        => 'شهر تست',
-            'created_at'  => now(),
-            'updated_at'  => now(),
-        ]);
+        $provinceId = $this->ensureTestProvinceId();
+        $cityId = $this->ensureTestCityId($provinceId);
 
         $accommodation = Accommodation::create(array_merge([
             'city_id'         => $cityId,
@@ -100,6 +91,49 @@ abstract class TestCase extends BaseTestCase
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
 
         return $accommodation;
+    }
+
+    protected function ensureTestProvinceId(
+        string $name = 'استان تست',
+        string $accountingCode = '515',
+    ): int {
+        $row = DB::table('provinces')->where('name', $name)->first();
+
+        if ($row) {
+            if (blank($row->accounting_code)) {
+                DB::table('provinces')->where('id', $row->id)->update(['accounting_code' => $accountingCode]);
+            }
+
+            return (int) $row->id;
+        }
+
+        return (int) DB::table('provinces')->insertGetId([
+            'name'            => $name,
+            'accounting_code' => $accountingCode,
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+    }
+
+    protected function ensureTestCityId(
+        int $provinceId,
+        string $name = 'شهر تست',
+    ): int {
+        $row = DB::table('cities')
+            ->where('province_id', $provinceId)
+            ->where('name', $name)
+            ->first();
+
+        if ($row) {
+            return (int) $row->id;
+        }
+
+        return (int) DB::table('cities')->insertGetId([
+            'province_id' => $provinceId,
+            'name'        => $name,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
     }
 
     protected function veteranCatalog(Accommodation $accommodation, string $key): ServiceCatalog

@@ -1358,10 +1358,10 @@ function _loadSwal() {
     return new Promise(function(resolve, reject) {
         var link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = '{{ asset("vendor/sweetalert2/sweetalert2.min.css") }}';
+        link.href = '{{ vasset("vendor/sweetalert2/sweetalert2.min.css") }}';
         document.head.appendChild(link);
         var script = document.createElement('script');
-        script.src = '{{ asset("vendor/sweetalert2/sweetalert2.min.js") }}';
+        script.src = '{{ vasset("vendor/sweetalert2/sweetalert2.min.js") }}';
         script.onload = function() { _swalLoaded = true; resolve(); };
         script.onerror = reject;
         document.head.appendChild(script);

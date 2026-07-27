@@ -20,36 +20,62 @@
 
     @if($tab === 'provinces')
         <div class="card shadow-sm">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>نام استان</th>
-                                <th class="text-center">تعداد شهر</th>
-                                <th class="text-end" style="width:100px">عملیات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($provinces as $province)
-                                <tr>
-                                    <td>{{ $province->name }}</td>
-                                    <td class="text-center">{{ $province->cities_count }}</td>
-                                    <td class="text-end">
-                                        <button wire:click="deleteProvince({{ $province->id }})"
-                                                wire:confirm="این استان حذف شود؟"
-                                                class="btn btn-sm btn-outline-danger"
-                                                @disabled($province->cities_count > 0)>
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="3" class="text-center text-muted py-4">استانی ثبت نشده است.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+            <div class="card-body">
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    کد سه‌رقمی هر استان پایه کدینگ حسابداری است: <strong>ذینفع (۱)</strong>، <strong>ارگان (۴)</strong>، <strong>پرسنل (۷)</strong>.
+                    مثال مازندران (۵۱۵): ذینفع اول <code>515101</code>، ارگان اول <code>515401</code>، پرسنل اول <code>515701</code>.
                 </div>
+                <form wire:submit.prevent="saveProvinceAccountingCodes">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>نام استان</th>
+                                    <th style="width:140px">کد حسابداری</th>
+                                    <th class="text-center">تعداد شهر</th>
+                                    <th class="text-end" style="width:100px">عملیات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($provinces as $province)
+                                    <tr wire:key="province-row-{{ $province->id }}">
+                                        <td>{{ $province->name }}</td>
+                                        <td>
+                                            <input type="text"
+                                                   wire:model="provinceAccountingCodes.{{ $province->id }}"
+                                                   class="form-control form-control-sm @error('provinceAccountingCodes.'.$province->id) is-invalid @enderror"
+                                                   dir="ltr"
+                                                   maxlength="3"
+                                                   placeholder="۵۱۵">
+                                            @error('provinceAccountingCodes.'.$province->id)
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </td>
+                                        <td class="text-center">{{ $province->cities_count }}</td>
+                                        <td class="text-end">
+                                            <button type="button" wire:click="deleteProvince({{ $province->id }})"
+                                                    wire:confirm="این استان حذف شود؟"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @disabled($province->cities_count > 0)>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="text-center text-muted py-4">استانی ثبت نشده است.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($provinces->isNotEmpty())
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-primary btn-sm" wire:loading.attr="disabled">
+                                <i class="bi bi-save me-1"></i>ذخیره کدهای حسابداری
+                            </button>
+                        </div>
+                    @endif
+                </form>
             </div>
         </div>
     @endif

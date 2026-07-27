@@ -35,12 +35,8 @@ class DashboardAccommodationFilterTest extends TestCase
         Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
-        $provinceId = DB::table('provinces')->insertGetId([
-            'name' => 'استان تست', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $cityId = DB::table('cities')->insertGetId([
-            'province_id' => $provinceId, 'name' => 'شهر تست', 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        $provinceId = $this->ensureTestProvinceId();
+        $cityId = $this->ensureTestCityId($provinceId);
 
         $this->host = User::create(['name' => 'میزبان', 'mobile' => '09123000001']);
         $this->host->assignRole('host');

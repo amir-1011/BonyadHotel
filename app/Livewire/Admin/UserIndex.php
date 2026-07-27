@@ -16,11 +16,76 @@ class UserIndex extends Component
 {
     use WithPagination;
 
-    #[Url] public string $search = '';
-    #[Url] public string $role   = '';
+    #[Url] public string $search  = '';
+    #[Url] public string $section = 'all';
+    #[Url] public string $role    = '';
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedRole(): void { $this->resetPage(); }
+    public string $searchInput = '';
+
+    public function mount(): void
+    {
+        if (in_array($this->section, ['all', 'users'], true) && $this->role !== '' && $this->role !== 'guest') {
+            $this->section = 'roles';
+        }
+
+        $this->searchInput = $this->search;
+        $this->syncSectionRole();
+    }
+
+    public function applySearch(): void
+    {
+        $this->search = trim($this->searchInput);
+        $this->resetPage();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->searchInput = '';
+        $this->search      = '';
+        $this->resetPage();
+    }
+
+    public function setSection(string $section): void
+    {
+        if (!in_array($section, ['all', 'users', 'roles'], true)) {
+            return;
+        }
+
+        $this->section = $section;
+        $this->syncSectionRole();
+        $this->resetPage();
+    }
+
+    public function setRoleTab(string $role): void
+    {
+        $this->section = 'roles';
+        $this->role    = $role;
+        $this->resetPage();
+    }
+
+    private function syncSectionRole(): void
+    {
+        if ($this->section !== 'roles') {
+            $this->role = '';
+
+            return;
+        }
+
+        $roleTabOptions = AdminUserRoleFilterCatalog::roleTabOptions();
+
+        if ($this->role === '' || in_array($this->role, ['guest', 'super_admin'], true)) {
+            $this->role = $roleTabOptions[0]['value'] ?? '';
+        }
+    }
+
+    private function effectiveRole(): ?string
+    {
+        return match ($this->section) {
+            'users' => 'guest',
+            'roles' => $this->role !== '' ? $this->role : null,
+            default => null,
+        };
+    }
 
     public function toggleStatus(int $userId): void
     {
@@ -51,20 +116,34 @@ class UserIndex extends Component
 
     public function render()
     {
+        $effectiveRole = $this->effectiveRole();
+
         $filter = AdminUserFilter::make([
             'search' => $this->search,
-            'role'   => $this->role,
+            'role'   => $effectiveRole ?? '',
         ]);
 
         $query = User::with('roles');
         $filter->apply($query);
 
         $users = $query->paginate(20);
-        $roleFilterOptions = AdminUserRoleFilterCatalog::options();
-        $hasActiveFilters = $filter->hasActiveFilters();
-        $exportQuery = $filter->exportQuery();
-        $role = $this->role;
+        $roleTabOptions = AdminUserRoleFilterCatalog::roleTabOptions();
+        $hasActiveFilters = $this->search !== '' || ($this->section === 'roles' && $this->role !== '');
+        $exportQuery = array_filter([
+            'search'  => $this->search !== '' ? $this->search : null,
+            'section' => !in_array($this->section, ['all', ''], true) ? $this->section : null,
+            'role'    => $this->section === 'roles' && $this->role !== '' ? $this->role : null,
+        ]);
+        $section = $this->section;
+        $role    = $this->role;
 
-        return view('admin.users.index', compact('users', 'roleFilterOptions', 'hasActiveFilters', 'exportQuery', 'role'));
+        return view('admin.users.index', compact(
+            'users',
+            'roleTabOptions',
+            'hasActiveFilters',
+            'exportQuery',
+            'section',
+            'role',
+        ));
     }
 }

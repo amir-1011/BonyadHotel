@@ -25,10 +25,105 @@ class HostPermissions
                 'description' => 'خلاصه آمار و آخرین فعالیت‌ها بر اساس اقامتگاه‌های انتصاب‌شده',
                 'icon'        => 'grid-1x2-fill',
                 'pages'       => [
-                    'dashboard' => [
-                        'label'       => 'داشبورد',
-                        'description' => 'مشاهده آمار، نمودارها و عملیات سریع رزرو',
+                    'dashboard.overview' => [
+                        'label'       => 'صفحه داشبورد',
+                        'description' => 'دسترسی به صفحه اصلی داشبورد میزبان',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.accommodation-filter' => [
+                        'label'       => 'فیلتر اقامتگاه‌ها',
+                        'description' => 'انتخاب اقامتگاه برای فیلتر داده‌های داشبورد',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-accommodations' => [
+                        'label'       => 'کارت اقامتگاه‌های من',
+                        'description' => 'نمایش تعداد اقامتگاه‌ها و وضعیت فعال بودن',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-confirmed-bookings' => [
+                        'label'       => 'کارت رزرو تأیید‌شده',
+                        'description' => 'نمایش تعداد رزروهای تأیید‌شده و در انتظار',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-total-revenue' => [
+                        'label'       => 'کارت درآمد کل',
+                        'description' => 'نمایش درآمد کل و درآمد امروز',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-month-revenue' => [
+                        'label'       => 'کارت درآمد این ماه',
+                        'description' => 'نمایش درآمد ماه جاری و نرخ رشد',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-services-revenue' => [
+                        'label'       => 'کارت فروش خدمات',
+                        'description' => 'نمایش درآمد حاصل از خدمات اضافی',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.kpi-pending-reviews' => [
+                        'label'       => 'کارت نظرات بی‌پاسخ',
+                        'description' => 'نمایش تعداد نظراتی که نیاز به پاسخ دارند',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.room-status-board' => [
+                        'label'       => 'تابلو وضعیت اتاق‌ها',
+                        'description' => 'نمایش وضعیت لحظه‌ای اتاق‌ها و ویرایش نقشه ساختمان',
                         'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'dashboard.occupancy-calendar' => [
+                        'label'       => 'تقویم اشغال',
+                        'description' => 'نمایش تقویم اشغال و رزرو اتاق‌ها',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.checkouts-today' => [
+                        'label'       => 'خروج امروز',
+                        'description' => 'لیست مهمانانی که امروز خروج دارند',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.checkouts-soon' => [
+                        'label'       => 'نزدیک به پایان (۱–۲ روز)',
+                        'description' => 'لیست رزروهایی که تا دو روز آینده پایان می‌یابند',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.active-stays' => [
+                        'label'       => 'مهمانان فعلی',
+                        'description' => 'لیست مهمانانی که در حال اقامت هستند',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.revenue-chart' => [
+                        'label'       => 'نمودار درآمد و رزرو',
+                        'description' => 'روند درآمد و تعداد رزرو در ۳۰ روز گذشته',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.booking-status-chart' => [
+                        'label'       => 'نمودار وضعیت رزروها',
+                        'description' => 'نمودار دایره‌ای وضعیت رزروها (تأیید، انتظار، لغو)',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.accommodations-performance' => [
+                        'label'       => 'عملکرد اقامتگاه‌ها',
+                        'description' => 'کارت‌های عملکرد، درآمد و اسپارک‌لاین هر اقامتگاه',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.services-summary' => [
+                        'label'       => 'خلاصه فروش خدمات',
+                        'description' => 'جدول خلاصه خدمات فروخته‌شده',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.services-details' => [
+                        'label'       => 'جزئیات خدمات فروخته‌شده',
+                        'description' => 'جدول جزئیات هر خدمت فروخته‌شده',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.recent-bookings' => [
+                        'label'       => 'آخرین رزروها',
+                        'description' => 'جدول آخرین رزروهای ثبت‌شده',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'dashboard.booking-actions' => [
+                        'label'       => 'تأیید / لغو سریع رزرو',
+                        'description' => 'دکمه‌های تأیید و لغو رزرو در جدول آخرین رزروها',
+                        'actions'     => [self::ACTION_EDIT],
                     ],
                 ],
             ],
@@ -388,6 +483,7 @@ class HostPermissions
     public static function sanitizeGrants(array $grants): array
     {
         $grants = self::migrateLegacyCancellationListEdit($grants);
+        $grants = self::migrateLegacyDashboardGrants($grants);
         $normalized = [];
 
         foreach ($grants as $pageKey => $actions) {
@@ -436,6 +532,98 @@ class HostPermissions
         }
 
         return $grants;
+    }
+
+    /**
+     * Expand legacy flat `dashboard` grants to granular dashboard widget pages.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    private static function migrateLegacyDashboardGrants(array $grants): array
+    {
+        if (!array_key_exists('dashboard', $grants)) {
+            return $grants;
+        }
+
+        $legacy = self::normalizeActionList(
+            $grants['dashboard'],
+            [self::ACTION_READ, self::ACTION_EDIT],
+        );
+        unset($grants['dashboard']);
+
+        if ($legacy === []) {
+            return $grants;
+        }
+
+        $module = self::catalog()['dashboard'] ?? null;
+
+        if (!$module) {
+            return $grants;
+        }
+
+        foreach ($module['pages'] as $pageKey => $page) {
+            $enabled = [];
+
+            if (in_array(self::ACTION_READ, $legacy, true)
+                && in_array(self::ACTION_READ, $page['actions'], true)) {
+                $enabled[] = self::ACTION_READ;
+            }
+
+            if (in_array(self::ACTION_EDIT, $legacy, true)) {
+                foreach ($page['actions'] as $action) {
+                    if (in_array($action, [self::ACTION_EDIT, self::ACTION_WRITE, self::ACTION_DELETE], true)) {
+                        $enabled[] = $action;
+                    }
+                }
+            }
+
+            if ($enabled !== []) {
+                $grants[$pageKey] = array_values(array_unique($enabled));
+            }
+        }
+
+        return $grants;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function dashboardPageKeys(): array
+    {
+        return array_keys(self::catalog()['dashboard']['pages'] ?? []);
+    }
+
+    /**
+     * @param  array<string, list<string>>  $grants
+     */
+    public static function grantsHaveDashboardReadAccess(array $grants): bool
+    {
+        foreach (self::catalog()['dashboard']['pages'] ?? [] as $pageKey => $page) {
+            if (!in_array(self::ACTION_READ, $page['actions'], true)) {
+                continue;
+            }
+
+            if (self::grantsAllow($pageKey, self::ACTION_READ, $grants)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $grants
+     */
+    public static function grantsHaveDashboardAccess(array $grants): bool
+    {
+        foreach (self::dashboardPageKeys() as $pageKey) {
+            if (($grants[$pageKey] ?? []) !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -524,7 +712,7 @@ class HostPermissions
         $method = strtoupper($method);
 
         $map = [
-            'dashboard' => [
+            'dashboard.overview' => [
                 'host.dashboard' => self::ACTION_READ,
             ],
             'accommodations.list' => [

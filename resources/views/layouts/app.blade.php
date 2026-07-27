@@ -1,4 +1,4 @@
-@php
+﻿@php
     $navLocations = \Illuminate\Support\Facades\Cache::remember('nav_locations', 3600, function() {
         return \App\Models\Province::with('cities')->orderBy('name')->get()->flatMap(function($p) {
             $items = [['type'=>'province','id'=>$p->id,'name'=>$p->name,'province'=>'','province_id'=>null]];
@@ -16,18 +16,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', isset($title) ? $title : 'ایثار — رزرو اقامتگاه')</title>
-    <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ vasset('logo/site-logo.png') }}">
 
     {{-- Bootstrap 5 RTL (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
     {{-- Bootstrap Icons (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
     {{-- Vazirmatn Font (local) --}}
-    <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
     {{-- Preload critical font weights --}}
-    <link rel="preload" href="{{ asset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="{{ asset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ vasset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ vasset('vendor/vazirmatn/fonts/webfonts/Vazirmatn-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
     {{-- Vite compiled CSS (Swiper + custom) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -266,7 +266,7 @@
             {{-- Logo (right in RTL) --}}
             <div class="d-none d-md-flex" style="flex:0 0 auto;justify-content:flex-start;">
             <a href="{{ route('home') }}" wire:navigate class="bnb-logo flex-shrink-0">
-                <img src="{{ asset('logo/site-logo.png') }}" alt="ایثار" style="height: 40px;">
+                <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار" style="height: 40px;">
                 <span class="d-none d-sm-inline" style="color:#009548;">ایثار</span>
             </a>
             </div>
@@ -922,13 +922,13 @@
 
 {{-- JS Libraries --}}
 <script src="https://static.neshan.org/sdk/leaflet/v1.9.4/neshan-sdk/v1.0.8/index.js" data-navigate-once></script>
-<script src="{{ asset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/jquery/jquery.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/bootstrap/bootstrap.bundle.min.js') }}" data-navigate-once></script>
 <script type="module" src="{{ Vite::asset('resources/js/bootstrap-collapse-navigate.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/select2/select2.min.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/select2/i18n/fa.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
-<script src="{{ asset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/select2/select2.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/select2/i18n/fa.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/persian-date/persian-date.min.js') }}" data-navigate-once></script>
+<script src="{{ vasset('vendor/persian-datepicker/persian-datepicker.min.js') }}" data-navigate-once></script>
 <script type="module" src="{{ Vite::asset('resources/js/jalali-date-today.js') }}" data-navigate-once></script>
 
 <script data-navigate-once>

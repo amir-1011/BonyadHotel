@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Livewire\Concerns\ManagesBookingFilters;
 use App\Models\Accommodation;
 use App\Models\Booking;
+use App\Models\ProgramEmployer;
 use App\Support\AdminBookingFilter;
 use App\Support\BookingLocationFilterCatalog;
 use App\Support\BookingReserverFilterCatalog;
@@ -47,7 +48,7 @@ class BookingIndex extends Component
     {
         $filter = AdminBookingFilter::make($this->bookingFilterParams());
 
-        $query = Booking::with('user', 'createdBy', 'accommodation.city', 'roomType', 'bookingRooms.room', 'bookingRooms.roomType');
+        $query = Booking::with('user', 'createdBy', 'accommodation.city', 'roomType', 'bookingRooms.room', 'bookingRooms.roomType', 'program');
         $filter->apply($query);
 
         $totalFiltered = (clone $query)->sum('total_price');
@@ -88,13 +89,14 @@ class BookingIndex extends Component
         $veteranOptions = VeteranGroups::options($veteranAccommodationId);
 
         $accommodations = Accommodation::orderBy('name')->get(['id', 'name']);
+        $employers = ProgramEmployer::orderBy('name')->get();
         $reservers = app(BookingReserverFilterCatalog::class)->reservers($this->draftAccommodationId);
         $hasActiveFilters = $filter->hasActiveFilters();
         $exportQuery = $filter->exportQuery();
         extract($this->resolvedBookingSort());
 
         return view('admin.bookings.index', compact(
-            'bookings', 'accommodations', 'reservers', 'provinces', 'cities', 'counties',
+            'bookings', 'accommodations', 'employers', 'reservers', 'provinces', 'cities', 'counties',
             'serviceCatalogs', 'serviceVariants', 'showServiceAccommodation',
             'roomCategories', 'rooms', 'showRoomAccommodation', 'veteranOptions',
             'totalFiltered', 'countFiltered', 'sort', 'dir',

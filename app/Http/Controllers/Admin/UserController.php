@@ -16,7 +16,21 @@ class UserController extends Controller
 {
     public function export(Request $request)
     {
-        $filters = $request->only(['search', 'role']);
+        $section = (string) $request->input('section', 'all');
+        $role    = (string) $request->input('role', '');
+
+        if ($section === 'users') {
+            $role = 'guest';
+        } elseif ($section === 'roles' && $role === '') {
+            $role = null;
+        } elseif ($section === 'all' || $section === '') {
+            $role = null;
+        }
+
+        $filters = array_filter([
+            'search' => $request->input('search'),
+            'role'   => $role,
+        ]);
 
         return Excel::download(new AdminUsersExport($filters), 'users.xlsx');
     }

@@ -14,6 +14,71 @@ class LocationCatalogSettings extends Component
 {
     public string $tab = 'provinces';
 
+    /** @var array<int, string> */
+    public array $provinceAccountingCodes = [];
+
+    public function mount(): void
+    {
+        $this->syncProvinceAccountingCodes();
+    }
+
+    public function updatedTab(): void
+    {
+        if ($this->tab === 'provinces') {
+            $this->syncProvinceAccountingCodes();
+        }
+    }
+
+    public function saveProvinceAccountingCodes(): void
+    {
+        $this->validate([
+            'provinceAccountingCodes'   => ['required', 'array'],
+            'provinceAccountingCodes.*' => ['nullable', 'digits:3', 'distinct'],
+        ], [], [
+            'provinceAccountingCodes.*' => 'کد حسابداری استان',
+        ]);
+
+        foreach ($this->provinceAccountingCodes as $provinceId => $code) {
+            $province = Province::query()->find($provinceId);
+
+            if (!$province) {
+                continue;
+            }
+
+            $normalized = trim((string) $code);
+
+            if ($normalized === '') {
+                $province->update(['accounting_code' => null]);
+                continue;
+            }
+
+            $duplicate = Province::query()
+                ->where('accounting_code', $normalized)
+                ->whereKeyNot($province->id)
+                ->exists();
+
+            if ($duplicate) {
+                $this->addError("provinceAccountingCodes.{$provinceId}", 'این کد قبلاً برای استان دیگری ثبت شده است.');
+
+                return;
+            }
+
+            $province->update(['accounting_code' => $normalized]);
+        }
+
+        $this->dispatch('toast', type: 'success', message: 'کدهای حسابداری استان‌ها ذخیره شد.');
+        $this->syncProvinceAccountingCodes();
+    }
+
+    private function syncProvinceAccountingCodes(): void
+    {
+        $this->provinceAccountingCodes = Province::query()
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (Province $province) => [$province->id => (string) ($province->accounting_code ?? '')])
+            ->all();
+    }
+
     public function deleteProvince(int $provinceId): void
     {
         $province = Province::findOrFail($provinceId);

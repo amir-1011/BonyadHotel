@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Province;
 use App\Models\City;
+use App\Support\ProvinceAccountingCodeCatalog;
 use Illuminate\Database\Seeder;
 
 class ProvinceSeeder extends Seeder
@@ -29,7 +30,16 @@ class ProvinceSeeder extends Seeder
         ];
 
         foreach ($data as $item) {
-            $province = Province::firstOrCreate(['name' => $item['name']]);
+            $code = ProvinceAccountingCodeCatalog::resolveForName($item['name']);
+            $province = Province::firstOrCreate(
+                ['name' => $item['name']],
+                ['accounting_code' => $code],
+            );
+
+            if ($code !== null && !$province->accounting_code) {
+                $province->update(['accounting_code' => $code]);
+            }
+
             foreach ($item['cities'] as $cityName) {
                 City::firstOrCreate([
                     'province_id' => $province->id,
@@ -37,5 +47,10 @@ class ProvinceSeeder extends Seeder
                 ]);
             }
         }
+
+        Province::query()->firstOrCreate(
+            ['name' => 'ستاد مرکز'],
+            ['accounting_code' => '500'],
+        );
     }
 }

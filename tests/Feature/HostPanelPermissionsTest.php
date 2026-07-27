@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Admin\UserEdit;
+use App\Models\HostPositionTitle;
 use App\Models\User;
 use App\Support\HostPermissions;
+use App\Support\HostPositionTitles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -21,13 +22,71 @@ class HostPanelPermissionsTest extends TestCase
         Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
     }
 
-    public function test_admin_can_save_granular_host_panel_permissions(): void
+    public function test_restricted_default_position_limits_new_host_access(): void
+    {
+        $grants = [
+            'bookings.list' => ['read'],
+        ];
+
+        HostPositionTitle::query()->updateOrCreate(
+            ['label' => 'میزبان'],
+            [
+                'is_system'              => true,
+                'sort_order'             => 0,
+                'host_panel_permissions' => $grants,
+            ],
+        );
+
+        $host = User::create([
+            'name'                   => 'میزبان محدود',
+            'mobile'                 => '09100000011',
+            'host_position_title'    => 'میزبان',
+            'host_panel_permissions' => HostPositionTitles::grantsForPositionLabel('میزبان'),
+        ]);
+        $host->assignRole('host');
+
+        $this->assertTrue($host->hostCan('bookings.list', 'read'));
+        $this->assertFalse($host->hostCan('accommodations.list', 'read'));
+
+        $this->actingAs($host)
+            ->get(route('host.accommodations.index'))
+            ->assertRedirect(route('host.bookings.index'));
+    }
+
+    public function test_legacy_host_with_null_position_follows_default_template(): void
+    {
+        $grants = [
+            'bookings.list' => ['read'],
+        ];
+
+        HostPositionTitle::query()->updateOrCreate(
+            ['label' => 'میزبان'],
+            [
+                'is_system'              => true,
+                'sort_order'             => 0,
+                'host_panel_permissions' => $grants,
+            ],
+        );
+
+        $host = User::create([
+            'name'                   => 'میزبان قدیمی',
+            'mobile'                 => '09100000012',
+            'host_position_title'    => null,
+            'host_panel_permissions' => HostPermissions::fullAccessGrants(),
+        ]);
+        $host->assignRole('host');
+
+        $this->assertTrue($host->usesDefaultHostPosition());
+        $this->assertTrue($host->hostCan('bookings.list', 'read'));
+        $this->assertFalse($host->hostCan('accommodations.list', 'read'));
+    }
+
+    public function test_admin_can_save_granular_host_panel_permissions_via_position_settings(): void
     {
         $admin = User::create(['name' => 'ادمین', 'mobile' => '09100000001']);
         $admin->assignRole('super_admin');
 
-        $host = User::create(['name' => 'میزبان', 'mobile' => '09100000002']);
-        $host->assignRole('host');
+        $position = HostPositionTitle::query()->where('label', 'کارشناس پشتیبانی')->firstOrFail();
 
         $grants = [
             'bookings.list' => ['read', 'edit'],
@@ -36,14 +95,19 @@ class HostPanelPermissionsTest extends TestCase
 
         $this->actingAs($admin);
 
-        Livewire::test(UserEdit::class, ['user' => $host])
-            ->set('role', 'host')
+        Livewire::test(\App\Livewire\Admin\HostPositionPermissionIndex::class)
+            ->call('selectPosition', $position->id)
             ->set('hostPermissionForm', HostPermissions::grantsToFormState($grants))
-            ->call('saveHostPanelAccess')
-            ->assertHasNoErrors()
-            ->assertDispatched('toast', type: 'success', message: 'دسترسی‌های پنل میزبان ذخیره شد.');
+            ->call('save')
+            ->assertHasNoErrors();
 
-        $host->refresh();
+        $host = User::create([
+            'name'  => 'میزبان',
+            'mobile'=> '09100000002',
+            'host_position_title' => 'کارشناس پشتیبانی',
+            'host_panel_permissions' => HostPositionTitles::grantsForPositionLabel('کارشناس پشتیبانی'),
+        ]);
+        $host->assignRole('host');
 
         $this->assertSame($grants, $host->host_panel_permissions);
         $this->assertTrue($host->hasHostPanelAccess('bookings'));
@@ -127,13 +191,35 @@ class HostPanelPermissionsTest extends TestCase
         $this->assertSame(HostPermissions::moduleKeys(), $host->effectiveHostPermissions());
     }
 
+    public function test_host_dashboard_shows_only_permitted_widgets(): void
+    {
+        $host = User::create([
+            'name'                   => 'میزبان',
+            'mobile'                 => '09100000010',
+            'host_panel_permissions' => [
+                'dashboard.overview'          => ['read'],
+                'dashboard.kpi-accommodations' => ['read'],
+                'dashboard.recent-bookings'   => ['read'],
+            ],
+        ]);
+        $host->assignRole('host');
+
+        $this->actingAs($host)
+            ->get(route('host.dashboard'))
+            ->assertOk()
+            ->assertSee('اقامتگاه‌های من')
+            ->assertSee('آخرین رزروها')
+            ->assertDontSee('درآمد و رزرو')
+            ->assertDontSee('وضعیت اتاق‌ها');
+    }
+
     public function test_host_login_redirects_to_dashboard_when_dashboard_permission_is_granted(): void
     {
         $host = User::create([
             'name'                   => 'میزبان',
             'mobile'                 => '09100000006',
             'host_panel_permissions' => [
-                'dashboard'    => ['read'],
+                'dashboard.overview' => ['read'],
                 'bookings.list'=> ['read'],
                 'users.list'   => ['read'],
             ],

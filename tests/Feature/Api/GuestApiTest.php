@@ -85,6 +85,11 @@ class GuestApiTest extends TestCase
         $this->getJson('/api/v1/provinces')->assertOk();
     }
 
+    public function test_locations_are_public(): void
+    {
+        $this->getJson('/api/v1/locations')->assertOk();
+    }
+
     public function test_favorites_toggle_requires_auth(): void
     {
         $accommodation = $this->createAccommodation();

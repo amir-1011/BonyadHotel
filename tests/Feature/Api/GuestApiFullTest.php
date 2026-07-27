@@ -126,6 +126,26 @@ class GuestApiFullTest extends TestCase
             ->assertJsonPath('data.0.name', 'شهر تست');
     }
 
+    public function test_locations_returns_provinces_with_nested_cities(): void
+    {
+        $this->getJson('/api/v1/locations')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    [
+                        'id',
+                        'name',
+                        'cities' => [
+                            ['id', 'name'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertJsonPath('data.0.id', $this->provinceId)
+            ->assertJsonPath('data.0.name', 'استان تست')
+            ->assertJsonPath('data.0.cities.0.name', 'شهر تست');
+    }
+
     public function test_accommodations_index(): void
     {
         $this->getJson('/api/v1/accommodations')

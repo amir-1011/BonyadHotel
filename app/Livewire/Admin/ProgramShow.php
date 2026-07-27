@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\ManagesProgramShowGuests;
 use App\Models\Program;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -9,20 +10,16 @@ use Livewire\Component;
 #[Layout('layouts.admin', ['title' => 'جزئیات برنامه', 'pageTitle' => 'جزئیات برنامه'])]
 class ProgramShow extends Component
 {
+    use ManagesProgramShowGuests;
+
     public Program $program;
     public string $newStatus = '';
 
     public function mount(Program $program): void
     {
-        $this->program = $program->load([
-            'accommodation.city',
-            'booking.bookingRooms.room',
-            'booking.bookingRooms.roomType',
-            'booking.services',
-            'booking.guestDetails.bookingRoom.room',
-            'beneficiaryCosts.beneficiary',
-        ]);
+        $this->program = $program->load($this->programShowRelations());
         $this->newStatus = $program->status;
+        $this->bootProgramShowGuests();
     }
 
     public function updateStatus(): void
@@ -40,6 +37,26 @@ class ProgramShow extends Component
 
         session()->flash('status', 'وضعیت برنامه به‌روز شد.');
         $this->dispatch('toast', type: 'success', message: 'وضعیت برنامه به‌روز شد.');
+    }
+
+    /** @return list<string> */
+    private function programShowRelations(): array
+    {
+        return [
+            'accommodation.city.province',
+            'createdBy',
+            'booking.bookingRooms.room',
+            'booking.bookingRooms.roomType',
+            'booking.bookingRooms.roomRate',
+            'booking.services',
+            'booking.guestDetails.bookingRoom.room',
+            'booking.guestDetails.country',
+            'booking.guestDetails.residenceCity',
+            'beneficiaryCosts.beneficiary.province',
+            'beneficiaryCosts.beneficiary.user',
+            'employer.province',
+            'employer.user',
+        ];
     }
 
     public function render()

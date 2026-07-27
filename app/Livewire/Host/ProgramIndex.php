@@ -5,6 +5,7 @@ namespace App\Livewire\Host;
 use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Models\Program;
 use App\Models\ProgramBeneficiary;
+use App\Models\ProgramEmployer;
 use App\Support\ProgramFilter;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -23,8 +24,7 @@ class ProgramIndex extends Component
     #[Url] public string $programType = '';
     #[Url] public string $paymentType = '';
     #[Url] public int $accommodationId = 0;
-    #[Url] public string $counterparty = '';
-    #[Url] public string $employer = '';
+    #[Url] public int $employerId = 0;
     #[Url] public string $contractor = '';
     #[Url] public int $beneficiaryId = 0;
 
@@ -61,8 +61,7 @@ class ProgramIndex extends Component
             'program_type'     => $this->programType,
             'payment_type'     => $this->paymentType,
             'accommodation_id' => $this->accommodationId,
-            'counterparty'     => $this->counterparty,
-            'employer'         => $this->employer,
+            'employer_id'      => $this->employerId,
             'contractor'       => $this->contractor,
             'beneficiary_id'   => $this->beneficiaryId,
         ];
@@ -73,7 +72,8 @@ class ProgramIndex extends Component
 
         $myAccommodations = Auth::user()->managedAccommodationOptions();
         $beneficiaries = ProgramBeneficiary::orderBy('name')->get();
+        $employers = ProgramEmployer::orderBy('name')->get();
 
-        return view('host.programs.index', compact('programs', 'myAccommodations', 'beneficiaries', 'filters'));
+        return view('host.programs.index', compact('programs', 'myAccommodations', 'beneficiaries', 'employers', 'filters'));
     }
 }

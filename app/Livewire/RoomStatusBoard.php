@@ -548,7 +548,7 @@ class RoomStatusBoard extends Component
             return;
         }
 
-        $this->assertHostCan('dashboard', HostPermissions::ACTION_EDIT);
+        $this->assertHostCan('dashboard.room-status-board', HostPermissions::ACTION_EDIT);
     }
 
     private function initEditLayouts(): void
@@ -755,7 +755,7 @@ class RoomStatusBoard extends Component
         return view('livewire.room-status-board', [
             'accommodations' => $accommodations,
             'board' => $this->board,
-            'canEditBuildingLayout' => $this->hostUserCan('dashboard', HostPermissions::ACTION_EDIT),
+            'canEditBuildingLayout' => $this->hostUserCan('dashboard.room-status-board', HostPermissions::ACTION_EDIT),
         ]);
     }
 }

@@ -94,6 +94,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/users/create-host', \App\Livewire\Admin\HostCreate::class)->name('users.create-host');
     Route::get('/users/{user}',      \App\Livewire\Admin\UserShow::class)->name('users.show');
     Route::get('/users/{user}/edit', \App\Livewire\Admin\UserEdit::class)->name('users.edit');
+    Route::get('/host-positions', \App\Livewire\Admin\HostPositionPermissionIndex::class)->name('host-positions.index');
 
     // Accommodations
     Route::get('/accommodations',                      \App\Livewire\Admin\AccommodationIndex::class)->name('accommodations.index');

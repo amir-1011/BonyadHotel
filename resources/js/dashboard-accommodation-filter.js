@@ -211,13 +211,8 @@ function registerDashboardAccommodationFilter() {
                 const allSelected = this.draftAll;
                 const ids = allSelected ? [] : [...this.draftIds];
 
-                this.$wire.applyDashboardAccommodationFilterFromClient(allSelected, ids).then(() => {
-                    this.appliedAll = !!this.$wire.dashboardAccommodationAllSelected;
-                    this.appliedIds = [...(this.$wire.selectedAccommodationIds || [])];
-                    this.resetDraft();
-                    this.updateButtonLabel();
-                    this.closeMenu();
-                });
+                this.closeMenu();
+                this.$wire.applyDashboardAccommodationFilterFromClient(allSelected, ids);
             },
 
             updateButtonLabel() {

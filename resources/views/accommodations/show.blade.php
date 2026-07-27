@@ -1,4 +1,4 @@
-
+﻿
 
 @php
     $accDiscountPct = $userAccommodationDiscount ?? 0;
@@ -7,8 +7,8 @@
 @endphp
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="{{ asset('vendor/swiper/swiper-bundle.min.css') }}"></noscript>
+<link rel="stylesheet" href="{{ vasset('vendor/swiper/swiper-bundle.min.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ vasset('vendor/swiper/swiper-bundle.min.css') }}"></noscript>
 <style>
 /* ── Photo grid ─────────────────────────────────────── */
 .bnb-photo-grid {
@@ -216,8 +216,8 @@
 .bnb-location-link { color: var(--bnb-gray); text-decoration: underline; font-weight: 500; transition: color 0.2s; }
 .bnb-location-link:hover { color: var(--bnb-dark); }
 </style>
-<link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="{{ asset('vendor/photoswipe/photoswipe.css') }}"></noscript>
+<link rel="stylesheet" href="{{ vasset('vendor/photoswipe/photoswipe.css') }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ vasset('vendor/photoswipe/photoswipe.css') }}"></noscript>
 <style>
 /* ── Availability Calendar Enhancements ──────────────── */
 .bnb-cal-square-grid {
@@ -1249,13 +1249,13 @@
 </div>
 
 @push('scripts')
-<script src="{{ asset('vendor/swiper/swiper-bundle.min.js') }}" defer></script>
+<script src="{{ vasset('vendor/swiper/swiper-bundle.min.js') }}" defer></script>
 <script type="module">
-import PhotoSwipeLightbox from '{{ asset("vendor/photoswipe/photoswipe-lightbox.esm.min.js") }}';
+import PhotoSwipeLightbox from '{{ vasset("vendor/photoswipe/photoswipe-lightbox.esm.min.js") }}';
 const lighthouse = new PhotoSwipeLightbox({
   gallery: '#zoom-gallery',
   children: '.pswp-gallery-item',
-  pswpModule: () => import('{{ asset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
+  pswpModule: () => import('{{ vasset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
   clickToCloseNonZoomable: true,
   padding: { top: 20, bottom: 20, left: 20, right: 20 }
 });
@@ -1276,7 +1276,7 @@ if (pswpBtnAll) {
 const mobileLighthouse = new PhotoSwipeLightbox({
   gallery: '#mobile-zoom-gallery',
   children: '.pswp-gallery-item-mobile',
-  pswpModule: () => import('{{ asset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
+  pswpModule: () => import('{{ vasset("vendor/photoswipe/photoswipe.esm.min.js") }}'),
 });
 // Prevent default link behavior for fast clicks/taps
 mobileLighthouse.on('pointerDown', (e) => {
@@ -2172,10 +2172,10 @@ function _loadSwal() {
     return new Promise(function(resolve, reject) {
         var link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = '{{ asset("vendor/sweetalert2/sweetalert2.min.css") }}';
+        link.href = '{{ vasset("vendor/sweetalert2/sweetalert2.min.css") }}';
         document.head.appendChild(link);
         var script = document.createElement('script');
-        script.src = '{{ asset("vendor/sweetalert2/sweetalert2.min.js") }}';
+        script.src = '{{ vasset("vendor/sweetalert2/sweetalert2.min.js") }}';
         script.onload = function() { _swalLoaded = true; resolve(); };
         script.onerror = reject;
         document.head.appendChild(script);

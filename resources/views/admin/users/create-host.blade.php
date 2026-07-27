@@ -40,6 +40,13 @@
                         @include('components.admin.host-position-select', ['positionOptions' => $hostPositionOptions])
                     </div>
                 </div>
+
+                <div class="alert alert-light border small mt-3 mb-0">
+                    <i class="bi bi-upc-scan me-1 text-primary"></i>
+                    کد پرسنلی بر اساس <strong>اولین اقامتگاه</strong> انتخاب‌شده (استان شهر/شهرستان) خودکار تخصیص می‌یابد:
+                    <strong dir="ltr">{{ $this->previewNextPersonnelCode() }}</strong>
+                    <span class="text-muted">— {{ $this->previewPersonnelProvinceLabel() }}</span>
+                </div>
             </div>
         </div>
 
@@ -62,25 +69,13 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-sliders me-1"></i>دسترسی‌های پنل میزبان
-            </div>
-            <div class="card-body">
-                <x-admin.host-permissions-matrix
-                    :catalog="$hostPermissionCatalog"
-                    :form-state="$hostPermissionForm"
-                />
-            </div>
-        </div>
-
-        <div class="card shadow-sm mt-3">
-            <div class="card-header bg-white fw-semibold small">
                 <i class="bi bi-building me-1"></i>اقامتگاه‌های میزبان
             </div>
             <div class="card-body">
                 @error('selectedAccommodationIds')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
 
                 @if($accommodations->isNotEmpty())
-                <p class="text-muted small mb-3">اقامتگاه‌هایی که این میزبان باید به آن‌ها دسترسی داشته باشد. می‌توانید بعداً هم از صفحه ویرایش کاربر تغییر دهید.</p>
+                <p class="text-muted small mb-3">حداقل یک اقامتگاه انتخاب کنید تا استان و کد پرسنلی (شاخص ۷) از روی شهر/شهرستان همان اقامتگاه تعیین شود.</p>
                 <div class="row g-2">
                     @foreach($accommodations as $acc)
                     <div class="col-12">
@@ -120,7 +115,8 @@
             <div class="card-header bg-white fw-semibold small">راهنما</div>
             <div class="card-body small text-muted">
                 <p class="mb-2">پس از ایجاد، میزبان می‌تواند با <strong>موبایل</strong> و <strong>رمز عبور</strong> از صفحه ورود پرسنل وارد پنل شود.</p>
-                <p class="mb-2">دسترسی‌های پنل برای هر صفحه به‌صورت جداگانه (مشاهده، ایجاد، ویرایش، حذف) تعیین می‌شود.</p>
+                <p class="mb-2">دسترسی‌های پنل بر اساس <strong>سمت</strong> انتخاب‌شده از <a href="{{ route('admin.host-positions.index') }}" wire:navigate>تنظیمات سمت‌ها</a> اعمال می‌شوند.</p>
+                <p class="mb-2">کد پرسنلی از <strong>اولین اقامتگاه</strong> انتخاب‌شده (بر اساس استان شهر/شهرستان) به‌صورت خودکار صادر می‌شود.</p>
                 <p class="mb-0">اقامتگاه‌های انتخاب‌شده محدوده داده‌های میزبان (رزرو، اتاق، برنامه و ...) را مشخص می‌کنند.</p>
             </div>
         </div>

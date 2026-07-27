@@ -22,6 +22,22 @@ class EnsureHostPanelPermission
             return $next($request);
         }
 
+        if ($routeName === 'host.dashboard') {
+            if (!HostPermissions::grantsHaveDashboardReadAccess($user->effectiveHostPermissionGrants())) {
+                $fallback = collect($user->effectiveHostPermissions())
+                    ->first(fn (string $module) => $module !== 'dashboard');
+
+                if ($fallback) {
+                    return redirect()->to(HostPermissions::landingRoute($fallback))
+                        ->with('error', 'به این بخش دسترسی ندارید.');
+                }
+
+                abort(403, 'دسترسی به پنل میزبان برای شما تعریف نشده است.');
+            }
+
+            return $next($request);
+        }
+
         $required = HostPermissions::permissionForRoute($routeName, $request->method());
 
         if ($required && !$user->hostCan($required['page'], $required['action'])) {

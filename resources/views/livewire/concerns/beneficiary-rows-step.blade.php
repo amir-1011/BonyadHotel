@@ -78,9 +78,9 @@
                         @error('newBeneficiaryName')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small">شناسه ذینفع <span class="text-danger">*</span></label>
-                        <input type="text" wire:model="newBeneficiaryCode" class="form-control form-control-sm">
-                        @error('newBeneficiaryCode')<div class="text-danger small">{{ $message }}</div>@enderror
+                        <label class="form-label small">کد حسابداری ذینفع</label>
+                        <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextBeneficiaryCode() }}" readonly dir="ltr">
+                        <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۱</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>

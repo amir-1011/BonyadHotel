@@ -183,6 +183,14 @@
             </div>
         </div>
 
+        @if($user->hasAccountingProfile())
+        <div class="prf-card" style="margin-bottom:16px;">
+            <div class="prf-card-body">
+                <x-profile.accounting-code-card :user="$user" variant="compact" />
+            </div>
+        </div>
+        @endif
+
         {{-- Quick stats --}}
         <div class="prf-card">
             <div class="prf-card-body">

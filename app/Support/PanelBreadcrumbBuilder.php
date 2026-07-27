@@ -28,6 +28,7 @@ class PanelBreadcrumbBuilder
       $suffix === 'dashboard' => [['label' => 'داشبورد', 'url' => null]],
 
       str_starts_with($suffix, 'users.') => self::users($panel, $suffix, $crumbs),
+      str_starts_with($suffix, 'host-positions.') => self::hostPositions($crumbs),
       str_starts_with($suffix, 'accommodations.') => self::accommodations($panel, $suffix, $route, $crumbs),
       str_starts_with($suffix, 'room-types.') => self::roomTypes($panel, $suffix, $route, $crumbs),
       str_starts_with($suffix, 'bookings') => self::bookings($panel, $suffix, $route, $crumbs),
@@ -41,6 +42,17 @@ class PanelBreadcrumbBuilder
 
       default => $crumbs,
     };
+  }
+
+  /**
+   * @param  list<array{label: string, url: string|null}>  $crumbs
+   * @return list<array{label: string, url: string|null}>
+   */
+  private static function hostPositions(array $crumbs): array
+  {
+    $crumbs = self::append($crumbs, 'کاربران', route('admin.users.index'));
+
+    return self::append($crumbs, 'سمت‌ها و دسترسی میزبان', null);
   }
 
   /**

@@ -11,6 +11,7 @@
 
 <x-filters.booking-panel
     :accommodations="$accommodations"
+    :employers="$employers"
     :reservers="$reservers"
     :provinces="$provinces"
     :cities="$cities"
@@ -88,7 +89,7 @@
                 @forelse($bookings as $b)
                 <tr wire:key="booking-{{ $b->id }}">
                     <td>
-                        <a wire:navigate href="{{ route('admin.bookings.show', $b) }}" class="text-decoration-none">
+                        <a wire:navigate href="{{ $b->panelShowUrl('admin') }}" class="text-decoration-none">
                             <code class="small">{{ $b->tracking_code }}</code>
                         </a>
                     </td>
@@ -118,8 +119,8 @@
                             {{ Str::limit($b->accommodation->name ?? '', 22) }}
                         </a>
                     </td>
-                    <td class="small">{{ $b->roomTypeNamesSummary() }}</td>
-                    <td class="small">{{ $b->physicalRoomNamesDisplay() }}</td>
+                    <td class="small table-cell-truncate">{{ $b->roomTypeNamesSummary() }}</td>
+                    <td class="small table-cell-truncate">{{ $b->physicalRoomNamesDisplay() }}</td>
                     <td class="small">{{ $b->veteranDiscountLabel() }}</td>
                     <td class="small">
                         <span class="badge bg-{{ $b->booking_source === 'program' ? 'success' : ($b->booking_source === 'manual' ? 'secondary' : 'info') }}">
@@ -140,7 +141,7 @@
                     <td class="small text-muted">@jalali($b->created_at)</td>
                     <td>
                         <div class="d-flex gap-1 flex-wrap">
-                            <a wire:navigate href="{{ route('admin.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="جزئیات"><i class="bi bi-eye"></i></a>
+                            <a wire:navigate href="{{ $b->panelShowUrl('admin') }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="جزئیات"><i class="bi bi-eye"></i></a>
                             @if($b->status === 'pending')
                             <button wire:click="updateStatus({{ $b->id }}, 'confirmed')" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check-lg"></i></button>
                             <button wire:click="updateStatus({{ $b->id }}, 'cancelled')" data-swal-confirm="لغو شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x-lg"></i></button>

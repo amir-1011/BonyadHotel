@@ -22,6 +22,7 @@
     'showReserverFilter' => false,
     'hosts' => collect(),
     'reservers' => collect(),
+    'employers' => collect(),
 ])
 
 <div class="card shadow-sm mb-3">
@@ -197,8 +198,13 @@
                         </select>
                     </div>
                     <div class="col-6 col-md-3">
-                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">طرف حساب برنامه</label>
-                        <input type="text" wire:model="draftProgramCounterparty" class="form-control form-control-sm" placeholder="جستجو...">
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">کارفرمای برنامه</label>
+                        <select wire:model="draftProgramEmployerId" class="form-select form-select-sm">
+                            <option value="">همه کارفرمایان</option>
+                            @foreach($employers as $employer)
+                                <option value="{{ $employer->id }}">{{ $employer->displayLabel() }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     @endif
 

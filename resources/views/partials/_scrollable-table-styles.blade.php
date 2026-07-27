@@ -52,5 +52,55 @@
         background-color: var(--bs-tertiary-bg, #2b3035);
         box-shadow: 0 -1px 0 var(--bs-border-color-translucent, rgba(255, 255, 255, 0.15));
     }
+
+    .table-responsive td.table-cell-truncate {
+        max-width: 6.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
 </style>
+<script>
+    (function () {
+        function bindTableCellTruncate(el) {
+            if (el.dataset.truncateBound === '1') {
+                return;
+            }
+
+            el.addEventListener('mouseenter', function () {
+                this.removeAttribute('title');
+                if (this.scrollWidth > this.clientWidth) {
+                    this.setAttribute('title', this.textContent.trim());
+                }
+            });
+
+            el.dataset.truncateBound = '1';
+        }
+
+        window.initTableCellTruncate = function (root) {
+            var scope = root && root.querySelectorAll ? root : document;
+            scope.querySelectorAll('td.table-cell-truncate').forEach(bindTableCellTruncate);
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            window.initTableCellTruncate();
+        });
+
+        document.addEventListener('livewire:navigated', function () {
+            window.initTableCellTruncate();
+        });
+
+        document.addEventListener('livewire:init', function () {
+            Livewire.hook('commit', function (_ref) {
+                var succeed = _ref.succeed;
+                succeed(function () {
+                    queueMicrotask(function () {
+                        window.initTableCellTruncate();
+                    });
+                });
+            });
+        });
+    })();
+</script>
 @endonce

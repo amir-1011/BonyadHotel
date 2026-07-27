@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Host;
 
+use App\Services\HostPersonnelCodeProvisioner;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
@@ -47,8 +48,25 @@ class Profile extends Component
 
     public function render()
     {
+        $user = Auth::user()->load([
+            'province',
+            'accommodations.city.province',
+            'accommodations.county.province',
+            'programBeneficiary.province',
+            'programEmployer.province',
+        ]);
+
+        if ($user->isHost() && blank($user->personnel_code)) {
+            app(HostPersonnelCodeProvisioner::class)->provisionIfNeeded($user);
+            $user->refresh()->load([
+                'province',
+                'accommodations.city.province',
+                'accommodations.county.province',
+            ]);
+        }
+
         return view('host.profile', [
-            'user' => Auth::user(),
+            'user' => $user,
         ]);
     }
 }

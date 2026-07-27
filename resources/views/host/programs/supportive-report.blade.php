@@ -101,10 +101,16 @@
                     <td class="small fw-semibold">
                         <a wire:navigate href="{{ route('host.programs.show', $p) }}">{{ Str::limit($p->title, 30) }}</a>
                     </td>
-                    <td class="small">{{ $p->supportive_service_type ?: '—' }}</td>
-                    <td class="small">@jalali($p->start_date) — @jalali($p->end_date)</td>
+                    <td class="small">{{ $p->programTypeLabel() }}</td>
+                    <td class="small">
+                        @if($p->booking)
+                            @jalali($p->booking->check_in) — @jalali($p->booking->check_out)
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td class="text-center small">{{ number_format($p->guest_count) }}</td>
-                    <td class="small">{{ $p->employer ?: '—' }}</td>
+                    <td class="small">{{ $p->employer?->name ?: '—' }}</td>
                     <td class="small">{{ number_format($p->total_amount) }}</td>
                     <td class="small text-danger fw-semibold">{{ number_format($p->discount_amount) }}</td>
                     <td><span class="badge bg-{{ $p->statusColor() }}">{{ $p->statusLabel() }}</span></td>

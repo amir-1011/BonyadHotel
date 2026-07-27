@@ -1,4 +1,4 @@
-<div>
+﻿<div>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>ورود با بله</title>
-    <link rel="icon" type="image/png" href="{{ asset('logo/site-logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('logo/site-logo.png') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
+    <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ vasset('logo/site-logo.png') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <link rel="stylesheet" href="{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
     <style>
         :root {
             --brand: #FF385C;
@@ -163,7 +163,7 @@
     <div class="cardx">
         <div class="head">
             <div class="logo">
-                <img src="{{ asset('logo/site-logo.png') }}" alt="لوگوی بنیاد">
+                <img src="{{ vasset('logo/site-logo.png') }}" alt="لوگوی بنیاد">
             </div>
             <h1 class="title">ورود و ثبت‌نام با بله</h1>
             <p class="desc">مرجع رسمی رزرو اقامت و خدمات بنیاد شهید؛ با تخفیف ویژه برای خانواده‌های محترم عضو بنیاد شهید.</p>

@@ -190,9 +190,9 @@ class AdminBookingFilter
             $query->whereHas('program', fn ($q) => $q->where('payment_type', $this->filters['program_payment_type']));
         }
 
-        if (!empty($this->filters['program_counterparty'])) {
-            $term = trim((string) $this->filters['program_counterparty']);
-            $query->whereHas('program', fn ($q) => $q->where('counterparty', 'like', "%{$term}%"));
+        if (!empty($this->filters['program_employer_id'])) {
+            $employerId = (int) $this->filters['program_employer_id'];
+            $query->whereHas('program', fn ($q) => $q->where('program_employer_id', $employerId));
         }
 
         if ($withSort) {
@@ -249,7 +249,7 @@ class AdminBookingFilter
             'booking_source'    => $this->filters['booking_source'] ?? '',
             'program_type'          => $this->filters['program_type'] ?? '',
             'program_payment_type'  => $this->filters['program_payment_type'] ?? '',
-            'program_counterparty'  => $this->filters['program_counterparty'] ?? '',
+            'program_employer_id'   => $this->filters['program_employer_id'] ?? '',
             'sort'              => $this->filters['sort'] ?? 'created_at',
             'dir'               => $this->filters['dir'] ?? 'desc',
         ];

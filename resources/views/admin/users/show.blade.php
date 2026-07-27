@@ -35,6 +35,17 @@
                 <li class="list-group-item d-flex justify-content-between small">
                     <span class="text-muted">سمت</span><strong>{{ $user->hostRoleLabel() }}</strong>
                 </li>
+                @php($accounting = $user->accountingProfileDetails())
+                <li class="list-group-item d-flex justify-content-between small">
+                    <span class="text-muted">کد حسابداری پرسنلی</span>
+                    <strong dir="ltr">{{ $accounting['code'] ?? '—' }}</strong>
+                </li>
+                @if($accounting && $accounting['province_name'])
+                <li class="list-group-item d-flex justify-content-between small">
+                    <span class="text-muted">استان (کدینگ)</span>
+                    <strong>{{ $accounting['province_name'] }} <span class="text-muted" dir="ltr">({{ $accounting['province_code'] }})</span></strong>
+                </li>
+                @endif
                 @endif
                 <li class="list-group-item d-flex justify-content-between small">
                     <span class="text-muted">گروه ایثارگری</span><strong>{{ $user->veteranLabel() }}</strong>
@@ -48,8 +59,12 @@
             </ul>
         </div>
 
+        @if($user->hasAccountingProfile())
+        <x-profile.accounting-code-card :user="$user" class="mt-3" />
+        @endif
+
         {{-- Assign Role --}}
-        <div class="card shadow-sm mt-3">
+        {{-- <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small"><i class="bi bi-shield-check me-1"></i>تغییر نقش</div>
             <div class="card-body">
                 <select wire:model="selectedRole" class="form-select form-select-sm mb-2">
@@ -60,7 +75,7 @@
                 </select>
                 <button wire:click="assignRole" class="btn btn-sm btn-primary w-100">ذخیره نقش</button>
             </div>
-        </div>
+        </div> --}}
     </div>
 
     {{-- Bookings & Accommodations --}}
@@ -177,6 +192,40 @@
                             </table>
                         </div>
                     @endif
+                </div>
+            </div>
+        @endif
+
+        @if($programEmployerHistory->isNotEmpty())
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">تاریخچه ادارات و ارگان‌ها (کارفرما)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>برنامه / اردو</th>
+                                    <th>اقامتگاه</th>
+                                    <th>تاریخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($programEmployerHistory as $row)
+                                    <tr>
+                                        <td>
+                                            <a href="{{ route('admin.programs.show', $row) }}">
+                                                {{ $row->title }}
+                                            </a>
+                                        </td>
+                                        <td>{{ $row->accommodation?->name ?? '—' }}</td>
+                                        <td class="small">@jalali($row->created_at)</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         @endif

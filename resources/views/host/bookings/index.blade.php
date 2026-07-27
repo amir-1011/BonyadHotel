@@ -15,6 +15,7 @@
 
 <x-filters.booking-panel
     :accommodations="$accommodations"
+    :employers="$employers"
     :provinces="$provinces"
     :cities="$cities"
     :counties="$counties"
@@ -79,12 +80,16 @@
             <tbody>
                 @forelse($bookings as $b)
                 <tr wire:key="host-booking-{{ $b->id }}">
-                    <td><code class="small">{{ $b->tracking_code }}</code></td>
+                    <td>
+                        <a wire:navigate href="{{ $b->panelShowUrl('host') }}" class="text-decoration-none">
+                            <code class="small">{{ $b->tracking_code }}</code>
+                        </a>
+                    </td>
                     <td class="small">{{ $b->bookerName() }}</td>
                     <td class="small">{{ $b->reserverName() }}</td>
                     <td class="small">{{ Str::limit($b->accommodation->name, 22) }}</td>
-                    <td class="small">{{ $b->roomTypeNamesSummary() }}</td>
-                    <td class="small">{{ $b->physicalRoomNamesDisplay() }}</td>
+                    <td class="small table-cell-truncate">{{ $b->roomTypeNamesSummary() }}</td>
+                    <td class="small table-cell-truncate">{{ $b->physicalRoomNamesDisplay() }}</td>
                     <td class="small">{{ $b->veteranDiscountLabel() }}</td>
                     <td class="small">
                         <span class="badge bg-{{ $b->booking_source === 'program' ? 'success' : ($b->booking_source === 'manual' ? 'secondary' : 'info') }}">
@@ -98,7 +103,7 @@
                     <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                     <td>
                         <div class="d-flex gap-1">
-                            <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;"><i class="bi bi-eye"></i></a>
+                            <a wire:navigate href="{{ $b->panelShowUrl('host') }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;"><i class="bi bi-eye"></i></a>
                             @if($b->status === 'pending' && $b->canEditBookingDetails() && $hostUser->hostCan('bookings.list', 'edit'))
                             <button wire:click="confirm({{ $b->id }})" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="تأیید"><i class="bi bi-check"></i></button>
                             <button wire:click="cancel({{ $b->id }})" data-swal-confirm="لغو شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="لغو"><i class="bi bi-x"></i></button>

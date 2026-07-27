@@ -27,6 +27,7 @@ Route::prefix('v1')->group(function () {
 
     // ─── Catalog & Availability (public) ─────────────────────────────────────
     Route::get('/provinces', [CatalogController::class, 'provinces']);
+    Route::get('/locations', [CatalogController::class, 'locations']);
     Route::get('/provinces/{province}/cities', [CatalogController::class, 'cities']);
 
     Route::get('/accommodations', [AccommodationController::class, 'index']);
