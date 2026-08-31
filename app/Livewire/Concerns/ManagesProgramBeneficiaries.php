@@ -31,6 +31,8 @@ trait ManagesProgramBeneficiaries
             return;
         }
 
+        $this->accountingProvinceManuallySet = false;
+        $this->syncDefaultAccountingProvinceFromContext();
         $this->beneficiaryModalRowIndex = $rowIndex;
         $this->showAddBeneficiary = true;
         $this->newBeneficiaryName = '';
@@ -68,6 +70,7 @@ trait ManagesProgramBeneficiaries
             'newBeneficiaryName'       => ['required', 'string', 'max:200'],
             'newBeneficiaryNationalId' => ['required', 'string', 'max:20'],
             'newBeneficiaryMobile'     => ['required', 'regex:/^09\d{9}$/'],
+            'accountingProvinceId'     => ['required', 'integer', 'exists:provinces,id'],
         ], [], [
             'newBeneficiaryName'       => 'نام ذینفع',
             'newBeneficiaryNationalId' => 'کد ملی / شناسه اقتصادی',

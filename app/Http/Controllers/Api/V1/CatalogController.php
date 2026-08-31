@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccommodationType;
 use App\Models\Province;
 use Illuminate\Http\JsonResponse;
 
@@ -39,5 +40,20 @@ class CatalogController extends Controller
         $provinces = Province::orderBy('name')->get(['id', 'name']);
 
         return response()->json(['data' => $provinces]);
+    }
+
+    public function accommodationTypes(): JsonResponse
+    {
+        $types = AccommodationType::query()
+            ->orderBy('label')
+            ->get(['key', 'label', 'is_system'])
+            ->map(fn (AccommodationType $type) => [
+                'key'       => $type->key,
+                'label'     => $type->label,
+                'is_system' => (bool) $type->is_system,
+            ])
+            ->values();
+
+        return response()->json(['data' => $types]);
     }
 }

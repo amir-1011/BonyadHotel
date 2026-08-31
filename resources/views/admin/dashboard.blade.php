@@ -1,18 +1,12 @@
 ﻿<div>
 
-{{-- ── Page header ─────────────────────────────────────────────────── --}}
-<div class="ta-page-head">
-    <div>
-        <div class="text-muted small">نمای کلی عملکرد سامانه رزرو</div>
-    </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        @if($this->showDashboardAccommodationFilter())
-            @include('components.dashboard.accommodation-filter')
-        @endif
-        <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
-        <a href="{{ route('admin.bookings.index') }}" wire:navigate class="btn btn-light"><i class="bi bi-funnel me-2"></i>فیلتر</a>
-        <a href="{{ route('admin.bookings.export') }}" class="btn btn-primary"><i class="bi bi-download me-2"></i>خروجی اکسل</a>
-    </div>
+<div class="ta-page-toolbar">
+    @if($this->showDashboardAccommodationFilter())
+        @include('components.dashboard.accommodation-filter')
+    @endif
+    <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
+    <a href="{{ route('admin.bookings.index') }}" wire:navigate class="btn btn-light"><i class="bi bi-funnel me-2"></i>فیلتر</a>
+    <a href="{{ route('admin.bookings.export') }}" class="btn btn-primary"><i class="bi bi-download me-2"></i>خروجی اکسل</a>
 </div>
 
 <div wire:key="admin-dashboard-{{ $filterKey }}">
@@ -74,7 +68,7 @@
             <div class="col-12 col-lg-5">
                 <div class="d-flex align-items-baseline justify-content-between mb-3">
                     <span class="fw-semibold" style="font-size:.9rem;color:#101828">شهرهای پرتقاضا</span>
-                    <span class="text-muted" style="font-size:.75rem">{{ strtr(number_format($geoTotal), $faDigits) }} رزرو تأییدشده</span>
+                    <span class="text-muted" style="font-size:.75rem">{{ strtr(\App\Support\PdfPersian::toPersianDigits(number_format($geoTotal)), $faDigits) }} رزرو تأییدشده</span>
                 </div>
                 <div class="d-flex flex-column gap-2" id="cityList">
                     @forelse($topCities as $c)
@@ -86,7 +80,7 @@
                                 <span class="fw-semibold text-truncate" style="font-size:.85rem;color:#101828;max-width:60%">{{ $c->city }}
                                     <span class="text-muted fw-normal" style="font-size:.72rem">({{ $c->province }})</span>
                                 </span>
-                                <span class="text-muted" style="font-size:.75rem">{{ strtr(number_format($c->bookings), $faDigits) }} رزرو</span>
+                                <span class="text-muted" style="font-size:.75rem">{{ strtr(\App\Support\PdfPersian::toPersianDigits(number_format($c->bookings)), $faDigits) }} رزرو</span>
                             </div>
                             <div class="progress" style="height:8px;background:#f2f4f7;border-radius:99px">
                                 <div class="progress-bar" role="progressbar" style="width:{{ $pct }}%;background:var(--ta-brand-500);border-radius:99px" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -182,26 +176,26 @@
                                 <div class="col-4">
                                     <div class="bg-light rounded p-2">
                                         <div class="text-muted" style="font-size:.65rem">امروز</div>
-                                        <div class="fw-bold text-dark" style="font-size:.8rem">{{ number_format($todayVal) }}<small class="text-muted"> ت</small></div>
+                                        <div class="fw-bold text-dark" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($todayVal)) }}<small class="text-muted"> ریال</small></div>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="bg-light rounded p-2">
                                         <div class="text-muted" style="font-size:.65rem">این هفته</div>
-                                        <div class="fw-bold text-dark" style="font-size:.8rem">{{ number_format($weekVal) }}<small class="text-muted"> ت</small></div>
+                                        <div class="fw-bold text-dark" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($weekVal)) }}<small class="text-muted"> ریال</small></div>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="bg-light rounded p-2">
                                         <div class="text-muted" style="font-size:.65rem">این ماه</div>
-                                        <div class="fw-bold text-primary" style="font-size:.8rem">{{ number_format($monthVal) }}<small class="text-muted"> ت</small></div>
+                                        <div class="fw-bold text-primary" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($monthVal)) }}<small class="text-muted"> ریال</small></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center justify-content-between flex-wrap gap-1" style="font-size:.78rem">
-                                <span class="text-muted"><i class="bi bi-calendar-check text-success me-1"></i>{{ number_format($acc->confirmed_count) }} تأیید</span>
-                                <span class="text-muted"><i class="bi bi-clock text-warning me-1"></i>{{ number_format($acc->pending_count) }} انتظار</span>
-                                <span class="text-muted"><i class="bi bi-x-circle text-danger me-1"></i>{{ number_format($acc->cancelled_count) }} لغو</span>
+                                <span class="text-muted"><i class="bi bi-calendar-check text-success me-1"></i>{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->confirmed_count)) }} تأیید</span>
+                                <span class="text-muted"><i class="bi bi-clock text-warning me-1"></i>{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->pending_count)) }} انتظار</span>
+                                <span class="text-muted"><i class="bi bi-x-circle text-danger me-1"></i>{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->cancelled_count)) }} لغو</span>
                                 <span class="text-muted"><i class="bi bi-percent text-info me-1"></i>{{ $convRate }}% نرخ تبدیل</span>
                                 @if($growth !== null)
                                 <span class="{{ $growth >= 0 ? 'text-success' : 'text-danger' }}">
@@ -256,7 +250,7 @@
                                         {{ Str::limit($b->accommodation->name, 25) }}
                                     </a>
                                 </td>
-                                <td class="small">{{ number_format($b->total_price) }} ت</td>
+                                <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }} ریال</td>
                                 <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                                 <td>
                                     <div class="d-flex gap-1">
@@ -585,7 +579,7 @@
                         </div>
                         <div class="text-start">
                             <div class="fw-bold" style="font-size:.8rem;color:#465fff">${faNum(a.revenue)}</div>
-                            <div class="text-muted" style="font-size:.68rem">تومان</div>
+                            <div class="text-muted" style="font-size:.68rem">ریال</div>
                         </div>
                     </div>`).join('');
             }
@@ -726,7 +720,7 @@
                 tooltip: {
                     fixed: { enabled: false },
                     x: { show: false },
-                    y: { formatter: v => new Intl.NumberFormat('fa-IR').format(v) + ' ت' },
+                    y: { formatter: v => new Intl.NumberFormat('fa-IR').format(v) + ' ریال' },
                     marker: { show: false }
                 }
             }).render();

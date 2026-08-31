@@ -224,6 +224,45 @@ class VeteranPolicyTest extends TestCase
         $this->assertSame('گروه آزمایشی', $options[$group->key]['label']);
     }
 
+    public function test_admin_can_save_tiered_fixed_pay_accommodation_discount(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $admin = User::create([
+            'name'   => 'ادمین',
+            'mobile' => '09100000888',
+        ]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+
+        Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
+            ->set('groups.0.use_tiered_accommodation_discount', true)
+            ->set('groups.0.accommodation_discount_tiers', [
+                [
+                    'type' => 'fixed_pay',
+                    'night_count' => 2,
+                    'pay_amount' => 250_000,
+                ],
+                [
+                    'type' => 'percentage',
+                    'night_count' => null,
+                    'discount_percentage' => 40,
+                ],
+            ])
+            ->call('saveGroups')
+            ->assertHasNoErrors();
+
+        $group = VeteranGroup::forAccommodation($this->accommodation->id)
+            ->where('key', 'veteran_70_spouses')
+            ->firstOrFail();
+
+        $this->assertTrue($group->use_tiered_accommodation_discount);
+        $this->assertSame('fixed_pay', $group->accommodation_discount_tiers[0]['type']);
+        $this->assertSame(250_000, $group->accommodation_discount_tiers[0]['pay_amount']);
+        $this->assertSame('percentage', $group->accommodation_discount_tiers[1]['type']);
+        $this->assertSame(40, $group->accommodation_discount_tiers[1]['discount_percentage']);
+    }
+
     public function test_admin_global_settings_sync_group_discount_to_all_accommodations(): void
     {
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);

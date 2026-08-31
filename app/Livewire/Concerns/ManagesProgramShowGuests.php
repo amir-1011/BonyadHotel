@@ -2,12 +2,20 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Models\Booking;
 use App\Models\BookingGuestDetail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Morilog\Jalali\Jalalian;
 
 trait ManagesProgramShowGuests
 {
+    use ManagesBookingStayExtension;
+    use ManagesProgramShowFinancial;
+    use ManagesBookingPriceConfirmations;
+
+    public ?Booking $booking = null;
+
     public bool $guestEditMode = false;
 
     /** @var array<int, array{id?:int, full_name:string, national_id:string, mobile:string, relation:string, room_line_index:?int, sort_order:int}> */
@@ -16,6 +24,13 @@ trait ManagesProgramShowGuests
     public function bootProgramShowGuests(): void
     {
         $this->loadProgramGuestRows();
+
+        if ($this->program->booking) {
+            $this->booking = $this->program->booking;
+            $this->bootStayExtension($this->booking);
+        }
+
+        $this->bootProgramShowFinancial();
     }
 
     public function loadProgramGuestRows(): void
@@ -236,7 +251,7 @@ trait ManagesProgramShowGuests
     {
         $booking = $this->program->booking;
 
-        if (!$booking?->canEditBookingDetails(Auth::user())) {
+        if (!$booking?->canEditGuestDetails(Auth::user())) {
             return false;
         }
 
@@ -246,12 +261,34 @@ trait ManagesProgramShowGuests
             return true;
         }
 
-        return (bool) $user?->hostCan('bookings.guests', 'edit');
+        return (bool) $user?->hostCan('programs.guests', 'edit');
     }
 
     protected function assertCanEditProgramGuests(): void
     {
         abort_unless($this->canEditProgramGuests(), 403, 'امکان ویرایش مهمانان این برنامه وجود ندارد.');
+    }
+
+    protected function stayExtensionPermissionPage(): string
+    {
+        return 'programs.dates';
+    }
+
+    protected function resolveStayExtensionBooking(): ?\App\Models\Booking
+    {
+        return $this->program->booking;
+    }
+
+    protected function afterStayExtension(Booking $booking): void
+    {
+        $this->booking = $booking;
+        $this->program->refresh();
+
+        if (method_exists($this, 'programShowRelations')) {
+            $this->program->load($this->programShowRelations());
+        }
+
+        $this->loadProgramGuestRows();
     }
 
     /** @return array<string, mixed> */
@@ -273,6 +310,11 @@ trait ManagesProgramShowGuests
         return trim((string) ($row['full_name'] ?? '')) !== ''
             || trim((string) ($row['national_id'] ?? '')) !== ''
             || trim((string) ($row['mobile'] ?? '')) !== '';
+    }
+
+    protected function dispatchBookingToast(string $message, string $type = 'success'): void
+    {
+        $this->dispatch('toast', type: $type, message: $message);
     }
 
     private function normalizeProgramGuestDigits(string $value): string

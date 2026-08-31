@@ -58,19 +58,7 @@
 @section('content')
 <div>
 
-
-{{-- Breadcrumb --}}
-<div class="mb-3">
-    <div class="text-muted small">
-        <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اتاق‌ها</a>
-        <span class="mx-1">·</span>
-        <span>{{ $accommodation->name }}</span>
-        <span class="mx-1">·</span>
-        <span>{{ $roomType->room_count }} اتاق در کل</span>
-    </div>
-</div>
-
-<div class="row g-4">
+<div class="row g-3">
 
     {{-- Left: Add block form --}}
     <div class="col-lg-4">
@@ -79,6 +67,7 @@
                 <h6 class="mb-0 fw-bold"><i class="bi bi-calendar-plus me-2"></i>مسدود کردن تاریخ جدید</h6>
             </div>
             <div class="card-body p-4">
+                <p class="text-muted small mb-3">{{ $roomType->room_count }} اتاق در کل</p>
                 <x-room-type.blocked-dates-form
                     :accommodation="$accommodation"
                     :roomType="$roomType"
@@ -122,7 +111,7 @@
 
     {{-- Right: Calendar overview --}}
     <div class="col-lg-8">
-        <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card shadow-sm border-0 rounded-4 mb-3">
             <div class="card-header bg-white border-bottom rounded-top-4">
                 <h6 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2"></i>نمای ظرفیت (۳ ماه آینده)</h6>
             </div>

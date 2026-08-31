@@ -60,6 +60,9 @@ class RoomStatusBoard extends Component
     public bool $layoutEditMode = false;
 
     /** @var array<int> */
+    public array $expandedPhysicalRoomIds = [];
+
+    /** @var array<int> */
     public array $dashboardAccommodationIds = [];
 
     public bool $useDashboardFilter = false;
@@ -131,6 +134,58 @@ class RoomStatusBoard extends Component
         $this->boardVisible = true;
         $this->selectedRoom = null;
         $this->invalidateBoardCache();
+    }
+
+    public function showPhysicalRooms(int $accommodationId): void
+    {
+        if (! $this->canTogglePhysicalRooms($accommodationId)) {
+            return;
+        }
+
+        if (! $this->isAccommodationExpanded($accommodationId)) {
+            $this->expandedPhysicalRoomIds[] = $accommodationId;
+        }
+    }
+
+    public function hidePhysicalRooms(int $accommodationId): void
+    {
+        if (! $this->canTogglePhysicalRooms($accommodationId)) {
+            return;
+        }
+
+        $this->expandedPhysicalRoomIds = array_values(array_filter(
+            $this->expandedPhysicalRoomIds,
+            fn ($id) => (int) $id !== $accommodationId,
+        ));
+
+        if ($this->selectedRoom && (int) ($this->selectedRoom['accommodation_id'] ?? 0) === $accommodationId) {
+            $this->closeDetail();
+        }
+    }
+
+    public function physicalRoomsExpanded(int $accommodationId): bool
+    {
+        return $this->layoutEditMode || $this->isAccommodationExpanded($accommodationId);
+    }
+
+    private function isAccommodationExpanded(int $accommodationId): bool
+    {
+        return in_array($accommodationId, array_map('intval', $this->expandedPhysicalRoomIds), true);
+    }
+
+    private function canTogglePhysicalRooms(int $accommodationId): bool
+    {
+        return in_array($accommodationId, $this->resolvedAccommodationIds(), true);
+    }
+
+    private function expandPhysicalRoomsForBoard(): void
+    {
+        foreach ($this->board as $acc) {
+            $id = (int) $acc['accommodation_id'];
+            if (! in_array($id, array_map('intval', $this->expandedPhysicalRoomIds), true)) {
+                $this->expandedPhysicalRoomIds[] = $id;
+            }
+        }
     }
 
     public function selectRoom(int $accommodationId, int $roomId): void
@@ -409,6 +464,7 @@ class RoomStatusBoard extends Component
         $this->invalidateBoardCache();
         $this->initEditLayouts();
         $this->layoutEditMode = true;
+        $this->expandPhysicalRoomsForBoard();
         $this->dispatch('rsb-layout-edit-opened');
     }
 

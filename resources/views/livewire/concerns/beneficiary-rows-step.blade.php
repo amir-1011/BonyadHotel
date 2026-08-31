@@ -32,7 +32,7 @@
                     </button>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small mb-1">میزان بدهی (تومان)</label>
+                    <label class="form-label small mb-1">میزان بدهی (ریال)</label>
                     <x-money-input wire:model="beneficiaryRows.{{ $bi }}.debt_amount" class="form-control form-control-sm" min="0" />
                 </div>
                 <div class="col-md-4">
@@ -72,15 +72,18 @@
                     ذینفعان در کل سامانه یکپارچه هستند. پس از ثبت، در صورت امکان به‌عنوان کاربر سیستم نیز ثبت می‌شوند.
                 </div>
                 <div class="row g-2">
+                    <x-accounting.province-select
+                        class="col-12"
+                        :provinces="$provinces ?? collect()"
+                        :show-code-preview="true"
+                        :preview-code="$this->previewNextBeneficiaryCode()"
+                        indicator-label="شاخص ۱ (ذینفع)"
+                        hint="پیش‌فرض از استان اقامتگاه انتخاب‌شده است؛ در صورت نیاز می‌توانید تغییر دهید."
+                    />
                     <div class="col-md-6">
                         <label class="form-label small">نام ذینفع <span class="text-danger">*</span></label>
                         <input type="text" wire:model="newBeneficiaryName" class="form-control form-control-sm">
                         @error('newBeneficiaryName')<div class="text-danger small">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small">کد حسابداری ذینفع</label>
-                        <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextBeneficiaryCode() }}" readonly dir="ltr">
-                        <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۱</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>

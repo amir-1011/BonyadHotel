@@ -86,7 +86,7 @@ function initRoomStatusDatepicker() {
             autoClose: true,
             initialValue: false,
             initialValueType: 'persian',
-            persianDigit: false,
+            persianDigit: true,
             toolbox: {
                 enabled: true,
                 todayButton: { enabled: true },

@@ -290,6 +290,7 @@ function mbbDrawer() {
         pricePerNight: 0,
         originalPrice: 0,
         userDiscountPct: {{ (int) $defaultDiscountPct }},
+        platformCommissionFixed: {{ (int) config('platform_commission.fixed_amount', 50_000) }},
         childAllocateBed: {{ $childAllocateBed ? 'true' : 'false' }},
         childDiscountPct: {{ (int) $childDiscountPct }},
         // Room capacity (guests per room) — used to compute rooms_needed for warning
@@ -442,6 +443,16 @@ function mbbDrawer() {
                 return this.nights * this._nightAccommodationTotal(perPerson, g, childG) + this.extraGuestsTotal;
             }
             return prices.reduce((s, p) => s + p.price, 0) + this.extraGuestsTotal;
+        },
+
+        get platformCommissionAmount() {
+            if (this.mode === 'manual') return 0;
+            const subtotal = this.dynamicTotal;
+            return subtotal > 0 ? (this.platformCommissionFixed || 0) : 0;
+        },
+
+        get payableTotal() {
+            return this.dynamicTotal + this.platformCommissionAmount;
         },
 
         get dynamicAfterHostTotal() {
@@ -1029,7 +1040,7 @@ function mbbDrawer() {
                         <span style="color:#6b7280;">مبلغ نهایی:</span>
                         <div>
                             ${partialTotal < fullRoomTotal ? `<span style="font-size:12px;text-decoration:line-through;color:#9ca3af;margin-left:6px;">${partialTotal.toLocaleString('fa-IR')}</span>` : ''}
-                            <strong style="color:#15803d;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} تومان</strong>
+                            <strong style="color:#15803d;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} ریال</strong>
                         </div>
                     </div>
                 </div>
@@ -1057,7 +1068,7 @@ function mbbDrawer() {
                             <div style="font-size:13px;color:#374151;">هزینه اقامت فقط برای مهمانان حاضر محاسبه می‌شود؛ ${emptyBeds} تخت خالی بدون هزینه است.</div>
                             <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-top:8px;">
                                 <span style="color:#6b7280;">مبلغ اقامت:</span>
-                                <strong style="color:#15803d;font-size:16px;">${partialTotal.toLocaleString('fa-IR')} تومان</strong>
+                                <strong style="color:#15803d;font-size:16px;">${partialTotal.toLocaleString('fa-IR')} ریال</strong>
                             </div>
                         </div>
                     </label>
@@ -1070,7 +1081,7 @@ function mbbDrawer() {
                                 <span style="color:#6b7280;">مبلغ اقامت:</span>
                                 <div>
                                     ${partialTotal < fullRoomTotal ? `<span style="font-size:12px;text-decoration:line-through;color:#9ca3af;margin-left:6px;">${partialTotal.toLocaleString('fa-IR')}</span>` : ''}
-                                    <strong style="color:#c2410c;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} تومان</strong>
+                                    <strong style="color:#c2410c;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} ریال</strong>
                                 </div>
                             </div>
                         </div>
@@ -1219,7 +1230,7 @@ function mbbDrawer() {
                                 <div>
                                     <div style="font-weight:700;color:#15803d;margin-bottom:4px;"><i class="bi bi-person-add"></i> کف‌خوابی (پیشنهادی)</div>
                                     <div style="font-size:13px;color:#374151;"><strong>${roomsWithExtra > 0 ? roomsWithExtra : 1} اتاق</strong> + <strong>${remainder} نفر کف‌خواب</strong></div>
-                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: ${this.userDiscountPct > 0 ? `<s style="opacity:.65;">${extraCost.toLocaleString('fa-IR')}</s> ` : ''}<strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} تومان</strong>${this.userDiscountPct > 0 ? ` <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;">${this.userDiscountPct}٪ تخفیف</span>` : ''} (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: ${this.userDiscountPct > 0 ? `<s style="opacity:.65;">${extraCost.toLocaleString('fa-IR')}</s> ` : ''}<strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} ریال</strong>${this.userDiscountPct > 0 ? ` <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;">${this.userDiscountPct}٪ تخفیف</span>` : ''} (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
                                 </div>
                             </label>
                             <label style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-multi">

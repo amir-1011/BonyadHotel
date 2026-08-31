@@ -4,6 +4,26 @@
     <div class="border rounded p-2 bg-light">{{ $booking->notes }}</div>
 </div>
 @endif
+@if($booking->isMedicalAccommodation() && $booking->hasMedicalReferralLetters())
+<div class="mb-3">
+    <div class="text-muted mb-1">معرفی‌نامه اسکان درمانی</div>
+    <x-booking.authorized-document-links
+        :urls="collect($booking->medicalReferralLetterPaths())->map(fn ($path, $index) => $booking->medicalReferralLetterUrl($panel ?? null, $index))->all()"
+        btn-class="btn-outline-info"
+        label="دانلود معرفی‌نامه"
+    />
+</div>
+@endif
+@if($booking->isCredit() && $booking->hasCreditLetters())
+<div class="mb-3">
+    <div class="text-muted mb-1">معرفی‌نامه اعتباری</div>
+    <x-booking.authorized-document-links
+        :urls="collect($booking->creditLetterPaths())->map(fn ($path, $index) => $booking->creditLetterUrl($panel ?? null, $index))->all()"
+        btn-class="btn-outline-warning"
+        label="دانلود معرفی‌نامه"
+    />
+</div>
+@endif
 @if($booking->form_file_path)
 <div>
     <div class="text-muted mb-1">فرم رزرو امضا‌شده</div>
@@ -12,6 +32,6 @@
     </a>
 </div>
 @endif
-@if(!$booking->notes && !$booking->form_file_path)
+@if(!$booking->notes && !$booking->form_file_path && !$booking->hasMedicalReferralLetters() && !$booking->hasCreditLetters())
 <p class="text-muted mb-0">یادداشت یا پیوستی ثبت نشده است.</p>
 @endif

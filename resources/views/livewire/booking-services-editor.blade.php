@@ -17,8 +17,8 @@
     </div>
     @endif
 
-    @if($booking->services->isNotEmpty())
-    <form wire:submit="saveServiceEdits" class="mb-3">
+    @if(!empty($editableServices))
+    <form class="mb-3" onsubmit="return false;">
         <div class="d-flex flex-column gap-2">
             @foreach($editableServices as $id => $row)
             @php
@@ -46,9 +46,9 @@
                             @endif
                         </div>
                         <div class="text-muted" style="font-size:.7rem;">
-                            واحد {{ number_format((int) ($row['unit_price'] ?? 0)) }} تومان
+                            واحد {{ \App\Support\PdfPersian::toPersianDigits(number_format((int) ($row['unit_price'] ?? 0))) }} ریال
                             @if($discountAmt > 0)
-                            · تخفیف −{{ number_format($discountAmt) }}
+                            · تخفیف −{{ \App\Support\PdfPersian::toPersianDigits(number_format($discountAmt)) }}
                             @if($discountReason !== '')
                             ({{ $discountReason }})
                             @endif
@@ -78,33 +78,38 @@
                         </div>
                         @if($quantityPending)
                         <button type="button"
-                                wire:click="applyServiceQuantity({{ $row['id'] }})"
+                                data-bnb-price-change
+                                data-bnb-price-action="applyServiceQuantity"
+                                data-bnb-price-params='@json(["serviceId" => $row["id"]])'
                                 class="btn btn-sm btn-primary"
                                 wire:loading.attr="disabled"
-                                wire:target="applyServiceQuantity({{ $row['id'] }})">
-                            <span wire:loading.remove wire:target="applyServiceQuantity({{ $row['id'] }})"><i class="bi bi-check2 me-1"></i>اعمال</span>
-                            <span wire:loading wire:target="applyServiceQuantity({{ $row['id'] }})">...</span>
+                                wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceQuantity">
+                            <span wire:loading.remove wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceQuantity({{ $row['id'] }})"><i class="bi bi-check2 me-1"></i>اعمال</span>
+                            <span wire:loading wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceQuantity({{ $row['id'] }})">...</span>
                         </button>
                         @endif
                         <div class="text-end text-nowrap">
                             @if($discountAmt > 0 || $subtotal !== $finalTotal)
                             <div class="small text-muted" style="font-size:.68rem;">
-                                بدون تخفیف: {{ number_format($subtotal) }}
+                                بدون تخفیف: {{ \App\Support\PdfPersian::toPersianDigits(number_format($subtotal)) }}
                             </div>
                             <div class="small fw-bold text-success">
-                                با تخفیف: {{ number_format($finalTotal) }} <span class="text-muted fw-normal">تومان</span>
+                                با تخفیف: {{ \App\Support\PdfPersian::toPersianDigits(number_format($finalTotal)) }} <span class="text-muted fw-normal">ریال</span>
                             </div>
                             @else
                             <div class="small fw-bold">
-                                {{ number_format($finalTotal) }} <span class="text-muted fw-normal">تومان</span>
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($finalTotal)) }} <span class="text-muted fw-normal">ریال</span>
                             </div>
                             @endif
                         </div>
                         <button type="button"
-                                wire:click="removeServiceLine({{ $row['id'] }})"
-                                data-swal-confirm="این خدمت حذف شود؟"
+                                data-bnb-price-change
+                                data-bnb-price-action="removeServiceLine"
+                                data-bnb-price-params='@json(["serviceId" => $row["id"]])'
                                 class="btn btn-sm btn-outline-danger"
-                                title="حذف">
+                                title="حذف"
+                                wire:loading.attr="disabled"
+                                wire:target="executeConfirmedPriceChange,previewBookingPriceChange,removeServiceLine">
                             <i class="bi bi-trash"></i>
                         </button>
                         @endif
@@ -165,12 +170,14 @@
                         <div class="col-md-3">
                             @if(!empty($row['id']))
                             <button type="button"
-                                    wire:click="applyServiceLineEdits({{ $row['id'] }})"
+                                    data-bnb-price-change
+                                    data-bnb-price-action="applyServiceLineEdits"
+                                    data-bnb-price-params='@json(["serviceId" => $row["id"]])'
                                     class="btn btn-sm btn-primary w-100"
                                     wire:loading.attr="disabled"
-                                    wire:target="applyServiceLineEdits({{ $row['id'] }})">
-                                <span wire:loading.remove wire:target="applyServiceLineEdits({{ $row['id'] }})"><i class="bi bi-check2 me-1"></i>اعمال</span>
-                                <span wire:loading wire:target="applyServiceLineEdits({{ $row['id'] }})">در حال اعمال...</span>
+                                    wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceLineEdits">
+                                <span wire:loading.remove wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceLineEdits({{ $row['id'] }})"><i class="bi bi-check2 me-1"></i>اعمال</span>
+                                <span wire:loading wire:target="executeConfirmedPriceChange,previewBookingPriceChange,applyServiceLineEdits({{ $row['id'] }})">در حال اعمال...</span>
                             </button>
                             @endif
                         </div>
@@ -195,13 +202,19 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
             <div class="small text-muted">
                 @if(!$isGuestScope)
-                جمع خدمات رزرو: <strong>{{ number_format($booking->services_subtotal) }}</strong> تومان
+                جمع خدمات رزرو: <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->services_subtotal)) }}</strong> ریال
                 ·
                 @endif
-                کل رزرو: <strong>{{ number_format($booking->total_price) }}</strong> تومان
+                کل رزرو: <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }}</strong> ریال
             </div>
             @if(!$isGuestScope && !$booking->isProgram())
-            <button type="submit" class="btn btn-sm btn-primary" wire:loading.attr="disabled">ذخیره ویرایش دستی</button>
+            <button type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bnb-price-change
+                    data-bnb-price-action="saveServiceEdits"
+                    data-bnb-price-params="{}"
+                    wire:loading.attr="disabled"
+                    wire:target="executeConfirmedPriceChange,previewBookingPriceChange,saveServiceEdits">ذخیره ویرایش دستی</button>
             @endif
         </div>
     </form>
@@ -245,7 +258,13 @@
                 <input type="number" wire:model="newServiceQty" class="form-control form-control-sm" min="1" max="99">
             </div>
             <div class="col-md-1">
-                <button type="button" wire:click="addServiceLine" class="btn btn-sm btn-success w-100" wire:loading.attr="disabled">
+                <button type="button"
+                        class="btn btn-sm btn-success w-100"
+                        data-bnb-price-change
+                        data-bnb-price-action="addServiceLine"
+                        data-bnb-price-params="{}"
+                        wire:loading.attr="disabled"
+                        wire:target="executeConfirmedPriceChange,previewBookingPriceChange,addServiceLine">
                     <i class="bi bi-plus-lg"></i>
                 </button>
             </div>

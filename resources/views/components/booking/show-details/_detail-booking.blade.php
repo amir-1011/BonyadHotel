@@ -58,7 +58,7 @@
     @if($booking->extra_guests > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">کف‌خواب</span>
-        <span>{{ $booking->extra_guests }} نفر · {{ number_format($booking->extra_guests_price) }} تومان</span>
+        <span>{{ $booking->extra_guests }} نفر · {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->extra_guests_price)) }} ریال</span>
     </li>
     @endif
     @if($booking->bill_full_rooms)
@@ -71,6 +71,48 @@
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">روش پرداخت</span>
         <span>{{ $booking->paymentMethodLabel() }}</span>
+    </li>
+    @endif
+    @if($booking->isMedicalAccommodation())
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">شماره قرارداد</span>
+        <span dir="ltr">{{ $booking->medicalContractNumber() ?: '—' }}</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">تعرفه اسکان درمانی</span>
+        <span>{{ $booking->medicalTariffLabel() ?: '—' }}</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">کارفرما / بیمه‌گر</span>
+        <span>{{ $booking->employer?->name ?? 'بیمه دی' }}</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">بدهی کارفرما</span>
+        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->employerDebtAmount() ?: $booking->total_price)) }} ریال</strong>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">قابل پرداخت مهمان</span>
+        <span>۰ ریال</span>
+    </li>
+    @endif
+    @if($booking->isMedicalAccommodation() && $booking->hasMedicalReferralLetters())
+    <li class="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
+        <span class="text-muted">معرفی‌نامه اسکان درمانی</span>
+        <x-booking.authorized-document-links
+            :urls="collect($booking->medicalReferralLetterPaths())->map(fn ($path, $index) => $booking->medicalReferralLetterUrl($panel ?? null, $index))->all()"
+            btn-class="btn-outline-info py-0"
+            label="دانلود"
+        />
+    </li>
+    @endif
+    @if($booking->isCredit() && $booking->hasCreditLetters())
+    <li class="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
+        <span class="text-muted">معرفی‌نامه اعتباری</span>
+        <x-booking.authorized-document-links
+            :urls="collect($booking->creditLetterPaths())->map(fn ($path, $index) => $booking->creditLetterUrl($panel ?? null, $index))->all()"
+            btn-class="btn-outline-warning py-0"
+            label="دانلود"
+        />
     </li>
     @endif
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">

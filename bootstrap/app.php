@@ -24,8 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 : route('auth.mobile');
         });
 
+        $middleware->web(prepend: [
+            \App\Http\Middleware\ConvertRequestDigits::class,
+        ]);
+
+        $middleware->api(prepend: [
+            \App\Http\Middleware\ConvertRequestDigits::class,
+        ]);
+
+        $middleware->append(\App\Http\Middleware\PersianDigits::class);
+
         $middleware->web(append: [
-            \App\Http\Middleware\PersianDigits::class,
             \App\Http\Middleware\EnforceStaffSessionTimeout::class,
         ]);
 

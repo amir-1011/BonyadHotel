@@ -218,7 +218,7 @@ class ProvinceAccountingCodeComprehensiveTest extends TestCase
             ->call('addEmployerToCatalog')
             ->assertHasNoErrors();
 
-        $this->assertSame('526401', ProgramEmployer::value('employer_code'));
+        $this->assertSame('526401', ProgramEmployer::query()->where('name', 'استانداری گیلان')->value('employer_code'));
     }
 
     public function test_different_provinces_get_different_code_prefixes(): void
@@ -261,10 +261,8 @@ class ProvinceAccountingCodeComprehensiveTest extends TestCase
             ->set('newEmployerMobile', '09127778899')
             ->call('addEmployerToCatalog');
 
-        $this->assertEqualsCanonicalizing(
-            ['515401', '508401'],
-            ProgramEmployer::query()->orderBy('employer_code')->pluck('employer_code')->all()
-        );
+        $this->assertSame('515402', ProgramEmployer::query()->where('name', 'ارگان مازندران')->value('employer_code'));
+        $this->assertSame('508401', ProgramEmployer::query()->where('name', 'ارگان تهران')->value('employer_code'));
     }
 
     public function test_location_catalog_saves_unique_province_codes(): void
@@ -399,14 +397,6 @@ class ProvinceAccountingCodeComprehensiveTest extends TestCase
 
     public function test_program_form_previews_next_codes_in_modal(): void
     {
-        ProgramEmployer::create([
-            'province_id'             => $this->accommodation->resolvedProvince()?->id,
-            'name'                    => 'موجود',
-            'employer_code'           => '515401',
-            'national_or_economic_id' => '1234567890',
-            'mobile'                  => '09120000002',
-        ]);
-
         $this->actingAs($this->hostUser);
 
         Livewire::test(ProgramBookingForm::class, ['panel' => 'host', 'accommodationId' => $this->accommodation->id])
@@ -561,7 +551,7 @@ class ProvinceAccountingCodeComprehensiveTest extends TestCase
             ->call('addEmployerToCatalog')
             ->assertHasErrors(['newEmployerName']);
 
-        $this->assertDatabaseCount('program_employers', 0);
+        $this->assertDatabaseMissing('program_employers', ['name' => 'ارگان ناموفق']);
     }
 
     public function test_auto_resolves_province_code_from_catalog_when_missing_in_database(): void
@@ -589,7 +579,7 @@ class ProvinceAccountingCodeComprehensiveTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame('526', $province->fresh()->accounting_code);
-        $this->assertSame('526401', ProgramEmployer::value('employer_code'));
+        $this->assertSame('526401', ProgramEmployer::query()->where('name', 'ارگان گیلان')->value('employer_code'));
     }
 
     /** @return array{0:string,1:string} */

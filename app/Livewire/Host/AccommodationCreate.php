@@ -108,6 +108,7 @@ class AccommodationCreate extends Component
         $accommodation->grantHostAccess(Auth::user());
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\MedicalAccommodationProvisioner::class)->seedForAccommodation($accommodation);
 
         session()->flash('status', 'اقامتگاه ثبت شد و پس از تأیید مدیر نمایش داده می‌شود.');
         $this->redirectRoute('host.accommodations.index', navigate: true);

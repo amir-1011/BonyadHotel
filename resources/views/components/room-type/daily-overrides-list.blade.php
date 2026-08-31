@@ -83,7 +83,7 @@
                             @elseif($rateOvr->discount_percentage > 0)
                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $rateOvr->discount_percentage }}٪ گران‌تر</span>
                             @elseif($rateOvr->custom_price)
-                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ number_format($rateOvr->custom_price, 0, '.', ',') }} ت</span>
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rateOvr->custom_price, 0, '.', ',')) }} ریال</span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
@@ -104,7 +104,7 @@
                             @elseif($ov->discount_percentage > 0)
                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $ov->discount_percentage }}٪ گران‌تر</span>
                             @elseif($ov->custom_price)
-                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ number_format($ov->custom_price, 0, '.', ',') }} ت</span>
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ \App\Support\PdfPersian::toPersianDigits(number_format($ov->custom_price, 0, '.', ',')) }} ریال</span>
                             @endif
                             @if($ov->price_label)
                                 <span class="daily-ovr-rate-label">{{ $ov->price_label }}</span>

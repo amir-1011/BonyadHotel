@@ -24,5 +24,6 @@ class HostDashboardRsbScriptTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('rsb-layout-sort', $html);
+        $this->assertStringContainsString('persian-digits', $html);
     }
 }

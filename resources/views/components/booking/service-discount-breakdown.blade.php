@@ -18,7 +18,7 @@
         @endforeach
         <div class="d-flex justify-content-between fw-semibold text-danger {{ $compact ? 'small' : '' }}" style="font-size:{{ $compact ? '.72rem' : '.8rem' }}">
             <span>جمع تخفیف این خدمت</span>
-            <span>− {{ number_format($lineDisc) }} ت</span>
+            <span>− {{ \App\Support\PdfPersian::toPersianDigits(number_format($lineDisc)) }} ریال</span>
         </div>
     </div>
 @elseif($lineDisc > 0)
@@ -42,7 +42,7 @@
             تخفیف
             @endif
         </span>
-        <span class="fw-semibold">− {{ number_format($lineDisc) }} ت</span>
+        <span class="fw-semibold">− {{ \App\Support\PdfPersian::toPersianDigits(number_format($lineDisc)) }} ریال</span>
     </div>
 @elseif(($line['line_subtotal'] ?? 0) === 0)
     <div class="d-flex justify-content-between text-success" style="padding-right:.5rem;font-size:{{ $compact ? '.72rem' : '.78rem' }}">

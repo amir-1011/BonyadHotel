@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="fa" dir="rtl" wire:navigate.loading-bar>
+<html lang="fa" dir="rtl" class="ta-ios" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,11 +12,9 @@
     <link rel="stylesheet" href="{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/tailadmin/tailadmin.css') }}">
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; }
-        .ta-sidebar { height: 100vh; overflow: hidden; }
+        body { font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif; }
         .ta-sidebar__nav { min-height: 0; }
-        table:has(thead th.col-index) thead th.col-index,
-        table:has(thead th.col-index) tbody tr > td:first-child { display: none !important; }
+        .col-index { display: none !important; }
     </style>
     {{-- Anti-flash: apply saved theme before first paint --}}
     <script>(function(){try{var t=localStorage.getItem('ta-theme');if(t==='dark')document.documentElement.setAttribute('data-bs-theme','dark');}catch(e){}}());</script>
@@ -25,11 +23,15 @@
         .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; }
     </style>
     @include('partials._jalali-date-today-styles')
+    @include('partials._hidden-scrollbar-styles')
     @include('partials._scrollable-table-styles')
+    @include('partials._panel-responsive-styles')
+    @include('partials._panel-ios-styles')
     @stack('styles')
+    @include('partials._persian-digits-script')
     @livewireStyles
 </head>
-<body>
+<body class="ta-ios">
 
 @php
     $hostUser = Auth::user();
@@ -42,33 +44,31 @@
 {{-- ─── Sidebar ──────────────────────────────────────────────────────── --}}
 <aside id="sidebar" class="ta-sidebar">
     <div class="ta-sidebar__brand">
-        <div class="ta-sidebar__logo"><i class="bi bi-house-heart-fill"></i></div>
+        <x-panel.brand-logo />
         <div class="ta-sidebar__brand-text">
-            <div class="ta-sidebar__title">پنل میزبان</div>
-            <div class="ta-sidebar__subtitle">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
+            <div class="ta-sidebar__kicker">پنل میزبان</div>
+            <div class="ta-sidebar__title">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
         </div>
-        <button type="button" class="ta-sidebar__toggle d-none d-lg-inline-flex" title="جمع/باز کردن منو" aria-label="جمع/باز کردن منو" onclick="window.taToggleCollapse()">
-            <i class="bi bi-chevron-right ta-toggle-collapse"></i>
-            <i class="bi bi-chevron-left ta-toggle-expand"></i>
-        </button>
+        <x-panel.sidebar-toggle />
     </div>
 
     <nav class="ta-sidebar__nav">
-        <div class="ta-sidebar__section">منو</div>
+        <div class="ta-sidebar__section">اصلی</div>
         @if(\App\Support\HostPermissions::grantsHaveDashboardReadAccess($hostUser->effectiveHostPermissionGrants()))
         <a href="{{ route('host.dashboard') }}" wire:navigate data-label="داشبورد"
            class="ta-nav-link {{ request()->routeIs('host.dashboard') ? 'active' : '' }}">
-            <i class="bi bi-grid-1x2-fill"></i><span class="ta-nav-link__label">داشبورد</span>
+            <i class="bi bi-grid"></i><span class="ta-nav-link__label">داشبورد</span>
         </a>
         @endif
 
         @if($hostUser->hasHostPanelAccess('accommodations'))
         <div class="ta-nav-group {{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" onclick="window.taToggleGroup(this)">
-                <i class="bi bi-building-fill"></i>
+            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" aria-expanded="{{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-building"></i>
                 <span class="ta-nav-link__label">اقامتگاه‌ها</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>
+            <div class="ta-submenu-panel">
             <ul class="ta-submenu">
                 @if($hostUser->hostCan('accommodations.list', 'read'))
                 <li><a href="{{ route('host.accommodations.index') }}" wire:navigate
@@ -79,32 +79,45 @@
                        class="{{ request()->routeIs('host.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
                 @endif
             </ul>
+            </div>
         </div>
         @endif
 
         @if($hostUser->hasHostPanelAccess('bookings'))
         @if($hostUser->hostCan('bookings.list', 'read'))
         <a href="{{ route('host.bookings.index') }}" wire:navigate data-label="رزروها"
-           class="ta-nav-link {{ request()->routeIs('host.bookings.*') && !request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check-fill"></i><span class="ta-nav-link__label">رزروها</span>
+           class="ta-nav-link {{ request()->routeIs('host.bookings.*') && !request()->routeIs('host.cancellation-requests.*') && !request()->routeIs('host.booking-payment-records.*') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check"></i><span class="ta-nav-link__label">رزروها</span>
+        </a>
+        <a href="{{ route('host.booking-payment-records.index') }}" wire:navigate data-label="تراکنش‌های مالی"
+           class="ta-nav-link {{ request()->routeIs('host.booking-payment-records.*') ? 'active' : '' }}">
+            <i class="bi bi-credit-card-2-front"></i><span class="ta-nav-link__label">تراکنش‌های مالی</span>
+        </a>
+        @endif
+
+        @if($hostUser->hostCan('bookings.medical-accommodation-report', 'read'))
+        <a href="{{ route('host.medical-accommodation-report') }}" wire:navigate data-label="اسکان درمانی"
+           class="ta-nav-link {{ request()->routeIs('host.medical-accommodation-report') ? 'active' : '' }}">
+            <i class="bi bi-heart-pulse"></i><span class="ta-nav-link__label">اسکان درمانی</span>
         </a>
         @endif
 
         @if($hostUser->hostCan('cancellation-requests.list', 'read'))
         <a href="{{ route('host.cancellation-requests.index') }}" wire:navigate data-label="کنسلی و استرداد وجه"
            class="ta-nav-link {{ request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">
-            <i class="bi bi-x-circle-fill"></i><span class="ta-nav-link__label">کنسلی و استرداد وجه</span>
+            <i class="bi bi-x-circle"></i><span class="ta-nav-link__label">کنسلی و استرداد وجه</span>
         </a>
         @endif
         @endif
 
         @if($hostUser->hasHostPanelAccess('programs'))
         <div class="ta-nav-group {{ request()->routeIs('host.programs.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" onclick="window.taToggleGroup(this)">
-                <i class="bi bi-flag-fill"></i>
+            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('host.programs.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-flag"></i>
                 <span class="ta-nav-link__label">برنامه‌ها و اردوها</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>
+            <div class="ta-submenu-panel">
             <ul class="ta-submenu">
                 @if($hostUser->hostCan('programs.list', 'read'))
                 <li><a href="{{ route('host.programs.index') }}" wire:navigate
@@ -119,13 +132,14 @@
                        class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
                 @endif
             </ul>
+            </div>
         </div>
         @endif
 
         @if($hostUser->hostCan('reviews.list', 'read'))
         <a href="{{ route('host.reviews.index') }}" wire:navigate data-label="نظرات مهمانان"
            class="ta-nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
-            <i class="bi bi-star-fill"></i><span class="ta-nav-link__label">نظرات مهمانان</span>
+            <i class="bi bi-star"></i><span class="ta-nav-link__label">نظرات مهمانان</span>
             @if($pendingReplies > 0)
                 <span class="badge bg-warning">{{ $pendingReplies }}</span>
             @endif
@@ -135,8 +149,30 @@
         @if($hostUser->hostCan('users.list', 'read'))
         <a href="{{ route('host.users.index') }}" wire:navigate data-label="کاربران"
            class="ta-nav-link {{ request()->routeIs('host.users.*') ? 'active' : '' }}">
-            <i class="bi bi-people-fill"></i><span class="ta-nav-link__label">کاربران</span>
+            <i class="bi bi-people"></i><span class="ta-nav-link__label">کاربران</span>
         </a>
+        @endif
+
+        @if($hostUser->hasHostPanelAccess('facility-management'))
+        <div class="ta-nav-group {{ request()->routeIs('host.facility.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="مدیریت اماکن" aria-expanded="{{ request()->routeIs('host.facility.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-boxes"></i>
+                <span class="ta-nav-link__label">مدیریت اماکن</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                @if($hostUser->hostCan('facility-surplus.list', 'read'))
+                <li><a href="{{ route('host.facility.surplus.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.facility.surplus.*') ? 'active' : '' }}">اقلام مازاد</a></li>
+                @endif
+                @if($hostUser->hostCan('facility-needed.list', 'read'))
+                <li><a href="{{ route('host.facility.needed.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.facility.needed.*') ? 'active' : '' }}">اقلام مورد نیاز</a></li>
+                @endif
+            </ul>
+            </div>
+        </div>
         @endif
 
         <div class="ta-sidebar__section">دسترسی سریع</div>
@@ -146,16 +182,18 @@
         </a>
         @unless(config('staff_mode.enabled'))
         <a href="{{ route('home') }}" target="_blank" data-label="سایت اصلی" class="ta-nav-link">
-            <i class="bi bi-house-door-fill"></i><span class="ta-nav-link__label">سایت اصلی</span>
+            <i class="bi bi-house-door"></i><span class="ta-nav-link__label">سایت اصلی</span>
         </a>
         @endunless
+    </nav>
+    <div class="ta-sidebar__foot">
         <form action="{{ route('auth.logout') }}" method="POST">
             @csrf
-            <button type="submit" class="ta-nav-link" data-label="خروج">
+            <button type="submit" class="ta-nav-link ta-nav-link--logout" data-label="خروج">
                 <i class="bi bi-box-arrow-right"></i><span class="ta-nav-link__label">خروج</span>
             </button>
         </form>
-    </nav>
+    </div>
 </aside>
 <div id="sidebarBackdrop" class="ta-backdrop" onclick="window.taToggleSidebar(false)"></div>
 
@@ -163,7 +201,7 @@
 <div class="ta-main">
     <header class="ta-topbar">
         <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
-            <button class="ta-hamburger d-lg-none flex-shrink-0" onclick="window.taToggleSidebar()">
+            <button type="button" class="ta-hamburger d-lg-none flex-shrink-0" onclick="window.taToggleSidebar()" aria-label="باز کردن منو">
                 <i class="bi bi-list fs-5"></i>
             </button>
             <x-panel.topbar-meta panel="host" :page-title="$pageTitle ?? null" :breadcrumbs="$breadcrumbs ?? null" />
@@ -205,7 +243,7 @@
         </div>
     </header>
 
-    <div class="ta-page @if(request()->routeIs('host.dashboard')) flex-grow-1 @endif">
+    <div class="ta-page @if(request()->routeIs('host.dashboard') || request()->routeIs('host.medical-accommodation-report')) flex-grow-1 @endif">
         @hasSection('content')
             @yield('content')
         @else
@@ -213,7 +251,7 @@
         @endif
     </div>
 
-    @if(request()->routeIs('host.dashboard'))
+    @if(request()->routeIs('host.dashboard') || request()->routeIs('host.medical-accommodation-report'))
         @include('partials._panel_footer')
     @endif
 </div>
@@ -252,14 +290,50 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
         sb.classList.toggle('show', show);
         bd.classList.toggle('show', show);
     };
+    window.taScrollNavGroup = function (group) {
+        var nav = document.querySelector('.ta-sidebar__nav');
+        if (!nav || !group || document.body.classList.contains('ta-collapsed')) return;
+        var navRect = nav.getBoundingClientRect();
+        var groupRect = group.getBoundingClientRect();
+        var pad = 12;
+        var delta = 0;
+        if (groupRect.bottom > navRect.bottom - pad) {
+            delta = groupRect.bottom - navRect.bottom + pad;
+        } else if (groupRect.top < navRect.top + pad) {
+            delta = groupRect.top - navRect.top - pad;
+        }
+        if (Math.abs(delta) > 1) {
+            nav.scrollBy({ top: delta, behavior: 'smooth' });
+        }
+    };
     window.taToggleGroup = function (btn) {
         var group = btn.closest('.ta-nav-group');
         if (!group) return;
-        var isOpen = group.classList.contains('open');
+        var willOpen = !group.classList.contains('open');
         document.querySelectorAll('.ta-nav-group.open').forEach(function (g) {
-            if (g !== group) g.classList.remove('open');
+            if (g !== group) {
+                g.classList.remove('open');
+                var otherBtn = g.querySelector(':scope > .ta-nav-link');
+                if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+            }
         });
-        group.classList.toggle('open', !isOpen);
+        group.classList.toggle('open', willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (!willOpen) return;
+        var panel = group.querySelector('.ta-submenu-panel');
+        var done = function () { window.taScrollNavGroup(group); };
+        requestAnimationFrame(function () { requestAnimationFrame(done); });
+        if (!panel) return;
+        var onEnd = function (e) {
+            if (e.propertyName && e.propertyName !== 'grid-template-rows' && e.propertyName !== 'max-height') return;
+            panel.removeEventListener('transitionend', onEnd);
+            done();
+        };
+        panel.addEventListener('transitionend', onEnd);
+        setTimeout(function () {
+            panel.removeEventListener('transitionend', onEnd);
+            done();
+        }, 500);
     };
     window.taToggleCollapse = function () {
         var collapsed = document.body.classList.toggle('ta-collapsed');
@@ -313,11 +387,11 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     };
     taSyncThemeBtn();
 </script>
-<script src="{{ Vite::asset('resources/js/money-input.js') }}" data-navigate-once></script>
 <script src="{{ Vite::asset('resources/js/bnb-room-picker.js') }}" data-navigate-once></script>
 <script src="{{ Vite::asset('resources/js/dashboard-accommodation-filter.js') }}" data-navigate-once></script>
 <script type="module" src="{{ Vite::asset('resources/js/image-upload-gate.js') }}" data-navigate-once></script>
 @livewireScripts
+<script src="{{ Vite::asset('resources/js/money-input.js') }}" data-navigate-once></script>
 <script data-navigate-once>
 (function () {
     function restoreJquery$() {
@@ -329,9 +403,13 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
 })();
 </script>
 @stack('scripts')
+@include('partials._bootstrap_modal_livewire_guard')
+@include('partials._stay_extension_scripts')
 @include('partials._btn_loader')
+@include('partials._manual-booking-slide')
 @include('partials._swal')
 <script type="module" src="{{ Vite::asset('resources/js/room-type-form.js') }}" data-navigate-once></script>
 @include('partials._test_site_notice')
+@include('partials._panel-page-transition')
 </body>
 </html>

@@ -106,7 +106,7 @@
                         @endif
                         @if($item['custom'])
                             <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">
-                                {{ number_format($item['custom'], 0, '.', ',') }} ت / تخت
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($item['custom'], 0, '.', ',')) }} ریال / تخت
                             </span>
                         @endif
                         @if(!$item['discount'] && !$item['custom'] && !$item['label'])

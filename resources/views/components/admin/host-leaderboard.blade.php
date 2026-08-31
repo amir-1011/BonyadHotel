@@ -94,7 +94,7 @@
                     <div class="text-muted" style="font-size:.72rem">میزبان اول{{ $all_time ? ' (کل دوره)' : ' ' . $month_label }}</div>
                     <div class="fw-bold" style="font-size:.88rem;color:#101828">{{ $leader->name ?? 'بدون نام' }}</div>
                     <div class="text-primary fw-semibold tabular-nums" style="font-size:.8rem">
-                        {{ number_format($leader->revenue) }} تومان
+                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($leader->revenue)) }} ریال
                     </div>
                 </div>
             @endif
@@ -128,8 +128,8 @@
                                 {{ $initials($host->name) }}
                             </div>
                             <div class="host-leaderboard__podium-name">{{ Str::limit($host->name ?? 'بدون نام', 18) }}</div>
-                            <div class="host-leaderboard__podium-score tabular-nums">{{ number_format($host->revenue) }}</div>
-                            <div class="host-leaderboard__podium-label">تومان · {{ number_format($host->bookings_count) }} رزرو</div>
+                            <div class="host-leaderboard__podium-score tabular-nums">{{ \App\Support\PdfPersian::toPersianDigits(number_format($host->revenue)) }}</div>
+                            <div class="host-leaderboard__podium-label">ریال · {{ \App\Support\PdfPersian::toPersianDigits(number_format($host->bookings_count)) }} رزرو</div>
                             @if(!$all_time)
                             <span class="host-leaderboard__delta host-leaderboard__delta--sm {{ $growth['class'] }}">
                                 <i class="bi bi-{{ $growth['icon'] }}"></i>{{ $growth['text'] }}
@@ -168,11 +168,11 @@
                         </span>
                         <span class="host-leaderboard__stats">
                             <span class="host-leaderboard__revenue tabular-nums">
-                                {{ number_format($host->revenue) }}
-                                <small>تومان</small>
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($host->revenue)) }}
+                                <small>ریال</small>
                             </span>
                             <span class="host-leaderboard__bookings tabular-nums">
-                                {{ number_format($host->bookings_count) }}
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($host->bookings_count)) }}
                                 <small>رزرو</small>
                             </span>
                         </span>

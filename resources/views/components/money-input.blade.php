@@ -33,8 +33,8 @@
             dir="ltr"
             autocomplete="off"
             {{ $passthrough->except('class')->merge(['class' => $inputClass]) }}
-            x-model="display"
-            @@input="onInput()"
+            :value="display"
+            @@input="display = $event.target.value; onInput()"
             @@blur="onBlur()"
             @@focus="$event.target.select()"
         >

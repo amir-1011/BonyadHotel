@@ -31,6 +31,7 @@ class HostUsersExport implements FromQuery, WithHeadings, WithMapping
     {
         return [
             'نام',
+            'نوع کاربر',
             'موبایل',
             'شناسه',
             'محل اقامت',
@@ -44,6 +45,7 @@ class HostUsersExport implements FromQuery, WithHeadings, WithMapping
     {
         return [
             $user->name ?? '—',
+            $user->roleBadgeLabel(),
             $user->mobile,
             $user->identityNumber() ?? '—',
             $user->residenceLocationLabel() ?? '—',

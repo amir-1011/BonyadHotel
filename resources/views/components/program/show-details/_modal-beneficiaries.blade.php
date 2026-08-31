@@ -12,7 +12,7 @@
 @if($totalDebt > 0)
 <div class="rounded-3 border bg-light p-3 mb-3 d-flex justify-content-between align-items-center">
     <span class="text-muted small"><i class="bi bi-cash-stack me-1"></i>جمع بدهی ذینفعان</span>
-    <strong class="text-danger">{{ number_format($totalDebt) }} تومان</strong>
+    <strong class="text-danger">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalDebt)) }} ریال</strong>
 </div>
 @endif
 
@@ -52,7 +52,7 @@
             <span class="fw-semibold">{{ $beneficiary->name }}</span>
             <span class="badge bg-secondary-subtle text-secondary border" dir="ltr">{{ $beneficiary->beneficiary_code }}</span>
             @if((int) $cost->debt_amount > 0)
-            <span class="badge bg-danger-subtle text-danger border">{{ number_format((int) $cost->debt_amount) }} تومان</span>
+            <span class="badge bg-danger-subtle text-danger border">{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) $cost->debt_amount)) }} ریال</span>
             @endif
             @if($docCount > 0)
             <span class="badge bg-success-subtle text-success border"><i class="bi bi-paperclip me-1"></i>{{ $docCount }} مدرک</span>

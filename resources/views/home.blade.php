@@ -367,15 +367,15 @@
                                     @auth
                                         @if(Auth::user()->discount_percentage > 0)
                                             @php $discHome = round($acc->lowest_price * (1 - Auth::user()->discount_percentage / 100)); @endphp
-                                            <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ number_format($acc->lowest_price) }}</span>
-                                            <span class="font-bold text-lg" style="color:var(--bnb-red);">{{ number_format($discHome) }}</span>
+                                            <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->lowest_price)) }}</span>
+                                            <span class="font-bold text-lg" style="color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($discHome)) }}</span>
                                         @else
-                                            <span class="font-bold text-lg">{{ number_format($acc->lowest_price) }}</span>
+                                            <span class="font-bold text-lg">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->lowest_price)) }}</span>
                                         @endif
                                     @else
-                                        <span class="font-bold text-lg">{{ number_format($acc->lowest_price) }}</span>
+                                        <span class="font-bold text-lg">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->lowest_price)) }}</span>
                                     @endauth
-                                    <span class="text-xs">تومان</span>
+                                    <span class="text-xs">ریال</span>
                                     <span class="text-slate-400">/ شب</span>
                                 </div>
                             </div>

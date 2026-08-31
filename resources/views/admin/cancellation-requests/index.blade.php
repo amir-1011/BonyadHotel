@@ -1,14 +1,10 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-end mb-3 flex-wrap gap-2">
-    <a href="{{ route('admin.cancellation-settings') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-gear me-1"></i>تنظیمات بازگشت وجه و دلایل</a>
-</div>
-
 <div class="card shadow-sm mb-3">
-    <div class="card-body">
-        <div class="row g-2">
-            <div class="col-6 col-md-3">
-                <label class="form-label small fw-semibold">وضعیت</label>
+    <div class="ta-list-chrome">
+        <div class="d-flex flex-wrap align-items-end gap-2 flex-grow-1 min-w-0">
+            <div>
+                <label class="form-label small text-muted mb-1">وضعیت</label>
                 <select wire:model.live="status" class="form-select form-select-sm">
                     <option value="">همه</option>
                     <option value="pending">در انتظار بررسی</option>
@@ -16,8 +12,8 @@
                     <option value="rejected">رد شده</option>
                 </select>
             </div>
-            <div class="col-6 col-md-4">
-                <label class="form-label small fw-semibold">اقامتگاه</label>
+            <div class="flex-grow-1" style="min-width:10rem">
+                <label class="form-label small text-muted mb-1">اقامتگاه</label>
                 <select wire:model.live="accommodationId" class="form-select form-select-sm">
                     <option value="">همه اقامتگاه‌ها</option>
                     @foreach($accommodations as $acc)
@@ -25,10 +21,13 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-md-5">
-                <label class="form-label small fw-semibold">جستجو (کد رهگیری، نام یا موبایل مهمان)</label>
-                <input type="text" wire:model.live.debounce.400ms="search" class="form-control form-control-sm" placeholder="جستجو...">
+            <div class="flex-grow-1" style="min-width:12rem">
+                <label class="form-label small text-muted mb-1">جستجو</label>
+                <input type="text" wire:model.live.debounce.400ms="search" class="form-control form-control-sm" placeholder="کد رهگیری، نام یا موبایل">
             </div>
+        </div>
+        <div class="ta-page-toolbar">
+            <a href="{{ route('admin.cancellation-settings') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-gear me-1"></i>تنظیمات</a>
         </div>
     </div>
 </div>
@@ -66,7 +65,7 @@
                         {{ $request->days_before_checkin }}
                         @endif
                     </td>
-                    <td>{{ $request->refund_percentage }}٪ &middot; {{ number_format($request->refund_amount) }} ت</td>
+                    <td>{{ $request->refund_percentage }}٪ &middot; {{ \App\Support\PdfPersian::toPersianDigits(number_format($request->refund_amount)) }} ریال</td>
                     <td class="small" style="direction:ltr;">{{ $request->refund_account_number }}</td>
                     <td>
                         <span class="badge bg-{{ $request->statusColor() }}">{{ $request->statusLabel() }}</span>
@@ -77,7 +76,7 @@
                     <td>
                         @if($request->isPending())
                         <div class="d-flex gap-1">
-                            <button type="button" wire:click="approve({{ $request->id }})" data-swal-confirm="با تایید این درخواست، رزرو لغو شده و مبلغ {{ number_format($request->refund_amount) }} تومان قابل استرداد ثبت می‌شود. ادامه می‌دهید؟" class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i></button>
+                            <button type="button" wire:click="approve({{ $request->id }})" data-swal-confirm="با تایید این درخواست، رزرو لغو شده و مبلغ {{ \App\Support\PdfPersian::toPersianDigits(number_format($request->refund_amount)) }} ریال قابل استرداد ثبت می‌شود. ادامه می‌دهید؟" class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i></button>
                             <button type="button"
                                 data-swal-prompt
                                 data-swal-prompt-method="submitReject"

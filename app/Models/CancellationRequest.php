@@ -73,6 +73,11 @@ class CancellationRequest extends Model
         return $this->settled_at !== null;
     }
 
+    public function hasZeroRefund(): bool
+    {
+        return (int) $this->refund_amount <= 0;
+    }
+
     public function statusLabel(): string
     {
         return match ($this->status) {

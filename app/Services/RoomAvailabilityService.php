@@ -41,15 +41,17 @@ class RoomAvailabilityService
         foreach ($rooms as $index => $room) {
             $status = $this->resolveStatus($room, $index, $typeMap, $blockedIndex, $bookedRoomIds, $excludeRoomIds);
             $result[] = [
-                'id'          => $room->id,
-                'name'        => $room->name,
-                'description' => $room->description,
-                'amenities'   => $room->displayAmenities(),
-                'sort_order'  => $room->sort_order,
-                'status'      => $status,
-                'selectable'  => $status === 'available',
-                'status_label'=> $this->statusLabel($status),
-                'color'       => $this->statusColor($status),
+                'id'             => $room->id,
+                'name'           => $room->name,
+                'description'    => $room->description,
+                'amenities'      => $room->displayAmenities(),
+                'sort_order'     => $room->sort_order,
+                'room_type_id'   => $roomType->id,
+                'room_type_name' => $roomType->name,
+                'status'         => $status,
+                'selectable'     => $status === 'available',
+                'status_label'   => $this->statusLabel($status),
+                'color'          => $this->statusColor($status),
             ];
         }
 
@@ -65,6 +67,7 @@ class RoomAvailabilityService
         string $checkIn,
         string $checkOut,
         array $excludeRoomIds = [],
+        ?int $excludeBookingId = null,
     ): array {
         $result = [];
 
@@ -75,7 +78,7 @@ class RoomAvailabilityService
             ->get();
 
         foreach ($roomTypes as $roomType) {
-            foreach ($this->roomsForRange($roomType, $checkIn, $checkOut, $excludeRoomIds) as $room) {
+            foreach ($this->roomsForRange($roomType, $checkIn, $checkOut, $excludeRoomIds, $excludeBookingId) as $room) {
                 $room['room_type_id'] = $roomType->id;
                 $room['room_type_name'] = $roomType->name;
                 $result[] = $room;

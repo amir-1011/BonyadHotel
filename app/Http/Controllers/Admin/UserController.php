@@ -6,6 +6,7 @@ use App\Exports\AdminUsersExport;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\NationalIdVerificationService;
+use App\Support\AdminUserRoleFilterCatalog;
 use App\Support\VeteranGroups;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,8 +22,26 @@ class UserController extends Controller
 
         if ($section === 'users') {
             $role = 'guest';
-        } elseif ($section === 'roles' && $role === '') {
-            $role = null;
+        } elseif ($section === 'personnel' && ($role === '' || $role === AdminUserRoleFilterCatalog::ALL_PERSONNEL)) {
+            $role = AdminUserRoleFilterCatalog::ALL_PERSONNEL;
+        } elseif ($section === 'employers') {
+            $role = 'employer';
+        } elseif ($section === 'beneficiaries') {
+            $role = 'beneficiary';
+        } elseif ($section === 'roles') {
+            $section = match ($role) {
+                'employer'    => 'employers',
+                'beneficiary' => 'beneficiaries',
+                default       => 'personnel',
+            };
+
+            if ($section === 'employers') {
+                $role = 'employer';
+            } elseif ($section === 'beneficiaries') {
+                $role = 'beneficiary';
+            } elseif ($role === '') {
+                $role = null;
+            }
         } elseif ($section === 'all' || $section === '') {
             $role = null;
         }

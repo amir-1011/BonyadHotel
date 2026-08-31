@@ -9,6 +9,8 @@ use App\Models\VeteranGroup;
 use App\Models\VeteranGroupServiceDiscount;
 use App\Livewire\Concerns\ManagesDashboardAccommodationFilter;
 use App\Livewire\Concerns\ManagesDiscountTierMatrix;
+use App\Livewire\Concerns\ManagesAccommodationDiscountTiers;
+use App\Services\AccommodationDiscountTierEngine;
 use App\Services\ServiceDiscountTierEngine;
 use App\Services\VeteranPolicyBroadcastService;
 use Livewire\Attributes\Layout;
@@ -21,6 +23,7 @@ class VeteranPolicySettings extends Component
         onDashboardAccommodationFilterChanged as protected triggerDashboardAccommodationFilterChanged;
     }
     use ManagesDiscountTierMatrix;
+    use ManagesAccommodationDiscountTiers;
 
     public string $tab = 'groups';
 
@@ -112,17 +115,20 @@ class VeteranPolicySettings extends Component
                     return null;
                 }
 
-                return [
+                return array_merge([
                     'key'                    => $g->key,
                     'label'                  => $g->label,
-                    'accommodation_discount' => $g->accommodation_discount,
                     'nights_per_dependent'   => $g->nights_per_dependent,
                     'max_nights_per_period'  => $g->max_nights_per_period,
                     'period_months'          => $g->period_months,
                     'weekly_free_sessions'   => $g->weekly_free_sessions,
                     'usage_notes'            => $g->usage_notes ?? '',
                     'is_active'              => $g->is_active,
-                ];
+                ], AccommodationDiscountTierEngine::groupRowFromPersistence([
+                    'accommodation_discount'            => $g->accommodation_discount,
+                    'use_tiered_accommodation_discount' => $g->use_tiered_accommodation_discount,
+                    'accommodation_discount_tiers'      => $g->accommodation_discount_tiers ?? [],
+                ]));
             })
             ->filter()
             ->values()
@@ -224,25 +230,27 @@ class VeteranPolicySettings extends Component
 
     public function saveGroups(VeteranPolicyBroadcastService $broadcast): void
     {
-        $this->validate([
+        $this->validate(array_merge([
             'groups.*.label'                  => ['required', 'string', 'max:200'],
             'groups.*.accommodation_discount' => ['required', 'integer', 'min:0', 'max:100'],
-            'groups.*.nights_per_dependent'   => ['required', 'integer', 'min:1', 'max:365'],
             'groups.*.max_nights_per_period'  => ['required', 'integer', 'min:1', 'max:365'],
             'groups.*.period_months'          => ['required', 'integer', 'min:1', 'max:24'],
-        ]);
+        ], $this->accommodationTierValidationRules()));
 
         $scopedIds = $this->scopedAccommodationIds();
 
         foreach ($this->groups as $row) {
+            $tierPersistence = AccommodationDiscountTierEngine::groupRowToPersistence($row);
+
             $broadcast->syncGroupByKey($row['key'], [
-                'label'                  => $row['label'],
-                'accommodation_discount' => $row['accommodation_discount'],
-                'nights_per_dependent'   => $row['nights_per_dependent'],
-                'max_nights_per_period'  => $row['max_nights_per_period'],
-                'period_months'          => $row['period_months'],
-                'usage_notes'            => $row['usage_notes'] ?: null,
-                'is_active'              => (bool) ($row['is_active'] ?? true),
+                'label'                             => $row['label'],
+                'accommodation_discount'            => $tierPersistence['accommodation_discount'],
+                'use_tiered_accommodation_discount' => $tierPersistence['use_tiered_accommodation_discount'],
+                'accommodation_discount_tiers'      => $tierPersistence['accommodation_discount_tiers'],
+                'max_nights_per_period'             => $row['max_nights_per_period'],
+                'period_months'                     => $row['period_months'],
+                'usage_notes'                       => $row['usage_notes'] ?: null,
+                'is_active'                         => (bool) ($row['is_active'] ?? true),
             ], $scopedIds);
         }
 

@@ -126,6 +126,7 @@ class RoomStatusBoardService
                 'rows'               => $organized['rows'],
                 'cols'               => $organized['cols'],
                 'groups'             => $groups,
+                'summary'            => $this->summarizeRooms($allRooms),
             ];
         }
 
@@ -227,6 +228,69 @@ class RoomStatusBoardService
             'future_bookings' => $future->map(fn (BookingRoom $l) => $this->formatBookingLine($l))->all(),
             'is_today'     => $date === $today,
         ];
+    }
+
+    /**
+     * Numeric snapshot of one accommodation's rooms for the selected day.
+     *
+     * @param  array<int, array<string, mixed>>  $rooms
+     * @return array{
+     *     total: int,
+     *     available: int,
+     *     occupied: int,
+     *     occupied_guests: int,
+     *     program: int,
+     *     program_guests: int,
+     *     future: int,
+     *     future_program: int,
+     *     capacity_closed: int,
+     *     blocked: int
+     * }
+     */
+    public function summarizeRooms(array $rooms): array
+    {
+        $summary = [
+            'total'            => count($rooms),
+            'available'        => 0,
+            'occupied'         => 0,
+            'occupied_guests'  => 0,
+            'program'          => 0,
+            'program_guests'   => 0,
+            'future'           => 0,
+            'future_program'   => 0,
+            'capacity_closed'  => 0,
+            'blocked'          => 0,
+        ];
+
+        foreach ($rooms as $room) {
+            $status = (string) ($room['status'] ?? '');
+            $currentGuests = (int) ($room['current_booking']['guests'] ?? 0);
+
+            if ($status === 'available') {
+                $summary['available']++;
+            } elseif ($status === 'occupied') {
+                $summary['occupied']++;
+                $summary['occupied_guests'] += $currentGuests;
+            } elseif ($status === 'program_occupied') {
+                $summary['program']++;
+                $summary['program_guests'] += $currentGuests;
+            } elseif ($status === 'capacity_closed') {
+                $summary['capacity_closed']++;
+            } elseif ($status === 'blocked') {
+                $summary['blocked']++;
+            }
+
+            $future = $room['future_bookings'] ?? [];
+            if (is_array($future) && $future !== []) {
+                $summary['future']++;
+                $first = $future[0] ?? [];
+                if (!empty($room['has_future_program']) || !empty($first['is_program'])) {
+                    $summary['future_program']++;
+                }
+            }
+        }
+
+        return $summary;
     }
 
     private function formatBookingLine(BookingRoom $line): array

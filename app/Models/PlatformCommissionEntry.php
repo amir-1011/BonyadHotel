@@ -147,6 +147,8 @@ class PlatformCommissionEntry extends Model
         return match ($method) {
             'cash'          => 'نقدی',
             'card_terminal' => 'کارتخوان',
+            'medical_accommodation' => 'اسکان درمانی',
+            'credit' => 'اعتباری',
             default         => $method ? (string) $method : '—',
         };
     }
@@ -158,32 +160,32 @@ class PlatformCommissionEntry extends Model
 
         if ($this->usesFlatBookingFee()) {
             $steps[] = 'نوع کارمزد: مبلغ ثابت برای هر رزرو';
-            $steps[] = 'مبلغ رزرو: ' . number_format($this->transaction_amount) . ' تومان';
+            $steps[] = 'مبلغ رزرو: ' . number_format($this->transaction_amount) . ' ریال';
 
-            if (($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program') {
-                $steps[] = 'رزرو از نوع اردو / برنامه — کارمزد صفر';
+            if ($this->isCommissionExemptBooking()) {
+                $steps[] = $this->commissionExemptReason() . ' — کارمزد صفر';
             } elseif ($this->transaction_amount <= 0) {
                 $steps[] = 'مبلغ رزرو صفر — کارمزد صفر';
             } else {
-                $steps[] = 'کارمزد ثابت هر رزرو: ' . number_format($this->commission_cap) . ' تومان';
+                $steps[] = 'کارمزد ثابت هر رزرو: ' . number_format($this->commission_cap) . ' ریال';
                 $steps[] = 'خدمات: بدون کارمزد';
             }
 
-            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' تومان';
+            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' ریال';
 
             return $steps;
         }
 
-        $steps[] = 'مبلغ پایه تراکنش: ' . number_format($this->transaction_amount) . ' تومان';
+        $steps[] = 'مبلغ پایه تراکنش: ' . number_format($this->transaction_amount) . ' ریال';
         $steps[] = 'نرخ کارمزد: ' . $this->commission_percentage . '٪';
         $raw = $this->rawCommissionBeforeCap();
-        $steps[] = 'محاسبه خام: ' . number_format($this->transaction_amount) . ' × ' . $this->commission_percentage . '٪ = ' . number_format($raw) . ' تومان';
+        $steps[] = 'محاسبه خام: ' . number_format($this->transaction_amount) . ' × ' . $this->commission_percentage . '٪ = ' . number_format($raw) . ' ریال';
 
         if ($this->wasCapped()) {
-            $steps[] = 'سقف کارمزد: ' . number_format($this->commission_cap) . ' تومان (مبلغ خام بیش از سقف بود)';
-            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' تومان';
+            $steps[] = 'سقف کارمزد: ' . number_format($this->commission_cap) . ' ریال (مبلغ خام بیش از سقف بود)';
+            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' ریال';
         } else {
-            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' تومان (زیر سقف)';
+            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' ریال (زیر سقف)';
         }
 
         return $steps;
@@ -198,31 +200,31 @@ class PlatformCommissionEntry extends Model
         if ($this->entry_type === self::TYPE_CREDIT && $this->reason === self::REASON_BOOKING_CONFIRMED) {
             if ($this->usesFlatBookingFee()) {
                 if ($this->commission_amount === 0) {
-                    $reason = ($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program'
-                        ? 'رزرو از نوع اردو / برنامه است'
-                        : 'مبلغ رزرو صفر است';
+                    if ($this->isCommissionExemptBooking()) {
+                        return "با ثبت و تأیید رزرو «{$tracking}»، {$this->commissionExemptReason()} و کارمزدی به کیف پول واریز نشد.";
+                    }
 
-                    return "با ثبت و تأیید رزرو «{$tracking}»، {$reason} و کارمزدی به کیف پول واریز نشد.";
+                    return "با ثبت و تأیید رزرو «{$tracking}»، مبلغ رزرو صفر است و کارمزدی به کیف پول واریز نشد.";
                 }
 
                 return "با ثبت و تأیید رزرو «{$tracking}» به مبلغ "
-                    . number_format($this->transaction_amount) . " تومان، کارمزد ثابت "
-                    . number_format($this->commission_cap) . " تومان (بدون کارمزد خدمات) "
+                    . number_format($this->transaction_amount) . " ریال، کارمزد ثابت "
+                    . number_format($this->commission_cap) . " ریال (بدون کارمزد خدمات) "
                     . "به کیف پول کارمزد واریز گردید.";
             }
 
             return "با ثبت و تأیید رزرو «{$tracking}»، برای بخش «{$category}» به مبلغ "
-                . number_format($this->transaction_amount) . " تومان، کارمزد "
+                . number_format($this->transaction_amount) . " ریال، کارمزد "
                 . $this->commission_percentage . "٪ محاسبه شد"
-                . ($this->wasCapped() ? " و به دلیل سقف " . number_format($this->commission_cap) . " تومان،" : "")
-                . " مبلغ {$amount} تومان به کیف پول کارمزد واریز گردید.";
+                . ($this->wasCapped() ? " و به دلیل سقف " . number_format($this->commission_cap) . " ریال،" : "")
+                . " مبلغ {$amount} ریال به کیف پول کارمزد واریز گردید.";
         }
 
         if ($this->entry_type === self::TYPE_REVERSAL && $this->reason === self::REASON_BOOKING_CANCELLED) {
             $reversed = number_format($this->meta['reversed_net_commission'] ?? abs($this->commission_amount));
 
-            return "رزرو «{$tracking}» لغو شد. کل کارمزد خالص ثبت‌شده برای «{$category}» برابر {$reversed} تومان بود "
-                . "که به‌طور کامل ({$amount} تومان) از کیف پول برگشت داده شد.";
+            return "رزرو «{$tracking}» لغو شد. کل کارمزد خالص ثبت‌شده برای «{$category}» برابر {$reversed} ریال بود "
+                . "که به‌طور کامل ({$amount} ریال) از کیف پول برگشت داده شد.";
         }
 
         if ($this->reason === self::REASON_AMOUNT_ADJUSTED) {
@@ -233,11 +235,51 @@ class PlatformCommissionEntry extends Model
             $direction = $this->commission_amount >= 0 ? 'افزایش' : 'کاهش';
 
             return "در رزرو «{$tracking}»، مبلغ بخش «{$category}» تغییر کرد. "
-                . "مبلغ تراکنش از {$prevTx} به {$newTx} تومان رسید. "
-                . "کارمزد خالص قبلی {$prevNet} تومان بود و کارمزد هدف جدید {$newTarget} تومان است. "
-                . "در نتیجه {$amount} تومان {$direction} در کیف پول ثبت شد.";
+                . "مبلغ تراکنش از {$prevTx} به {$newTx} ریال رسید. "
+                . "کارمزد خالص قبلی {$prevNet} ریال بود و کارمزد هدف جدید {$newTarget} ریال است. "
+                . "در نتیجه {$amount} ریال {$direction} در کیف پول ثبت شد.";
         }
 
         return $this->entryTypeLabel() . ' — ' . $this->reasonLabel();
+    }
+
+    private function isCommissionExemptBooking(): bool
+    {
+        if ($this->meta['is_commission_exempt'] ?? false) {
+            return true;
+        }
+
+        if (($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program') {
+            return true;
+        }
+
+        if ($this->meta['is_credit_booking'] ?? false) {
+            return true;
+        }
+
+        if ($this->meta['is_medical_accommodation_booking'] ?? false) {
+            return true;
+        }
+
+        $paymentMethod = $this->meta['payment_method'] ?? $this->booking?->payment_method;
+
+        return in_array($paymentMethod, ['credit', 'medical_accommodation'], true);
+    }
+
+    private function commissionExemptReason(): string
+    {
+        if (($this->meta['is_program_booking'] ?? false) || ($this->meta['booking_source'] ?? '') === 'program') {
+            return 'رزرو از نوع اردو / برنامه است';
+        }
+
+        if (($this->meta['is_credit_booking'] ?? false) || ($this->meta['payment_method'] ?? $this->booking?->payment_method) === 'credit') {
+            return 'رزرو از نوع اعتباری است';
+        }
+
+        if (($this->meta['is_medical_accommodation_booking'] ?? false) || ($this->meta['payment_method'] ?? $this->booking?->payment_method) === 'medical_accommodation') {
+            return 'رزرو از نوع اسکان درمانی است';
+        }
+
+        return 'این رزرو از کارمزد معاف است';
     }
 }

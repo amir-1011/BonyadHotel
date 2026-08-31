@@ -4,11 +4,22 @@
     $canEditAccommodation = auth()->user()?->hostCan('accommodations.edit', 'edit') ?? true;
 @endphp
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('host.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-</div>
-
 <div class="card shadow-sm">
+    @if(auth()->user()?->hostCanAny('accommodations.veteran-policy', ['read', 'edit'])
+        || auth()->user()?->hostCanAny('accommodations.cancellation-policy', ['read', 'edit'])
+        || auth()->user()?->hostCanAny('accommodations.medical-accommodation', ['read', 'edit']))
+    <div class="card-header py-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
+        @if(auth()->user()?->hostCanAny('accommodations.veteran-policy', ['read', 'edit']))
+        <a wire:navigate href="{{ route('host.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>تعاریف اولیه</a>
+        @endif
+        @if(auth()->user()?->hostCanAny('accommodations.cancellation-policy', ['read', 'edit']))
+        <a wire:navigate href="{{ route('host.accommodations.cancellation-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-x-circle me-1"></i>سیاست کنسلی</a>
+        @endif
+        @if(auth()->user()?->hostCanAny('accommodations.medical-accommodation', ['read', 'edit']))
+        <a wire:navigate href="{{ route('host.accommodations.medical-accommodation', $accommodation) }}" class="btn btn-sm btn-outline-info"><i class="bi bi-heart-pulse me-1"></i>اسکان درمانی</a>
+        @endif
+    </div>
+    @endif
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-8">
@@ -19,7 +30,7 @@
             @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
             @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities, 'counties' => $counties])
             <div class="col-md-4 d-none">
-                <label class="form-label small fw-semibold">قیمت/شب/تخت (تومان)</label>
+                <label class="form-label small fw-semibold">قیمت/شب/تخت (ریال)</label>
                 <x-money-input wire:model="pricePerNight" class="form-control @error('pricePerNight') is-invalid @enderror" min="0" />
                 @error('pricePerNight')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
@@ -74,22 +85,12 @@
                 </div>
             </div>
 
-            {{-- Existing Images --}}
-            @if(!empty($keepImages))
-            <div class="col-12">
-                <label class="form-label small fw-semibold"><i class="bi bi-images me-1"></i>تصاویر فعلی <span class="text-muted fw-normal">(× برای حذف)</span></label>
-                <div class="d-flex flex-wrap gap-3">
-                    @foreach($keepImages as $img)
-                    <div class="text-center" style="position:relative;width:110px;">
-                        <img src="{{ asset('storage/' . $img) }}" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:2px solid #dee2e6;" alt="تصویر">
-                        @if($canEditAccommodation)
-                        <button type="button" wire:click="removeExistingImage('{{ $img }}')" data-swal-confirm="این تصویر حذف شود؟" class="btn btn-xs btn-danger" style="position:absolute;top:2px;left:2px;padding:.1rem .35rem;font-size:.75rem;" title="حذف">×</button>
-                        @endif
-                    </div>
-                    @endforeach
-                </div>
-            </div>
-            @endif
+            <x-accommodation.image-gallery-editor
+                :images="$keepImages"
+                :keep-images="$keepImages"
+                :featured-image="$image"
+                :can-edit="$canEditAccommodation"
+            />
 
             {{-- New Image Upload --}}
             @if($canEditAccommodation)

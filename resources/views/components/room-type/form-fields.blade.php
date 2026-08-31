@@ -132,7 +132,7 @@
                     @error('extra_capacity')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">قیمت هر نفر اضافه / شب (تومان)</label>
+                    <label class="form-label fw-semibold">قیمت هر نفر اضافه / شب (ریال)</label>
                     <x-money-input name="extra_capacity_price" class="form-control @error('extra_capacity_price') is-invalid @enderror"
                            value="{{ old('extra_capacity_price', $roomType?->extra_capacity_price) }}" placeholder="مثلاً: 200,000" />
                     @error('extra_capacity_price')<div class="invalid-feedback">{{ $message }}</div>@enderror

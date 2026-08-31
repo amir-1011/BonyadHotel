@@ -42,11 +42,17 @@
 
     <div class="mb-3">
         <label class="form-label fw-semibold d-block">فیلتر هوشمند — روزهای هفته</label>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2 weekday-chip-group" role="group" aria-label="روزهای هفته">
             @foreach(RoomTypeWeeklyPriceRule::WEEKDAY_LABELS as $iso => $label)
-            <label class="btn btn-sm btn-outline-secondary {{ in_array($iso, $oldWeekdays) ? 'active' : '' }}">
-                <input type="checkbox" name="weekdays[]" value="{{ $iso }}" class="d-none weekday-cb"
-                       {{ in_array($iso, $oldWeekdays) ? 'checked' : '' }}>
+            <input type="checkbox"
+                   class="btn-check weekday-cb"
+                   name="weekdays[]"
+                   value="{{ $iso }}"
+                   id="weekday-chip-{{ $iso }}"
+                   autocomplete="off"
+                   {{ in_array((int) $iso, array_map('intval', (array) $oldWeekdays), true) ? 'checked' : '' }}>
+            <label class="btn btn-sm btn-outline-secondary weekday-chip {{ in_array((int) $iso, array_map('intval', (array) $oldWeekdays), true) ? 'active' : '' }}"
+                   for="weekday-chip-{{ $iso }}">
                 {{ $label }}
             </label>
             @endforeach
@@ -143,7 +149,7 @@
                         <div>
                             <div class="fw-semibold small">{{ $rate->name }}</div>
                             <div class="text-muted" style="font-size:.75rem">
-                                قیمت پایه: {{ number_format($rate->price_per_night, 0, '.', ',') }} تومان / تخت
+                                قیمت پایه: {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night, 0, '.', ',')) }} ریال / تخت
                             </div>
                         </div>
                         @if(!$rate->is_active)
@@ -234,10 +240,15 @@
         togglePermanent();
     }
 
-    form.querySelectorAll('.weekday-cb').forEach(cb => {
-        cb.addEventListener('change', function () {
-            this.closest('label').classList.toggle('active', this.checked);
-        });
+    form.querySelectorAll('.weekday-cb').forEach(function (cb) {
+        var label = cb.id
+            ? form.querySelector('label[for="' + cb.id + '"]')
+            : cb.closest('label');
+        function syncWeekdayChip() {
+            if (label) label.classList.toggle('active', cb.checked);
+        }
+        cb.addEventListener('change', syncWeekdayChip);
+        syncWeekdayChip();
     });
 
     const applyToAllCb = form.querySelector('#apply_to_all_rates');

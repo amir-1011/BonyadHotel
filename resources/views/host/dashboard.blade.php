@@ -1,22 +1,16 @@
 ﻿<div>
 
-{{-- ── Page header ─────────────────────────────────────────────────── --}}
-<div class="ta-page-head mb-4">
-    <div>
-        <div class="text-muted small">نمای کلی اقامتگاه‌ها، رزروها، اشغال و فروش خدمات</div>
-    </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        @if($this->showDashboardAccommodationFilter() && $hostUser->hostCan('dashboard.accommodation-filter', 'read'))
-            @include('components.dashboard.accommodation-filter')
-        @endif
-        <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
-        @if($hostUser->hostCan('bookings.list', 'read'))
-        <a wire:navigate href="{{ route('host.bookings.index') }}" class="btn btn-light"><i class="bi bi-calendar-check me-2"></i>رزروها</a>
-        @endif
-        <x-host.can page="accommodations.create" action="write">
-        <a wire:navigate href="{{ route('host.accommodations.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>اقامتگاه جدید</a>
-        </x-host.can>
-    </div>
+<div class="ta-page-toolbar">
+    @if($this->showDashboardAccommodationFilter() && $hostUser->hostCan('dashboard.accommodation-filter', 'read'))
+        @include('components.dashboard.accommodation-filter')
+    @endif
+    <span class="btn btn-light"><i class="bi bi-calendar3 me-2"></i>{{ \Morilog\Jalali\Jalalian::now()->format('Y/m/d') }}</span>
+    @if($hostUser->hostCan('bookings.list', 'read'))
+    <a wire:navigate href="{{ route('host.bookings.index') }}" class="btn btn-light"><i class="bi bi-calendar-check me-2"></i>رزروها</a>
+    @endif
+    <x-host.can page="accommodations.create" action="write">
+    <a wire:navigate href="{{ route('host.accommodations.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>اقامتگاه جدید</a>
+    </x-host.can>
 </div>
 
 <div wire:key="host-dashboard-{{ $filterKey }}">
@@ -25,17 +19,17 @@
 <div class="row g-4 mb-4">
     @php
     $allMetrics = [
-        ['page'=>'dashboard.kpi-accommodations', 'label'=>'اقامتگاه‌های من', 'value'=>number_format($stats['accommodations']), 'icon'=>'building',
+        ['page'=>'dashboard.kpi-accommodations', 'label'=>'اقامتگاه‌های من', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['accommodations'])), 'icon'=>'building',
          'sub'=>$stats['active_acc'].' فعال', 'href'=>route('host.accommodations.index')],
-        ['page'=>'dashboard.kpi-confirmed-bookings', 'label'=>'رزرو تأیید‌شده', 'value'=>number_format($stats['confirmed']), 'icon'=>'check-circle',
+        ['page'=>'dashboard.kpi-confirmed-bookings', 'label'=>'رزرو تأیید‌شده', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['confirmed'])), 'icon'=>'check-circle',
          'sub'=>$stats['pending'].' در انتظار', 'href'=>route('host.bookings.index',['status'=>'confirmed'])],
-        ['page'=>'dashboard.kpi-total-revenue', 'label'=>'درآمد کل (تومان)', 'value'=>number_format($stats['revenue']), 'icon'=>'cash-stack',
-         'sub'=>number_format($stats['today_revenue']).' ت امروز', 'href'=>route('host.bookings.index',['status'=>'confirmed'])],
-        ['page'=>'dashboard.kpi-month-revenue', 'label'=>'درآمد این ماه', 'value'=>number_format($stats['this_month']), 'icon'=>'calendar-month',
+        ['page'=>'dashboard.kpi-total-revenue', 'label'=>'درآمد کل (ریال)', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['revenue'])), 'icon'=>'cash-stack',
+         'sub'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['today_revenue'])).' ریال امروز', 'href'=>route('host.bookings.index',['status'=>'confirmed'])],
+        ['page'=>'dashboard.kpi-month-revenue', 'label'=>'درآمد این ماه', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['this_month'])), 'icon'=>'calendar-month',
          'sub'=>$stats['growth_rate']!==null ? ($stats['growth_rate']>=0?'+':'').$stats['growth_rate'].'٪ نسبت به ماه قبل' : 'ماه اول', 'href'=>null, 'pill'=>$stats['growth_rate']],
-        ['page'=>'dashboard.kpi-services-revenue', 'label'=>'فروش خدمات', 'value'=>number_format($stats['services_revenue']), 'icon'=>'bag-check',
-         'sub'=>'تومان از خدمات اضافی', 'href'=>null],
-        ['page'=>'dashboard.kpi-pending-reviews', 'label'=>'نظرات بی‌پاسخ', 'value'=>number_format($stats['pending_reviews']), 'icon'=>'chat-square-text',
+        ['page'=>'dashboard.kpi-services-revenue', 'label'=>'فروش خدمات', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['services_revenue'])), 'icon'=>'bag-check',
+         'sub'=>'ریال از خدمات اضافی', 'href'=>null],
+        ['page'=>'dashboard.kpi-pending-reviews', 'label'=>'نظرات بی‌پاسخ', 'value'=>\App\Support\PdfPersian::toPersianDigits(number_format($stats['pending_reviews'])), 'icon'=>'chat-square-text',
          'sub'=>'نیاز به پاسخ', 'href'=>route('host.reviews.index',['replied'=>'0'])],
     ];
     $metrics = array_values(array_filter($allMetrics, fn($m) => $hostUser->hostCan($m['page'], 'read')));
@@ -219,7 +213,7 @@
                     <div class="text-center">
                         <div style="width:10px;height:10px;border-radius:50%;background:{{ $colors[$s->status] ?? '#98a2b3' }};display:inline-block;margin-left:4px"></div>
                         <span>{{ $labels[$s->status] ?? $s->status }}</span>
-                        <div class="fw-bold text-dark">{{ number_format($s->count) }}</div>
+                        <div class="fw-bold text-dark">{{ \App\Support\PdfPersian::toPersianDigits(number_format($s->count)) }}</div>
                     </div>
                     @endforeach
                 </div>
@@ -271,25 +265,25 @@
                             <div class="col-4">
                                 <div class="bg-light rounded p-2">
                                     <div class="text-muted" style="font-size:.65rem">امروز</div>
-                                    <div class="fw-bold" style="font-size:.8rem">{{ number_format($todayVal) }}<small class="text-muted"> ت</small></div>
+                                    <div class="fw-bold" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($todayVal)) }}<small class="text-muted"> ریال</small></div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="bg-light rounded p-2">
                                     <div class="text-muted" style="font-size:.65rem">این هفته</div>
-                                    <div class="fw-bold" style="font-size:.8rem">{{ number_format($weekVal) }}<small class="text-muted"> ت</small></div>
+                                    <div class="fw-bold" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($weekVal)) }}<small class="text-muted"> ریال</small></div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="bg-light rounded p-2">
                                     <div class="text-muted" style="font-size:.65rem">این ماه</div>
-                                    <div class="fw-bold text-primary" style="font-size:.8rem">{{ number_format($monthVal) }}<small class="text-muted"> ت</small></div>
+                                    <div class="fw-bold text-primary" style="font-size:.8rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($monthVal)) }}<small class="text-muted"> ریال</small></div>
                                 </div>
                             </div>
                         </div>
                         <div class="d-flex flex-wrap gap-2" style="font-size:.75rem">
-                            <span class="text-muted"><i class="bi bi-check-circle text-success"></i> {{ number_format($acc->confirmed_count) }}</span>
-                            <span class="text-muted"><i class="bi bi-clock text-warning"></i> {{ number_format($acc->pending_count) }}</span>
+                            <span class="text-muted"><i class="bi bi-check-circle text-success"></i> {{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->confirmed_count)) }}</span>
+                            <span class="text-muted"><i class="bi bi-clock text-warning"></i> {{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->pending_count)) }}</span>
                             <span class="text-muted"><i class="bi bi-percent text-info"></i> {{ $convRate }}%</span>
                         </div>
                         @endif
@@ -334,8 +328,8 @@
                             @forelse($serviceSummary as $svc)
                             <tr>
                                 <td class="small fw-semibold">{{ Str::limit($svc->name, 22) }}</td>
-                                <td class="small">{{ number_format($svc->total_qty) }}</td>
-                                <td class="small">{{ number_format($svc->total_revenue) }} ت</td>
+                                <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->total_qty)) }}</td>
+                                <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->total_revenue)) }} ریال</td>
                             </tr>
                             @empty
                             <tr><td colspan="3" class="text-center text-muted py-4 small">خدمتی فروخته نشده</td></tr>
@@ -345,8 +339,8 @@
                         <tfoot class="table-light">
                             <tr>
                                 <td class="fw-semibold small">جمع</td>
-                                <td class="small">{{ number_format($serviceSummary->sum('total_qty')) }}</td>
-                                <td class="fw-semibold small">{{ number_format($stats['services_revenue']) }} ت</td>
+                                <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($serviceSummary->sum('total_qty'))) }}</td>
+                                <td class="fw-semibold small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['services_revenue'])) }} ریال</td>
                             </tr>
                         </tfoot>
                         @endif
@@ -394,15 +388,15 @@
                                     @else — @endif
                                 </td>
                                 <td class="small text-muted">{{ Str::limit($svc->booking->accommodation->name ?? '—', 18) }}</td>
-                                <td class="small">{{ number_format($svc->unit_price) }} ت</td>
+                                <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->unit_price)) }} ریال</td>
                                 <td class="small text-center">{{ $svc->quantity }}</td>
                                 <td class="small text-center">{{ ($svc->free_units ?? 0) > 0 ? $svc->free_units : '—' }}</td>
                                 <td class="small text-danger">
                                     @if($svc->discount_amount > 0)
-                                        −{{ number_format($svc->discount_amount) }} ت
+                                        −{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->discount_amount)) }} ریال
                                     @else — @endif
                                 </td>
-                                <td class="small fw-semibold">{{ number_format($svc->total) }} ت</td>
+                                <td class="small fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->total)) }} ریال</td>
                             </tr>
                             @empty
                             <tr><td colspan="8" class="text-center text-muted py-4 small">هنوز خدمتی فروخته نشده است</td></tr>
@@ -455,7 +449,7 @@
                         <td class="small text-muted">{{ $b->roomLinesSummary() }}</td>
                         <td class="small">@jalali($b->check_in)</td>
                         <td class="small">@jalali($b->check_out)</td>
-                        <td class="small">{{ number_format($b->total_price) }} ت</td>
+                        <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }} ریال</td>
                         <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                         <td>
                             <div class="d-flex gap-1">
@@ -583,7 +577,7 @@
         if (dailyEl && canRender(dailyEl) && (CHART_DATA.daily || []).length > 0) {
             const chart = new ApexCharts(dailyEl, {
                 series: [
-                    { name: 'درآمد (تومان)', type: 'area', data: CHART_DATA.daily.map(r => Number(r.total) || 0) },
+                    { name: 'درآمد (ریال)', type: 'area', data: CHART_DATA.daily.map(r => Number(r.total) || 0) },
                     { name: 'تعداد رزرو', type: 'line', data: CHART_DATA.daily.map(r => Number(r.count) || 0) }
                 ],
                 chart: { height: 300, toolbar: { show: false }, fontFamily: 'Vazirmatn, sans-serif', animations: { enabled: true } },
@@ -596,7 +590,7 @@
                     { labels: { formatter: v => persianNum(Math.round(v || 0)), style: { colors: '#667085' } } },
                     { opposite: true, labels: { formatter: v => persianNum(v || 0), style: { colors: '#667085' } } }
                 ],
-                tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v || 0) + ' ت' }, { formatter: v => persianNum(v || 0) + ' رزرو' }] },
+                tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v || 0) + ' ریال' }, { formatter: v => persianNum(v || 0) + ' رزرو' }] },
                 grid: { borderColor: '#f2f4f7', strokeDashArray: 4 },
                 legend: { show: false }
             });

@@ -7,7 +7,13 @@
       window.bnbToast(icon, message)            — floating toast
       window.bnbConfirm(message[, opts])        — returns Promise<SweetAlertResult>
       window.bnbPrompt(opts)                    — dialog with required textarea
+      window.bnbPriceConfirm(preview[, opts])   — price delta confirm with editable input
       attribute: data-swal-confirm="message"    — auto-intercepts wire:click / form buttons & submits
+      attribute: data-bnb-price-change          — preview price impact, confirm delta, then Livewire execute
+      attribute: data-bnb-price-action="method"  — Livewire action name for price change flow
+      attribute: data-bnb-price-params='{}'     — optional JSON params for the action
+      attribute: data-swal-confirm-title="title" — optional modal heading (default: حذف مورد for deletes)
+      attribute: data-swal-confirm-variant="warn|delete|info" — optional confirm dialog style
       attribute: data-swal-prompt               — dialog + textarea, then calls Livewire method
     ██████████████████████████████████████████████████████████
 --}}
@@ -18,9 +24,10 @@
 
 <style>
 /* ── BNB Toast — LinkedIn-inspired notification card ───────── */
-/* Force physical top-center (Swal toast uses inset + translateX) */
-body.swal2-toast-shown .swal2-container.swal2-top,
-.swal2-container.swal2-top {
+/* Force physical top-center (Swal toast uses inset + translateX).
+   Scope to the toast container class — never steal confirm dialogs. */
+body.swal2-toast-shown .swal2-container.bnb-toast-container,
+.swal2-container.bnb-toast-container:not(.bnb-ios-overlay-container) {
     inset: 0 auto auto 50% !important;
     top: 0 !important;
     right: auto !important;
@@ -34,7 +41,7 @@ body.swal2-toast-shown .swal2-container.swal2-top,
     pointer-events: none;
     overflow-x: visible !important;
 }
-.swal2-container.swal2-top > .swal2-popup {
+.swal2-container.bnb-toast-container > .swal2-popup {
     pointer-events: auto;
     margin: 0 auto !important;
 }
@@ -141,6 +148,20 @@ body.swal2-toast-shown .swal2-container.swal2-top,
     flex: 1;
     align-self: center !important;
     order: 2;
+}
+
+.bnb-swal-toast.bnb-toast--multiline.swal2-popup.swal2-toast {
+    align-items: flex-start !important;
+}
+
+.bnb-swal-toast.bnb-toast--multiline .swal2-icon {
+    margin-top: 2px !important;
+    align-self: flex-start !important;
+}
+
+.bnb-swal-toast.bnb-toast--multiline .swal2-title {
+    white-space: pre-line;
+    align-self: flex-start !important;
 }
 
 /* Close (×) — sits on the left in RTL toast layout */
@@ -267,17 +288,17 @@ body.swal2-toast-shown .swal2-container.swal2-top,
     }
 }
 
-/* Confirm dialog — matches product confirmation card */
+/* Confirm / delete dialog — product delete-card layout (RTL) */
 .bnb-swal-popup.swal2-popup {
     font-family: var(--bnb-font, 'Vazirmatn', Tahoma, sans-serif) !important;
     direction: rtl !important;
-    width: min(400px, calc(100vw - 32px)) !important;
-    padding: 22px 22px 18px !important;
-    border-radius: 18px !important;
-    border: 1px solid rgba(0, 0, 0, 0.04) !important;
+    width: min(420px, calc(100vw - 32px)) !important;
+    padding: 28px 28px 24px !important;
+    border-radius: 20px !important;
+    border: none !important;
     box-shadow:
-        0 10px 15px -3px rgba(0, 0, 0, 0.08),
-        0 24px 48px -12px rgba(0, 0, 0, 0.16) !important;
+        0 4px 6px -2px rgba(0, 0, 0, 0.05),
+        0 20px 40px -8px rgba(0, 0, 0, 0.18) !important;
     background: #fff !important;
 }
 .bnb-swal-popup .swal2-icon {
@@ -296,91 +317,114 @@ body.swal2-toast-shown .swal2-container.swal2-top,
 .bnb-confirm-body {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 16px;
     text-align: right;
 }
 .bnb-confirm-icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
     border-radius: 50%;
-    background: #fde8ea;
-    color: #e11d48;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1;
+    flex-shrink: 0;
+}
+.bnb-confirm-icon--delete {
+    background: #fee2e2;
+    color: #dc2626;
+}
+.bnb-confirm-icon--warn {
+    background: #fff4e5;
+    color: #e37400;
+}
+.bnb-confirm-icon--info {
+    background: #e8f0fe;
+    color: #1a73e8;
 }
 .bnb-confirm-text {
     flex: 1;
     min-width: 0;
-    padding-top: 2px;
+    padding-top: 4px;
 }
 .bnb-confirm-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
-    color: #1f2937;
-    line-height: 1.4;
-    margin: 0 0 4px;
+    color: #111827;
+    line-height: 1.35;
+    margin: 0 0 6px;
 }
 .bnb-confirm-msg {
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 400;
     color: #6b7280;
-    line-height: 1.55;
+    line-height: 1.6;
     margin: 0;
 }
 .bnb-swal-popup .swal2-actions.bnb-swal-actions {
-    margin: 20px 0 0 !important;
+    margin: 24px 0 0 !important;
     padding: 0 !important;
     width: 100% !important;
     display: flex !important;
-    justify-content: flex-end !important; /* RTL: end = physical left */
-    gap: 10px !important;
-    flex-wrap: wrap;
+    flex-direction: row !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-confirm,
 .bnb-swal-popup .swal2-styled.bnb-swal-cancel {
     margin: 0 !important;
     box-shadow: none !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     font-family: inherit !important;
-    font-size: 13.5px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
-    padding: 9px 18px !important;
+    padding: 11px 16px !important;
     line-height: 1.3 !important;
-    transition: background .15s, border-color .15s, color .15s, transform .1s;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    transition: background .15s, border-color .15s, color .15s;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-confirm {
     background: #ef4444 !important;
     border: 1px solid #ef4444 !important;
     color: #fff !important;
-    order: 1;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-confirm:hover {
     background: #dc2626 !important;
     border-color: #dc2626 !important;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-confirm:focus {
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22) !important;
+}
+.bnb-swal-popup--generic .swal2-styled.bnb-swal-confirm {
+    background: #0a66c2 !important;
+    border-color: #0a66c2 !important;
+}
+.bnb-swal-popup--generic .swal2-styled.bnb-swal-confirm:hover {
+    background: #004182 !important;
+    border-color: #004182 !important;
+}
+.bnb-swal-popup--generic .swal2-styled.bnb-swal-confirm:focus {
+    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.22) !important;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-cancel {
     background: #fff !important;
     border: 1px solid #e5e7eb !important;
     color: #374151 !important;
-    order: 2;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-cancel:hover {
     background: #f9fafb !important;
     border-color: #d1d5db !important;
 }
 .bnb-swal-popup .swal2-styled.bnb-swal-cancel:focus {
-    box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.25) !important;
+    box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.2) !important;
 }
-.bnb-swal-popup .bnb-swal-confirm .bi {
-    font-size: 14px;
-    vertical-align: -1px;
+
+body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
+    background: rgba(15, 23, 42, 0.48) !important;
+    backdrop-filter: blur(2px);
 }
 
 @keyframes bnb-confirm-in {
@@ -425,6 +469,72 @@ body.swal2-toast-shown .swal2-container.swal2-top,
     outline: none;
     border-color: #ef4444;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+.bnb-price-summary {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #374151;
+}
+.bnb-price-summary strong {
+    color: #111827;
+}
+.bnb-price-delta-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+.bnb-price-delta-hint.positive { color: #059669; }
+.bnb-price-delta-hint.negative { color: #dc2626; }
+.bnb-price-field input.money-input,
+.bnb-price-field .bnb-price-delta-input {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #1f2937;
+    background: #fff;
+    direction: ltr;
+    text-align: left;
+    pointer-events: auto;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+.bnb-price-field input.money-input:focus,
+.bnb-price-field .bnb-price-delta-input:focus {
+    outline: none;
+    border-color: #0a66c2;
+    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.15);
+}
+.bnb-swal-popup--price .swal2-input {
+    display: none !important;
+}
+.bnb-price-reason-field textarea {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 64px;
+}
+.bnb-swal-popup--payment .bnb-swal-step-body {
+    animation: bnbSwalStepIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes bnbSwalStepIn {
+    from { opacity: 0; transform: translateX(18px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.bnb-payment-doc-host .form-control[type="file"] {
+    font-size: 12px;
 }
 </style>
 
@@ -497,6 +607,269 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         }
     }
 
+    /* ── iOS 27: topbar morphs into toast / confirm ─────────── */
+    var morphState = null;
+    var morphGen = 0;
+    var MORPH_MS = 560;
+    var CONTENT_FADE_MS = 240;
+
+    function isIosPanel() {
+        return document.body.classList.contains('ta-ios');
+    }
+
+    function overlayReducedMotion() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function getTopbar() {
+        return document.querySelector('body.ta-ios .ta-main > header.ta-topbar')
+            || document.querySelector('body.ta-ios header.ta-topbar');
+    }
+
+    function rectOf(el) {
+        var r = el.getBoundingClientRect();
+        return {
+            left: r.left,
+            top: r.top,
+            width: r.width,
+            height: r.height,
+            right: r.right,
+            bottom: r.bottom
+        };
+    }
+
+    function hideTopbar(el) {
+        if (!el) return;
+        el.classList.add('ta-topbar--overlay-hidden');
+        el.setAttribute('aria-hidden', 'true');
+    }
+
+    function showTopbar(el) {
+        if (!el) return;
+        el.classList.remove('ta-topbar--overlay-hidden');
+        el.removeAttribute('aria-hidden');
+    }
+
+    function cleanupMorph(restore) {
+        morphGen += 1;
+        document.querySelectorAll('.ta-ios-morph-ghost').forEach(function (g) {
+            if (g.parentNode) g.parentNode.removeChild(g);
+        });
+        if (restore) {
+            document.querySelectorAll('header.ta-topbar.ta-topbar--overlay-hidden').forEach(showTopbar);
+        }
+        if (morphState && morphState.popup) {
+            morphState.popup.classList.remove('bnb-ios-overlay-ready');
+            morphState.popup.style.removeProperty('opacity');
+            morphState.popup.style.removeProperty('pointer-events');
+            morphState.popup.style.removeProperty('visibility');
+        }
+        morphState = null;
+    }
+
+    function pinOverlayContainer(container, barRect, mode) {
+        if (!container || !barRect) return;
+        var rightPad = Math.max(0, window.innerWidth - barRect.right);
+        container.classList.add('bnb-ios-overlay-container');
+        container.dataset.bnbOverlayMode = mode;
+        container.style.setProperty('--bnb-overlay-top', Math.max(0, barRect.top) + 'px');
+        container.style.setProperty('--bnb-overlay-left', Math.max(0, barRect.left) + 'px');
+        container.style.setProperty('--bnb-overlay-right', rightPad + 'px');
+        container.style.setProperty('--bnb-overlay-width', barRect.width + 'px');
+        container.style.zIndex = mode === 'toast' ? '10050' : '10060';
+    }
+
+    function makeGhost(rect, tint) {
+        var g = document.createElement('div');
+        g.className = 'ta-ios-morph-ghost' + (tint ? ' ta-ios-morph-ghost--' + tint : '');
+        g.setAttribute('aria-hidden', 'true');
+        g.style.width = rect.width + 'px';
+        g.style.height = rect.height + 'px';
+        g.style.transform = 'translate3d(' + rect.left + 'px,' + rect.top + 'px,0)';
+        document.body.appendChild(g);
+        void g.offsetWidth;
+        return g;
+    }
+
+    function moveGhost(g, rect, tint) {
+        if (!g) return;
+        g.className = 'ta-ios-morph-ghost' + (tint ? ' ta-ios-morph-ghost--' + tint : '');
+        g.style.width = rect.width + 'px';
+        g.style.height = rect.height + 'px';
+        g.style.transform = 'translate3d(' + rect.left + 'px,' + rect.top + 'px,0)';
+    }
+
+    function startMorph(popup, mode, tint) {
+        if (!isIosPanel() || !popup) return;
+
+        cleanupMorph(false);
+
+        var bar = getTopbar();
+        var container = popup.closest('.swal2-container');
+
+        if (!bar || overlayReducedMotion()) {
+            if (container && bar) pinOverlayContainer(container, rectOf(bar), mode);
+            popup.classList.add('bnb-ios-overlay-ready');
+            return;
+        }
+
+        var first = rectOf(bar);
+        if (first.width < 80 || first.height < 24) {
+            popup.classList.add('bnb-ios-overlay-ready');
+            return;
+        }
+
+        var gen = ++morphGen;
+        pinOverlayContainer(container, first, mode);
+        hideTopbar(bar);
+
+        popup.style.opacity = '0';
+        popup.style.visibility = 'hidden';
+        popup.style.pointerEvents = 'none';
+
+        var ghost = makeGhost(first, tint || '');
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (gen !== morphGen) return;
+                var last = rectOf(popup);
+                if (last.width < 8 || last.height < 8) {
+                    last = {
+                        left: mode === 'toast' ? first.left + Math.max(0, (first.width - 340) / 2) : first.left,
+                        top: first.top,
+                        width: mode === 'toast' ? Math.min(340, first.width) : first.width,
+                        height: Math.max(first.height, mode === 'toast' ? 52 : 88)
+                    };
+                }
+                morphState = {
+                    el: bar,
+                    first: first,
+                    ghost: ghost,
+                    popup: popup,
+                    mode: mode,
+                    tint: tint,
+                    gen: gen
+                };
+                moveGhost(ghost, last, tint);
+                window.setTimeout(function () {
+                    if (gen !== morphGen) return;
+                    popup.style.visibility = '';
+                    popup.style.opacity = '';
+                    popup.style.pointerEvents = '';
+                    popup.classList.add('bnb-ios-overlay-ready');
+                    if (ghost) ghost.classList.add('ta-ios-morph-ghost--settled');
+                }, CONTENT_FADE_MS);
+            });
+        });
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (gen !== morphGen) return;
+                var last = rectOf(popup);
+                if (last.width < 8 || last.height < 8) {
+                    last = {
+                        left: mode === 'toast' ? first.left + Math.max(0, (first.width - 340) / 2) : first.left,
+                        top: first.top,
+                        width: mode === 'toast' ? Math.min(340, first.width) : first.width,
+                        height: Math.max(first.height, mode === 'toast' ? 52 : 88)
+                    };
+                }
+                morphState = {
+                    el: bar,
+                    first: first,
+                    ghost: ghost,
+                    popup: popup,
+                    mode: mode,
+                    tint: tint,
+                    gen: gen
+                };
+                moveGhost(ghost, last, tint);
+                window.setTimeout(function () {
+                    if (gen !== morphGen) return;
+                    popup.style.visibility = '';
+                    popup.style.opacity = '';
+                    popup.style.pointerEvents = '';
+                    popup.classList.add('bnb-ios-overlay-ready');
+                    if (ghost) ghost.classList.add('ta-ios-morph-ghost--settled');
+                }, CONTENT_FADE_MS);
+            });
+        });
+    }
+
+    function reverseMorph() {
+        if (!isIosPanel()) return;
+
+        var state = morphState;
+        var bar = (state && state.el) || getTopbar();
+        var popup = state && state.popup;
+        var first = state && state.first;
+        var ghost = state && state.ghost;
+        var tint = state && state.tint;
+        var gen = ++morphGen;
+
+        if (overlayReducedMotion() || !bar || !first) {
+            cleanupMorph(true);
+            return;
+        }
+
+        var from = popup ? rectOf(popup) : first;
+        if (popup) {
+            popup.classList.remove('bnb-ios-overlay-ready');
+            popup.style.opacity = '0';
+            popup.style.pointerEvents = 'none';
+        }
+
+        if (!ghost || !ghost.parentNode) {
+            ghost = makeGhost(from, tint);
+        } else {
+            ghost.classList.remove('ta-ios-morph-ghost--settled');
+            moveGhost(ghost, from, tint);
+            void ghost.offsetWidth;
+        }
+
+        morphState = { el: bar, first: first, ghost: ghost, popup: popup, tint: tint, gen: gen };
+
+        requestAnimationFrame(function () {
+            if (gen !== morphGen) return;
+            moveGhost(ghost, first, null);
+        });
+
+        window.setTimeout(function () {
+            if (gen !== morphGen) return;
+            cleanupMorph(true);
+        }, MORPH_MS);
+    }
+
+    function iosOverlayHooks(mode, tint) {
+        if (!isIosPanel()) {
+            return {};
+        }
+        return {
+            position: 'top',
+            scrollbarPadding: false,
+            heightAuto: false,
+            showClass: { popup: 'bnb-ios-morph-show', backdrop: 'swal2-backdrop-show' },
+            hideClass: { popup: 'bnb-ios-morph-hide', backdrop: 'swal2-backdrop-hide' },
+            didOpen: function (popup) {
+                startMorph(popup, mode, tint);
+            },
+            willClose: function () {
+                reverseMorph();
+            },
+            didDestroy: function () {
+                window.setTimeout(function () {
+                    if (!document.querySelector('.swal2-container')) {
+                        cleanupMorph(true);
+                    }
+                }, 0);
+            }
+        };
+    }
+
+    document.addEventListener('livewire:navigated', function () {
+        cleanupMorph(true);
+    });
+
     /* ── 1. TOAST MIXIN ─────────────────────────────────────── */
     var _Toast = null;
     function getToast() {
@@ -518,7 +891,9 @@ body.swal2-toast-shown .swal2-container.swal2-top,
                 customClass: { popup: 'bnb-swal-toast', container: 'bnb-toast-container' },
                 didOpen: function (toast) {
                     playToastSound();
-                    /* Hard-pin container to viewport top-center (RTL-safe) */
+                    toast.addEventListener('mouseenter', Swal.stopTimer);
+                    toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    if (isIosPanel()) return;
                     var container = toast.closest('.swal2-container');
                     if (container) {
                         container.style.setProperty('inset', '0 auto auto 50%', 'important');
@@ -527,8 +902,6 @@ body.swal2-toast-shown .swal2-container.swal2-top,
                         container.style.setProperty('transform', 'translateX(-50%)', 'important');
                         container.style.setProperty('z-index', '10050', 'important');
                     }
-                    toast.addEventListener('mouseenter', Swal.stopTimer);
-                    toast.addEventListener('mouseleave', Swal.resumeTimer);
                 }
             });
         }
@@ -558,14 +931,37 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         }
         /* Swal only knows its built-in icons; map danger → error class for layout */
         var swalIcon = (type === 'danger') ? 'error' : type;
-        getToast().fire({
+        var text = String(message || '');
+        var isMultiline = text.indexOf('\n') !== -1;
+        var hooks = iosOverlayHooks('toast', type);
+        var mixinOpen = null;
+        getToast().fire(Object.assign({
             icon: swalIcon,
             iconHtml: TOAST_ICONS[type] || TOAST_ICONS.success,
-            title: message || '',
+            title: text,
             customClass: {
-                popup: 'bnb-swal-toast bnb-toast--' + type
+                popup: 'bnb-swal-toast bnb-toast--' + type + (isMultiline ? ' bnb-toast--multiline' : ''),
+                container: 'bnb-toast-container'
             }
-        });
+        }, hooks, {
+            didOpen: function (toast) {
+                playToastSound();
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+                if (hooks.didOpen) {
+                    hooks.didOpen(toast);
+                    return;
+                }
+                var container = toast.closest('.swal2-container');
+                if (container) {
+                    container.style.setProperty('inset', '0 auto auto 50%', 'important');
+                    container.style.setProperty('left', '50%', 'important');
+                    container.style.setProperty('right', 'auto', 'important');
+                    container.style.setProperty('transform', 'translateX(-50%)', 'important');
+                    container.style.setProperty('z-index', '10050', 'important');
+                }
+            }
+        }));
     };
 
     function escapeHtml(str) {
@@ -577,34 +973,85 @@ body.swal2-toast-shown .swal2-container.swal2-top,
             .replace(/'/g, '&#39;');
     }
 
+    function isDeleteConfirmMessage(message) {
+        return /حذف|پاک\s*(شود|شوند|کردن|می‌کنید|کنید)|remove/i.test(String(message || ''));
+    }
+
+    function isDestructiveConfirmMessage(message) {
+        return isDeleteConfirmMessage(message) || /لغو\s*(شود|شوند|می‌کنید|کنید)|برنامه\s+لغو/i.test(String(message || ''));
+    }
+
+    function enhanceDeleteMessage(message) {
+        var msg = String(message || '').trim() || 'آیا از حذف این مورد اطمینان دارید؟';
+        if (/^(حذف\s*شود\??|پاک\s*شود\??)$/i.test(msg)) {
+            msg = 'آیا از حذف این مورد اطمینان دارید؟';
+        }
+        if (!/بازگشت|غیرقابل|برگشت/i.test(msg)) {
+            msg += ' این عمل غیرقابل بازگشت است.';
+        }
+        return msg;
+    }
+
+    function buildConfirmHtml(variant, heading, message) {
+        var iconClass = 'bnb-confirm-icon--delete';
+        var icon = '<i class="bi bi-trash3-fill"></i>';
+        if (variant === 'warn') {
+            iconClass = 'bnb-confirm-icon--warn';
+            icon = '<i class="bi bi-exclamation-triangle-fill"></i>';
+        } else if (variant === 'info') {
+            iconClass = 'bnb-confirm-icon--info';
+            icon = '<i class="bi bi-question-lg"></i>';
+        }
+
+        return (
+            '<div class="bnb-confirm-body">' +
+                '<div class="bnb-confirm-icon ' + iconClass + '">' + icon + '</div>' +
+                '<div class="bnb-confirm-text">' +
+                    '<div class="bnb-confirm-title">' + escapeHtml(heading) + '</div>' +
+                    '<div class="bnb-confirm-msg">' + escapeHtml(message) + '</div>' +
+                '</div>' +
+            '</div>'
+        );
+    }
+
+    function resolveConfirmVariant(message, opts) {
+        if (opts && opts.variant) return opts.variant;
+        if (isDeleteConfirmMessage(message)) return 'delete';
+        if (isDestructiveConfirmMessage(message)) return 'warn';
+        return 'info';
+    }
+
     /* ── 2. CONFIRM HELPER ──────────────────────────────────── */
     window.bnbConfirm = function (message, opts) {
         opts = opts || {};
-        var msg = message || 'آیا مطمئن هستید؟';
-        var heading = opts.titleText || opts.heading || 'تأیید عملیات';
+        var variant = resolveConfirmVariant(message, opts);
+        var isDelete = variant === 'delete';
+        var isDestructive = isDelete || variant === 'warn';
+        var msg = message || (isDelete ? 'آیا از حذف این مورد اطمینان دارید؟' : 'آیا مطمئن هستید؟');
+        if (isDelete && !opts.skipEnhance) {
+            msg = enhanceDeleteMessage(msg);
+        }
+        var heading = opts.titleText || opts.heading || (
+            isDelete ? 'حذف مورد' : (variant === 'warn' ? 'تأیید عملیات' : 'تأیید عملیات')
+        );
+        var tint = isDelete ? 'danger' : (variant === 'warn' ? 'warning' : '');
+        var hooks = iosOverlayHooks('confirm', tint);
 
         var defaults = {
             title: '',
             icon: undefined,
-            html:
-                '<div class="bnb-confirm-body">' +
-                    '<div class="bnb-confirm-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>' +
-                    '<div class="bnb-confirm-text">' +
-                        '<div class="bnb-confirm-title">' + escapeHtml(heading) + '</div>' +
-                        '<div class="bnb-confirm-msg">' + escapeHtml(msg) + '</div>' +
-                    '</div>' +
-                '</div>',
+            html: buildConfirmHtml(isDelete ? 'delete' : (variant === 'warn' ? 'warn' : 'info'), heading, msg),
             showCancelButton: true,
             focusCancel: true,
-            reverseButtons: false,
+            reverseButtons: true,
             buttonsStyling: true,
-            confirmButtonText: '<i class="bi bi-check-lg ms-1"></i>بله',
+            confirmButtonText: isDestructive ? 'تایید' : 'بله',
             cancelButtonText: 'انصراف',
-            confirmButtonColor: '#ef4444',
+            confirmButtonColor: isDestructive ? '#ff3b30' : '#007aff',
             showClass: { popup: 'swal2-show' },
             hideClass: { popup: 'swal2-hide' },
             customClass: {
-                popup: 'bnb-swal-popup',
+                popup: 'bnb-swal-popup bnb-swal-popup--bar' + (isDestructive ? '' : ' bnb-swal-popup--generic'),
                 htmlContainer: 'bnb-swal-html',
                 actions: 'bnb-swal-actions',
                 confirmButton: 'bnb-swal-confirm',
@@ -617,7 +1064,9 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         };
 
         /* Allow callers to override, but keep our html/title layout unless they pass html */
-        var merged = Object.assign({}, defaults, opts);
+        var userDidOpen = opts.didOpen;
+        var userWillClose = opts.willClose;
+        var merged = Object.assign({}, defaults, opts, hooks);
         if (!opts.html) {
             merged.html = defaults.html;
             merged.title = '';
@@ -625,7 +1074,19 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         }
         if (opts.customClass) {
             merged.customClass = Object.assign({}, defaults.customClass, opts.customClass);
+        } else if (hooks.customClass) {
+            merged.customClass = Object.assign({}, defaults.customClass, hooks.customClass);
         }
+        merged.didOpen = function (popup) {
+            if (hooks.didOpen) hooks.didOpen(popup);
+            else defaults.didOpen(popup);
+            if (typeof userDidOpen === 'function') userDidOpen(popup);
+        };
+        merged.willClose = function () {
+            if (hooks.willClose) hooks.willClose();
+            if (typeof userWillClose === 'function') userWillClose();
+        };
+        if (hooks.didDestroy) merged.didDestroy = hooks.didDestroy;
 
         return Swal.fire(merged);
     };
@@ -638,13 +1099,14 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         var placeholder = opts.placeholder || '';
         var confirmText = opts.confirmButtonText || '<i class="bi bi-check-lg ms-1"></i>ثبت';
         var fieldId = 'bnb-swal-prompt-' + Date.now();
+        var hooks = iosOverlayHooks('confirm', 'danger');
 
-        return Swal.fire({
+        return Swal.fire(Object.assign({
             title: '',
             icon: undefined,
             html:
                 '<div class="bnb-confirm-body">' +
-                    '<div class="bnb-confirm-icon"><i class="bi bi-chat-left-text-fill"></i></div>' +
+                    '<div class="bnb-confirm-icon bnb-confirm-icon--info"><i class="bi bi-chat-left-text-fill"></i></div>' +
                     '<div class="bnb-confirm-text">' +
                         '<div class="bnb-confirm-title">' + escapeHtml(title) + '</div>' +
                         '<div class="bnb-prompt-field">' +
@@ -655,25 +1117,29 @@ body.swal2-toast-shown .swal2-container.swal2-top,
                 '</div>',
             showCancelButton: true,
             focusCancel: false,
-            reverseButtons: false,
+            reverseButtons: true,
             confirmButtonText: confirmText,
             cancelButtonText: 'انصراف',
-            confirmButtonColor: '#ef4444',
+            confirmButtonColor: '#ff3b30',
             showClass: { popup: 'swal2-show' },
             hideClass: { popup: 'swal2-hide' },
             customClass: {
-                popup: 'bnb-swal-popup',
+                popup: 'bnb-swal-popup bnb-swal-popup--sheet',
                 htmlContainer: 'bnb-swal-html',
                 actions: 'bnb-swal-actions',
                 confirmButton: 'bnb-swal-confirm',
                 cancelButton: 'bnb-swal-cancel'
-            },
+            }
+        }, hooks, {
             didOpen: function (popup) {
-                var container = popup.closest('.swal2-container') || document.querySelector('.swal2-container');
-                if (container) container.style.zIndex = '10060';
+                if (hooks.didOpen) hooks.didOpen(popup);
+                else {
+                    var container = popup.closest('.swal2-container') || document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '10060';
+                }
                 var input = popup.querySelector('.bnb-swal-prompt-input');
                 if (input) {
-                    setTimeout(function () { input.focus(); }, 50);
+                    setTimeout(function () { input.focus(); }, isIosPanel() ? 280 : 50);
                 }
             },
             preConfirm: function () {
@@ -685,8 +1151,760 @@ body.swal2-toast-shown .swal2-container.swal2-top,
                 }
                 return value;
             }
+        }));
+    };
+
+    function formatTomanAmount(n) {
+        var num = parseInt(n, 10) || 0;
+        return new Intl.NumberFormat('fa-IR').format(num);
+    }
+
+    function parsePlainMoneyDigits(raw) {
+        if (typeof window.parseMoney === 'function') {
+            return window.parseMoney(raw);
+        }
+        var s = String(raw ?? '').trim()
+            .replace(/[,،٬]/g, '')
+            .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); })
+            .replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); });
+        var digits = s.replace(/[^\d]/g, '');
+        return digits === '' ? 0 : parseInt(digits, 10);
+    }
+
+    function formatPlainMoneyDigits(value) {
+        if (typeof window.formatMoney === 'function') {
+            return window.formatMoney(value);
+        }
+        if (value === '' || value === null || value === undefined) {
+            return '';
+        }
+        var n = parseInt(value, 10);
+        if (Number.isNaN(n)) {
+            return '';
+        }
+        return n.toLocaleString('fa-IR');
+    }
+
+    function parseSignedTomanInput(raw) {
+        if (raw == null) return NaN;
+        var s = String(raw).trim();
+        if (s === '' || s === '+' ) return NaN;
+        if (s === '-' || s === '−') return NaN;
+        var negative = /^[-−]/.test(s);
+        var digits = parsePlainMoneyDigits(s.replace(/^[-−+]/, ''));
+        return negative ? -digits : digits;
+    }
+
+    function formatSignedMoneyInput(value) {
+        if (value === '' || value === null || value === undefined) {
+            return '';
+        }
+        var n = parseInt(value, 10);
+        if (Number.isNaN(n)) {
+            return '';
+        }
+        if (n === 0) {
+            return '0';
+        }
+        var formatted = formatPlainMoneyDigits(Math.abs(n));
+        return n < 0 ? '-' + formatted : formatted;
+    }
+
+    var swalBootstrapFocusFixInstalled = false;
+    function installSwalBootstrapFocusFix() {
+        if (swalBootstrapFocusFixInstalled) return;
+        swalBootstrapFocusFixInstalled = true;
+        document.addEventListener('focusin', function (e) {
+            if (typeof Swal === 'undefined' || !Swal.isVisible()) return;
+            if (e.target && e.target.closest && e.target.closest('.swal2-container')) {
+                e.stopImmediatePropagation();
+            }
+        }, true);
+    }
+
+    function pauseBootstrapModalFocusTraps() {
+        if (!window.bootstrap?.Modal) return;
+        document.querySelectorAll('.modal.show').forEach(function (modalEl) {
+            var inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst && inst._focustrap && modalEl.dataset.bnbFocusTrapPaused !== '1') {
+                inst._focustrap.deactivate();
+                modalEl.dataset.bnbFocusTrapPaused = '1';
+            }
+        });
+    }
+
+    function resumeBootstrapModalFocusTraps() {
+        if (!window.bootstrap?.Modal) return;
+        document.querySelectorAll('.modal.show').forEach(function (modalEl) {
+            if (modalEl.dataset.bnbFocusTrapPaused === '1') {
+                var inst = bootstrap.Modal.getInstance(modalEl);
+                if (inst && inst._focustrap) {
+                    inst._focustrap.activate();
+                }
+                delete modalEl.dataset.bnbFocusTrapPaused;
+            }
+        });
+    }
+
+    installSwalBootstrapFocusFix();
+
+    function resolveLivewireFromEl(el) {
+        if (typeof Livewire === 'undefined') return null;
+        var wireEl = el && el.closest ? el.closest('[wire\\:id]') : null;
+        if (!wireEl) return null;
+        return Livewire.find(wireEl.getAttribute('wire:id'));
+    }
+
+    function parsePriceChangeParams(raw) {
+        if (!raw) return {};
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function bindPriceDeltaInput(input, onChange, options) {
+        options = options || {};
+        var absolute = options.absolute === true;
+        if (!input || input._bnbPriceBound) return;
+        input._bnbPriceBound = true;
+        input.removeAttribute('readonly');
+        input.removeAttribute('disabled');
+        input.removeAttribute('aria-disabled');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.dir = 'ltr';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.classList.add('money-input', 'bnb-price-delta-input', 'form-control', 'form-control-sm');
+
+        ['keydown', 'keyup', 'keypress'].forEach(function (evtName) {
+            input.addEventListener(evtName, function (e) {
+                e.stopPropagation();
+            }, true);
+        });
+
+        ['mousedown', 'click', 'touchstart'].forEach(function (evtName) {
+            input.addEventListener(evtName, function (e) {
+                e.stopPropagation();
+            });
+        });
+
+        input.addEventListener('focus', function () {
+            setTimeout(function () {
+                input.focus();
+                if (typeof input.select === 'function') {
+                    input.select();
+                }
+            }, 0);
+        });
+
+        input.addEventListener('input', function () {
+            var raw = String(input.value || '');
+            var trimmed = raw.trim();
+
+            if (!absolute && (trimmed === '-' || trimmed === '−')) {
+                input.value = '-';
+                return;
+            }
+
+            var parsed = absolute ? parsePlainMoneyDigits(raw) : parseSignedTomanInput(raw);
+            if (!Number.isNaN(parsed)) {
+                input.value = absolute ? formatPlainMoneyDigits(parsed) : formatSignedMoneyInput(parsed);
+            }
+
+            if (typeof onChange === 'function') {
+                onChange(parsed);
+            }
+        });
+    }
+
+    function focusPriceDeltaInput(input) {
+        if (!input) return;
+        input.focus();
+        if (typeof input.select === 'function') {
+            input.select();
+        }
+        try {
+            input.setSelectionRange(0, String(input.value || '').length);
+        } catch (e) {}
+    }
+
+    function readPriceDeltaInputValue(popup) {
+        var input = popup ? popup.querySelector('.bnb-price-delta-input') : null;
+        return input ? input.value : '';
+    }
+
+    window.bnbPriceConfirm = function (preview, opts) {
+        opts = opts || {};
+        preview = preview || {};
+        var delta = parseInt(preview.auto_delta, 10) || 0;
+        var currentTotal = parseInt(preview.current_total, 10) || 0;
+        var isAbsolute = (preview.price_input_mode || 'delta') === 'absolute';
+        var actionLabel = preview.action_label || 'تأیید تغییر مبلغ';
+        var description = preview.description || 'این عملیات مبلغ رزرو را تغییر می‌دهد.';
+        var deltaClass = delta > 0 ? 'positive' : (delta < 0 ? 'negative' : '');
+        var deltaVerb = delta > 0 ? 'افزایش' : (delta < 0 ? 'کاهش' : 'بدون تغییر');
+        var projectedId = 'bnb-price-projected-' + Date.now();
+        var fieldId = 'bnb-price-delta-' + Date.now();
+        var initialInputDisplay = isAbsolute
+            ? formatPlainMoneyDigits(currentTotal)
+            : formatSignedMoneyInput(delta);
+        var reasonFieldId = 'bnb-price-reason-' + Date.now();
+        var calculatedTotal = parseInt(preview.calculated_total, 10) || currentTotal;
+        var defaultDelta = parseInt(preview.auto_delta, 10) || 0;
+
+        function buildReasonFieldHtml() {
+            return '<div class="bnb-prompt-field bnb-price-reason-field d-none" id="' + reasonFieldId + '-wrap">' +
+                '<label for="' + reasonFieldId + '">توضیحات تغییر مبلغ (اختیاری)</label>' +
+                '<textarea id="' + reasonFieldId + '" rows="2" maxlength="500" placeholder="در صورت تغییر مبلغ پیش‌فرض، دلیل را بنویسید..."></textarea>' +
+            '</div>';
+        }
+
+        function toggleReasonField(inputValue) {
+            var wrap = document.getElementById(reasonFieldId + '-wrap');
+            if (!wrap) return;
+            var changed = false;
+            if (isAbsolute) {
+                var parsed = parsePlainMoneyDigits(inputValue);
+                changed = !Number.isNaN(parsed) && parsed !== calculatedTotal;
+            } else {
+                var signed = parseSignedTomanInput(inputValue);
+                changed = !Number.isNaN(signed) && signed !== defaultDelta;
+            }
+            wrap.classList.toggle('d-none', !changed);
+        }
+        var inputLabel = isAbsolute
+            ? 'مبلغ نهایی (ریال)'
+            : 'مبلغ تغییر (ریال) — عدد مثبت افزایش، عدد منفی کاهش';
+        var inputHint = isAbsolute
+            ? 'مبلغ محاسبه‌شده را می‌توانید ویرایش کنید؛ با جداکننده سه‌رقمی.'
+            : 'مبلغ را مثل سایر فیلدهای قیمت ویرایش کنید؛ با جداکننده سه‌رقمی.';
+
+        function buildSummaryHtml(projectedTotal) {
+            if (isAbsolute) {
+                return '<div class="bnb-price-summary">' +
+                    'مبلغ محاسبه‌شده: <strong dir="ltr">' + formatTomanAmount(currentTotal) + '</strong> ریال<br>' +
+                    'مبلغ نهایی رزرو: <strong dir="ltr" id="' + projectedId + '">' + formatTomanAmount(projectedTotal) + '</strong> ریال' +
+                '</div>';
+            }
+
+            var html = '<div class="bnb-price-summary">' +
+                'مبلغ فعلی رزرو: <strong dir="ltr">' + formatTomanAmount(currentTotal) + '</strong> ریال<br>' +
+                'تغییر پیشنهادی: <strong dir="ltr" class="' + deltaClass + '">' + (delta > 0 ? '+' : '') + formatTomanAmount(delta) + '</strong> ریال (' + deltaVerb + ')<br>' +
+                'مبلغ پس از اعمال: <strong dir="ltr" id="' + projectedId + '">' + formatTomanAmount(projectedTotal) + '</strong> ریال';
+
+            var listSubtotal = parseInt(preview.list_subtotal, 10) || 0;
+            var policyDiscount = parseInt(preview.policy_discount, 10) || 0;
+            if (listSubtotal > 0 && policyDiscount > 0) {
+                html += '<br><span class="d-block mt-2 text-muted" style="font-size:.82rem;line-height:1.6">' +
+                    'قیمت واحد خدمت: <strong dir="ltr">' + formatTomanAmount(listSubtotal) + '</strong> ریال<br>' +
+                    'تخفیف ایثارگری خدمت: <strong dir="ltr" class="negative">−' + formatTomanAmount(policyDiscount) + '</strong> ریال<br>' +
+                    'افزوده به مبلغ رزرو: <strong dir="ltr" class="' + deltaClass + '">' + (delta > 0 ? '+' : '') + formatTomanAmount(delta) + '</strong> ریال' +
+                '</span>';
+            } else if (preview.delta_explanation) {
+                html += '<br><span class="d-block mt-2 text-muted" style="font-size:.82rem">' + escapeHtml(preview.delta_explanation) + '</span>';
+            }
+
+            return html + '</div>';
+        }
+
+        pauseBootstrapModalFocusTraps();
+
+        var hooks = iosOverlayHooks('confirm', 'info');
+
+        return Swal.fire(Object.assign({
+            title: '',
+            icon: undefined,
+            html:
+                '<div class="bnb-confirm-body">' +
+                    '<div class="bnb-confirm-icon bnb-confirm-icon--info"><i class="bi bi-cash-coin"></i></div>' +
+                    '<div class="bnb-confirm-text">' +
+                        '<div class="bnb-confirm-title">' + escapeHtml(actionLabel) + '</div>' +
+                        '<div class="bnb-confirm-msg">' + escapeHtml(description) + '</div>' +
+                        buildSummaryHtml(isAbsolute ? currentTotal : (currentTotal + delta)) +
+                        '<div class="bnb-prompt-field bnb-price-field">' +
+                            '<label for="' + fieldId + '">' + escapeHtml(inputLabel) + '</label>' +
+                            '<input id="' + fieldId + '" type="text" inputmode="numeric" dir="ltr" autocomplete="off" class="money-input bnb-price-delta-input form-control form-control-sm" value="' + escapeHtml(initialInputDisplay) + '">' +
+                        '</div>' +
+                        '<div class="bnb-price-delta-hint ' + deltaClass + '">' + escapeHtml(inputHint) + '</div>' +
+                        buildReasonFieldHtml() +
+                    '</div>' +
+                '</div>',
+            showCancelButton: true,
+            focusCancel: false,
+            focusConfirm: false,
+            reverseButtons: true,
+            confirmButtonText: 'ثبت با این مبلغ',
+            cancelButtonText: 'انصراف',
+            confirmButtonColor: '#007aff',
+            showClass: { popup: 'swal2-show' },
+            hideClass: { popup: 'swal2-hide' },
+            customClass: {
+                popup: 'bnb-swal-popup bnb-swal-popup--generic bnb-swal-popup--price bnb-swal-popup--sheet',
+                htmlContainer: 'bnb-swal-html',
+                actions: 'bnb-swal-actions',
+                confirmButton: 'bnb-swal-confirm',
+                cancelButton: 'bnb-swal-cancel'
+            }
+        }, hooks, {
+            didOpen: function (popup) {
+                if (hooks.didOpen) hooks.didOpen(popup);
+                else {
+                    var container = popup.closest('.swal2-container') || document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '10060';
+                }
+
+                var input = popup.querySelector('#' + fieldId);
+                bindPriceDeltaInput(input, function (parsed) {
+                    var projectedEl = popup.querySelector('#' + projectedId);
+                    if (projectedEl && !Number.isNaN(parsed)) {
+                        projectedEl.textContent = formatTomanAmount(
+                            isAbsolute ? Math.max(0, parsed) : Math.max(0, currentTotal + parsed)
+                        );
+                    }
+                    toggleReasonField(readPriceDeltaInputValue(popup));
+                }, { absolute: isAbsolute });
+                toggleReasonField(initialInputDisplay);
+                setTimeout(function () { focusPriceDeltaInput(input); }, isIosPanel() ? 280 : 40);
+            },
+            willClose: function () {
+                if (hooks.willClose) hooks.willClose();
+                resumeBootstrapModalFocusTraps();
+            },
+            didDestroy: hooks.didDestroy,
+            preConfirm: function () {
+                var popup = Swal.getPopup();
+                var reasonEl = popup ? popup.querySelector('#' + reasonFieldId) : null;
+                var reasonWrap = document.getElementById(reasonFieldId + '-wrap');
+                var priceReason = reasonEl && reasonWrap && !reasonWrap.classList.contains('d-none')
+                    ? String(reasonEl.value || '').trim()
+                    : '';
+
+                if (isAbsolute) {
+                    var finalTotal = parsePlainMoneyDigits(readPriceDeltaInputValue(popup));
+                    if (Number.isNaN(finalTotal) || finalTotal < 0) {
+                        Swal.showValidationMessage('مبلغ نهایی معتبر نیست.');
+                        return false;
+                    }
+                    return { delta: finalTotal - currentTotal, price_adjustment_reason: priceReason };
+                }
+
+                var parsed = parseSignedTomanInput(readPriceDeltaInputValue(popup));
+                if (Number.isNaN(parsed)) {
+                    Swal.showValidationMessage('مبلغ تغییر معتبر نیست.');
+                    return false;
+                }
+                return { delta: parsed, price_adjustment_reason: priceReason };
+            }
+        })).finally(function () {
+            resumeBootstrapModalFocusTraps();
         });
     };
+
+    function shouldSkipPaymentCapture(preview, confirmedDelta) {
+        if (preview && preview.skip_payment_capture) return true;
+        if (typeof confirmedDelta === 'number' && confirmedDelta < 0) return true;
+        return false;
+    }
+
+    function dockPaymentUploadSlot(popup) {
+        var slot = document.getElementById('bnb-payment-doc-slot');
+        var host = popup ? popup.querySelector('.bnb-payment-doc-host') : null;
+        if (!slot || !host) return;
+        host.appendChild(slot);
+        slot.classList.remove('d-none');
+        slot.dataset.bnbDocked = '1';
+    }
+
+    function restorePaymentUploadSlot() {
+        var slot = document.getElementById('bnb-payment-doc-slot');
+        var anchor = document.getElementById('bnb-payment-doc-anchor');
+        if (!slot || !anchor || slot.dataset.bnbDocked !== '1') return;
+        anchor.appendChild(slot);
+        slot.classList.add('d-none');
+        delete slot.dataset.bnbDocked;
+    }
+
+    function refreshPosTerminalOptions(selectEl, terminals) {
+        if (!selectEl) return;
+        var current = selectEl.value;
+        selectEl.innerHTML = '<option value="">— انتخاب ترمینال —</option>';
+        (terminals || []).forEach(function (terminal) {
+            var opt = document.createElement('option');
+            opt.value = String(terminal.id);
+            opt.textContent = terminal.label;
+            selectEl.appendChild(opt);
+        });
+        if (current) selectEl.value = current;
+    }
+
+    window.bnbPaymentCaptureConfirm = function (preview, priceResult, component) {
+        preview = preview || {};
+        priceResult = priceResult || {};
+        var terminals = preview.pos_terminals || [];
+        var defaultDate = preview.default_payment_date || '';
+        var defaultTime = preview.default_payment_time || '';
+        var priceReason = priceResult.price_adjustment_reason || '';
+        var fieldPrefix = 'bnb-pay-' + Date.now();
+        var cardId = fieldPrefix + '-card';
+        var trackingId = fieldPrefix + '-tracking';
+        var dateId = fieldPrefix + '-date';
+        var timeId = fieldPrefix + '-time';
+        var terminalId = fieldPrefix + '-terminal';
+
+        pauseBootstrapModalFocusTraps();
+        var hooks = iosOverlayHooks('confirm', 'info');
+
+        return Swal.fire(Object.assign({
+            title: '',
+            icon: undefined,
+            html:
+                '<div class="bnb-confirm-body bnb-swal-step-body">' +
+                    '<div class="bnb-confirm-icon bnb-confirm-icon--info"><i class="bi bi-credit-card-2-front"></i></div>' +
+                    '<div class="bnb-confirm-text">' +
+                        '<div class="bnb-confirm-title">ثبت اطلاعات پرداخت</div>' +
+                        '<div class="bnb-confirm-msg">۴ رقم آخر کارت یا شماره پیگیری (حداقل یکی) و ترمینال پرداخت را ثبت کنید.</div>' +
+                        '<div class="row g-2 mt-2">' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + cardId + '">۴ رقم آخر کارت</label>' +
+                                '<input id="' + cardId + '" type="text" maxlength="4" inputmode="numeric" dir="ltr" class="form-control form-control-sm" placeholder="1234">' +
+                            '</div>' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + trackingId + '">شماره پیگیری تراکنش</label>' +
+                                '<input id="' + trackingId + '" type="text" dir="ltr" class="form-control form-control-sm" placeholder="رسید / پیگیری">' +
+                            '</div>' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + dateId + '">تاریخ پرداخت</label>' +
+                                '<input id="' + dateId + '" type="text" dir="ltr" class="form-control form-control-sm jalali-date-input" value="' + escapeHtml(defaultDate) + '">' +
+                            '</div>' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + timeId + '">ساعت پرداخت</label>' +
+                                '<input id="' + timeId + '" type="text" dir="ltr" class="form-control form-control-sm" value="' + escapeHtml(defaultTime) + '" placeholder="14:30">' +
+                            '</div>' +
+                            '<div class="col-12">' +
+                                '<label class="form-label small" for="' + terminalId + '">شماره ترمینال <span class="text-danger">*</span></label>' +
+                                '<select id="' + terminalId + '" class="form-select form-select-sm"></select>' +
+                                '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none mt-1" id="' + fieldPrefix + '-add-terminal">' +
+                                    '<i class="bi bi-plus-circle me-1"></i>ترمینال در لیست نیست؟ افزودن' +
+                                '</button>' +
+                            '</div>' +
+                            '<div class="col-12 bnb-payment-doc-host"></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>',
+            showCancelButton: true,
+            focusCancel: false,
+            focusConfirm: false,
+            reverseButtons: true,
+            confirmButtonText: 'ثبت نهایی',
+            cancelButtonText: 'انصراف',
+            confirmButtonColor: '#007aff',
+            showClass: { popup: 'swal2-show' },
+            hideClass: { popup: 'swal2-hide' },
+            customClass: {
+                popup: 'bnb-swal-popup bnb-swal-popup--generic bnb-swal-popup--payment bnb-swal-popup--sheet',
+                htmlContainer: 'bnb-swal-html',
+                actions: 'bnb-swal-actions',
+                confirmButton: 'bnb-swal-confirm',
+                cancelButton: 'bnb-swal-cancel'
+            }
+        }, hooks, {
+            didOpen: function (popup) {
+                if (hooks.didOpen) hooks.didOpen(popup);
+                var selectEl = popup.querySelector('#' + terminalId);
+                refreshPosTerminalOptions(selectEl, terminals);
+                dockPaymentUploadSlot(popup);
+                var addBtn = popup.querySelector('#' + fieldPrefix + '-add-terminal');
+                if (addBtn && component) {
+                    addBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        if (typeof Livewire !== 'undefined') {
+                            Livewire.dispatch('bnb-open-pos-terminal-modal');
+                        }
+                    });
+                }
+                if (component) {
+                    component.call('listPosTerminalsForPaymentCapture').then(function (list) {
+                        refreshPosTerminalOptions(selectEl, list || terminals);
+                    });
+                }
+                document.addEventListener('bnb-pos-terminals-updated', function handler() {
+                    if (!component) return;
+                    component.call('listPosTerminalsForPaymentCapture').then(function (list) {
+                        refreshPosTerminalOptions(selectEl, list || []);
+                    });
+                });
+            },
+            willClose: function () {
+                restorePaymentUploadSlot();
+                if (hooks.willClose) hooks.willClose();
+                resumeBootstrapModalFocusTraps();
+            },
+            didDestroy: hooks.didDestroy,
+            preConfirm: function () {
+                var popup = Swal.getPopup();
+                var card = popup.querySelector('#' + cardId);
+                var tracking = popup.querySelector('#' + trackingId);
+                var dateEl = popup.querySelector('#' + dateId);
+                var timeEl = popup.querySelector('#' + timeId);
+                var terminalEl = popup.querySelector('#' + terminalId);
+                var cardVal = card ? String(card.value || '').replace(/\D/g, '') : '';
+                var trackingVal = tracking ? String(tracking.value || '').trim() : '';
+                if (cardVal.length > 0 && cardVal.length !== 4) {
+                    Swal.showValidationMessage('۴ رقم آخر کارت باید دقیقاً ۴ رقم باشد.');
+                    return false;
+                }
+                if (!cardVal && !trackingVal) {
+                    Swal.showValidationMessage('حداقل یکی از «۴ رقم آخر کارت» یا «شماره پیگیری» الزامی است.');
+                    return false;
+                }
+                if (!terminalEl || !terminalEl.value) {
+                    Swal.showValidationMessage('انتخاب ترمینال الزامی است.');
+                    return false;
+                }
+                return {
+                    payment_capture: {
+                        card_last_four: cardVal || null,
+                        transaction_tracking: trackingVal || null,
+                        payment_date_jalali: dateEl ? dateEl.value : defaultDate,
+                        payment_time: timeEl ? timeEl.value : defaultTime,
+                        pos_terminal_id: parseInt(terminalEl.value, 10),
+                        price_adjustment_reason: priceReason || null,
+                    }
+                };
+            }
+        })).finally(function () {
+            restorePaymentUploadSlot();
+            resumeBootstrapModalFocusTraps();
+        });
+    };
+
+    window.bnbPosTerminalForm = function (opts) {
+        opts = opts || {};
+        var isEdit = opts.mode === 'edit';
+        var terminal = opts.terminal || {};
+        var provinces = opts.provinces || [];
+        var prefix = 'bnb-pos-t-' + Date.now();
+        var provinceId = prefix + '-province';
+        var numberId = prefix + '-number';
+        var labelId = prefix + '-label';
+        var activeId = prefix + '-active';
+        var defaultProvince = isEdit
+            ? String(terminal.province_id || '')
+            : String(opts.defaultProvinceId || provinces[0]?.id || '');
+
+        var provinceOptions = '<option value="">— انتخاب استان —</option>';
+        provinces.forEach(function (p) {
+            var selected = String(p.id) === defaultProvince ? ' selected' : '';
+            provinceOptions += '<option value="' + escapeHtml(String(p.id)) + '"' + selected + '>' + escapeHtml(p.name) + '</option>';
+        });
+
+        pauseBootstrapModalFocusTraps();
+        var hooks = iosOverlayHooks('confirm', 'info');
+
+        return Swal.fire(Object.assign({
+            title: '',
+            icon: undefined,
+            html:
+                '<div class="bnb-confirm-body bnb-swal-step-body">' +
+                    '<div class="bnb-confirm-icon bnb-confirm-icon--info"><i class="bi bi-upc-scan"></i></div>' +
+                    '<div class="bnb-confirm-text">' +
+                        '<div class="bnb-confirm-title">' + (isEdit ? 'ویرایش ترمینال' : 'افزودن ترمینال') + '</div>' +
+                        '<div class="bnb-confirm-msg">' + (isEdit ? 'اطلاعات ترمینال را ویرایش کنید.' : 'ترمینال جدید را برای استان انتخاب‌شده ثبت کنید.') + '</div>' +
+                        '<div class="row g-2 mt-2">' +
+                            '<div class="col-12">' +
+                                '<label class="form-label small" for="' + provinceId + '">استان <span class="text-danger">*</span></label>' +
+                                '<select id="' + provinceId + '" class="form-select form-select-sm">' + provinceOptions + '</select>' +
+                            '</div>' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + numberId + '">شماره ترمینال <span class="text-danger">*</span></label>' +
+                                '<input id="' + numberId + '" type="text" dir="ltr" class="form-control form-control-sm" value="' + escapeHtml(terminal.terminal_number || '') + '">' +
+                            '</div>' +
+                            '<div class="col-md-6">' +
+                                '<label class="form-label small" for="' + labelId + '">عنوان (اختیاری)</label>' +
+                                '<input id="' + labelId + '" type="text" class="form-control form-control-sm" value="' + escapeHtml(terminal.label || '') + '">' +
+                            '</div>' +
+                            '<div class="col-12">' +
+                                '<div class="form-check mt-1">' +
+                                    '<input type="checkbox" id="' + activeId + '" class="form-check-input"' + ((isEdit && !terminal.is_active) ? '' : ' checked') + '>' +
+                                    '<label class="form-check-label small" for="' + activeId + '">فعال</label>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>',
+            showCancelButton: true,
+            focusCancel: false,
+            focusConfirm: false,
+            reverseButtons: true,
+            confirmButtonText: isEdit ? 'ذخیره تغییرات' : 'ثبت ترمینال',
+            cancelButtonText: 'انصراف',
+            confirmButtonColor: '#007aff',
+            showClass: { popup: 'swal2-show' },
+            hideClass: { popup: 'swal2-hide' },
+            customClass: {
+                popup: 'bnb-swal-popup bnb-swal-popup--generic bnb-swal-popup--price bnb-swal-popup--sheet',
+                htmlContainer: 'bnb-swal-html',
+                actions: 'bnb-swal-actions',
+                confirmButton: 'bnb-swal-confirm',
+                cancelButton: 'bnb-swal-cancel'
+            }
+        }, hooks, {
+            willClose: function () {
+                if (hooks.willClose) hooks.willClose();
+                resumeBootstrapModalFocusTraps();
+            },
+            didDestroy: hooks.didDestroy,
+            preConfirm: function () {
+                var popup = Swal.getPopup();
+                var provinceEl = popup.querySelector('#' + provinceId);
+                var numberEl = popup.querySelector('#' + numberId);
+                var labelEl = popup.querySelector('#' + labelId);
+                var activeEl = popup.querySelector('#' + activeId);
+                var provinceVal = provinceEl ? provinceEl.value : '';
+                var numberVal = numberEl ? String(numberEl.value || '').trim() : '';
+                if (!provinceVal) {
+                    Swal.showValidationMessage('انتخاب استان الزامی است.');
+                    return false;
+                }
+                if (!numberVal) {
+                    Swal.showValidationMessage('شماره ترمینال الزامی است.');
+                    return false;
+                }
+                return {
+                    editing_id: isEdit ? parseInt(terminal.id, 10) || null : null,
+                    province_id: provinceVal,
+                    terminal_number: numberVal,
+                    label: labelEl ? String(labelEl.value || '').trim() : '',
+                    is_active: activeEl ? activeEl.checked : true
+                };
+            }
+        })).finally(function () {
+            resumeBootstrapModalFocusTraps();
+        });
+    };
+
+    function readPosTerminalProvinces() {
+        var el = document.getElementById('bnb-pos-terminal-provinces');
+        if (!el) return [];
+        try {
+            return JSON.parse(el.textContent || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-bnb-pos-terminal-form]');
+        if (!btn) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        var mode = btn.getAttribute('data-bnb-pos-terminal-form') || 'create';
+        var component = resolveLivewireFromEl(btn);
+        if (!component) {
+            bnbToast('error', 'امکان انجام عملیات وجود ندارد.');
+            return;
+        }
+
+        var opts = {
+            mode: mode,
+            provinces: readPosTerminalProvinces(),
+            defaultProvinceId: btn.getAttribute('data-default-province-id') || ''
+        };
+
+        if (mode === 'edit') {
+            opts.terminal = {
+                id: parseInt(btn.getAttribute('data-terminal-id'), 10) || 0,
+                province_id: btn.getAttribute('data-province-id') || '',
+                terminal_number: btn.getAttribute('data-terminal-number') || '',
+                label: btn.getAttribute('data-label') || '',
+                is_active: btn.getAttribute('data-is-active') !== '0'
+            };
+        }
+
+        bnbPosTerminalForm(opts).then(function (result) {
+            if (!result.isConfirmed || !result.value) return;
+            var v = result.value;
+            component.call(
+                'saveFromSwal',
+                v.editing_id,
+                v.province_id,
+                v.terminal_number,
+                v.label,
+                v.is_active
+            );
+        });
+    }, true);
+
+    function finalizeConfirmedPriceChange(component, action, params, confirmedDelta, priceResult) {
+        var merged = Object.assign({}, params || {});
+        if (priceResult && priceResult.price_adjustment_reason) {
+            merged.price_adjustment_reason = priceResult.price_adjustment_reason;
+        }
+        if (priceResult && priceResult.payment_capture) {
+            merged.payment_capture = priceResult.payment_capture;
+        }
+        component.call('executeConfirmedPriceChange', action, confirmedDelta, merged);
+    }
+
+    function runBookingPriceChangeFlow(component, action, params, onCancel) {
+        if (!component || !action) {
+            bnbToast('error', 'امکان انجام عملیات وجود ندارد.');
+            if (typeof onCancel === 'function') onCancel();
+            return;
+        }
+
+        component.call('previewBookingPriceChange', action, params || {}).then(function (preview) {
+            if (!preview) {
+                if (typeof onCancel === 'function') onCancel();
+                return;
+            }
+            if (preview.error) {
+                bnbToast('error', preview.message || 'خطا در محاسبه تغییر مبلغ.');
+                if (typeof onCancel === 'function') onCancel();
+                return;
+            }
+            if (!preview.affects_price) {
+                var infoMsg = preview.info_message || preview.description || 'ادامه می‌دهید؟';
+                bnbConfirm(infoMsg, { titleText: preview.action_label || 'تأیید عملیات', variant: 'info' }).then(function (result) {
+                    if (!result.isConfirmed) {
+                        if (typeof onCancel === 'function') onCancel();
+                        return;
+                    }
+                    component.call('executeConfirmedPriceChange', action, 0, params || {});
+                });
+                return;
+            }
+            bnbPriceConfirm(preview).then(function (result) {
+                if (!result.isConfirmed) {
+                    if (typeof onCancel === 'function') onCancel();
+                    return;
+                }
+                var confirmedDelta = result.value && typeof result.value.delta === 'number'
+                    ? result.value.delta
+                    : (parseInt(preview.auto_delta, 10) || 0);
+                var priceResult = result.value || {};
+
+                if (shouldSkipPaymentCapture(preview, confirmedDelta)) {
+                    finalizeConfirmedPriceChange(component, action, params, confirmedDelta, priceResult);
+                    return;
+                }
+
+                bnbPaymentCaptureConfirm(preview, priceResult, component).then(function (payResult) {
+                    if (!payResult.isConfirmed) {
+                        if (typeof onCancel === 'function') onCancel();
+                        return;
+                    }
+                    var mergedPrice = Object.assign({}, priceResult, payResult.value || {});
+                    finalizeConfirmedPriceChange(component, action, params, confirmedDelta, mergedPrice);
+                });
+            });
+        });
+    }
 
     /* ── 3. data-swal-confirm INTERCEPTOR ───────────────────── */
     document.addEventListener('click', function (e) {
@@ -697,8 +1915,15 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         e.stopImmediatePropagation();
 
         var message = btn.dataset.swalConfirm || 'آیا از این عملیات مطمئن هستید؟';
+        var confirmOpts = {};
+        if (btn.dataset.swalConfirmTitle) {
+            confirmOpts.titleText = btn.dataset.swalConfirmTitle;
+        }
+        if (btn.dataset.swalConfirmVariant) {
+            confirmOpts.variant = btn.dataset.swalConfirmVariant;
+        }
 
-        bnbConfirm(message).then(function (result) {
+        bnbConfirm(message, confirmOpts).then(function (result) {
             if (!result.isConfirmed) return;
             btn._swalBypassed = true;
             var form = btn.form || btn.closest('form');
@@ -729,8 +1954,15 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         e.stopImmediatePropagation();
 
         var message = el.dataset.swalConfirm || 'آیا از این عملیات مطمئن هستید؟';
+        var confirmOpts = {};
+        if (el.dataset.swalConfirmTitle) {
+            confirmOpts.titleText = el.dataset.swalConfirmTitle;
+        }
+        if (el.dataset.swalConfirmVariant) {
+            confirmOpts.variant = el.dataset.swalConfirmVariant;
+        }
 
-        bnbConfirm(message).then(function (result) {
+        bnbConfirm(message, confirmOpts).then(function (result) {
             if (!result.isConfirmed) return;
             form._swalBypassed = true;
             if (typeof form.requestSubmit === 'function') {
@@ -774,13 +2006,70 @@ body.swal2-toast-shown .swal2-container.swal2-top,
         });
     }, true);
 
+    /* ── 3d. data-bnb-price-change INTERCEPTOR ──────────────── */
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-bnb-price-change]');
+        if (!btn || btn._bnbPriceBypassed) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        var action = btn.dataset.bnbPriceAction || '';
+        var params = parsePriceChangeParams(btn.dataset.bnbPriceParams || '{}');
+        var component = resolveLivewireFromEl(btn);
+        var onCancel = null;
+
+        if (action === 'applyServiceQuotaSettings' && params.serviceId) {
+            var serviceId = parseInt(params.serviceId, 10);
+            onCancel = function () {
+                if (component) component.call('revertServiceQuotaUi', serviceId);
+            };
+        }
+
+        runBookingPriceChangeFlow(component, action, params, onCancel);
+    }, true);
+
+    function bindPriceChangeRequestListener() {
+        if (typeof Livewire === 'undefined' || bindPriceChangeRequestListener.bound) return;
+        bindPriceChangeRequestListener.bound = true;
+        Livewire.on('bnb-price-change-request', function (payload) {
+            if (Array.isArray(payload) && payload.length) payload = payload[0];
+            var action = payload && payload.action;
+            var params = (payload && payload.params) || {};
+            var componentId = payload && payload.componentId;
+            var component = componentId ? Livewire.find(componentId) : null;
+            var onCancel = null;
+
+            if (action === 'applyServiceQuotaSettings' && params.serviceId) {
+                var serviceId = parseInt(params.serviceId, 10);
+                onCancel = function () {
+                    if (component) component.call('revertServiceQuotaUi', serviceId);
+                };
+            }
+
+            runBookingPriceChangeFlow(component, action, params, onCancel);
+        });
+    }
+    bindPriceChangeRequestListener.bound = false;
+    document.addEventListener('livewire:init', bindPriceChangeRequestListener);
+    document.addEventListener('livewire:initialized', bindPriceChangeRequestListener);
+
     /* ── 4. LIVEWIRE TOAST EVENTS ───────────────────────────── */
     function handleToastPayload(d) {
         if (!d) return;
+        var swalOpen = document.querySelector('.swal2-container.swal2-shown');
+        var isToastPopup = swalOpen && swalOpen.querySelector('.bnb-swal-toast');
+        if (swalOpen && !isToastPopup) {
+            return;
+        }
         if (Array.isArray(d) && d.length) d = d[0];
         if (typeof d === 'object' && d !== null && d.detail) d = d.detail;
         if (Array.isArray(d) && d.length) d = d[0];
-        bnbToast(d.type || d.icon || 'success', d.message || d.title || '');
+        var message = d.message || d.title || '';
+        if (Array.isArray(d.messages) && d.messages.length) {
+            message = d.messages.filter(Boolean).join('\n');
+        }
+        bnbToast(d.type || d.icon || 'success', message);
     }
 
     window.addEventListener('toast', function (e) {

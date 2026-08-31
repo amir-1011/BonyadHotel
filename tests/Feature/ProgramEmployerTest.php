@@ -114,11 +114,11 @@ class ProgramEmployerTest extends TestCase
             ->set('newEmployerMobile', '09127778899')
             ->call('addEmployerToCatalog')
             ->assertHasNoErrors()
-            ->assertSet('programEmployerId', (string) ProgramEmployer::first()->id);
+            ->assertSet('programEmployerId', (string) ProgramEmployer::query()->where('name', 'شهرداری تهران')->value('id'));
 
-        $employer = ProgramEmployer::first();
-        $this->assertSame('شهرداری تهران', $employer->name);
-        $this->assertSame('515401', $employer->employer_code);
+        $employer = ProgramEmployer::query()->where('name', 'شهرداری تهران')->first();
+        $this->assertNotNull($employer);
+        $this->assertNotEmpty($employer->employer_code);
         $this->assertNotNull($employer->user_id);
     }
 

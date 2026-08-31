@@ -7,7 +7,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Fixed amount per confirmed booking (accommodation/reservation only).
-    | Services are not commissionable. Program (اردو) bookings are exempt.
+    | Services are not commissionable. Program (اردو), credit (اعتباری),
+    | and medical accommodation (اسکان درمانی) bookings are exempt.
     |
     */
     'fixed_amount' => (int) env('PLATFORM_COMMISSION_FIXED_AMOUNT', 50_000),

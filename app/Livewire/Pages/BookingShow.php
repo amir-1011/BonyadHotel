@@ -32,6 +32,10 @@ class BookingShow extends Component
             'bookingRooms.roomType',
             'bookingRooms.roomRate',
             'bookingRooms.room',
+            'employer',
+            'medicalTariff',
+            'medicalContract',
+            'accommodation.medicalAccommodationSetting',
         ]);
         $this->initCancellationRequestsData();
         $this->maybeAutoOpenCancellationRequestModal();

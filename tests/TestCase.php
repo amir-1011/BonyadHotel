@@ -89,6 +89,7 @@ abstract class TestCase extends BaseTestCase
 
         app(VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\MedicalAccommodationProvisioner::class)->seedForAccommodation($accommodation);
 
         return $accommodation;
     }

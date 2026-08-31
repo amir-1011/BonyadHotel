@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Admin\BookingShow;
+use App\Livewire\Host\BookingShow as HostBookingShow;
 use App\Models\Booking;
 use App\Models\BookingGuestDetail;
 use App\Models\BookingRoom;
@@ -142,5 +143,166 @@ class BookingGuestNameEditTest extends TestCase
         $saved = BookingGuestDetail::where('booking_id', $booking->id)->where('sort_order', 1)->first();
         $this->assertSame('زهرا محمدی', $saved->full_name);
         $this->assertSame('فرزند', $saved->relation);
+    }
+
+    public function test_host_can_save_guest_details_with_permission(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+
+        $accommodation = $this->createTestAccommodation();
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000003']);
+        $host->assignRole('host');
+        $host->update([
+            'host_panel_permissions' => [
+                'bookings.show'   => ['read'],
+                'bookings.guests' => ['edit'],
+            ],
+        ]);
+        $accommodation->hosts()->attach($host->id);
+
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09121113333']);
+
+        $booking = Booking::create([
+            'user_id'           => $guest->id,
+            'accommodation_id'  => $accommodation->id,
+            'booking_source'    => 'manual',
+            'check_in'          => now()->addDays(5)->format('Y-m-d'),
+            'check_out'         => now()->addDays(7)->format('Y-m-d'),
+            'nights'            => 2,
+            'guests'            => 2,
+            'base_price'        => 2_000_000,
+            'services_subtotal' => 0,
+            'discount_amount'   => 0,
+            'total_price'       => 2_000_000,
+            'status'            => 'confirmed',
+            'tracking_code'     => 'GNAMEEDIT3',
+        ]);
+
+        BookingGuestDetail::create([
+            'booking_id' => $booking->id,
+            'sort_order' => 0,
+            'full_name'  => 'مهمان اصلی',
+            'relation'   => BookingGuestDetail::RELATION_MAIN_GUEST,
+        ]);
+
+        Livewire::actingAs($host)
+            ->test(HostBookingShow::class, ['booking' => $booking->fresh()])
+            ->set('editableGuests.1.full_name', 'سارا کریمی')
+            ->call('saveGuestDetails', 1)
+            ->assertHasNoErrors();
+
+        $saved = BookingGuestDetail::where('booking_id', $booking->id)->where('sort_order', 1)->first();
+        $this->assertNotNull($saved);
+        $this->assertSame('سارا کریمی', $saved->full_name);
+    }
+
+    public function test_host_cannot_save_guest_details_without_permission(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+
+        $accommodation = $this->createTestAccommodation();
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000004']);
+        $host->assignRole('host');
+        $host->update([
+            'host_panel_permissions' => [
+                'bookings.show' => ['read'],
+            ],
+        ]);
+        $accommodation->hosts()->attach($host->id);
+
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09121114444']);
+
+        $booking = Booking::create([
+            'user_id'           => $guest->id,
+            'accommodation_id'  => $accommodation->id,
+            'booking_source'    => 'manual',
+            'check_in'          => now()->addDays(5)->format('Y-m-d'),
+            'check_out'         => now()->addDays(7)->format('Y-m-d'),
+            'nights'            => 2,
+            'guests'            => 2,
+            'base_price'        => 2_000_000,
+            'services_subtotal' => 0,
+            'discount_amount'   => 0,
+            'total_price'       => 2_000_000,
+            'status'            => 'confirmed',
+            'tracking_code'     => 'GNAMEEDIT4',
+        ]);
+
+        BookingGuestDetail::create([
+            'booking_id' => $booking->id,
+            'sort_order' => 0,
+            'full_name'  => 'مهمان اصلی',
+            'relation'   => BookingGuestDetail::RELATION_MAIN_GUEST,
+        ]);
+
+        Livewire::actingAs($host)
+            ->test(HostBookingShow::class, ['booking' => $booking->fresh()])
+            ->set('editableGuests.1.full_name', 'سارا کریمی')
+            ->call('saveGuestDetails', 1)
+            ->assertForbidden();
+    }
+
+    public function test_host_with_bookings_show_gets_guest_edit_via_permission_migration(): void
+    {
+        $grants = \App\Support\HostPermissions::backfillGuestEditGrants([
+            'bookings.show' => ['read'],
+        ]);
+
+        $this->assertTrue(\App\Support\HostPermissions::grantsAllow('bookings.guests', 'edit', $grants));
+    }
+
+    public function test_host_can_save_guest_details_after_check_out(): void
+    {
+        Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+
+        $accommodation = $this->createTestAccommodation();
+        $host = User::create(['name' => 'میزبان', 'mobile' => '09120000005']);
+        $host->assignRole('host');
+        $host->update([
+            'host_panel_permissions' => [
+                'bookings.show'   => ['read'],
+                'bookings.guests' => ['edit'],
+            ],
+        ]);
+        $accommodation->hosts()->attach($host->id);
+
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09121115555']);
+
+        $booking = Booking::create([
+            'user_id'           => $guest->id,
+            'accommodation_id'  => $accommodation->id,
+            'booking_source'    => 'manual',
+            'check_in'          => '2026-07-01',
+            'check_out'         => '2026-07-05',
+            'nights'            => 4,
+            'guests'            => 2,
+            'base_price'        => 2_000_000,
+            'services_subtotal' => 0,
+            'discount_amount'   => 0,
+            'total_price'       => 2_000_000,
+            'status'            => 'confirmed',
+            'tracking_code'     => 'GNAMEEDIT5',
+        ]);
+
+        BookingGuestDetail::create([
+            'booking_id' => $booking->id,
+            'sort_order' => 0,
+            'full_name'  => 'مهمان اصلی',
+            'relation'   => BookingGuestDetail::RELATION_MAIN_GUEST,
+        ]);
+
+        \Carbon\Carbon::setTestNow('2026-07-10 10:00:00');
+
+        Livewire::actingAs($host)
+            ->test(HostBookingShow::class, ['booking' => $booking->fresh()])
+            ->set('editableGuests.1.full_name', 'مینا شریفی')
+            ->call('saveGuestDetails', 1)
+            ->assertHasNoErrors();
+
+        $saved = BookingGuestDetail::where('booking_id', $booking->id)->where('sort_order', 1)->first();
+        $this->assertNotNull($saved);
+        $this->assertSame('مینا شریفی', $saved->full_name);
+
+        \Carbon\Carbon::setTestNow();
     }
 }

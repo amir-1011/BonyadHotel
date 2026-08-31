@@ -26,6 +26,7 @@ class PanelBreadcrumbBuilder
 
     return match (true) {
       $suffix === 'dashboard' => [['label' => 'داشبورد', 'url' => null]],
+      $suffix === 'medical-accommodation-report' => self::append($crumbs, 'اسکان درمانی', null),
 
       str_starts_with($suffix, 'users.') => self::users($panel, $suffix, $crumbs),
       str_starts_with($suffix, 'host-positions.') => self::hostPositions($crumbs),
@@ -34,10 +35,13 @@ class PanelBreadcrumbBuilder
       str_starts_with($suffix, 'bookings') => self::bookings($panel, $suffix, $route, $crumbs),
       str_starts_with($suffix, 'cancellation-') => self::cancellation($panel, $suffix, $crumbs),
       str_starts_with($suffix, 'commission-wallet') => self::commissionWallet($panel, $suffix, $crumbs),
+      str_starts_with($suffix, 'booking-payment-records') => self::append($crumbs, 'تراکنش‌های مالی', null),
+      str_starts_with($suffix, 'pos-terminals') => self::append($crumbs, 'ترمینال‌های پز', null),
       str_starts_with($suffix, 'reviews.') => self::append($crumbs, 'نظرات', null),
       $suffix === 'veteran-policy' => self::append($crumbs, 'تعاریف اولیه', null),
       $suffix === 'location-catalog' => self::append($crumbs, 'استان‌ها و انواع', null),
       str_starts_with($suffix, 'programs.') => self::programs($panel, $suffix, $route, $crumbs),
+      str_starts_with($suffix, 'facility.') => self::facility($panel, $suffix, $crumbs),
       $suffix === 'profile' => self::append($crumbs, 'پروفایل', null),
 
       default => $crumbs,
@@ -100,6 +104,7 @@ class PanelBreadcrumbBuilder
       'accommodations.report' => self::append($crumbs, self::modelLabel($accommodation, 'گزارش فروش'), null),
       'accommodations.veteran-policy' => self::append($crumbs, self::modelLabel($accommodation, 'تعاریف اولیه'), null),
       'accommodations.cancellation-policy' => self::append($crumbs, self::modelLabel($accommodation, 'سیاست کنسلی'), null),
+      'accommodations.medical-accommodation' => self::append($crumbs, self::modelLabel($accommodation, 'اسکان درمانی'), null),
       'accommodations.manual-booking' => self::append($crumbs, self::modelLabel($accommodation, 'رزرو دستی'), null),
       default => $crumbs,
     };
@@ -178,6 +183,58 @@ class PanelBreadcrumbBuilder
     return match ($suffix) {
       'commission-wallet' => self::setLast($crumbs, 'کیف پول کارمزد'),
       'commission-wallet.show' => self::append($crumbs, 'جزئیات تراکنش', null),
+      default => $crumbs,
+    };
+  }
+
+  /**
+   * @param  list<array{label: string, url: string|null}>  $crumbs
+   * @return list<array{label: string, url: string|null}>
+   */
+  private static function facility(string $panel, string $suffix, array $crumbs): array
+  {
+    return match (true) {
+      str_starts_with($suffix, 'facility.surplus') => match ($suffix) {
+        'facility.surplus.index' => self::append(
+          self::append($crumbs, 'مدیریت اماکن', null),
+          'اقلام مازاد',
+          null,
+        ),
+        'facility.surplus.create' => self::append(
+          self::append(self::append($crumbs, 'مدیریت اماکن', route("{$panel}.facility.surplus.index")), 'اقلام مازاد', route("{$panel}.facility.surplus.index")),
+          'ثبت مورد',
+          null,
+        ),
+        'facility.surplus.edit' => self::append(
+          self::append(self::append($crumbs, 'مدیریت اماکن', route("{$panel}.facility.surplus.index")), 'اقلام مازاد', route("{$panel}.facility.surplus.index")),
+          'ویرایش',
+          null,
+        ),
+        default => $crumbs,
+      },
+      str_starts_with($suffix, 'facility.needed') => match ($suffix) {
+        'facility.needed.index' => self::append(
+          self::append($crumbs, 'مدیریت اماکن', null),
+          'اقلام مورد نیاز',
+          null,
+        ),
+        'facility.needed.create' => self::append(
+          self::append(self::append($crumbs, 'مدیریت اماکن', route("{$panel}.facility.needed.index")), 'اقلام مورد نیاز', route("{$panel}.facility.needed.index")),
+          'ثبت درخواست',
+          null,
+        ),
+        'facility.needed.edit' => self::append(
+          self::append(self::append($crumbs, 'مدیریت اماکن', route("{$panel}.facility.needed.index")), 'اقلام مورد نیاز', route("{$panel}.facility.needed.index")),
+          'ویرایش درخواست',
+          null,
+        ),
+        default => $crumbs,
+      },
+      str_starts_with($suffix, 'facility.catalog') => self::append(
+        self::append($crumbs, 'مدیریت اماکن', route("{$panel}.facility.surplus.index")),
+        'دسته‌بندی و برند',
+        null,
+      ),
       default => $crumbs,
     };
   }

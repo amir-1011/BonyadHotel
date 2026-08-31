@@ -2,17 +2,6 @@
 
 @php($hostUser = Auth::user())
 
-<div class="d-flex align-items-center justify-content-end mb-3">
-    @if($hostUser->hostCan('bookings.export', 'read'))
-    <a href="{{ route('host.bookings.export', $exportQuery) }}" class="btn btn-success btn-sm">
-        <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
-        @if($hasActiveFilters)
-        <span class="badge bg-white text-success ms-1">فیلترشده</span>
-        @endif
-    </a>
-    @endif
-</div>
-
 <x-filters.booking-panel
     :accommodations="$accommodations"
     :employers="$employers"
@@ -32,9 +21,20 @@
     :draft-room-category="$draftRoomCategory"
     :draft-booking-source="$draftBookingSource"
     :has-active-filters="$hasActiveFilters"
-/>
-
-<x-filters.summary-stats :count-filtered="$countFiltered" :total-filtered="$totalFiltered" />
+    :count-filtered="$countFiltered"
+    :total-filtered="$totalFiltered"
+>
+    <x-slot:actions>
+        @if($hostUser->hostCan('bookings.export', 'read'))
+        <a href="{{ route('host.bookings.export', $exportQuery) }}" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+            @if($hasActiveFilters)
+            <span class="badge bg-white text-success ms-1">فیلترشده</span>
+            @endif
+        </a>
+        @endif
+    </x-slot>
+</x-filters.booking-panel>
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -85,7 +85,10 @@
                             <code class="small">{{ $b->tracking_code }}</code>
                         </a>
                     </td>
-                    <td class="small">{{ $b->bookerName() }}</td>
+                    <td class="small">
+                        {{ $b->bookerName() }}
+                        <x-booking.list-guest-badges :booking="$b" />
+                    </td>
                     <td class="small">{{ $b->reserverName() }}</td>
                     <td class="small">{{ Str::limit($b->accommodation->name, 22) }}</td>
                     <td class="small table-cell-truncate">{{ $b->roomTypeNamesSummary() }}</td>
@@ -99,7 +102,7 @@
                     <td class="small">@jalali($b->check_in)</td>
                     <td class="small">@jalali($b->check_out)</td>
                     <td>{{ $b->nights }}</td>
-                    <td class="small">{{ number_format($b->total_price) }}</td>
+                    <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }}</td>
                     <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                     <td>
                         <div class="d-flex gap-1">
@@ -121,7 +124,7 @@
             <tfoot class="table-light fw-bold">
                 <tr>
                     <td colspan="12" class="text-end small text-muted">جمع این صفحه:</td>
-                    <td class="text-success small">{{ number_format($bookings->sum('total_price')) }} ت</td>
+                    <td class="text-success small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($bookings->sum('total_price'))) }} ریال</td>
                     <td colspan="2"></td>
                 </tr>
             </tfoot>
@@ -130,8 +133,8 @@
     </div>
     <div class="card-footer bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="small text-muted">
-            جمع کل فیلتر: <strong class="text-success">{{ number_format($totalFiltered) }} تومان</strong>
-            &nbsp;|&nbsp; {{ number_format($countFiltered) }} رزرو
+            جمع کل فیلتر: <strong class="text-success">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalFiltered)) }} ریال</strong>
+            &nbsp;|&nbsp; {{ \App\Support\PdfPersian::toPersianDigits(number_format($countFiltered)) }} رزرو
         </div>
         {{ $bookings->links() }}
     </div>

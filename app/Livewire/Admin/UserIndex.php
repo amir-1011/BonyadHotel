@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\User;
 use App\Support\AdminUserFilter;
+use App\Support\AdminUserProvinceGrouper;
 use App\Support\AdminUserRoleFilterCatalog;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -24,10 +25,7 @@ class UserIndex extends Component
 
     public function mount(): void
     {
-        if (in_array($this->section, ['all', 'users'], true) && $this->role !== '' && $this->role !== 'guest') {
-            $this->section = 'roles';
-        }
-
+        $this->normalizeLegacySection();
         $this->searchInput = $this->search;
         $this->syncSectionRole();
     }
@@ -47,7 +45,7 @@ class UserIndex extends Component
 
     public function setSection(string $section): void
     {
-        if (!in_array($section, ['all', 'users', 'roles'], true)) {
+        if (!in_array($section, self::sectionKeys(), true)) {
             return;
         }
 
@@ -58,33 +56,71 @@ class UserIndex extends Component
 
     public function setRoleTab(string $role): void
     {
-        $this->section = 'roles';
+        $this->section = 'personnel';
         $this->role    = $role;
         $this->resetPage();
     }
 
+    private function normalizeLegacySection(): void
+    {
+        if ($this->section === 'roles') {
+            $this->section = match ($this->role) {
+                'employer'    => 'employers',
+                'beneficiary' => 'beneficiaries',
+                default       => 'personnel',
+            };
+
+            if ($this->section !== 'personnel') {
+                $this->role = '';
+            }
+
+            return;
+        }
+
+        if (in_array($this->section, ['all', 'users'], true) && $this->role !== '' && $this->role !== 'guest') {
+            $this->section = match ($this->role) {
+                'employer'    => 'employers',
+                'beneficiary' => 'beneficiaries',
+                default       => 'personnel',
+            };
+
+            if ($this->section === 'personnel' && in_array($this->role, ['guest', 'super_admin'], true)) {
+                $this->role = '';
+            }
+        }
+    }
+
     private function syncSectionRole(): void
     {
-        if ($this->section !== 'roles') {
+        if ($this->section !== 'personnel') {
             $this->role = '';
 
             return;
         }
 
-        $roleTabOptions = AdminUserRoleFilterCatalog::roleTabOptions();
+        $personnelTabOptions = AdminUserRoleFilterCatalog::personnelTabOptions();
+        $validValues = array_column($personnelTabOptions, 'value');
 
-        if ($this->role === '' || in_array($this->role, ['guest', 'super_admin'], true)) {
-            $this->role = $roleTabOptions[0]['value'] ?? '';
+        if ($this->role === '' || !in_array($this->role, $validValues, true)) {
+            $this->role = $personnelTabOptions[0]['value'] ?? '';
         }
     }
 
     private function effectiveRole(): ?string
     {
         return match ($this->section) {
-            'users' => 'guest',
-            'roles' => $this->role !== '' ? $this->role : null,
-            default => null,
+            'users'         => 'guest',
+            'personnel'     => $this->role !== '' ? $this->role : null,
+            'employers'     => 'employer',
+            'beneficiaries' => 'beneficiary',
+            default         => null,
         };
+    }
+
+    /** @return list<string> */
+    public static function sectionKeys(): array
+    {
+        return ['all', 'users', 'personnel', 'employers', 'beneficiaries'];
     }
 
     public function toggleStatus(int $userId): void
@@ -98,7 +134,9 @@ class UserIndex extends Component
     public function assignRole(int $userId, string $role): void
     {
         $allowed = Role::pluck('name')->all();
-        if (!in_array($role, $allowed, true)) return;
+        if (!in_array($role, $allowed, true)) {
+            return;
+        }
 
         $user = User::findOrFail($userId);
         $user->syncRoles([$role]);
@@ -117,29 +155,48 @@ class UserIndex extends Component
     public function render()
     {
         $effectiveRole = $this->effectiveRole();
+        $groupByProvince = ! in_array($this->section, ['all', 'users'], true);
 
         $filter = AdminUserFilter::make([
             'search' => $this->search,
             'role'   => $effectiveRole ?? '',
         ]);
 
-        $query = User::with('roles');
+        $query = User::with([
+            'roles',
+            'province',
+            'programEmployer.province',
+            'programBeneficiary.province',
+        ]);
         $filter->apply($query);
 
-        $users = $query->paginate(20);
-        $roleTabOptions = AdminUserRoleFilterCatalog::roleTabOptions();
-        $hasActiveFilters = $this->search !== '' || ($this->section === 'roles' && $this->role !== '');
+        if ($groupByProvince) {
+            $users = null;
+            $provinceGroups = AdminUserProvinceGrouper::group($query->get());
+            $totalUsers = collect($provinceGroups)->sum(fn (array $group) => count($group['users']));
+        } else {
+            $users = $query->paginate(20);
+            $provinceGroups = [];
+            $totalUsers = $users->total();
+        }
+
+        $personnelTabOptions = AdminUserRoleFilterCatalog::personnelTabOptions();
+        $hasActiveFilters = $this->search !== ''
+            || in_array($this->section, ['users', 'personnel', 'employers', 'beneficiaries'], true);
         $exportQuery = array_filter([
             'search'  => $this->search !== '' ? $this->search : null,
             'section' => !in_array($this->section, ['all', ''], true) ? $this->section : null,
-            'role'    => $this->section === 'roles' && $this->role !== '' ? $this->role : null,
+            'role'    => $this->section === 'personnel' && $this->role !== '' ? $this->role : null,
         ]);
         $section = $this->section;
         $role    = $this->role;
 
         return view('admin.users.index', compact(
             'users',
-            'roleTabOptions',
+            'provinceGroups',
+            'totalUsers',
+            'groupByProvince',
+            'personnelTabOptions',
             'hasActiveFilters',
             'exportQuery',
             'section',

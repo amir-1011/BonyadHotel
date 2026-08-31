@@ -52,6 +52,11 @@ class ManualBookingDurationPickerTest extends TestCase
         $response->assertSee('تعداد شب را در همان روز انتخاب‌شده وارد کنید', false);
         $response->assertSee('تاریخ خروج را وارد کنید یا روز خروج را در تقویم بزنید', false);
         $response->assertSee('data-bnb-mode="manual"', false);
+        $response->assertSee('mbf-step-viewport', false);
+        $response->assertSee('mbf-step-pane', false);
+        $response->assertSee('data-mbf-step="1"', false);
+        $response->assertSee('data-mbf-slide="1"', false);
+        $response->assertSee('id="manual-booking-nav"', false);
     }
 
     public function test_manual_booking_scripts_expose_stay_duration_helpers(): void

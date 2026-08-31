@@ -15,7 +15,7 @@
             <thead class="table-light">
                 <tr>
                     <th>نام نوع</th>
-                    <th style="width:140px">قیمت (تومان)</th>
+                    <th style="width:140px">قیمت (ریال)</th>
                     <th style="width:60px">فعال</th>
                     <th style="width:50px"></th>
                 </tr>
@@ -61,7 +61,7 @@
         </table>
     </div>
     @else
-    <p class="text-muted small mb-2">حداقل یک نوع با قیمت تعریف کنید — مثلاً «استخر نشاط» با قیمت ۵۰۰ هزار تومان.</p>
+    <p class="text-muted small mb-2">حداقل یک نوع با قیمت تعریف کنید — مثلاً «استخر نشاط» با قیمت ۵۰۰ هزار ریال.</p>
     @endif
 
     <div class="row g-2 align-items-end" wire:key="new-variant-draft-{{ $service['key'] }}">

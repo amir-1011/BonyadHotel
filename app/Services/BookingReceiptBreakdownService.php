@@ -35,7 +35,7 @@ class BookingReceiptBreakdownService
         ])->all();
 
         $billingGuests = max(1, (int) $booking->guests - (int) $booking->extra_guests);
-        $veteranTypes = $booking->veteranTypesApplied();
+        $veteranTypes = $booking->billsAsRegularGuest() ? [] : $booking->veteranTypesApplied();
         $veteranDiscountPct = VeteranGroups::accommodationDiscountForTypes(
             $veteranTypes,
             $booking->accommodation_id,
@@ -100,7 +100,11 @@ class BookingReceiptBreakdownService
 
         $pricing = $this->pricing->calculate($params);
 
-        return $pricing;
+        if ($booking->isMedicalAccommodation()) {
+            $pricing = app(MedicalAccommodationPricingService::class)->overlayBooking($pricing, $booking);
+        }
+
+        return app(PlatformCommissionService::class)->overlayPricingForBooking($pricing, $booking);
     }
 
     /**
@@ -116,7 +120,25 @@ class BookingReceiptBreakdownService
      */
     public function pricingForBooking(Booking $booking): array
     {
-        return $this->forBooking($booking);
+        $pricing = $this->forBooking($booking);
+        $displayTotal = (int) $booking->total_price;
+        $naturalTotal = (int) ($pricing['total_price'] ?? $displayTotal);
+
+        if (app(BookingPriceChangePreviewService::class)->bookingSupportsAutoRepricing($booking)) {
+            $manualAdjustment = $displayTotal - $naturalTotal;
+
+            $pricing['natural_total'] = $naturalTotal;
+            $pricing['payable_total'] = $displayTotal;
+            $pricing['manual_total_adjustment'] = $manualAdjustment;
+            $pricing['has_manual_total_adjustment'] = $manualAdjustment !== 0;
+        } else {
+            $pricing['natural_total'] = $displayTotal;
+            $pricing['payable_total'] = $displayTotal;
+            $pricing['manual_total_adjustment'] = 0;
+            $pricing['has_manual_total_adjustment'] = false;
+        }
+
+        return $pricing;
     }
 
     /**

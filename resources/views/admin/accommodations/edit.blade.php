@@ -1,12 +1,12 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-door-open me-1"></i>اتاق‌ها</a>
-    <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>تعاریف اولیه</a>
-    <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-x-circle me-1"></i>سیاست کنسلی</a>
-</div>
 <div class="card shadow-sm">
+    <div class="card-header py-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
+        <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-door-open me-1"></i>اتاق‌ها</a>
+        <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>تعاریف اولیه</a>
+        <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-x-circle me-1"></i>سیاست کنسلی</a>
+        <a wire:navigate href="{{ route('admin.accommodations.medical-accommodation', $accommodation) }}" class="btn btn-sm btn-outline-info"><i class="bi bi-heart-pulse me-1"></i>اسکان درمانی</a>
+    </div>
     <div class="card-body">
         @if($errors->any())
             <div class="alert alert-danger py-1 small">{{ $errors->first() }}</div>
@@ -31,23 +31,12 @@
                 </div>
             </div>
 
-            @if(!empty($accommodation->images))
-            <div class="col-12">
-                <label class="form-label small fw-semibold"><i class="bi bi-images me-1"></i>تصاویر فعلی <span class="text-muted fw-normal">(کلیک روی × برای حذف)</span></label>
-                <div class="d-flex flex-wrap gap-3">
-                    @foreach($accommodation->images as $img)
-                    <div class="text-center" style="position:relative;width:110px;">
-                        <img src="{{ asset('storage/' . $img) }}" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:2px solid {{ in_array($img, $keepImages) ? '#dee2e6' : '#dc3545' }};" alt="تصویر">
-                        @if(in_array($img, $keepImages))
-                            <button wire:click="removeExistingImage('{{ $img }}')" type="button" data-swal-confirm="این تصویر حذف شود؟" class="btn btn-xs btn-danger" style="position:absolute;top:2px;right:2px;padding:1px 5px;font-size:.7rem;">×</button>
-                        @else
-                            <div class="text-danger small mt-1">حذف خواهد شد</div>
-                        @endif
-                    </div>
-                    @endforeach
-                    </div>
-                </div>
-            @endif
+            <x-accommodation.image-gallery-editor
+                :images="$accommodation->images ?? []"
+                :keep-images="$keepImages"
+                :featured-image="$image"
+                :show-removal-state="true"
+            />
 
             <div class="col-12">
                 <x-image-upload.livewire-panel model="newImages">

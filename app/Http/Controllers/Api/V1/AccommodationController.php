@@ -5,18 +5,32 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\AccommodationResource;
 use App\Models\Accommodation;
+use App\Models\AccommodationType;
 use App\Models\RoomType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Validation\Rule;
 
 class AccommodationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        if ($request->filled('type')) {
+            $request->validate([
+                'type' => ['string', Rule::in(AccommodationType::validKeys())],
+            ], [
+                'type.in' => 'نوع اقامتگاه معتبر نیست.',
+            ]);
+        }
+
         $query = Accommodation::with('city.province')
             ->where('is_active', true);
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
 
         if ($request->filled('city_id')) {
             $query->where('city_id', $request->city_id);

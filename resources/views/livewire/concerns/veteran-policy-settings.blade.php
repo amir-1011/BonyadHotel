@@ -10,29 +10,26 @@
     <div class="alert alert-warning small"><i class="bi bi-lock me-1"></i>فقط مجوز مشاهده دارید — دکمه‌های ذخیره و تغییر نمایش داده نمی‌شوند.</div>
     @endif
 
-    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <a wire:navigate href="{{ $backRoute }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-right me-1"></i>بازگشت
-        </a>
-    </div>
-
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-        <div>
-            <p class="text-muted small mb-0">مدیریت درصد تخفیف اقامت، سقف استفاده و تخفیف هر خدمت بر اساس گروه ایثارگری — مختص این اقامتگاه</p>
+    <div class="card shadow-sm mb-3">
+        <div class="ta-list-chrome">
+            <div class="small text-muted min-w-0 flex-grow-1">
+                سیاست ایثارگری برای اقامتگاه <strong>{{ $accommodation->name }}</strong>.
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <x-tutorial-videos variant="inline" :videos="[
+                    ['label' => 'قوانین ایثارگری', 'file' => 'قوانین ایثارگری.mp4'],
+                ]" />
+                @if($panel === 'admin')
+                <button type="button"
+                        wire:click="restoreDefaultVeteranPolicy"
+                        data-swal-confirm="تنظیمات سراسری ایثارگری (صفحه مدیریت کلی) روی این اقامتگاه بازگردانی شود؟ گروه‌ها، خدمات و ماتریس تخفیف فعلی جایگزین می‌شوند."
+                        class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>بازگردانی از تنظیمات سراسری
+                </button>
+                @endif
+            </div>
         </div>
-        @if($panel === 'admin')
-        <button type="button"
-                wire:click="restoreDefaultVeteranPolicy"
-                data-swal-confirm="تنظیمات سراسری ایثارگری (صفحه مدیریت کلی) روی این اقامتگاه بازگردانی شود؟ گروه‌ها، خدمات و ماتریس تخفیف فعلی جایگزین می‌شوند."
-                class="btn btn-sm btn-outline-primary">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>بازگردانی از تنظیمات سراسری
-        </button>
-        @endif
     </div>
-
-    <x-tutorial-videos :videos="[
-        ['label' => 'قوانین ایثارگری', 'file' => 'قوانین ایثارگری.mp4'],
-    ]" />
 
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
@@ -63,7 +60,7 @@
                             <tr>
                                 <th>گروه</th>
                                 <th style="width:90px">تخفیف اقامت ٪</th>
-                                <th style="width:90px" class="d-none">شب/تکفل</th>
+                                <th style="width:90px" class="d-none">سقف کل/نفر</th>
                                 <th style="width:90px">سقف دوره</th>
                                 <th style="width:90px">دوره (ماه)</th>
                                 <th>یادداشت</th>
@@ -80,7 +77,7 @@
                                     <input type="text" wire:model="groups.{{ $i }}.label" class="form-control form-control-sm">
                                     <div class="text-muted" style="font-size:.7rem">{{ $group['key'] }}</div>
                                 </td>
-                                <td><input type="number" wire:model="groups.{{ $i }}.accommodation_discount" min="0" max="100" class="form-control form-control-sm"></td>
+                                <td><x-veteran-policy.accommodation-discount-tiers :group-index="$i" :group="$group" /></td>
                                 <td class="d-none"><input type="number" wire:model="groups.{{ $i }}.nights_per_dependent" min="1" class="form-control form-control-sm"></td>
                                 <td><input type="number" wire:model="groups.{{ $i }}.max_nights_per_period" min="1" class="form-control form-control-sm"></td>
                                 <td><input type="number" wire:model="groups.{{ $i }}.period_months" min="1" class="form-control form-control-sm"></td>

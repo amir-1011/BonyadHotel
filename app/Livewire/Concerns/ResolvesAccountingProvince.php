@@ -7,8 +7,16 @@ use App\Models\Province;
 
 trait ResolvesAccountingProvince
 {
+    public ?int $accountingProvinceId = null;
+
+    public bool $accountingProvinceManuallySet = false;
+
     protected function resolveAccountingProvince(): Province
     {
+        if ($this->accountingProvinceId) {
+            return Province::query()->findOrFail($this->accountingProvinceId);
+        }
+
         if (method_exists($this, 'accountingProvince')) {
             $province = $this->accountingProvince();
 
@@ -31,6 +39,26 @@ trait ResolvesAccountingProvince
         return $accommodation->resolvedProvince();
     }
 
+    protected function syncDefaultAccountingProvinceFromContext(): void
+    {
+        if ($this->accountingProvinceManuallySet) {
+            return;
+        }
+
+        $province = null;
+
+        if (method_exists($this, 'accountingProvince')) {
+            $province = $this->accountingProvince();
+        }
+
+        $this->accountingProvinceId = $province?->id;
+    }
+
+    public function updatedAccountingProvinceId(): void
+    {
+        $this->accountingProvinceManuallySet = true;
+    }
+
     public function accountingProvinceLabel(): string
     {
         try {
@@ -42,6 +70,10 @@ trait ResolvesAccountingProvince
 
     public function hasAccountingProvinceContext(): bool
     {
+        if ($this->accountingProvinceId) {
+            return true;
+        }
+
         if (!method_exists($this, 'accountingProvince')) {
             return false;
         }
@@ -55,10 +87,14 @@ trait ResolvesAccountingProvince
             return true;
         }
 
-        $message = 'ابتدا اقامتگاه را انتخاب کنید تا کد حسابداری بر اساس استان اقامتگاه صادر شود.';
+        $message = 'ابتدا اقامتگاه را انتخاب کنید تا استان پیش‌فرض کد حسابداری تعیین شود، یا استان را دستی انتخاب کنید.';
 
         if (property_exists($this, 'accommodationId')) {
             $this->addError('accommodationId', $message);
+        }
+
+        if (property_exists($this, 'accountingProvinceId')) {
+            $this->addError('accountingProvinceId', $message);
         }
 
         $this->dispatch('toast', type: 'warning', message: $message);

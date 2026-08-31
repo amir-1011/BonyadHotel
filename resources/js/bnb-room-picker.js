@@ -13,6 +13,7 @@ export function bnbRoomPicker() {
         checkIn: '',
         checkOut: '',
         excludeRoomIds: [],
+        excludeBookingId: null,
         roomsToSelect: 1,
         selectedRooms: [],
         preselectedRoomIds: [],
@@ -52,6 +53,7 @@ export function bnbRoomPicker() {
             this.checkIn = detail.checkIn;
             this.checkOut = detail.checkOut;
             this.excludeRoomIds = detail.excludeRoomIds || [];
+            this.excludeBookingId = detail.excludeBookingId || null;
             this.roomsToSelect = Math.max(1, parseInt(detail.roomsToSelect, 10) || 1);
             this.selectedRooms = [];
             this.preselectedRoomIds = (detail.preselectedRoomIds || []).map(Number).filter(Boolean);
@@ -70,6 +72,7 @@ export function bnbRoomPicker() {
             this.roomTypeName = '';
             this.roomTypeId = null;
             this.accommodationId = null;
+            this.excludeBookingId = null;
             this.preselectedRoomIds = [];
             this.explicitConfirm = false;
         },
@@ -100,6 +103,9 @@ export function bnbRoomPicker() {
                     check_out: this.checkOut,
                     exclude_room_ids: this.excludeRoomIds.join(','),
                 });
+                if (this.excludeBookingId) {
+                    params.set('exclude_booking_id', String(this.excludeBookingId));
+                }
                 const url = hasAccommodation
                     ? '/api/accommodations/' + this.accommodationId + '/physical-rooms?' + params
                     : '/api/room-types/' + this.roomTypeId + '/physical-rooms?' + params;
@@ -154,8 +160,8 @@ export function bnbRoomPicker() {
                     rooms: this.selectedRooms.map(r => ({
                         roomId: r.id,
                         roomName: r.name,
-                        roomTypeId: r.room_type_id,
-                        roomTypeName: r.room_type_name,
+                        roomTypeId: r.room_type_id || this.roomTypeId,
+                        roomTypeName: r.room_type_name || this.roomTypeName,
                     })),
                 },
             }));

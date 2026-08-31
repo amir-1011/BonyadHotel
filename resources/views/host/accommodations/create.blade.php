@@ -1,9 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('host.accommodations.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-</div>
-
 <div class="card shadow-sm">
     <div class="card-body">
         <div class="row g-3">
@@ -15,7 +11,7 @@
             @include('components.accommodation.type-field', ['accommodationTypes' => $accommodationTypes])
             @include('components.accommodation.location-fields', ['provinces' => $provinces, 'cities' => $cities, 'counties' => $counties])
             <div class="col-md-4 d-none">
-                <label class="form-label small fw-semibold">قیمت/شب/تخت (تومان)</label>
+                <label class="form-label small fw-semibold">قیمت/شب/تخت (ریال)</label>
                 <x-money-input wire:model="pricePerNight" class="form-control @error('pricePerNight') is-invalid @enderror" min="0" />
                 @error('pricePerNight')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>

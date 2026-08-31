@@ -2,10 +2,11 @@
 @php
     $preview = $this->cancellationRefundPreview();
     $isStaffPanel = in_array($panel ?? 'guest', ['admin', 'host'], true);
+    $accountNumberRequired = $this->cancellationAccountNumberRequired();
 @endphp
 <div class="modal-backdrop fade show" style="z-index:1050;"></div>
-<div class="modal fade show" style="display:block;z-index:1055;" tabindex="-1" role="dialog" wire:keydown.escape="closeCancellationRequestModal">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+<div class="modal fade show cancellation-livewire-modal" style="display:block;z-index:1055;" tabindex="-1" role="dialog" wire:keydown.escape="closeCancellationRequestModal">
+    <div class="modal-dialog" role="document">
         <div class="modal-content" style="border-top:4px solid #ef4444;">
             <div class="modal-header">
                 <h5 class="modal-title d-flex align-items-center gap-2">
@@ -21,13 +22,22 @@
                     <div class="alert alert-warning small d-flex align-items-start gap-2">
                         <i class="bi bi-info-circle-fill mt-1"></i>
                         <div>
-                            @if($preview['is_mid_stay'])
+                            @if($this->booking->isMedicalAccommodation())
+                                این رزرو اسکان درمانی است و سیاست کنسلی/جریمه اعمال نمی‌شود.
+                                مهمان وجه اقامت را پرداخت نکرده، بنابراین مبلغ استرداد به مهمان <strong>۰ ریال</strong> است.
+                                @if($preview['is_mid_stay'])
+                                    بدهی کارفرما پس از تایید، معادل {{ $preview['nights_elapsed'] }} شب استفاده‌شده به‌علاوه خدمات خواهد بود
+                                    ({{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['employer_debt_after'] ?? 0)) }} ریال).
+                                @else
+                                    در صورت تایید قبل از ورود، بدهی کارفرما صفر می‌شود.
+                                @endif
+                            @elseif($preview['is_mid_stay'])
                                 با توجه به اینکه از تاریخ ورود شما گذشته و <strong>{{ $preview['nights_elapsed'] }}</strong> شب از <strong>{{ $preview['nights_total'] }}</strong> شب اقامت استفاده شده است،
-                                مبلغ استرداد فقط بر مبنای <strong>{{ $preview['nights_remaining'] }}</strong> شب باقی‌مانده (معادل <strong>{{ number_format($preview['basis_amount']) }} تومان</strong>) محاسبه می‌شود.
-                                با اعمال <strong>{{ $preview['percentage'] }}٪</strong> درصد بازگشت وجه، در صورت تایید این درخواست <strong>{{ number_format($preview['amount']) }} تومان</strong> به حساب اعلامی شما بازگردانده خواهد شد.
+                                مبلغ استرداد فقط بر مبنای <strong>{{ $preview['nights_remaining'] }}</strong> شب باقی‌مانده (معادل <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['basis_amount'])) }} ریال</strong>) محاسبه می‌شود.
+                                با اعمال <strong>{{ $preview['percentage'] }}٪</strong> درصد بازگشت وجه، در صورت تایید این درخواست <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['amount'])) }} ریال</strong> به حساب اعلامی شما بازگردانده خواهد شد.
                             @else
                                 با توجه به سیاست بازگشت وجه، بر اساس <strong>{{ $preview['days'] }}</strong> روز باقی‌مانده تا تاریخ ورود، در صورت تایید این درخواست
-                                <strong>{{ $preview['percentage'] }}٪</strong> از مبلغ رزرو، یعنی <strong>{{ number_format($preview['amount']) }} تومان</strong> به حساب اعلامی شما بازگردانده خواهد شد.
+                                <strong>{{ $preview['percentage'] }}٪</strong> از مبلغ رزرو، یعنی <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['amount'])) }} ریال</strong> به حساب اعلامی شما بازگردانده خواهد شد.
                             @endif
                             این درخواست پس از بررسی توسط مدیریت/میزبان تایید یا رد می‌شود.
                         </div>
@@ -35,10 +45,10 @@
 
                     @if($isStaffPanel)
                     <div class="mb-3">
-                        <label class="form-label fw-semibold small">مبلغ بازگشتی (تومان) <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold small">مبلغ بازگشتی (ریال) <span class="text-danger">*</span></label>
                         <x-money-input wire:model="cancellationRefundAmount" class="form-control @error('cancellationRefundAmount') is-invalid @enderror" min="0" />
                         @error('cancellationRefundAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        <div class="form-text small">مبلغ پیشنهادی بر اساس سیاست بازگشت وجه: {{ number_format($preview['amount']) }} تومان ({{ $preview['percentage'] }}٪)</div>
+                        <div class="form-text small">مبلغ پیشنهادی بر اساس سیاست بازگشت وجه: {{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['amount'])) }} ریال ({{ $preview['percentage'] }}٪)</div>
                     </div>
                     @endif
 
@@ -60,15 +70,27 @@
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2 mb-3 {{ $accountNumberRequired ? '' : 'opacity-50' }}">
                         <div class="col-12 col-md-7">
-                            <label class="form-label fw-semibold small">شماره حساب یا شماره کارت جهت استرداد <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="refundAccountNumber" inputmode="numeric" dir="ltr" class="form-control @error('refundAccountNumber') is-invalid @enderror" placeholder="مثال: 6104337812345678">
+                            <label class="form-label fw-semibold small {{ $accountNumberRequired ? '' : 'text-muted' }}">
+                                شماره حساب یا شماره کارت جهت استرداد
+                                @if($accountNumberRequired)
+                                    <span class="text-danger">*</span>
+                                @else
+                                    <span class="text-muted fw-normal">(اختیاری)</span>
+                                @endif
+                            </label>
+                            <input type="text"
+                                wire:model="refundAccountNumber"
+                                inputmode="numeric"
+                                dir="ltr"
+                                class="form-control @error('refundAccountNumber') is-invalid @enderror {{ $accountNumberRequired ? '' : 'bg-light text-muted' }}"
+                                placeholder="{{ $accountNumberRequired ? 'مثال: 6104337812345678' : 'برای مبلغ بازگشتی صفر نیازی به وارد کردن نیست' }}">
                             @error('refundAccountNumber') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-12 col-md-5">
-                            <label class="form-label fw-semibold small">به نام (اختیاری)</label>
-                            <input type="text" wire:model="refundAccountHolderName" class="form-control @error('refundAccountHolderName') is-invalid @enderror">
+                            <label class="form-label fw-semibold small {{ $accountNumberRequired ? '' : 'text-muted' }}">به نام (اختیاری)</label>
+                            <input type="text" wire:model="refundAccountHolderName" class="form-control @error('refundAccountHolderName') is-invalid @enderror {{ $accountNumberRequired ? '' : 'bg-light text-muted' }}">
                             @error('refundAccountHolderName') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                     </div>

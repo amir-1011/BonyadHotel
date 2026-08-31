@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\City;
 use App\Models\County;
 use App\Models\Province;
+use App\Livewire\Concerns\ManagesAccommodationImageGallery;
 use App\Livewire\Concerns\AssertsHostPermissions;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
@@ -25,6 +26,7 @@ class AccommodationEdit extends Component
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
     use ManagesLivewireImageUploads;
+    use ManagesAccommodationImageGallery;
     use AssertsHostPermissions;
 
     public Accommodation $accommodation;
@@ -44,7 +46,6 @@ class AccommodationEdit extends Component
     public string $lat             = '';
     public string $lng             = '';
     public string $amenitiesRaw    = '';
-    public array  $keepImages      = [];
     public array  $newImages       = [];
 
     public function mount(Accommodation $accommodation): void
@@ -67,7 +68,7 @@ class AccommodationEdit extends Component
         $this->lat           = $accommodation->lat !== null ? (string) $accommodation->lat : '';
         $this->lng           = $accommodation->lng !== null ? (string) $accommodation->lng : '';
         $this->amenitiesRaw  = implode(', ', $accommodation->amenities ?? []);
-        $this->keepImages    = $accommodation->images ?? [];
+        $this->loadImageGalleryFrom($accommodation);
         $this->loadContactInfoFrom($accommodation);
     }
 
@@ -95,12 +96,9 @@ class AccommodationEdit extends Component
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
     }
 
-    public function removeExistingImage(string $path): void
+    protected function assertCanManageImageGallery(): void
     {
         $this->assertHostCan('accommodations.edit', 'edit');
-        $this->keepImages = array_values(array_filter(
-            $this->keepImages, fn($img) => $img !== $path
-        ));
     }
 
     public function update(): void
@@ -152,6 +150,7 @@ class AccommodationEdit extends Component
             'lat'             => $this->lat !== '' ? (float) $this->lat : null,
             'lng'             => $this->lng !== '' ? (float) $this->lng : null,
             'amenities'       => $this->parseAmenities($this->amenitiesRaw),
+            'image'           => $this->resolvedFeaturedImage($finalImages),
             'images'          => $finalImages,
         ], $this->contactInfoAttributes()));
 

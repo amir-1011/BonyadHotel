@@ -26,7 +26,7 @@
                         <input type="radio" wire:model.live="roomRateId" value="{{ $rate->id }}" name="room_rate_pick">
                         <div>
                             <div class="small fw-semibold">{{ $rate->name }}</div>
-                            <div class="small text-muted">{{ number_format($rate->price_per_night) }} تومان/شب/تخت</div>
+                            <div class="small text-muted">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }} ریال/شب/تخت</div>
                         </div>
                     </div>
                 </label>

@@ -1,50 +1,40 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-end mb-3">
-    <div class="d-flex gap-2">
-        <a wire:navigate href="{{ route('admin.accommodations.import') }}" class="btn btn-sm btn-outline-primary">
-            <i class="bi bi-upload me-1"></i>درون‌ریزی CSV
-        </a>
-        <a wire:navigate href="{{ route('admin.accommodations.create') }}" class="btn btn-sm btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>اقامتگاه جدید
-        </a>
-    </div>
-</div>
-
-<x-tutorial-videos :videos="[
-    ['label' => 'ثبت اقامتگاه', 'file' => 'اقامتگاه.mp4'],
-    ['label' => 'رزرو دستی', 'file' => 'رزرو.mp4'],
-]" />
-
-<div class="card shadow-sm mb-3">
-    <div class="card-body py-2">
-        <form method="GET" class="row g-2 align-items-end">
-            <div class="col-12 col-md-5">
-                <input type="text" name="search" class="form-control form-control-sm" placeholder="جستجو نام یا میزبان..." value="{{ request('search') }}">
-            </div>
-            <div class="col-6 col-md-2">
-                <select name="type" class="form-select form-select-sm">
-                    @php $typeOptions = \App\Models\AccommodationType::options(); @endphp
-                    <option value="">همه انواع</option>
-                    @foreach($typeOptions as $v => $l)
-                    <option value="{{ $v }}" {{ request('type')==$v?'selected':'' }}>{{ $l }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 col-md-2">
-                <select name="status" class="form-select form-select-sm">
-                    <option value="">همه</option>
-                    <option value="active" {{ request('status')=='active'?'selected':'' }}>فعال</option>
-                    <option value="inactive" {{ request('status')=='inactive'?'selected':'' }}>غیرفعال</option>
-                </select>
-            </div>
-            <div class="col-6 col-md-2"><button class="btn btn-sm btn-primary w-100">فیلتر</button></div>
-            <div class="col-6 col-md-1"><a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary w-100">پاک</a></div>
-        </form>
-    </div>
-</div>
-
 <div class="card shadow-sm">
+    <div class="ta-list-chrome">
+        <form method="GET" class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 min-w-0">
+            <input type="text" name="search" class="form-control form-control-sm" style="max-width:16rem" placeholder="جستجو نام یا میزبان..." value="{{ request('search') }}">
+            <select name="type" class="form-select form-select-sm" style="max-width:9rem">
+                @php $typeOptions = \App\Models\AccommodationType::options(); @endphp
+                <option value="">همه انواع</option>
+                @foreach($typeOptions as $v => $l)
+                <option value="{{ $v }}" {{ request('type')==$v?'selected':'' }}>{{ $l }}</option>
+                @endforeach
+            </select>
+            <select name="status" class="form-select form-select-sm" style="max-width:8rem">
+                <option value="">همه</option>
+                <option value="active" {{ request('status')=='active'?'selected':'' }}>فعال</option>
+                <option value="inactive" {{ request('status')=='inactive'?'selected':'' }}>غیرفعال</option>
+            </select>
+            <button class="btn btn-sm btn-primary">فیلتر</button>
+            <a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary">پاک</a>
+        </form>
+        <div class="ta-page-toolbar">
+            <x-tutorial-videos
+                variant="inline"
+                :videos="[
+                    ['label' => 'ثبت اقامتگاه', 'file' => 'اقامتگاه.mp4'],
+                    ['label' => 'رزرو دستی', 'file' => 'رزرو.mp4'],
+                ]"
+            />
+            <a wire:navigate href="{{ route('admin.accommodations.import') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-upload me-1"></i>درون‌ریزی CSV
+            </a>
+            <a wire:navigate href="{{ route('admin.accommodations.create') }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>اقامتگاه جدید
+            </a>
+        </div>
+    </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
@@ -100,6 +90,7 @@
                             <a wire:navigate href="{{ route('admin.room-types.index', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="مدیریت اتاق‌ها"><i class="bi bi-door-open"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="تعاریف اولیه"><i class="bi bi-shield-check"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="سیاست کنسلی"><i class="bi bi-x-circle"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.medical-accommodation', $acc) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="اسکان درمانی"><i class="bi bi-heart-pulse"></i></a>
                             <a wire:navigate href="{{ route('admin.bookings.index', ['search'=> $acc->name]) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزروها"><i class="bi bi-calendar-check"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.edit', $acc) }}" class="btn btn-xs btn-outline-warning" style="padding:.2rem .5rem;font-size:.75rem;" title="ویرایش"><i class="bi bi-pencil"></i></a>
                             <button wire:click="destroy({{ $acc->id }})" data-swal-confirm="حذف شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>

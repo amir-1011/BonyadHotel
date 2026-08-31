@@ -58,21 +58,27 @@ trait ManagesDiscountTierMatrix
 
     public function updated($property): void
     {
-        if (!is_string($property)
-            || !str_starts_with($property, 'discountMatrix.')
-            || !str_ends_with($property, 'use_tiered_discount')) {
+        if (!is_string($property)) {
             return;
         }
 
-        $parts = explode('.', $property);
-        if (count($parts) < 4) {
+        if (str_starts_with($property, 'discountMatrix.')
+            && str_ends_with($property, 'use_tiered_discount')) {
+            $parts = explode('.', $property);
+            if (count($parts) >= 4 && data_get($this, $property)) {
+                $this->seedMatrixTiersFromLegacy($parts[1], $parts[2]);
+            }
+
             return;
         }
 
-        if (!data_get($this, $property)) {
-            return;
+        if (str_starts_with($property, 'groups.')
+            && str_ends_with($property, 'use_tiered_accommodation_discount')
+            && method_exists($this, 'seedGroupAccommodationTiersFromLegacy')) {
+            $parts = explode('.', $property);
+            if (count($parts) >= 3 && data_get($this, $property)) {
+                $this->seedGroupAccommodationTiersFromLegacy((int) $parts[1]);
+            }
         }
-
-        $this->seedMatrixTiersFromLegacy($parts[1], $parts[2]);
     }
 }

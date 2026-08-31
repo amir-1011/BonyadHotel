@@ -86,11 +86,28 @@ trait ManagesCancellationRequests
         $this->cancellationRefundAmount = (int) $this->cancellationRefundPreview()['amount'];
         $this->resetErrorBag();
         $this->showCancellationRequestModal = true;
+        $this->dispatch('cancellation-request-modal-opened');
     }
 
     public function closeCancellationRequestModal(): void
     {
         $this->showCancellationRequestModal = false;
+    }
+
+    public function cancellationAccountNumberRequired(): bool
+    {
+        return $this->effectiveCancellationRefundAmount() > 0;
+    }
+
+    public function effectiveCancellationRefundAmount(): int
+    {
+        $staffSetsRefundAmount = $this->isHostPanelUser() || (Auth::user()?->hasStaffAccess() ?? false);
+
+        if ($staffSetsRefundAmount) {
+            return (int) $this->cancellationRefundAmount;
+        }
+
+        return (int) $this->cancellationRefundPreview()['amount'];
     }
 
     public function submitCancellationRequest(): void
@@ -103,7 +120,9 @@ trait ManagesCancellationRequests
 
         $rules = [
             'cancellationReasonId'    => ['required'],
-            'refundAccountNumber'    => ['required', 'string', 'max:40'],
+            'refundAccountNumber'    => $this->cancellationAccountNumberRequired()
+                ? ['required', 'string', 'max:40']
+                : ['nullable', 'string', 'max:40'],
             'refundAccountHolderName' => ['nullable', 'string', 'max:100'],
             'cancellationNotes'      => ['nullable', 'string', 'max:1000'],
         ];
@@ -127,6 +146,8 @@ trait ManagesCancellationRequests
             return;
         }
 
+        $request = null;
+
         try {
             $payload = [
                 'cancellation_reason_id'     => $this->cancellationReasonId,
@@ -140,7 +161,10 @@ trait ManagesCancellationRequests
                 $payload['refund_amount'] = $this->cancellationRefundAmount;
             }
 
-            app(CancellationRequestService::class)->create($this->booking, $payload, Auth::user());
+            $service = app(CancellationRequestService::class);
+            $request = $staffSetsRefundAmount
+                ? $service->createWithStaffDirectCompletion($this->booking, $payload, Auth::user())
+                : $service->create($this->booking, $payload, Auth::user());
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
                 $livewireField = match ($field) {
@@ -155,7 +179,12 @@ trait ManagesCancellationRequests
 
         $this->showCancellationRequestModal = false;
         $this->refreshCancellationRequestsData();
-        $this->dispatch('toast', type: 'success', message: 'درخواست کنسلی و استرداد وجه با موفقیت ثبت شد و برای بررسی ارسال شد.');
+
+        $message = ($staffSetsRefundAmount && $request?->isSettled())
+            ? 'درخواست کنسلی ثبت، تایید و تسویه شد و ظرفیت رزرو آزاد گردید.'
+            : 'درخواست کنسلی و استرداد وجه با موفقیت ثبت شد و برای بررسی ارسال شد.';
+
+        $this->dispatch('toast', type: 'success', message: $message);
     }
 
     public function approveCancellationRequest(int $requestId): void
@@ -177,7 +206,7 @@ trait ManagesCancellationRequests
 
         $this->refreshCancellationRequestsData();
         $request->refresh();
-        $this->presentSettleModal($request);
+        $this->presentSettleModalAfterApproval($request);
     }
 
     public function submitCancellationReject(int $requestId, string $rejectionReason): void
@@ -217,6 +246,19 @@ trait ManagesCancellationRequests
         $request = $this->booking->cancellationRequests()->where('id', $requestId)->firstOrFail();
         if (!$request->isApproved() || $request->isSettled()) {
             $this->dispatch('toast', type: 'error', message: 'این درخواست قابل تسویه نیست.');
+            return;
+        }
+
+        if ($request->hasZeroRefund()) {
+            try {
+                app(CancellationRequestService::class)->markSettledWithoutPayment($request, Auth::user());
+            } catch (ValidationException $e) {
+                $this->dispatch('toast', type: 'error', message: collect($e->errors())->flatten()->first() ?? 'خطا در تسویه درخواست.');
+                return;
+            }
+
+            $this->refreshCancellationRequestsData();
+            $this->dispatch('toast', type: 'success', message: 'درخواست با مبلغ استرداد صفر تسویه شد.');
             return;
         }
 

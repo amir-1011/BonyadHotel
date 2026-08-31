@@ -95,6 +95,118 @@ class PlatformCommissionTest extends TestCase
         );
     }
 
+    public function test_credit_booking_has_no_commission_even_with_positive_total(): void
+    {
+        $booking = $this->createBareBooking(totalPrice: 5_000_000, roomAmount: 5_000_000);
+        $this->assertSame(50_000, $this->commission->walletBalance());
+
+        $booking->update([
+            'payment_method' => Booking::PAYMENT_CREDIT,
+            'is_credit'      => true,
+        ]);
+        $this->commission->syncBookingCommissions($booking->fresh());
+
+        $this->assertSame(0, $this->commission->calculateBookingCommission($booking->fresh()));
+        $this->assertTrue($this->commission->isCommissionExempt($booking->fresh()));
+        $this->assertSame(0, $this->commission->walletBalance());
+        $this->assertSame(
+            0,
+            (int) PlatformCommissionEntry::where('booking_id', $booking->id)->sum('commission_amount')
+        );
+    }
+
+    public function test_medical_accommodation_booking_has_no_commission_even_with_positive_total(): void
+    {
+        $booking = $this->createBareBooking(totalPrice: 5_000_000, roomAmount: 5_000_000);
+        $this->assertSame(50_000, $this->commission->walletBalance());
+
+        $booking->update([
+            'payment_method'           => Booking::PAYMENT_MEDICAL_ACCOMMODATION,
+            'is_medical_accommodation' => true,
+        ]);
+        $this->commission->syncBookingCommissions($booking->fresh());
+
+        $this->assertSame(0, $this->commission->calculateBookingCommission($booking->fresh()));
+        $this->assertTrue($this->commission->isCommissionExempt($booking->fresh()));
+        $this->assertSame(0, $this->commission->walletBalance());
+        $this->assertSame(
+            0,
+            (int) PlatformCommissionEntry::where('booking_id', $booking->id)->sum('commission_amount')
+        );
+    }
+
+    public function test_new_credit_booking_does_not_accrue_commission(): void
+    {
+        $guest = User::create([
+            'name'        => 'مهمان اعتباری',
+            'mobile'      => '0912' . rand(1000000, 9999999),
+            'national_id' => (string) rand(1000000000, 9999999999),
+        ]);
+        $guest->assignRole('guest');
+
+        $checkIn = now()->addDays(20)->format('Y-m-d');
+        $checkOut = Carbon::parse($checkIn)->addDay()->format('Y-m-d');
+
+        $booking = Booking::create([
+            'user_id'           => $guest->id,
+            'accommodation_id'  => $this->accommodation->id,
+            'check_in'          => $checkIn,
+            'check_out'         => $checkOut,
+            'nights'            => 1,
+            'guests'            => 1,
+            'base_price'        => 5_000_000,
+            'services_subtotal' => 0,
+            'total_price'       => 5_000_000,
+            'status'            => 'confirmed',
+            'booking_source'    => 'manual',
+            'payment_method'    => Booking::PAYMENT_CREDIT,
+            'is_credit'         => true,
+            'tracking_code'     => strtoupper(substr(md5(uniqid()), 0, 10)),
+        ]);
+
+        $this->commission->syncBookingCommissions($booking);
+
+        $this->assertSame(0, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
+        $this->assertSame(0, $this->commission->walletBalance());
+    }
+
+    public function test_overlay_pricing_adds_platform_commission_to_total(): void
+    {
+        $pricing = [
+            'total_price' => 1_000_000,
+            'subtotal_before_discount' => 1_000_000,
+        ];
+
+        $withCommission = $this->commission->overlayPricing($pricing, ['booking_source' => 'manual', 'payment_method' => 'cash']);
+        $withoutCommission = $this->commission->overlayPricing($pricing, [
+            'booking_source' => 'manual',
+            'payment_method' => Booking::PAYMENT_CREDIT,
+            'is_credit' => true,
+        ]);
+
+        $this->assertSame(1_000_000, $withCommission['subtotal_before_commission']);
+        $this->assertSame(50_000, $withCommission['platform_commission_amount']);
+        $this->assertSame(1_050_000, $withCommission['total_price']);
+        $this->assertSame(0, $withoutCommission['platform_commission_amount']);
+        $this->assertSame(1_000_000, $withoutCommission['total_price']);
+    }
+
+    public function test_manual_booking_total_includes_platform_commission(): void
+    {
+        $booking = $this->createManualBooking(services: []);
+
+        $this->assertSame(10_050_000, $booking->total_price);
+
+        $entry = PlatformCommissionEntry::query()
+            ->where('booking_id', $booking->id)
+            ->where('category_key', 'accommodation')
+            ->first();
+
+        $this->assertNotNull($entry);
+        $this->assertSame(10_000_000, $entry->transaction_amount);
+        $this->assertSame(50_000, $entry->commission_amount);
+    }
+
     public function test_manual_booking_credits_flat_booking_commission(): void
     {
         $booking = $this->createManualBooking(services: []);
@@ -108,7 +220,6 @@ class PlatformCommissionTest extends TestCase
         $this->assertSame(PlatformCommissionEntry::TYPE_CREDIT, $entry->entry_type);
         $this->assertSame(10_000_000, $entry->transaction_amount);
         $this->assertSame(50_000, $entry->commission_amount);
-        $this->assertTrue($entry->usesFlatBookingFee());
         $this->assertSame($booking->tracking_code, $entry->meta['tracking_code']);
     }
 

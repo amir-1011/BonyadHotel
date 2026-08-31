@@ -9,35 +9,14 @@
 
 @php
     $metrics = [
-        ['label' => 'موجودی کیف پول', 'value' => number_format($stats['balance']), 'icon' => 'wallet2', 'suffix' => 'تومان'],
-        ['label' => 'کل واریزی‌ها', 'value' => number_format($stats['total_credits']), 'icon' => 'arrow-down-circle', 'suffix' => 'تومان'],
-        ['label' => 'کل برگشت‌ها', 'value' => number_format($stats['total_reversals']), 'icon' => 'arrow-up-circle', 'suffix' => 'تومان'],
-        ['label' => 'تعداد تراکنش‌ها', 'value' => number_format($stats['entries_count']), 'icon' => 'list-check', 'suffix' => 'رکورد'],
+        ['label' => 'موجودی کیف پول', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['balance'])), 'icon' => 'wallet2', 'suffix' => 'ریال'],
+        ['label' => 'کل واریزی‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['total_credits'])), 'icon' => 'arrow-down-circle', 'suffix' => 'ریال'],
+        ['label' => 'کل برگشت‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['total_reversals'])), 'icon' => 'arrow-up-circle', 'suffix' => 'ریال'],
+        ['label' => 'تعداد تراکنش‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['entries_count'])), 'icon' => 'list-check', 'suffix' => 'رکورد'],
     ];
 @endphp
 
-<div class="ta-page-head">
-    {{-- <div>
-        <div class="text-muted small">
-            مبلغ ثابت {{ number_format(config('platform_commission.fixed_amount')) }} تومان برای هر رزرو (بدون کارمزد خدمات؛ معاف: اردو و رزرو با مبلغ صفر)
-        </div>
-    </div> --}}
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <a href="{{ route('admin.commission-wallet.export', $exportQuery) }}" class="btn btn-success btn-sm">
-            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
-            @if($hasActiveFilters)
-            <span class="badge bg-white text-success ms-1">فیلترشده</span>
-            @endif
-        </a>
-        @if($hasActiveFilters)
-        <button type="button" wire:click="resetFilters" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-x-lg me-1"></i>پاک کردن فیلترها
-        </button>
-        @endif
-    </div>
-</div>
-
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-3">
     @foreach($metrics as $m)
     <div class="col-6 col-xl-3">
         <div class="ta-metric">
@@ -49,27 +28,22 @@
     @endforeach
 </div>
 
-@if($hasActiveFilters)
-<div class="alert alert-info py-2 px-3 small mb-3 d-flex flex-wrap align-items-center gap-2">
-    <i class="bi bi-funnel-fill"></i>
-    <span>
-        نتیجه فیلتر:
-        <strong>{{ number_format($filteredStats['count']) }}</strong> رکورد ·
-        جمع کارمزد: <strong class="{{ $filteredStats['sum_commission'] >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($filteredStats['sum_commission']) }}</strong> تومان ·
-        واریز: {{ number_format($filteredStats['sum_credits']) }} ·
-        برگشت/کسر: {{ number_format($filteredStats['sum_debits']) }}
-    </span>
-</div>
-@endif
-
 <div class="card shadow-sm mb-3">
-    <div class="card-header py-2 d-flex align-items-center justify-content-between" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#commissionFilterBody">
-        <span class="fw-semibold small"><i class="bi bi-funnel me-1"></i>جستجو و فیلتر</span>
-        @if($hasActiveFilters)
-            <span class="badge bg-primary">فعال</span>
-        @else
-            <i class="bi bi-chevron-down text-muted" style="font-size:.8rem"></i>
-        @endif
+    <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2">
+        <span class="fw-semibold small" role="button" data-bs-toggle="collapse" data-bs-target="#commissionFilterBody">
+            <i class="bi bi-funnel me-1"></i>جستجو و فیلتر
+            @if($hasActiveFilters)
+                <span class="badge bg-primary">فعال</span>
+            @else
+                <i class="bi bi-chevron-down text-muted" style="font-size:.8rem"></i>
+            @endif
+        </span>
+        <a href="{{ route('admin.commission-wallet.export', $exportQuery) }}" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+            @if($hasActiveFilters)
+            <span class="badge bg-white text-success ms-1">فیلترشده</span>
+            @endif
+        </a>
     </div>
     <div class="collapse {{ $hasActiveFilters ? 'show' : 'show' }}" id="commissionFilterBody">
         <div class="card-body pb-2 pt-3">
@@ -196,14 +170,14 @@
                 </div>
                 <div class="col-6 col-md-2">
                     <label class="form-label form-label-sm mb-1 text-muted">مبلغ تراکنش از</label>
-                    <input type="text" wire:model="draftTransactionMin" class="form-control form-control-sm" placeholder="تومان">
+                    <input type="text" wire:model="draftTransactionMin" class="form-control form-control-sm" placeholder="ریال">
                 </div>
                 <div class="col-6 col-md-2">
                     <label class="form-label form-label-sm mb-1 text-muted">مبلغ تراکنش تا</label>
-                    <input type="text" wire:model="draftTransactionMax" class="form-control form-control-sm" placeholder="تومان">
+                    <input type="text" wire:model="draftTransactionMax" class="form-control form-control-sm" placeholder="ریال">
                 </div>
             </div>
-            <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top">
+            <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top flex-wrap">
                 <button type="submit" class="btn btn-primary btn-sm" onclick="window.syncCommissionFilterDates && window.syncCommissionFilterDates()">
                     <i class="bi bi-funnel me-1"></i>اعمال فیلتر
                 </button>
@@ -211,6 +185,20 @@
                 <button type="button" wire:click="resetFilters" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-x-lg me-1"></i>پاک کردن
                 </button>
+                @endif
+                @if($hasActiveFilters)
+                <span class="ta-filter-stats ms-auto">
+                    <span class="ta-filter-stat">
+                        <i class="bi bi-receipt"></i>
+                        <span class="ta-filter-stat-value">{{ \App\Support\PdfPersian::toPersianDigits(number_format($filteredStats['count'])) }}</span>
+                        <span class="ta-filter-stat-label">رکورد</span>
+                    </span>
+                    <span class="ta-filter-stat">
+                        <i class="bi bi-cash-coin"></i>
+                        <span class="ta-filter-stat-value {{ $filteredStats['sum_commission'] >= 0 ? 'ta-filter-stat-value--ok' : '' }}">{{ \App\Support\PdfPersian::toPersianDigits(number_format($filteredStats['sum_commission'])) }}</span>
+                        <span class="ta-filter-stat-label">کارمزد</span>
+                    </span>
+                </span>
                 @endif
                 @if($hasDraftChanges)
                 <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>تغییرات اعمال نشده — دکمه «اعمال فیلتر» را بزنید</span>
@@ -252,9 +240,9 @@
                         <div class="text-muted" style="font-size:.7rem">{{ $entry->reasonLabel() }}</div>
                     </td>
                     <td>{{ $entry->categoryLabel() }}</td>
-                    <td>{{ number_format($entry->transaction_amount) }}</td>
+                    <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->transaction_amount)) }}</td>
                     <td class="fw-semibold {{ $entry->commission_amount >= 0 ? 'text-success' : 'text-danger' }}">
-                        {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ number_format($entry->commission_amount) }}
+                        {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->commission_amount)) }}
                     </td>
                     <td>
                         @if($entry->booking)
@@ -292,7 +280,7 @@
     <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
         @if($hasActiveFilters)
         <div class="small text-muted">
-            جمع کارمزد فیلتر: <strong>{{ number_format($filteredStats['sum_commission']) }}</strong> تومان
+            جمع کارمزد فیلتر: <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($filteredStats['sum_commission'])) }}</strong> ریال
         </div>
         @else
         <div></div>
@@ -352,7 +340,7 @@
                 autoClose: true,
                 initialValue: false,
                 initialValueType: 'persian',
-                persianDigit: false,
+                persianDigit: true,
                 toolbox: {
                     enabled: true,
                     todayButton: { enabled: true },

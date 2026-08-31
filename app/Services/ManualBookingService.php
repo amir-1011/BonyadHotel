@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\BookingBeneficiaryCost;
 use App\Models\BookingGuestDetail;
+use App\Models\BookingPaymentRecord;
 use App\Models\ProgramBeneficiary;
 use App\Models\BookingRoom;
 use App\Models\BookingService;
@@ -14,6 +15,7 @@ use App\Models\RoomRate;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Support\VeteranGroups;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -48,18 +50,51 @@ class ManualBookingService
                 $roomRate = $roomLinesInput[0]['room_rate'];
             }
 
+            $isMedicalAccommodation = $this->isMedicalAccommodationPayload($data);
+            if ($isMedicalAccommodation) {
+                $data = $this->sanitizeMedicalAccommodationPayload($data);
+            }
+
+            $isCredit = !$isMedicalAccommodation && $this->isCreditPayload($data);
+            if ($isCredit) {
+                $data = $this->sanitizeCreditPayload($data);
+            }
+
             $guestUser = $this->resolveGuestUser($data, $accommodation->id);
 
-            $veteranType = $data['veteran_type'] ?? null;
-            $secondaryVeteranType = $data['secondary_veteran_type'] ?? null;
-            $veteranTypes = !empty($data['veteran_types'])
-                ? $this->veteranPolicy->forAccommodation($accommodation->id)->normalizeVeteranTypes($data['veteran_types'])
-                : $this->veteranPolicy->forAccommodation($accommodation->id)->normalizeVeteranTypes($veteranType, $secondaryVeteranType);
-            [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
-                ->forAccommodation($accommodation->id)
-                ->splitVeteranTypes($veteranTypes);
+            $hasProfileVeteranTypes = array_key_exists('profile_veteran_types', $data)
+                && is_array($data['profile_veteran_types']);
 
-            $this->syncUserVeteranProfile($guestUser, $veteranTypes, $accommodation->id);
+            $profileVeteranTypes = $this->veteranPolicy
+                ->forAccommodation($accommodation->id)
+                ->normalizeVeteranTypes(
+                    $hasProfileVeteranTypes
+                        ? $data['profile_veteran_types']
+                        : ($data['veteran_types'] ?? [
+                            $data['veteran_type'] ?? null,
+                            $data['secondary_veteran_type'] ?? null,
+                        ]),
+                );
+
+            if ($isMedicalAccommodation || $isCredit) {
+                $veteranType = null;
+                $secondaryVeteranType = null;
+                $veteranTypes = [];
+            } else {
+                $veteranTypes = $profileVeteranTypes;
+                [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
+                    ->forAccommodation($accommodation->id)
+                    ->splitVeteranTypes($veteranTypes);
+            }
+
+            $shouldSyncVeteranProfile = $hasProfileVeteranTypes
+                || $profileVeteranTypes !== []
+                || !($isMedicalAccommodation || $isCredit);
+
+            if ($shouldSyncVeteranProfile) {
+                $this->syncUserVeteranProfile($guestUser, $profileVeteranTypes, $accommodation->id);
+            }
+
             $services = $data['services'] ?? [];
             $guestDetails = $data['guest_details'] ?? [];
             $primaryNationalId = $this->primaryNationalId($guestDetails, $data);
@@ -123,6 +158,34 @@ class ManualBookingService
             }
 
             $pricing = $this->pricing->calculate($pricingParams);
+
+            $medicalContext = null;
+            if ($isMedicalAccommodation) {
+                $medicalContext = app(MedicalAccommodationBillingService::class)->assertReadyForBooking(
+                    $accommodation,
+                    $data['check_in'],
+                    $data['check_out'],
+                    max(1, $totalGuests + $totalExtraGuests),
+                    isset($data['medical_tariff_id']) ? (int) $data['medical_tariff_id'] : null,
+                    !empty($data['medical_contract_id']) ? (int) $data['medical_contract_id'] : null,
+                );
+                $pricing = app(MedicalAccommodationPricingService::class)->overlayQuote(
+                    $pricing,
+                    $medicalContext['quote'],
+                );
+            }
+
+            $pricing = $this->commission->overlayPricing($pricing, [
+                'booking_source'           => 'manual',
+                'payment_method'           => $data['payment_method'] ?? null,
+                'is_credit'                => $isCredit,
+                'is_medical_accommodation' => $isMedicalAccommodation,
+            ]);
+
+            $priceAdjustment = (int) ($data['total_price_adjustment'] ?? 0);
+            if ($priceAdjustment !== 0) {
+                $pricing['total_price'] = max(0, (int) $pricing['total_price'] + $priceAdjustment);
+            }
 
             $consumptionByRoomType = [];
             foreach ($roomLinesInput as $i => $line) {
@@ -201,6 +264,14 @@ class ManualBookingService
                 'status'                => 'confirmed',
                 'booking_source'        => 'manual',
                 'payment_method'        => $data['payment_method'] ?? null,
+                'is_medical_accommodation' => $isMedicalAccommodation,
+                'medical_contract_id'    => $medicalContext['contract']->id ?? null,
+                'medical_tariff_id'      => $medicalContext['tariff']->id ?? null,
+                'medical_tariff_snapshot'=> $medicalContext['quote'] ?? null,
+                'medical_companion_count'=> $medicalContext['quote']['companion_count'] ?? 0,
+                'program_employer_id'    => $medicalContext['employer_id'] ?? null,
+                'employer_debt_amount'   => $isMedicalAccommodation ? (int) $pricing['total_price'] : 0,
+                'is_credit'              => $isCredit,
                 'notes'                 => $data['notes'] ?? null,
                 'guest_discount_snapshot' => $guestDiscountSnapshot,
                 'tracking_code'         => strtoupper(Str::random(10)),
@@ -257,8 +328,13 @@ class ManualBookingService
 
             $this->persistBeneficiaryCosts($booking, $data['beneficiary_costs'] ?? []);
 
+            $this->persistMedicalReferralLetter($booking, $data['medical_referral_letter'] ?? null, $isMedicalAccommodation);
+            $this->persistCreditLetter($booking, $data['credit_letter'] ?? null, $isCredit);
+
             $booking = $booking->fresh(['services.serviceCatalog', 'guestDetails', 'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room', 'user', 'accommodation.city', 'roomType', 'roomRate', 'beneficiaryCosts.beneficiary.user']);
             $this->commission->syncBookingCommissions($booking, $createdBy);
+
+            $this->persistPaymentCaptureForManualBooking($booking, $data, $createdBy, $priceAdjustment);
 
             return $booking;
         });
@@ -390,7 +466,7 @@ class ManualBookingService
         $veteranType = $data['veteran_type'] ?? null;
         $secondaryVeteranType = $data['secondary_veteran_type'] ?? null;
         $veteranTypes = $this->veteranPolicy->forAccommodation($accommodationId)->normalizeVeteranTypes(
-            $data['veteran_types'] ?? [$veteranType, $secondaryVeteranType],
+            $data['profile_veteran_types'] ?? $data['veteran_types'] ?? [$veteranType, $secondaryVeteranType],
         );
         [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
             ->forAccommodation($accommodationId)
@@ -584,12 +660,15 @@ class ManualBookingService
                 $booking->accommodation,
             );
         }
-        $veteranTypes = $this->veteranPolicy
-            ->forAccommodation($booking->accommodation_id)
-            ->normalizeVeteranTypes(
-                $booking->veteran_type_applied,
-                $booking->secondary_veteran_type_applied,
-            );
+        $isRegularRate = $booking->billsAsRegularGuest();
+        $veteranTypes = $isRegularRate
+            ? []
+            : $this->veteranPolicy
+                ->forAccommodation($booking->accommodation_id)
+                ->normalizeVeteranTypes(
+                    $booking->veteran_type_applied,
+                    $booking->secondary_veteran_type_applied,
+                );
         $veteranDiscountPct = VeteranGroups::accommodationDiscountForTypes($veteranTypes, $booking->accommodation_id);
         $guestDetailsArray = $guestDetails->map(fn ($g) => [
             'excluded_from_veteran_discount' => $g->excluded_from_veteran_discount,
@@ -600,7 +679,7 @@ class ManualBookingService
             $guestDetailsArray,
             $billingGuests,
             (int) ($booking->children_under_6 ?? 0),
-            $booking->veteran_type_applied,
+            $isRegularRate ? null : $booking->veteran_type_applied,
             $veteranDiscountPct,
         );
         [$primaryType, $secondaryType] = $this->veteranPolicy
@@ -665,6 +744,28 @@ class ManualBookingService
 
         $pricing = $this->pricing->calculate($pricingParams);
 
+        if ($booking->isMedicalAccommodation()) {
+            $guests = max(1, (int) $booking->guests);
+            $extraGuests = max(0, (int) $booking->extra_guests);
+            $companions = app(MedicalAccommodationPricingService::class)
+                ->companionCountFromOccupancy($guests, $extraGuests);
+            app(MedicalAccommodationBillingService::class)->assertCompanionLimit($booking, $guests, $extraGuests);
+            $quote = app(MedicalAccommodationPricingService::class)->quoteForBooking(
+                $booking,
+                (int) ($pricing['nights'] ?? $booking->nights),
+                $companions,
+            );
+            if ($quote) {
+                $pricing = app(MedicalAccommodationPricingService::class)->overlayQuote($pricing, $quote);
+                $booking->medical_tariff_snapshot = $quote;
+                $booking->medical_companion_count = $companions;
+            } else {
+                $pricing = app(MedicalAccommodationPricingService::class)->overlayBooking($pricing, $booking);
+            }
+        }
+
+        $pricing = $this->commission->overlayPricingForBooking($pricing, $booking);
+
         foreach ($pricing['service_lines'] as $i => $line) {
             $service = $freshServices->get($i);
             if (!$service) {
@@ -682,14 +783,34 @@ class ManualBookingService
             ]);
         }
 
-        $booking->update([
+        $totals = [
             'base_price'        => $pricing['subtotal_before_discount'],
             'services_subtotal' => $pricing['services_subtotal'],
             'extra_guests_price'=> $pricing['extra_guests_total'],
             'discount_amount'   => $pricing['discount_amount'],
             'total_price'       => $pricing['total_price'],
-            'veteran_accommodation_group_usage' => $pricing['veteran_accommodation_group_usage'] ?? null,
-        ]);
+            'nights'            => $pricing['nights'],
+            'veteran_accommodation_group_usage' => $isRegularRate
+                ? null
+                : ($pricing['veteran_accommodation_group_usage'] ?? null),
+        ];
+
+        if ($isRegularRate) {
+            $totals['discount_percentage'] = 0;
+            $totals['veteran_type_applied'] = null;
+            $totals['secondary_veteran_type_applied'] = null;
+        }
+
+        if ($booking->isMedicalAccommodation()) {
+            $totals['medical_tariff_snapshot'] = $booking->medical_tariff_snapshot;
+            $totals['medical_companion_count'] = $booking->medical_companion_count;
+            $totals['employer_debt_amount'] = (int) $pricing['total_price'];
+            if ($booking->program_employer_id) {
+                $totals['program_employer_id'] = $booking->program_employer_id;
+            }
+        }
+
+        $booking->update($totals);
 
         $booking->refresh()->load(['services.serviceCatalog', 'accommodation']);
         $this->commission->syncBookingCommissions($booking);
@@ -893,6 +1014,236 @@ class ManualBookingService
         $reason = trim((string) ($guest['manual_discount_reason'] ?? ''));
 
         return $reason !== '' ? $reason : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isMedicalAccommodationPayload(array $data): bool
+    {
+        if (!empty($data['is_medical_accommodation'])) {
+            return true;
+        }
+
+        return ($data['payment_method'] ?? null) === Booking::PAYMENT_MEDICAL_ACCOMMODATION;
+    }
+
+    /**
+     * Keep the guest's assigned veteran groups for the user profile even when
+     * medical/credit bookings price the stay as a regular guest.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function preserveProfileVeteranTypes(array $data): array
+    {
+        if (array_key_exists('profile_veteran_types', $data) && is_array($data['profile_veteran_types'])) {
+            return $data;
+        }
+
+        $fromTypes = !empty($data['veteran_types']) && is_array($data['veteran_types'])
+            ? array_values($data['veteran_types'])
+            : array_values(array_filter([
+                $data['veteran_type'] ?? null,
+                $data['secondary_veteran_type'] ?? null,
+            ], fn ($value) => $value !== null && $value !== ''));
+
+        if ($fromTypes !== []) {
+            $data['profile_veteran_types'] = $fromTypes;
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function sanitizeMedicalAccommodationPayload(array $data): array
+    {
+        $data = $this->preserveProfileVeteranTypes($data);
+        $data['payment_method'] = Booking::PAYMENT_MEDICAL_ACCOMMODATION;
+        $data['is_medical_accommodation'] = true;
+        $data['veteran_type'] = null;
+        $data['secondary_veteran_type'] = null;
+        $data['veteran_types'] = [];
+        $data['guest_details'] = $this->sanitizeGuestsForMedicalAccommodation($data['guest_details'] ?? []);
+        $data['services'] = $this->sanitizeServicesForMedicalAccommodation($data['services'] ?? []);
+
+        return $data;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $guestDetails
+     * @return array<int, array<string, mixed>>
+     */
+    private function sanitizeGuestsForMedicalAccommodation(array $guestDetails): array
+    {
+        return collect($guestDetails)->map(function ($guest) {
+            if (!is_array($guest)) {
+                return $guest;
+            }
+
+            $guest['excluded_from_veteran_discount'] = false;
+            $guest['manual_discount_percentage'] = '';
+            $guest['manual_discount_reason'] = '';
+
+            if (!empty($guest['services']) && is_array($guest['services'])) {
+                $guest['services'] = $this->sanitizeServicesForMedicalAccommodation($guest['services']);
+            }
+
+            return $guest;
+        })->all();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $services
+     * @return array<int, array<string, mixed>>
+     */
+    private function sanitizeServicesForMedicalAccommodation(array $services): array
+    {
+        return collect($services)->map(function ($service) {
+            if (!is_array($service)) {
+                return $service;
+            }
+
+            $service['excluded_from_veteran_quota'] = true;
+            $service['discount_override'] = null;
+            $service['manual_discount_percentage'] = null;
+            $service['manual_discount_reason'] = null;
+
+            return $service;
+        })->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function persistPaymentCaptureForManualBooking(
+        Booking $booking,
+        array $data,
+        User $createdBy,
+        int $priceAdjustment,
+    ): void {
+        $captureService = app(BookingPaymentCaptureService::class);
+        $capture = $data['payment_capture'] ?? null;
+        $reason = $data['price_adjustment_reason'] ?? null;
+
+        if (is_array($capture)) {
+            $captureService->record(
+                $booking,
+                $priceAdjustment,
+                $capture,
+                BookingPaymentRecord::CONTEXT_MANUAL_BOOKING,
+                'submitManualBooking',
+                $createdBy,
+                $this->normalizeUploadedFiles($data['payment_capture_uploads'] ?? []),
+            );
+
+            return;
+        }
+
+        $captureService->recordOptionalAdjustmentNote(
+            $booking,
+            $priceAdjustment,
+            $reason,
+            BookingPaymentRecord::CONTEXT_MANUAL_BOOKING,
+            'submitManualBooking',
+            $createdBy,
+        );
+    }
+
+    private function persistMedicalReferralLetter(Booking $booking, mixed $letters, bool $isMedicalAccommodation): void
+    {
+        if (!$isMedicalAccommodation) {
+            return;
+        }
+
+        $files = $this->normalizeUploadedFiles($letters);
+        if ($files === []) {
+            return;
+        }
+
+        $paths = $this->documents->storeMany(
+            $files,
+            'booking-documents/medical-referral/' . $booking->id,
+        );
+        if ($paths === []) {
+            throw new \RuntimeException('ذخیره سند معرفی‌نامه با خطا مواجه شد.');
+        }
+
+        $booking->update(['medical_referral_letter_path' => $paths]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isCreditPayload(array $data): bool
+    {
+        if (!empty($data['is_credit'])) {
+            return true;
+        }
+
+        return ($data['payment_method'] ?? null) === Booking::PAYMENT_CREDIT;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function sanitizeCreditPayload(array $data): array
+    {
+        $data = $this->preserveProfileVeteranTypes($data);
+        $data['payment_method'] = Booking::PAYMENT_CREDIT;
+        $data['is_credit'] = true;
+        $data['veteran_type'] = null;
+        $data['secondary_veteran_type'] = null;
+        $data['veteran_types'] = [];
+        $data['guest_details'] = $this->sanitizeGuestsForMedicalAccommodation($data['guest_details'] ?? []);
+        $data['services'] = $this->sanitizeServicesForMedicalAccommodation($data['services'] ?? []);
+
+        return $data;
+    }
+
+    private function persistCreditLetter(Booking $booking, mixed $letters, bool $isCredit): void
+    {
+        if (!$isCredit) {
+            return;
+        }
+
+        $files = $this->normalizeUploadedFiles($letters);
+        if ($files === []) {
+            return;
+        }
+
+        $paths = $this->documents->storeMany(
+            $files,
+            'booking-documents/credit-letter/' . $booking->id,
+        );
+        if ($paths === []) {
+            throw new \RuntimeException('ذخیره سند معرفی‌نامه اعتباری با خطا مواجه شد.');
+        }
+
+        $booking->update(['credit_letter_path' => $paths]);
+    }
+
+    /**
+     * @return list<UploadedFile>
+     */
+    private function normalizeUploadedFiles(mixed $input): array
+    {
+        if ($input instanceof UploadedFile) {
+            return [$input];
+        }
+
+        if (!is_array($input)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $input,
+            static fn (mixed $file): bool => $file instanceof UploadedFile,
+        ));
     }
 
     /**

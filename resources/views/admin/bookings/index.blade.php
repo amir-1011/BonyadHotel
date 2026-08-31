@@ -1,14 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-end mb-3">
-    <a href="{{ route('admin.bookings.export', $exportQuery) }}" class="btn btn-success btn-sm">
-        <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
-        @if($hasActiveFilters)
-        <span class="badge bg-white text-success ms-1">فیلترشده</span>
-        @endif
-    </a>
-</div>
-
 <x-filters.booking-panel
     :accommodations="$accommodations"
     :employers="$employers"
@@ -30,9 +21,18 @@
     :draft-booking-source="$draftBookingSource"
     :has-active-filters="$hasActiveFilters"
     :show-reserver-filter="true"
-/>
-
-<x-filters.summary-stats :count-filtered="$countFiltered" :total-filtered="$totalFiltered" />
+    :count-filtered="$countFiltered"
+    :total-filtered="$totalFiltered"
+>
+    <x-slot:actions>
+        <a href="{{ route('admin.bookings.export', $exportQuery) }}" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+            @if($hasActiveFilters)
+            <span class="badge bg-white text-success ms-1">فیلترشده</span>
+            @endif
+        </a>
+    </x-slot>
+</x-filters.booking-panel>
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -97,9 +97,7 @@
                         <a wire:navigate href="{{ route('admin.users.show', $b->user) }}" class="text-decoration-none text-dark">
                             {{ $b->bookerName() }}
                         </a>
-                        @if($b->user->discount_percentage > 0)
-                        <br><span class="badge bg-warning text-dark" style="font-size:.65rem">{{ $b->user->discount_percentage }}% تخفیف</span>
-                        @endif
+                        <x-booking.list-guest-badges :booking="$b" />
                     </td>
                     <td class="small">
                         @if($b->booking_source === 'online')
@@ -132,7 +130,7 @@
                     <td>{{ $b->nights }}</td>
                     <td>{{ $b->guests }}</td>
                     <td class="small">
-                        {{ number_format($b->total_price) }} ت
+                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }} ریال
                         @if($b->discount_percentage > 0)
                             <br><span class="badge bg-warning text-dark" style="font-size:.6rem">{{ $b->discount_percentage }}% تخفیف</span>
                         @endif
@@ -159,7 +157,7 @@
             <tfoot class="table-light fw-bold">
                 <tr>
                     <td colspan="12" class="text-end small text-muted">جمع این صفحه:</td>
-                    <td class="text-success small">{{ number_format($bookings->sum('total_price')) }} ت</td>
+                    <td class="text-success small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($bookings->sum('total_price'))) }} ریال</td>
                     <td colspan="3"></td>
                 </tr>
             </tfoot>
@@ -168,8 +166,8 @@
     </div>
     <div class="card-footer bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="small text-muted">
-            جمع کل فیلتر: <strong class="text-success">{{ number_format($totalFiltered) }} تومان</strong>
-            &nbsp;|&nbsp; {{ number_format($countFiltered) }} رزرو
+            جمع کل فیلتر: <strong class="text-success">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalFiltered)) }} ریال</strong>
+            &nbsp;|&nbsp; {{ \App\Support\PdfPersian::toPersianDigits(number_format($countFiltered)) }} رزرو
         </div>
         {{ $bookings->links() }}
     </div>

@@ -98,6 +98,10 @@ class BookingCreate extends Component
             'national_id'            => $user->national_id,
         ]);
 
+        $pricing = app(PlatformCommissionService::class)->overlayPricing($pricing, [
+            'booking_source' => 'online',
+        ]);
+
         $booking = Booking::create([
             'user_id'             => $user->id,
             'accommodation_id'    => $this->accommodation->id,

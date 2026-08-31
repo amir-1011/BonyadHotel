@@ -54,7 +54,7 @@
     @if($booking->extra_guests > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">کف‌خواب</span>
-        <span>{{ $booking->extra_guests }} نفر · {{ number_format($booking->extra_guests_price) }} تومان</span>
+        <span>{{ $booking->extra_guests }} نفر · {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->extra_guests_price)) }} ریال</span>
     </li>
     @endif
     @if($booking->bill_full_rooms)
@@ -69,6 +69,64 @@
         <span>{{ $booking->paymentMethodLabel() }}</span>
     </li>
     @endif
+    @if($booking->isMedicalAccommodation())
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">شماره قرارداد</span>
+        <span dir="ltr">{{ $booking->medicalContractNumber() ?: '—' }}</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">تعرفه اسکان درمانی</span>
+        <span>{{ $booking->medicalTariffLabel() ?: '—' }}</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">کارفرما / بیمه‌گر</span>
+        <span>{{ $booking->employer?->name ?? 'بیمه دی' }}</span>
+    </li>
+    @endif
+    @if($booking->isMedicalAccommodation() && $booking->hasMedicalReferralLetters())
+    <li class="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
+        <span class="text-muted">معرفی‌نامه اسکان درمانی</span>
+        <x-booking.authorized-document-links
+            :urls="collect($booking->medicalReferralLetterPaths())->map(fn ($path, $index) => $booking->medicalReferralLetterUrl($panel ?? null, $index))->all()"
+            btn-class="btn-outline-info py-0"
+            label="دانلود"
+        />
+    </li>
+    @endif
+    @if($booking->isCredit() && $booking->hasCreditLetters())
+    <li class="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
+        <span class="text-muted">معرفی‌نامه اعتباری</span>
+        <x-booking.authorized-document-links
+            :urls="collect($booking->creditLetterPaths())->map(fn ($path, $index) => $booking->creditLetterUrl($panel ?? null, $index))->all()"
+            btn-class="btn-outline-warning py-0"
+            label="دانلود"
+        />
+    </li>
+    @endif
+    @php
+        $bookingPricing = $pricingBreakdown ?? app(\App\Services\BookingReceiptBreakdownService::class)->pricingForBooking($booking);
+        $bookingNaturalTotal = (int) ($bookingPricing['natural_total'] ?? $booking->total_price);
+        $bookingManualAdjustment = (int) ($bookingPricing['manual_total_adjustment'] ?? 0);
+    @endphp
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">مبلغ قابل پرداخت</span>
+        <span class="text-end">
+            <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }} ریال</strong>
+            @if($bookingManualAdjustment !== 0)
+            <x-booking.manual-total-adjustment-note :adjustment="$bookingManualAdjustment" badge class="ms-1" />
+            @endif
+        </span>
+    </li>
+    @if($bookingManualAdjustment !== 0)
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">محاسبه خودکار</span>
+        <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($bookingNaturalTotal)) }} ریال</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0 text-warning-emphasis">
+        <span class="text-muted">تعدیل مبلغ رزرو</span>
+        <span class="fw-semibold">{{ ($bookingManualAdjustment > 0 ? '+' : '−') . \App\Support\PdfPersian::toPersianDigits(number_format(abs($bookingManualAdjustment))) }} ریال</span>
+    </li>
+    @endif
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">تاریخ ثبت</span>
         <span dir="ltr">@jalali($booking->created_at)</span>
@@ -80,3 +138,4 @@
     </li>
     @endif
 </ul>
+@include('components.booking.show-details._stay-extension-form', ['booking' => $booking, 'canExtendStay' => $canExtendStay ?? false])

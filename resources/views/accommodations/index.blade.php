@@ -303,13 +303,13 @@
                                 @auth
                                     @if(Auth::user()->discount_percentage > 0)
                                         @php $disc = $acc->price_per_night * (1 - Auth::user()->discount_percentage / 100); @endphp
-                                        <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($acc->price_per_night) }}</div>
-                                        <div class="bnb-card-price" style="color:var(--bnb-red);">{{ number_format($disc) }} <span>تومان / شب</span></div>
+                                        <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->price_per_night)) }}</div>
+                                        <div class="bnb-card-price" style="color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($disc)) }} <span>ریال / شب</span></div>
                                     @else
-                                        <div class="bnb-card-price">{{ number_format($acc->price_per_night) }} <span>تومان / شب</span></div>
+                                        <div class="bnb-card-price">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->price_per_night)) }} <span>ریال / شب</span></div>
                                     @endif
                                 @else
-                                    <div class="bnb-card-price">{{ number_format($acc->price_per_night) }} <span>تومان / شب</span></div>
+                                    <div class="bnb-card-price">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->price_per_night)) }} <span>ریال / شب</span></div>
                                 @endauth
                             </div>
                         </div>
@@ -377,7 +377,7 @@ initJalaliRange('#indexCalEl', '#checkIn', '#checkOut', '#indexDateDisplay', ciG
 var mapAccs = {!! json_encode($accommodations->map(fn($a) => [
     'id'    => $a->id,
     'name'  => $a->name,
-    'price' => number_format($a->price_per_night),
+    'price' => \App\Support\PdfPersian::toPersianDigits(number_format($a->price_per_night)),
     'lat'   => $a->lat,
     'lng'   => $a->lng,
     'url'   => route('accommodations.show', $a),
@@ -408,7 +408,7 @@ function initMap(containerId) {
         marker.bindPopup(
             '<div style="font-family:Vazirmatn,sans-serif;min-width:160px;">' +
             '<strong style="font-size:13px;">' + acc.name + '</strong><br>' +
-            '<span style="font-size:12px;color:#717171;">' + acc.price + ' تومان/شب</span><br>' +
+            '<span style="font-size:12px;color:#717171;">' + acc.price + ' ریال/شب</span><br>' +
             '<a href="' + acc.url + '" style="color:#FF385C;font-size:12px;text-decoration:underline;">مشاهده اقامتگاه</a>' +
             '</div>',
             { maxWidth: 200 }

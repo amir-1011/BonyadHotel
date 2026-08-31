@@ -1100,6 +1100,7 @@ function initJalaliRange(calSel, inSel, outSel, displaySel, initIn, initOut, onR
     $(calSel).persianDatepicker({
         inline: true,
         calendar: { persian: { locale: 'fa' } },
+        persianDigit: true,
         format: 'YYYY/MM/DD',
         minDate: new persianDate().valueOf(),
         onSelect: function(unix) {

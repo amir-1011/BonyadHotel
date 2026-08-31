@@ -10,10 +10,12 @@ use App\Models\VeteranGroupServiceDiscount;
 use App\Services\VeteranPolicyProvisioner;
 use App\Services\VeteranPolicyService;
 use App\Services\ServiceDiscountTierEngine;
+use App\Services\AccommodationDiscountTierEngine;
 
 trait ManagesVeteranPolicySettings
 {
     use ManagesDiscountTierMatrix;
+    use ManagesAccommodationDiscountTiers;
     use AssertsHostPermissions;
     public Accommodation $accommodation;
 
@@ -52,18 +54,21 @@ trait ManagesVeteranPolicySettings
             ->forAccommodation($accommodationId)
             ->ordered()
             ->get()
-            ->map(fn (VeteranGroup $g) => [
+            ->map(fn (VeteranGroup $g) => array_merge([
                 'id'                     => $g->id,
                 'key'                    => $g->key,
                 'label'                  => $g->label,
-                'accommodation_discount' => $g->accommodation_discount,
                 'nights_per_dependent'   => $g->nights_per_dependent,
                 'max_nights_per_period'  => $g->max_nights_per_period,
                 'period_months'          => $g->period_months,
                 'weekly_free_sessions'   => $g->weekly_free_sessions,
                 'usage_notes'            => $g->usage_notes ?? '',
                 'is_active'              => $g->is_active,
-            ])->values()->all();
+            ], AccommodationDiscountTierEngine::groupRowFromPersistence([
+                'accommodation_discount'            => $g->accommodation_discount,
+                'use_tiered_accommodation_discount' => $g->use_tiered_accommodation_discount,
+                'accommodation_discount_tiers'      => $g->accommodation_discount_tiers ?? [],
+            ])))->values()->all();
 
         $this->services = ServiceCatalog::query()
             ->forAccommodation($accommodationId)
@@ -126,26 +131,28 @@ trait ManagesVeteranPolicySettings
     public function saveGroups(): void
     {
         $this->assertHostCan('accommodations.veteran-policy', 'edit');
-        $this->validate([
+        $this->validate(array_merge([
             'groups.*.label'                  => ['required', 'string', 'max:200'],
             'groups.*.accommodation_discount' => ['required', 'integer', 'min:0', 'max:100'],
-            'groups.*.nights_per_dependent'   => ['required', 'integer', 'min:1', 'max:365'],
             'groups.*.max_nights_per_period'  => ['required', 'integer', 'min:1', 'max:365'],
             'groups.*.period_months'          => ['required', 'integer', 'min:1', 'max:24'],
-        ]);
+        ], $this->accommodationTierValidationRules()));
 
         foreach ($this->groups as $row) {
+            $tierPersistence = AccommodationDiscountTierEngine::groupRowToPersistence($row);
+
             VeteranGroup::query()
                 ->where('id', $row['id'])
                 ->where('accommodation_id', $this->accommodation->id)
                 ->update([
-                    'label'                  => $row['label'],
-                    'accommodation_discount' => $row['accommodation_discount'],
-                    'nights_per_dependent'   => $row['nights_per_dependent'],
-                    'max_nights_per_period'  => $row['max_nights_per_period'],
-                    'period_months'          => $row['period_months'],
-                    'usage_notes'            => $row['usage_notes'] ?: null,
-                    'is_active'              => (bool) ($row['is_active'] ?? true),
+                    'label'                             => $row['label'],
+                    'accommodation_discount'            => $tierPersistence['accommodation_discount'],
+                    'use_tiered_accommodation_discount' => $tierPersistence['use_tiered_accommodation_discount'],
+                    'accommodation_discount_tiers'      => $tierPersistence['accommodation_discount_tiers'],
+                    'max_nights_per_period'             => $row['max_nights_per_period'],
+                    'period_months'                     => $row['period_months'],
+                    'usage_notes'                       => $row['usage_notes'] ?: null,
+                    'is_active'                         => (bool) ($row['is_active'] ?? true),
                 ]);
         }
 

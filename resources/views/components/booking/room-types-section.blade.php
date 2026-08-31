@@ -52,9 +52,9 @@
                                 <i class="bi bi-person-add"></i> کف‌خوابی: تا {{ $roomType->extra_capacity }} نفر ·
                                 @if($discountPct > 0)
                                     @php $discExtraCapPrice = round($roomType->extra_capacity_price * (1 - $discountPct / 100)); @endphp
-                                    <s style="opacity:.65;">{{ number_format($roomType->extra_capacity_price) }}</s> {{ number_format($discExtraCapPrice) }} تومان/نفر/شب
+                                    <s style="opacity:.65;">{{ \App\Support\PdfPersian::toPersianDigits(number_format($roomType->extra_capacity_price)) }}</s> {{ \App\Support\PdfPersian::toPersianDigits(number_format($discExtraCapPrice)) }} ریال/نفر/شب
                                 @else
-                                    {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                    {{ \App\Support\PdfPersian::toPersianDigits(number_format($roomType->extra_capacity_price)) }} ریال/نفر/شب
                                 @endif
                             </span>
                             @endif
@@ -82,7 +82,7 @@
                         <div style="font-size:14px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;">{{ $rate->name }}</div>
                         <div style="font-size:12px;color:var(--bnb-gray);display:flex;flex-wrap:wrap;gap:8px;">
                             @if($rate->breakfast_included)<span style="color:green"><i class="bi bi-cup-hot-fill me-1"></i>صبحانه رایگان</span>
-                            @elseif($rate->breakfast_price_per_person)<span><i class="bi bi-cup-hot me-1"></i>صبحانه {{ number_format($rate->breakfast_price_per_person) }} تومان/نفر</span>
+                            @elseif($rate->breakfast_price_per_person)<span><i class="bi bi-cup-hot me-1"></i>صبحانه {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->breakfast_price_per_person)) }} ریال/نفر</span>
                             @else<span><i class="bi bi-x me-1"></i>بدون صبحانه</span>@endif
                             @if($rate->cancellation_policy === 'free')<span style="color:green"><i class="bi bi-check-circle-fill me-1"></i>لغو رایگان</span>
                             @else<span style="color:var(--bnb-red)"><i class="bi bi-x-circle me-1"></i>غیرقابل استرداد</span>@endif
@@ -95,25 +95,25 @@
                             @if($isManual)
                                 @if($discountPct > 0)
                                     @php $discRate = round($rate->price_per_night * (1 - $discountPct / 100)); @endphp
-                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($rate->price_per_night) }}</div>
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ number_format($discRate) }}</div>
+                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($discRate)) }}</div>
                                 @else
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
                                 @endif
                             @else
                             @auth
                                 @if(Auth::user()->discount_percentage > 0)
                                     @php $discRate = round($rate->price_per_night * (1 - Auth::user()->discount_percentage / 100)); @endphp
-                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($rate->price_per_night) }}</div>
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ number_format($discRate) }}</div>
+                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($discRate)) }}</div>
                                 @else
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
                                 @endif
                             @else
-                                <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
                             @endauth
                             @endif
-                            <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب / تخت</div>
+                            <div style="font-size:11px;color:var(--bnb-gray);">ریال / شب / تخت</div>
                         </div>
                         <div class="bnb-rate-action">
                             @if($isManual)

@@ -32,16 +32,7 @@
 
 <div>
 
-
-<div class="mb-3">
-    <div class="text-muted small">
-        <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت</a>
-        <span class="mx-1">·</span>{{ $accommodation->name }}
-        <span class="mx-1">·</span>حداکثر ظرفیت کل: <strong>{{ $roomType->room_count }} اتاق</strong>
-    </div>
-</div>
-
-<div class="row g-4">
+<div class="row g-3">
 
     {{-- Left: form --}}
     <div class="col-lg-4">
@@ -51,6 +42,7 @@
             </div>
             <div class="card-body p-4">
                 <p class="text-muted small mb-3">
+                    حداکثر ظرفیت کل: <strong>{{ $roomType->room_count }} اتاق</strong>.
                     تعداد اتاق و قیمت هر تعرفه را برای بازه یا به‌صورت دائمی هفتگی تنظیم کنید.
                     از فیلتر روزهای هفته برای اعمال هوشمند استفاده کنید.
                 </p>

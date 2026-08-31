@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             ProgramSeeder::class,
             VeteranPolicySeeder::class,
             AccommodationTypeSeeder::class,
+            FacilityExchangeSeeder::class,
+            MedicalAccommodationBookingSeeder::class,
         ]);
     }
 }

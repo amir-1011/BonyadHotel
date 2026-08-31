@@ -11,6 +11,7 @@ use App\Models\Accommodation;
 use App\Models\Program;
 use App\Models\ProgramBeneficiary;
 use App\Models\ProgramEmployer;
+use App\Models\Province;
 use App\Models\RoomType;
 use App\Models\ServiceCatalog;
 use App\Services\ProgramBookingService;
@@ -82,12 +83,15 @@ class ProgramBookingForm extends Component
         }
 
         $this->services = [$this->emptyServiceRow()];
+        $this->syncDefaultAccountingProvinceFromContext();
     }
 
     public function updatedAccommodationId(): void
     {
         $this->roomLines = [];
         $this->beneficiaryRows = [];
+        $this->accountingProvinceManuallySet = false;
+        $this->syncDefaultAccountingProvinceFromContext();
     }
 
     public function updatedRoomsAllocated(): void
@@ -237,8 +241,9 @@ class ProgramBookingForm extends Component
         $this->services = array_values($this->services);
 
         if ($this->services === []) {
-            $this->services = [$this->emptyServiceRow()];
-        }
+        $this->services = [$this->emptyServiceRow()];
+        $this->syncDefaultAccountingProvinceFromContext();
+    }
     }
 
     public function updatedServices($value, string $key): void
@@ -404,7 +409,7 @@ class ProgramBookingForm extends Component
             'beneficiaries',
             'employers',
             'myAccommodations',
-        ));
+        ))->with('provinces', Province::query()->orderBy('name')->get());
     }
 
     private function validateStep(int $step): void

@@ -1,11 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-right me-1"></i>بازگشت به کاربران
-    </a>
-</div>
-
 <div class="row g-3">
     <div class="col-12 col-lg-4">
         <div class="card shadow-sm">

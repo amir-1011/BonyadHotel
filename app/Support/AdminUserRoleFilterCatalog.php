@@ -7,6 +7,8 @@ use Spatie\Permission\Models\Role;
 
 class AdminUserRoleFilterCatalog
 {
+    public const ALL_PERSONNEL = 'all_personnel';
+
     /**
      * Build filter options from roles that actually appear in the users table.
      *
@@ -74,16 +76,85 @@ class AdminUserRoleFilterCatalog
     }
 
     /**
-     * Role tab options for the «نقش‌ها» section (excludes guest and super_admin).
+     * Sub-tab options for the «پرسنل» section (all hosts, then host positions).
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function personnelTabOptions(): array
+    {
+        if (!app()->bound('db') || !self::hasPersonnelUsers()) {
+            return [];
+        }
+
+        $options = [
+            ['value' => self::ALL_PERSONNEL, 'label' => 'همه پرسنل'],
+        ];
+
+        if (User::query()->role('host')->where(function ($query) {
+            $query->whereNull('host_position_title')
+                ->orWhere('host_position_title', '')
+                ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
+        })->exists()) {
+            $options[] = ['value' => 'host', 'label' => HostPositionTitles::DEFAULT_LABEL];
+        }
+
+        $hostTitles = User::query()
+            ->role('host')
+            ->whereNotNull('host_position_title')
+            ->where('host_position_title', '!=', '')
+            ->distinct()
+            ->orderBy('host_position_title')
+            ->pluck('host_position_title');
+
+        foreach ($hostTitles as $title) {
+            if ($title === HostPositionTitles::DEFAULT_LABEL) {
+                continue;
+            }
+
+            $options[] = [
+                'value' => 'host_position:' . $title,
+                'label' => (string) $title,
+            ];
+        }
+
+        return self::uniqueByValue($options);
+    }
+
+    /**
+     * @deprecated Use personnelTabOptions() for host sub-tabs.
      *
      * @return list<array{value: string, label: string}>
      */
     public static function roleTabOptions(): array
     {
-        return array_values(array_filter(
-            self::options(),
-            fn (array $option) => !in_array($option['value'], ['guest', 'super_admin'], true),
-        ));
+        return self::personnelTabOptions();
+    }
+
+    public static function hasEmployerUsers(): bool
+    {
+        if (!app()->bound('db')) {
+            return false;
+        }
+
+        return User::query()->whereHas('programEmployer')->exists();
+    }
+
+    public static function hasBeneficiaryUsers(): bool
+    {
+        if (!app()->bound('db')) {
+            return false;
+        }
+
+        return User::query()->whereHas('programBeneficiary')->exists();
+    }
+
+    public static function hasPersonnelUsers(): bool
+    {
+        if (!app()->bound('db')) {
+            return false;
+        }
+
+        return User::query()->role('host')->exists();
     }
 
     public static function hasGuestUsers(): bool

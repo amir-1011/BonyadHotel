@@ -9,28 +9,25 @@
 <div class="alert alert-warning small"><i class="bi bi-lock me-1"></i>فقط مجوز مشاهده دارید — امکان تغییر سیاست کنسلی وجود ندارد.</div>
 @endif
 
-<div class="ta-page-head mb-4">
-    <div>
+<div class="card shadow-sm mb-3">
+    <div class="ta-list-chrome">
+        <div class="small text-muted min-w-0 flex-grow-1">
         @isset($isAllAccommodationsSelected)
-            <p class="text-muted small mb-0">
-                @if($isAllAccommodationsSelected)
-                    تعیین درصد بازگشت وجه و دلایل کنسلی — تغییرات این صفحه روی <strong>همه {{ $accommodationCount }} اقامتگاه</strong> اعمال می‌شود.
-                @elseif($scopedAccommodationCount === 1)
-                    @php
-                        $singleAcc = collect($dashboardAccommodationOptions)->firstWhere('id', $scopedAccommodationIds[0] ?? null);
-                    @endphp
-                    سیاست کنسلی برای اقامتگاه <strong>{{ $singleAcc['name'] ?? 'انتخاب‌شده' }}</strong> — تغییرات فقط روی این اقامتگاه اعمال می‌شود.
-                @else
-                    سیاست کنسلی برای <strong>{{ $scopedAccommodationCount }} اقامتگاه</strong> انتخاب‌شده — تغییرات فقط روی اقامتگاه‌های فیلترشده اعمال می‌شود.
-                @endif
-            </p>
+            @if($isAllAccommodationsSelected)
+                تعیین درصد بازگشت وجه و دلایل کنسلی — تغییرات این صفحه روی <strong>همه {{ $accommodationCount }} اقامتگاه</strong> اعمال می‌شود.
+            @elseif($scopedAccommodationCount === 1)
+                @php
+                    $singleAcc = collect($dashboardAccommodationOptions)->firstWhere('id', $scopedAccommodationIds[0] ?? null);
+                @endphp
+                سیاست کنسلی برای اقامتگاه <strong>{{ $singleAcc['name'] ?? 'انتخاب‌شده' }}</strong> — تغییرات فقط روی این اقامتگاه اعمال می‌شود.
+            @else
+                سیاست کنسلی برای <strong>{{ $scopedAccommodationCount }} اقامتگاه</strong> انتخاب‌شده — تغییرات فقط روی اقامتگاه‌های فیلترشده اعمال می‌شود.
+            @endif
         @else
-            <p class="text-muted small mb-0">
-                سیاست کنسلی و استرداد وجه برای اقامتگاه <strong>{{ $accommodation->name }}</strong>.
-            </p>
+            سیاست کنسلی و استرداد وجه برای اقامتگاه <strong>{{ $accommodation->name }}</strong>.
         @endisset
-    </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
         @isset($isAllAccommodationsSelected)
             @if($this->showDashboardAccommodationFilter())
                 @include('components.dashboard.accommodation-filter', [
@@ -38,15 +35,13 @@
                 ])
             @endif
         @else
-            <a wire:navigate href="{{ $backRoute }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-right me-1"></i>بازگشت
-            </a>
             @if($panel === 'admin')
             <button type="button" wire:click="restoreDefaultCancellationPolicy" data-swal-confirm="سیاست کنسلی این اقامتگاه از تنظیمات سراسری بازگردانی شود؟" class="btn btn-sm btn-outline-warning">
                 <i class="bi bi-arrow-counterclockwise me-1"></i>بازگردانی از تنظیمات سراسری
             </button>
             @endif
         @endisset
+        </div>
     </div>
 </div>
 

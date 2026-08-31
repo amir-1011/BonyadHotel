@@ -157,6 +157,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+    @include('partials._persian-digits-script')
 </head>
 <body>
 <div class="wrap">

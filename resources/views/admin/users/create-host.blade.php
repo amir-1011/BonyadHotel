@@ -1,9 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-</div>
-
 <div class="row g-3">
     <div class="col-12 col-lg-8">
         <div class="card shadow-sm">
@@ -39,11 +35,19 @@
                     <div class="col-12 col-md-6">
                         @include('components.admin.host-position-select', ['positionOptions' => $hostPositionOptions])
                     </div>
+
+                    <x-accounting.province-select
+                        :provinces="$provinces"
+                        :show-code-preview="true"
+                        :preview-code="$this->previewNextPersonnelCode()"
+                        indicator-label="شاخص ۷ (پرسنل)"
+                        hint="پیش‌فرض از استان اولین اقامتگاه انتخاب‌شده است؛ در صورت نیاز می‌توانید تغییر دهید."
+                    />
                 </div>
 
                 <div class="alert alert-light border small mt-3 mb-0">
                     <i class="bi bi-upc-scan me-1 text-primary"></i>
-                    کد پرسنلی بر اساس <strong>اولین اقامتگاه</strong> انتخاب‌شده (استان شهر/شهرستان) خودکار تخصیص می‌یابد:
+                    کد پرسنلی بر اساس <strong>استان انتخاب‌شده</strong> خودکار تخصیص می‌یابد:
                     <strong dir="ltr">{{ $this->previewNextPersonnelCode() }}</strong>
                     <span class="text-muted">— {{ $this->previewPersonnelProvinceLabel() }}</span>
                 </div>
@@ -75,7 +79,7 @@
                 @error('selectedAccommodationIds')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
 
                 @if($accommodations->isNotEmpty())
-                <p class="text-muted small mb-3">حداقل یک اقامتگاه انتخاب کنید تا استان و کد پرسنلی (شاخص ۷) از روی شهر/شهرستان همان اقامتگاه تعیین شود.</p>
+                <p class="text-muted small mb-3">حداقل یک اقامتگاه انتخاب کنید. استان پیش‌فرض کدینگ از اولین اقامتگاه انتخاب‌شده تعیین می‌شود و قابل تغییر است.</p>
                 <div class="row g-2">
                     @foreach($accommodations as $acc)
                     <div class="col-12">

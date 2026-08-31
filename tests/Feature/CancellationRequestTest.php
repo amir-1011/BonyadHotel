@@ -594,6 +594,409 @@ class CancellationRequestTest extends TestCase
         $this->assertSame(10, $otherPreview['percentage']);
     }
 
+    // ── Zero-refund auto-completion ───────────────────────────────────────
+
+    public function test_zero_percent_policy_tier_produces_zero_refund_amount(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+
+        RefundPolicyTier::query()
+            ->forAccommodation($this->accommodation->id)
+            ->update(['refund_percentage' => 0]);
+
+        app(RefundPolicyService::class)->clearCache($this->accommodation->id);
+
+        $booking = $this->makeBooking(['check_in' => '2026-07-24', 'total_price' => 2_000_000]);
+        $preview = app(RefundPolicyService::class)->previewForBooking($booking);
+
+        $this->assertSame(0, $preview['percentage']);
+        $this->assertSame(0, $preview['amount']);
+    }
+
+    public function test_mid_stay_on_checkout_day_with_no_remaining_nights_has_zero_refund(): void
+    {
+        // 3-night stay ending today: no nights remain → basis = 0 → refund = 0
+        Carbon::setTestNow('2026-07-27 10:00:00');
+
+        $booking = $this->makeBooking([
+            'check_in'    => '2026-07-24',
+            'check_out'   => '2026-07-27',
+            'nights'      => 3,
+            'total_price' => 3_000_000,
+        ]);
+
+        $preview = app(RefundPolicyService::class)->previewForBooking($booking);
+
+        $this->assertSame(0, $preview['nights_remaining']);
+        $this->assertSame(0, $preview['basis_amount']);
+        $this->assertSame(0, $preview['amount']);
+    }
+
+    public function test_staff_direct_submit_with_zero_override_auto_completes_entire_flow(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->host)
+            ->test(HostBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '6104337812345678')
+            ->set('cancellationRefundAmount', 0)
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors()
+            ->assertSet('showCancellationRequestModal', false)
+            ->assertSet('showSettleModal', false);
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertNotNull($request);
+        $this->assertSame('approved', $request->status);
+        $this->assertSame(0, $request->refund_amount);
+        $this->assertNotNull($request->decided_at);
+        $this->assertSame($this->host->id, $request->decided_by);
+        $this->assertTrue($request->isSettled());
+        $this->assertSame(0, $request->settled_amount);
+        $this->assertNotNull($request->settled_at);
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertFalse($booking->fresh()->canRequestCancellation());
+    }
+
+    public function test_admin_direct_submit_with_zero_policy_refund_auto_completes(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+
+        RefundPolicyTier::query()
+            ->forAccommodation($this->accommodation->id)
+            ->update(['refund_percentage' => 0]);
+
+        app(RefundPolicyService::class)->clearCache($this->accommodation->id);
+
+        $booking = $this->makeBooking(['check_in' => '2026-07-24', 'total_price' => 2_000_000]);
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->admin)
+            ->test(AdminBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->assertSet('cancellationRefundAmount', 0)
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '6104337812345678')
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors()
+            ->assertSet('showSettleModal', false);
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertTrue($request->isSettled());
+        $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_guest_zero_refund_submission_stays_pending_until_staff_approves(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+
+        RefundPolicyTier::query()
+            ->forAccommodation($this->accommodation->id)
+            ->update(['refund_percentage' => 0]);
+
+        app(RefundPolicyService::class)->clearCache($this->accommodation->id);
+
+        $booking = $this->makeBooking(['check_in' => '2026-07-24', 'total_price' => 2_000_000]);
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->guest)
+            ->test(GuestBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '6104337812345678')
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors();
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertSame('pending', $request->status);
+        $this->assertFalse($request->isSettled());
+        $this->assertSame('confirmed', $booking->fresh()->status);
+    }
+
+    public function test_guest_zero_refund_does_not_require_account_number(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+
+        RefundPolicyTier::query()
+            ->forAccommodation($this->accommodation->id)
+            ->update(['refund_percentage' => 0]);
+
+        app(RefundPolicyService::class)->clearCache($this->accommodation->id);
+
+        $booking = $this->makeBooking(['check_in' => '2026-07-24', 'total_price' => 2_000_000]);
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->guest)
+            ->test(GuestBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '')
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors();
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertNotNull($request);
+        $this->assertSame(0, $request->refund_amount);
+        $this->assertSame('', $request->refund_account_number);
+    }
+
+    public function test_staff_zero_refund_override_does_not_require_account_number(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->host)
+            ->test(HostBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('cancellationRefundAmount', 0)
+            ->set('refundAccountNumber', '')
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors()
+            ->assertSet('showCancellationRequestModal', false);
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertNotNull($request);
+        $this->assertSame(0, $request->refund_amount);
+        $this->assertSame('', $request->refund_account_number);
+        $this->assertTrue($request->isSettled());
+    }
+
+    public function test_non_zero_refund_still_requires_account_number(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->guest)
+            ->test(GuestBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '')
+            ->call('submitCancellationRequest')
+            ->assertHasErrors(['refundAccountNumber']);
+    }
+
+    public function test_service_create_with_zero_refund_allows_empty_account_number(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        $request = app(CancellationRequestService::class)->create($booking, [
+            'cancellation_reason_id' => $reason->id,
+            'refund_account_number'  => '',
+            'refund_amount'          => 0,
+        ], $this->guest);
+
+        $this->assertSame(0, $request->refund_amount);
+        $this->assertSame('', $request->refund_account_number);
+    }
+
+    public function test_approving_zero_refund_request_auto_settles_without_settle_modal(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        $request = app(CancellationRequestService::class)->create($booking, [
+            'cancellation_reason_id' => $reason->id,
+            'refund_account_number'  => '6104337812345678',
+            'refund_amount'          => 0,
+        ], $this->guest);
+
+        Livewire::actingAs($this->admin)
+            ->test(AdminBookingShow::class, ['booking' => $booking])
+            ->call('approveCancellationRequest', $request->id)
+            ->assertHasNoErrors()
+            ->assertSet('showSettleModal', false);
+
+        $request->refresh();
+        $this->assertSame('approved', $request->status);
+        $this->assertTrue($request->isSettled());
+        $this->assertSame(0, $request->settled_amount);
+        $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_admin_index_approve_zero_refund_auto_settles(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        $request = app(CancellationRequestService::class)->create($booking, [
+            'cancellation_reason_id' => $reason->id,
+            'refund_account_number'  => '6104337812345678',
+            'refund_amount'          => 0,
+        ], $this->guest);
+
+        Livewire::actingAs($this->admin)
+            ->test(AdminCancellationRequestIndex::class)
+            ->call('approve', $request->id)
+            ->assertHasNoErrors()
+            ->assertSet('showSettleModal', false);
+
+        $request->refresh();
+        $this->assertTrue($request->isSettled());
+        $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_host_index_approve_zero_refund_auto_settles(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        $request = app(CancellationRequestService::class)->create($booking, [
+            'cancellation_reason_id' => $reason->id,
+            'refund_account_number'  => '6104337812345678',
+            'refund_amount'          => 0,
+        ], $this->guest);
+
+        Livewire::actingAs($this->host)
+            ->test(HostCancellationRequestIndex::class)
+            ->call('approve', $request->id)
+            ->assertHasNoErrors()
+            ->assertSet('showSettleModal', false);
+
+        $request->refresh();
+        $this->assertTrue($request->isSettled());
+    }
+
+    public function test_mark_settled_without_payment_rejects_non_zero_refund(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $request = $this->createPendingRequest($booking);
+
+        app(CancellationRequestService::class)->approve($request->fresh(), $this->admin);
+
+        $this->expectException(ValidationException::class);
+
+        app(CancellationRequestService::class)->markSettledWithoutPayment($request->fresh(), $this->admin);
+    }
+
+    public function test_legacy_stuck_zero_refund_resolved_via_open_settle_modal(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        $request = CancellationRequest::create([
+            'booking_id'             => $booking->id,
+            'requested_by'           => $this->guest->id,
+            'status'                   => CancellationRequest::STATUS_APPROVED,
+            'cancellation_reason_id'   => $reason->id,
+            'reason_text'              => $reason->label,
+            'refund_account_number'    => '6104337812345678',
+            'days_before_checkin'      => 5,
+            'refund_percentage'        => 0,
+            'refund_amount'            => 0,
+            'decided_by'               => $this->admin->id,
+            'decided_at'               => now(),
+        ]);
+
+        $booking->update(['status' => 'cancelled']);
+
+        Livewire::actingAs($this->admin)
+            ->test(AdminBookingShow::class, ['booking' => $booking->fresh()])
+            ->call('openSettleModal', $request->id)
+            ->assertSet('showSettleModal', false);
+
+        $request->refresh();
+        $this->assertTrue($request->isSettled());
+        $this->assertSame(0, $request->settled_amount);
+    }
+
+    public function test_non_zero_refund_still_requires_manual_settlement(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking();
+        $request = $this->createPendingRequest($booking);
+
+        Livewire::actingAs($this->admin)
+            ->test(AdminBookingShow::class, ['booking' => $booking])
+            ->call('approveCancellationRequest', $request->id)
+            ->assertHasNoErrors()
+            ->assertSet('showSettleModal', true)
+            ->assertSet('settlingRequestId', $request->id);
+
+        $request->refresh();
+        $this->assertFalse($request->isSettled());
+        $this->assertGreaterThan(0, $request->refund_amount);
+    }
+
+    public function test_staff_direct_submit_with_non_zero_refund_stays_pending(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+        $booking = $this->makeBooking(['check_in' => '2026-07-24', 'total_price' => 2_000_000]);
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->host)
+            ->test(HostBookingShow::class, ['booking' => $booking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '6104337812345678')
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors();
+
+        $request = CancellationRequest::where('booking_id', $booking->id)->first();
+        $this->assertSame('pending', $request->status);
+        $this->assertFalse($request->isSettled());
+        $this->assertSame('confirmed', $booking->fresh()->status);
+    }
+
+    public function test_zero_refund_approval_reverses_commission(): void
+    {
+        Carbon::setTestNow('2026-07-19 08:00:00');
+
+        $manualBooking = app(ManualBookingService::class)->create(
+            $this->accommodation,
+            [
+                'check_in'             => '2026-07-24',
+                'check_out'            => '2026-07-27',
+                'guests'               => 1,
+                'children_under_6'     => 0,
+                'veteran_type'         => null,
+                'booker_national_id'   => '1234567890',
+                'guest_contact_name'   => 'مهمان تست',
+                'guest_contact_mobile' => '09121234567',
+                'payment_method'       => 'cash',
+                'services'             => [],
+                'guest_details'        => [
+                    ['full_name' => 'مهمان تست', 'national_id' => '1234567890', 'mobile' => '09121234567', 'relation' => ''],
+                ],
+            ],
+            $this->admin,
+        );
+
+        $this->assertGreaterThan(0, PlatformCommissionEntry::where('booking_id', $manualBooking->id)->count());
+
+        $reason = $this->cancellationReasonFor($this->accommodation);
+
+        Livewire::actingAs($this->host)
+            ->test(HostBookingShow::class, ['booking' => $manualBooking])
+            ->call('openCancellationRequestModal')
+            ->set('cancellationReasonId', (string) $reason->id)
+            ->set('refundAccountNumber', '6104337812345678')
+            ->set('cancellationRefundAmount', 0)
+            ->call('submitCancellationRequest')
+            ->assertHasNoErrors();
+
+        $this->assertSame('cancelled', $manualBooking->fresh()->status);
+
+        $reversals = PlatformCommissionEntry::query()
+            ->where('booking_id', $manualBooking->id)
+            ->where('entry_type', PlatformCommissionEntry::TYPE_REVERSAL)
+            ->count();
+        $this->assertGreaterThan(0, $reversals);
+    }
+
     private function cancellationReasonFor(Accommodation $accommodation, bool $custom = false): CancellationReason
     {
         return CancellationReason::query()

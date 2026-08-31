@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\BookingServicesEditor;
 use App\Livewire\Host\BookingShow;
 use App\Models\Booking;
+use App\Models\BookingGuestDetail;
 use App\Models\BookingService;
 use App\Models\User;
 use Carbon\Carbon;
@@ -33,6 +34,12 @@ class BookingEditWindowTest extends TestCase
 
         $this->host = User::create(['name' => 'میزبان', 'mobile' => '09120000111']);
         $this->host->assignRole('host');
+        $this->host->update([
+            'host_panel_permissions' => [
+                'bookings.show'   => ['read'],
+                'bookings.guests' => ['edit'],
+            ],
+        ]);
         $accommodation->hosts()->attach($this->host->id);
 
         $this->admin = User::create(['name' => 'ادمین', 'mobile' => '09120000222']);
@@ -64,6 +71,13 @@ class BookingEditWindowTest extends TestCase
             'total'        => 100_000,
             'sort_order'   => 0,
         ]);
+
+        BookingGuestDetail::create([
+            'booking_id' => $this->booking->id,
+            'sort_order' => 0,
+            'full_name'  => 'مهمان اصلی',
+            'relation'   => BookingGuestDetail::RELATION_MAIN_GUEST,
+        ]);
     }
 
     public function test_booking_is_editable_through_check_out_day(): void
@@ -80,6 +94,7 @@ class BookingEditWindowTest extends TestCase
 
         $this->assertFalse($this->booking->isWithinBookingEditWindow());
         $this->assertFalse($this->booking->canEditBookingDetails($this->host));
+        $this->assertTrue($this->booking->canEditGuestDetails($this->host));
     }
 
     public function test_admin_can_edit_booking_after_check_out_day(): void
@@ -115,6 +130,24 @@ class BookingEditWindowTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(1, $this->booking->fresh()->services()->count());
+    }
+
+    public function test_host_can_save_guest_details_after_check_out_day(): void
+    {
+        Carbon::setTestNow('2026-07-16 09:00:00');
+
+        Livewire::actingAs($this->host)
+            ->test(BookingShow::class, ['booking' => $this->booking])
+            ->set('editableGuests.1.full_name', 'رضا موسوی')
+            ->call('saveGuestDetails', 1)
+            ->assertHasNoErrors();
+
+        $saved = BookingGuestDetail::where('booking_id', $this->booking->id)
+            ->where('sort_order', 1)
+            ->first();
+
+        $this->assertNotNull($saved);
+        $this->assertSame('رضا موسوی', $saved->full_name);
     }
 
     public function test_admin_can_add_service_after_check_out_day(): void

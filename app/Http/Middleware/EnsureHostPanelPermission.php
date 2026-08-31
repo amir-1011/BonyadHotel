@@ -44,7 +44,9 @@ class EnsureHostPanelPermission
             $deniedModule = HostPermissions::moduleForPage($required['page']);
 
             if ($deniedModule && $user->hasHostPanelAccess($deniedModule)) {
-                return redirect()->to(HostPermissions::landingRoute($deniedModule))
+                return redirect()->to(
+                    HostPermissions::landingRouteForGrants($deniedModule, $user->effectiveHostPermissionGrants())
+                )
                     ->with('error', 'به این بخش دسترسی ندارید.');
             }
 

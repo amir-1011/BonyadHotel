@@ -19,7 +19,7 @@
                 <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ $accommodation->name }}</div>
                 <div style="font-size:13px;color:var(--bnb-gray);"><i class="bi bi-geo-alt me-1"></i>{{ $accommodation->city->province->name ?? '' }} — {{ $accommodation->city->name ?? '' }}</div>
                 <div style="font-size:13px;color:var(--bnb-gray);"><i class="bi bi-house me-1"></i>{{ $accommodation->typeLabel() }} &middot; ظرفیت {{ $accommodation->capacity }} نفر</div>
-                <div style="font-size:14px;font-weight:600;color:var(--bnb-dark);margin-top:4px;">از {{ number_format($accommodation->price_per_night) }} تومان / شب</div>
+                <div style="font-size:14px;font-weight:600;color:var(--bnb-dark);margin-top:4px;">از {{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->price_per_night)) }} ریال / شب</div>
             </div>
         </div>
     </div>
@@ -72,23 +72,31 @@
             $base   = $nights * $accommodation->price_per_night;
             $user   = auth()->user();
             $disc   = $user ? (int)round($base * $user->discount_percentage / 100) : 0;
-            $total  = $base - $disc;
+            $subtotal = $base - $disc;
+            $commission = $subtotal > 0 ? (int) config('platform_commission.fixed_amount', 50_000) : 0;
+            $total  = $subtotal + $commission;
         @endphp
         <div style="background:var(--bnb-light);border-radius:10px;padding:16px;margin-bottom:20px;">
             <div style="font-size:13px;font-weight:700;color:var(--bnb-dark);margin-bottom:10px;">خلاصه هزینه</div>
             <div class="d-flex justify-content-between mb-1" style="font-size:13px;">
-                <span>{{ $nights }} شب × {{ number_format($accommodation->price_per_night) }} تومان</span>
-                <span>{{ number_format($base) }} تومان</span>
+                <span>{{ $nights }} شب × {{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->price_per_night)) }} ریال</span>
+                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($base)) }} ریال</span>
             </div>
             @if($disc > 0)
             <div class="d-flex justify-content-between mb-1" style="font-size:13px;color:var(--bnb-red);">
                 <span>تخفیف {{ $user->discount_percentage }}٪</span>
-                <span>− {{ number_format($disc) }} تومان</span>
+                <span>− {{ \App\Support\PdfPersian::toPersianDigits(number_format($disc)) }} ریال</span>
+            </div>
+            @endif
+            @if($commission > 0)
+            <div class="d-flex justify-content-between mb-1" style="font-size:13px;">
+                <span>کارمزد سامانه</span>
+                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($commission)) }} ریال</span>
             </div>
             @endif
             <div class="d-flex justify-content-between" style="font-size:15px;font-weight:700;color:var(--bnb-dark);border-top:1px solid var(--bnb-border);padding-top:10px;margin-top:6px;">
                 <span>مبلغ نهایی</span>
-                <span>{{ number_format($total) }} تومان</span>
+                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($total)) }} ریال</span>
             </div>
         </div>
         @endif

@@ -10,16 +10,8 @@
 
 <div>
 
-{{-- ── Page header ───────────────────────────────────── --}}
-<div class="ta-page-head d-flex justify-content-end">
-    <div class="d-flex align-items-center gap-2">
-        <a wire:navigate href="{{ route('host.accommodations.edit', $accommodation) }}" class="btn btn-light"><i class="bi bi-pencil me-2"></i>ویرایش</a>
-        <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id' => $accommodation->id]) }}" class="btn btn-primary"><i class="bi bi-calendar-check me-2"></i>رزروها</a>
-    </div>
-</div>
-
 {{-- ── Accommodation header card ───────────────────────── --}}
-<div class="ta-card mb-4">
+<div class="ta-card mb-3">
     <div class="ta-card__body">
         <div class="d-flex flex-wrap align-items-center gap-3">
             @if($accommodation->image)
@@ -36,29 +28,33 @@
                     <span class="badge bg-info">{{ $accommodation->typeLabel() }}</span>
                     <span class="badge {{ $accommodation->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $accommodation->is_active ? 'فعال' : 'غیرفعال' }}</span>
                     @if($reviewCount > 0)
-                    <span class="small text-warning fw-semibold"><i class="bi bi-star-fill me-1"></i>{{ number_format($avgRating,1) }} ({{ $reviewCount }} نظر)</span>
+                    <span class="small text-warning fw-semibold"><i class="bi bi-star-fill me-1"></i>{{ \App\Support\PdfPersian::toPersianDigits(number_format($avgRating,1)) }} ({{ $reviewCount }} نظر)</span>
                     @endif
                 </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <a wire:navigate href="{{ route('host.accommodations.edit', $accommodation) }}" class="btn btn-sm btn-light"><i class="bi bi-pencil me-1"></i>ویرایش</a>
+                <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id' => $accommodation->id]) }}" class="btn btn-sm btn-primary"><i class="bi bi-calendar-check me-1"></i>رزروها</a>
             </div>
         </div>
     </div>
 </div>
 
 {{-- ─── KPI Cards ─────────────────────────────────────────────────────────── --}}
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-3">
     @php
     $metrics = [
-        ['label'=>'کل درآمد (تومان)', 'value'=> number_format($totalRevenue), 'icon'=>'cash-stack',
+        ['label'=>'کل درآمد (ریال)', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($totalRevenue)), 'icon'=>'cash-stack',
          'pill'=> null, 'sub'=> $totalConfirmed . ' رزرو تأیید‌شده'],
-        ['label'=>'درآمد این ماه', 'value'=> number_format($thisMonth), 'icon'=>'calendar-month',
+        ['label'=>'درآمد این ماه', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($thisMonth)), 'icon'=>'calendar-month',
          'pill'=> $growthRate, 'sub'=> $growthRate !== null ? 'نسبت به ماه قبل' : 'ماه اول'],
-        ['label'=>'درآمد این هفته', 'value'=> number_format($thisWeek), 'icon'=>'calendar-week',
+        ['label'=>'درآمد این هفته', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($thisWeek)), 'icon'=>'calendar-week',
          'pill'=> null, 'sub'=> 'از ابتدای هفته جاری'],
-        ['label'=>'درآمد امروز', 'value'=> number_format($today), 'icon'=>'sun',
+        ['label'=>'درآمد امروز', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($today)), 'icon'=>'sun',
          'pill'=> null, 'sub'=> \Morilog\Jalali\Jalalian::fromCarbon(now())->format('Y/m/d')],
-        ['label'=>'میانگین هر رزرو', 'value'=> number_format($avgRevPerBooking), 'icon'=>'calculator',
-         'pill'=> null, 'sub'=> 'تومان / رزرو'],
-        ['label'=>'کل رزروها', 'value'=> number_format($totalBookings), 'icon'=>'calendar-check',
+        ['label'=>'میانگین هر رزرو', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($avgRevPerBooking)), 'icon'=>'calculator',
+         'pill'=> null, 'sub'=> 'ریال / رزرو'],
+        ['label'=>'کل رزروها', 'value'=> \App\Support\PdfPersian::toPersianDigits(number_format($totalBookings)), 'icon'=>'calendar-check',
          'pill'=> null, 'sub'=> $totalConfirmed . ' تأیید / ' . $totalPending . ' انتظار / ' . $totalCancelled . ' لغو'],
     ];
     @endphp
@@ -82,7 +78,7 @@
 </div>
 
 {{-- ─── Charts Row 1: Daily Revenue + Status Doughnut ─────────────────────── --}}
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-12 col-xl-8">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -118,7 +114,7 @@
                     <div class="text-center">
                         <div style="width:10px;height:10px;border-radius:50%;background:{{ $c }};display:inline-block;margin-left:4px"></div>
                         <span>{{ $l }}</span>
-                        <div class="fw-bold text-dark">{{ number_format($s->count) }}</div>
+                        <div class="fw-bold text-dark">{{ \App\Support\PdfPersian::toPersianDigits(number_format($s->count)) }}</div>
                     </div>
                     @endforeach
                 </div>
@@ -128,7 +124,7 @@
 </div>
 
 {{-- ── Monthly bar + room-type breakdown ─────────────────── --}}
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-12 col-xl-7">
         <div class="ta-card h-100">
             <div class="ta-card__head">
@@ -160,7 +156,7 @@
                             <span style="width:10px;height:10px;border-radius:50%;background:{{ $rtColors[$idx % count($rtColors)] }};display:inline-block;flex-shrink:0"></span>
                             <span class="fw-semibold text-dark text-truncate">{{ $rt->rt_name }}</span>
                         </span>
-                        <span class="text-muted" style="font-size:.78rem">{{ number_format($rt->total) }} ت &mdash; {{ number_format($rt->count) }} رزرو</span>
+                        <span class="text-muted" style="font-size:.78rem">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rt->total)) }} ریال &mdash; {{ \App\Support\PdfPersian::toPersianDigits(number_format($rt->count)) }} رزرو</span>
                     </div>
                     @endforeach
                 </div>
@@ -171,7 +167,7 @@
 </div>
 
 {{-- ─── Growth Rate Visual + Occupancy Info ───────────────────────────────── --}}
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-12 col-md-4">
         <div class="ta-card h-100">
             <div class="ta-card__body text-center">
@@ -181,9 +177,9 @@
                     {{ $growthRate >= 0 ? '+' : '' }}{{ $growthRate }}٪
                 </div>
                 <div class="text-muted small mt-1">
-                    ماه قبل: {{ number_format($lastMonth) }} ت
+                    ماه قبل: {{ \App\Support\PdfPersian::toPersianDigits(number_format($lastMonth)) }} ریال
                     <i class="bi bi-arrow-left-right mx-1"></i>
-                    ماه جاری: {{ number_format($thisMonth) }} ت
+                    ماه جاری: {{ \App\Support\PdfPersian::toPersianDigits(number_format($thisMonth)) }} ریال
                 </div>
                 @else
                 <div class="fw-bold text-muted" style="font-size:2.2rem">—</div>
@@ -210,7 +206,7 @@
                 <div class="fw-bold fs-5 text-dark mt-2">{{ $accommodation->rooms }} اتاق / {{ $accommodation->capacity }} نفر</div>
                 <div class="text-muted small mt-1">{{ $accommodation->roomTypes->count() }} نوع اتاق ثبت‌شده</div>
                 @if($accommodation->price_per_night > 0)
-                <div class="text-muted small">نرخ پایه: {{ number_format($accommodation->price_per_night) }} ت/شب/تخت</div>
+                <div class="text-muted small">نرخ پایه: {{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->price_per_night)) }} ریال/شب/تخت</div>
                 @endif
             </div>
         </div>
@@ -250,7 +246,7 @@
                         <td class="small">{{ $b->check_in ? \Morilog\Jalali\Jalalian::fromCarbon($b->check_in)->format('Y/m/d') : '—' }}</td>
                         <td class="small">{{ $b->check_out ? \Morilog\Jalali\Jalalian::fromCarbon($b->check_out)->format('Y/m/d') : '—' }}</td>
                         <td class="small text-center">{{ $b->nights }}</td>
-                        <td class="small">{{ number_format($b->total_price) }} <span class="text-muted">ت</span></td>
+                        <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }} <span class="text-muted">ریال</span></td>
                         <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                         <td>
                             <a wire:navigate href="{{ route('host.bookings.show', $b) }}" class="btn btn-sm btn-outline-primary" style="padding:.15rem .45rem;font-size:.75rem"><i class="bi bi-eye"></i></a>
@@ -284,7 +280,7 @@
 
     new ApexCharts(document.querySelector('#chart-daily'), {
         series: [
-            { name: 'درآمد (تومان)', type: 'area', data: dailyTotals },
+            { name: 'درآمد (ریال)', type: 'area', data: dailyTotals },
             { name: 'تعداد رزرو',   type: 'line', data: dailyCounts }
         ],
         chart: { height: 300, toolbar: { show: false }, fontFamily: 'Vazirmatn, sans-serif' },
@@ -297,7 +293,7 @@
             { labels: { formatter: v => persianNum(Math.round(v)), style: { colors: '#667085' } } },
             { opposite: true, labels: { formatter: v => persianNum(v), style: { colors: '#667085' } } }
         ],
-        tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v) + ' ت' }, { formatter: v => persianNum(v) + ' رزرو' }] },
+        tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v) + ' ریال' }, { formatter: v => persianNum(v) + ' رزرو' }] },
         grid: { borderColor: '#f2f4f7', strokeDashArray: 4 },
         legend: { show: false }
     }).render();
@@ -332,7 +328,7 @@
     const monthlyData = @json($monthlyRevenue);
     new ApexCharts(document.querySelector('#chart-monthly'), {
         series: [
-            { name: 'درآمد (تومان)', type: 'bar',  data: monthlyData.map(r => r.total) },
+            { name: 'درآمد (ریال)', type: 'bar',  data: monthlyData.map(r => r.total) },
             { name: 'تعداد رزرو',   type: 'line', data: monthlyData.map(r => r.count) }
         ],
         chart: { height: 280, toolbar: { show: false }, fontFamily: 'Vazirmatn, sans-serif' },
@@ -348,10 +344,10 @@
             tickAmount: 12, axisBorder: { show: false }, axisTicks: { show: false }
         },
         yaxis: [
-            { seriesName: 'درآمد (تومان)', labels: { formatter: v => persianNum(Math.round(v)), style: { colors: '#667085' } } },
+            { seriesName: 'درآمد (ریال)', labels: { formatter: v => persianNum(Math.round(v)), style: { colors: '#667085' } } },
             { seriesName: 'تعداد رزرو', opposite: true, labels: { formatter: v => persianNum(Math.round(v)), style: { colors: '#667085' } } }
         ],
-        tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v) + ' ت' }, { formatter: v => persianNum(v) + ' رزرو' }] },
+        tooltip: { shared: true, intersect: false, y: [{ formatter: v => persianNum(v) + ' ریال' }, { formatter: v => persianNum(v) + ' رزرو' }] },
         grid: { borderColor: '#f2f4f7', strokeDashArray: 4 },
         legend: { show: true, position: 'top', horizontalAlign: 'right', fontFamily: 'Vazirmatn, sans-serif', fontSize: '12px', markers: { radius: 99 } }
     }).render();

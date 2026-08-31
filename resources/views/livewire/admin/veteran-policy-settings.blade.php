@@ -1,9 +1,9 @@
 <div wire:key="veteran-policy-{{ $filterKey }}">
     <x-veteran-policy.discount-matrix-styles />
 
-    <div class="ta-page-head mb-4">
-        <div>
-            <p class="text-muted small mb-0">
+    <div class="card shadow-sm mb-3">
+        <div class="ta-list-chrome">
+            <div class="small text-muted min-w-0 flex-grow-1">
                 @if($isAllAccommodationsSelected)
                     مدیریت درصد تخفیف اقامت، سقف استفاده و تخفیف هر خدمت — تغییرات این صفحه روی <strong>همه {{ $accommodationCount }} اقامتگاه</strong> اعمال می‌شود.
                 @elseif($scopedAccommodationCount === 1)
@@ -14,20 +14,19 @@
                 @else
                     تنظیمات ایثارگری برای <strong>{{ $scopedAccommodationCount }} اقامتگاه</strong> انتخاب‌شده — تغییرات فقط روی اقامتگاه‌های فیلترشده اعمال می‌شود.
                 @endif
-            </p>
-        </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            @if($this->showDashboardAccommodationFilter())
-                @include('components.dashboard.accommodation-filter', [
-                    'hint' => 'تغییرات پس از «اعمال» روی تنظیمات ایثارگری اعمال می‌شود',
-                ])
-            @endif
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <x-tutorial-videos variant="inline" :videos="[
+                    ['label' => 'قوانین ایثارگری', 'file' => 'قوانین ایثارگری.mp4'],
+                ]" />
+                @if($this->showDashboardAccommodationFilter())
+                    @include('components.dashboard.accommodation-filter', [
+                        'hint' => 'تغییرات پس از «اعمال» روی تنظیمات ایثارگری اعمال می‌شود',
+                    ])
+                @endif
+            </div>
         </div>
     </div>
-
-    <x-tutorial-videos :videos="[
-        ['label' => 'قوانین ایثارگری', 'file' => 'قوانین ایثارگری.mp4'],
-    ]" />
 
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
@@ -84,7 +83,7 @@
                                 </th>
                                 <th style="width:90px" class="d-none">
                                     <span class="d-inline-flex align-items-center gap-1">
-                                        شب/تکفل
+                                        سقف کل/نفر
                                         <x-admin.column-help title="شب به ازای هر نفر تحت تکفل">
                                             تعداد شب اقامت مجاز <strong>به ازای هر نفر</strong> (شامل خود جانباز/مشمول و افراد تحت تکفل).
                                             <ul class="mt-2">
@@ -155,7 +154,7 @@
                                         :accommodations="$groupAccommodationsByKey[$group['key']] ?? []"
                                     />
                                 </td>
-                                <td><input type="number" wire:model="groups.{{ $i }}.accommodation_discount" min="0" max="100" class="form-control form-control-sm"></td>
+                                <td><x-veteran-policy.accommodation-discount-tiers :group-index="$i" :group="$group" /></td>
                                 <td class="d-none"><input type="number" wire:model="groups.{{ $i }}.nights_per_dependent" min="1" class="form-control form-control-sm"></td>
                                 <td><input type="number" wire:model="groups.{{ $i }}.max_nights_per_period" min="1" class="form-control form-control-sm"></td>
                                 <td><input type="number" wire:model="groups.{{ $i }}.period_months" min="1" class="form-control form-control-sm"></td>

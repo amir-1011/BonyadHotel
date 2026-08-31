@@ -1,9 +1,12 @@
-{{-- Physical room picker modal for manual booking --}}
+{{-- Physical room picker modal for manual booking.
+     Teleport to body so position:fixed is viewport-relative. Parent .card
+     uses contain:layout, which otherwise traps the overlay at the card top. --}}
+<div x-data="bnbRoomPicker()"
+     @manual-booking-open-room-picker.window="openPicker($event.detail)">
+<template x-teleport="body">
 <div id="bnb-room-picker-modal"
-     x-data="bnbRoomPicker()"
      x-show="open"
      x-cloak
-     @manual-booking-open-room-picker.window="openPicker($event.detail)"
      style="position:fixed;inset:0;z-index:1080;display:flex;align-items:center;justify-content:center;padding:16px;">
     <div style="position:absolute;inset:0;background:rgba(0,0,0,.5);" @click="close()"></div>
 
@@ -89,6 +92,8 @@
             </div>
         </div>
     </div>
+</div>
+</template>
 </div>
 
 @once

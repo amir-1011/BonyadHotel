@@ -2,12 +2,21 @@
 
 namespace App\Models;
 
+use App\Support\ProgramDocumentPaths;
 use App\Support\VeteranGroups;
 use App\Services\VeteranPolicyService;
 use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
 {
+    public const PAYMENT_CASH = 'cash';
+
+    public const PAYMENT_CARD_TERMINAL = 'card_terminal';
+
+    public const PAYMENT_MEDICAL_ACCOMMODATION = 'medical_accommodation';
+
+    public const PAYMENT_CREDIT = 'credit';
+
     protected $fillable = [
         'user_id', 'created_by', 'accommodation_id', 'room_type_id', 'room_rate_id',
         'check_in', 'check_out',
@@ -16,6 +25,10 @@ class Booking extends Model
         'nights', 'base_price', 'services_subtotal', 'discount_percentage',
         'veteran_type_applied', 'secondary_veteran_type_applied', 'veteran_accommodation_group_usage', 'discount_amount', 'total_price',
         'status', 'tracking_code', 'booking_source', 'payment_method',
+        'is_medical_accommodation', 'medical_referral_letter_path',
+        'is_credit', 'credit_letter_path',
+        'medical_tariff_id', 'medical_contract_id', 'medical_tariff_snapshot', 'medical_companion_count',
+        'program_employer_id', 'employer_debt_amount',
         'notes', 'guest_discount_snapshot', 'form_file_path',
     ];
 
@@ -25,6 +38,11 @@ class Booking extends Model
             'check_in'        => 'date',
             'check_out'       => 'date',
             'bill_full_rooms' => 'boolean',
+            'is_medical_accommodation' => 'boolean',
+            'is_credit' => 'boolean',
+            'medical_referral_letter_path' => 'array',
+            'credit_letter_path' => 'array',
+            'medical_tariff_snapshot' => 'array',
             'guest_discount_snapshot' => 'array',
             'veteran_accommodation_group_usage' => 'array',
         ];
@@ -88,6 +106,26 @@ class Booking extends Model
     public function beneficiaryCosts()
     {
         return $this->hasMany(BookingBeneficiaryCost::class)->orderBy('sort_order');
+    }
+
+    public function paymentRecords()
+    {
+        return $this->hasMany(BookingPaymentRecord::class)->orderByDesc('payment_at')->orderByDesc('id');
+    }
+
+    public function medicalTariff()
+    {
+        return $this->belongsTo(MedicalAccommodationTariff::class, 'medical_tariff_id');
+    }
+
+    public function medicalContract()
+    {
+        return $this->belongsTo(MedicalAccommodationContract::class, 'medical_contract_id');
+    }
+
+    public function employer()
+    {
+        return $this->belongsTo(ProgramEmployer::class, 'program_employer_id');
     }
 
     public function pendingCancellationRequest(): ?CancellationRequest
@@ -231,10 +269,163 @@ class Booking extends Model
     public function paymentMethodLabel(): string
     {
         return match ($this->payment_method) {
-            'cash'          => 'نقدی',
-            'card_terminal' => 'کارتخوان',
-            default         => '—',
+            self::PAYMENT_CASH => 'نقدی',
+            self::PAYMENT_CARD_TERMINAL => 'کارتخوان',
+            self::PAYMENT_MEDICAL_ACCOMMODATION => 'اسکان درمانی',
+            self::PAYMENT_CREDIT => 'اعتباری',
+            default => '—',
         };
+    }
+
+    public function isMedicalAccommodation(): bool
+    {
+        return (bool) $this->is_medical_accommodation
+            || $this->payment_method === self::PAYMENT_MEDICAL_ACCOMMODATION;
+    }
+
+    public function scopeMedicalAccommodation($query)
+    {
+        return $query->where(function ($inner) {
+            $inner->where('is_medical_accommodation', true)
+                ->orWhere('payment_method', self::PAYMENT_MEDICAL_ACCOMMODATION);
+        });
+    }
+
+    public function skipsCancellationPenalties(): bool
+    {
+        if (!$this->isMedicalAccommodation()) {
+            return false;
+        }
+
+        $setting = $this->accommodation?->medicalAccommodationSetting;
+
+        return $setting ? (bool) $setting->skip_cancellation_penalties : true;
+    }
+
+    public function guestPayableAmount(): int
+    {
+        return $this->isMedicalAccommodation() ? 0 : (int) $this->total_price;
+    }
+
+    public function employerDebtAmount(): int
+    {
+        return (int) $this->employer_debt_amount;
+    }
+
+    public function medicalTariffLabel(): ?string
+    {
+        $snapshot = $this->medical_tariff_snapshot;
+
+        if (is_array($snapshot) && !empty($snapshot['label'])) {
+            return (string) $snapshot['label'];
+        }
+
+        return $this->medicalTariff?->label;
+    }
+
+    public function medicalContractNumber(): ?string
+    {
+        $snapshot = $this->medical_tariff_snapshot;
+
+        if (is_array($snapshot) && !empty($snapshot['contract_number'])) {
+            return (string) $snapshot['contract_number'];
+        }
+
+        return $this->medicalContract?->contract_number;
+    }
+
+    public function canShortenStay(?User $user = null): bool
+    {
+        return $this->canExtendStay($user) && $this->skipsCancellationPenalties();
+    }
+
+    public function isCredit(): bool
+    {
+        return (bool) $this->is_credit
+            || $this->payment_method === self::PAYMENT_CREDIT;
+    }
+
+    public function billsAsRegularGuest(): bool
+    {
+        return $this->isMedicalAccommodation() || $this->isCredit();
+    }
+
+    /** @return list<string> */
+    public function medicalReferralLetterPaths(): array
+    {
+        return ProgramDocumentPaths::normalize($this->medical_referral_letter_path);
+    }
+
+    /** @return list<string> */
+    public function creditLetterPaths(): array
+    {
+        return ProgramDocumentPaths::normalize($this->credit_letter_path);
+    }
+
+    public function hasMedicalReferralLetters(): bool
+    {
+        return $this->medicalReferralLetterPaths() !== [];
+    }
+
+    public function hasCreditLetters(): bool
+    {
+        return $this->creditLetterPaths() !== [];
+    }
+
+    public function medicalReferralLetterUrl(?string $panel = null, int $index = 0): ?string
+    {
+        if (!isset($this->medicalReferralLetterPaths()[$index])) {
+            return null;
+        }
+
+        $panel = $this->resolveDocumentPanel($panel);
+        $params = ['booking' => $this, 'index' => $index];
+
+        return match ($panel) {
+            'admin' => route('admin.bookings.medical-referral', $params),
+            'host' => route('host.bookings.medical-referral', $params),
+            default => route('bookings.medical-referral', $params),
+        };
+    }
+
+    public function creditLetterUrl(?string $panel = null, int $index = 0): ?string
+    {
+        if (!isset($this->creditLetterPaths()[$index])) {
+            return null;
+        }
+
+        $panel = $this->resolveDocumentPanel($panel);
+        $params = ['booking' => $this, 'index' => $index];
+
+        return match ($panel) {
+            'admin' => route('admin.bookings.credit-letter', $params),
+            'host' => route('host.bookings.credit-letter', $params),
+            default => route('bookings.credit-letter', $params),
+        };
+    }
+
+    private function resolveDocumentPanel(?string $panel): string
+    {
+        if (in_array($panel, ['admin', 'host'], true)) {
+            return $panel;
+        }
+
+        $route = request()->route()?->getName() ?? '';
+        if (str_starts_with($route, 'admin.')) {
+            return 'admin';
+        }
+        if (str_starts_with($route, 'host.')) {
+            return 'host';
+        }
+
+        return 'web';
+    }
+
+    public function scopeConsumesVeteranQuota($query)
+    {
+        return $query
+            ->where('is_medical_accommodation', false)
+            ->where('is_credit', false);
     }
 
     public function roomSubtotal(): int
@@ -372,6 +563,18 @@ class Booking extends Model
 
     public function veteranDiscountLabel(): string
     {
+        if ($this->isMedicalAccommodation()) {
+            $tariff = $this->medicalTariffLabel();
+
+            return $tariff
+                ? 'اسکان درمانی — ' . $tariff
+                : 'اسکان درمانی (مهمان عادی)';
+        }
+
+        if ($this->isCredit()) {
+            return 'اعتباری (مهمان عادی)';
+        }
+
         if ($this->veteran_type_applied) {
             return $this->veteranLabelApplied();
         }
@@ -654,6 +857,26 @@ class Booking extends Model
         }
 
         return $this->isWithinBookingEditWindow();
+    }
+
+    /**
+     * Guest names and contact details may be edited after check-out for active bookings.
+     */
+    public function canEditGuestDetails(?User $user = null): bool
+    {
+        return in_array($this->status, ['pending', 'confirmed'], true);
+    }
+
+    /**
+     * Active bookings may have their check-out extended regardless of the edit window.
+     */
+    public function canExtendStay(?User $user = null): bool
+    {
+        if (!in_array($this->status, ['pending', 'confirmed'], true)) {
+            return false;
+        }
+
+        return !$this->hasPendingCancellationRequest();
     }
 
     public function canEditServices(): bool

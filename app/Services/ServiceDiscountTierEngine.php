@@ -165,14 +165,14 @@ class ServiceDiscountTierEngine
         $unitLabel = $units === 1 ? '۱ جلسه' : $units . ' جلسه';
 
         return match ($item['type'] ?? '') {
-            self::TYPE_FREE => $unitLabel . ' رایگان (تخفیف ' . number_format($amount) . ' ت)',
+            self::TYPE_FREE => $unitLabel . ' رایگان (تخفیف ' . number_format($amount) . ' ریال)',
             self::TYPE_FIXED_PAY => $unitLabel . ' با مبلغ ثابت '
-                . number_format((int) ($item['pay_amount'] ?? 0)) . ' ت '
-                . '(تخفیف ' . number_format($amount) . ' ت)',
+                . number_format((int) ($item['pay_amount'] ?? 0)) . ' ریال '
+                . '(تخفیف ' . number_format($amount) . ' ریال)',
             self::TYPE_PERCENTAGE => $unitLabel . ' با '
                 . (int) ($item['discount_percentage'] ?? 0) . '٪ تخفیف '
-                . '(− ' . number_format($amount) . ' ت)',
-            default => 'تخفیف ' . number_format($amount) . ' ت',
+                . '(− ' . number_format($amount) . ' ریال)',
+            default => 'تخفیف ' . number_format($amount) . ' ریال',
         };
     }
 

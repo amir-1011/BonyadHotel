@@ -49,7 +49,7 @@ class CancellationRequestIndex extends Component
             return;
         }
 
-        $this->presentSettleModal($request->fresh());
+        $this->presentSettleModalAfterApproval($request->fresh());
     }
 
     public function submitReject(int $requestId, string $rejectionReason): void
@@ -76,6 +76,18 @@ class CancellationRequestIndex extends Component
         $request = CancellationRequest::with('booking')->findOrFail($requestId);
         if (!$request->isApproved() || $request->isSettled()) {
             $this->dispatch('toast', type: 'error', message: 'این درخواست قابل تسویه نیست.');
+            return;
+        }
+
+        if ($request->hasZeroRefund()) {
+            try {
+                app(CancellationRequestService::class)->markSettledWithoutPayment($request, Auth::user());
+            } catch (ValidationException $e) {
+                $this->dispatch('toast', type: 'error', message: collect($e->errors())->flatten()->first() ?? 'خطا در تسویه درخواست.');
+                return;
+            }
+
+            $this->dispatch('toast', type: 'success', message: 'درخواست با مبلغ استرداد صفر تسویه شد.');
             return;
         }
 

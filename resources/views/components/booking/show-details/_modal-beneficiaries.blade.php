@@ -11,7 +11,7 @@
             <tr>
                 <th>ذینفع</th>
                 <th>شناسه</th>
-                <th>بدهی (تومان)</th>
+                <th>بدهی (ریال)</th>
                 <th>کاربر متصل</th>
                 <th>مدارک</th>
             </tr>
@@ -26,7 +26,7 @@
                     @endif
                 </td>
                 <td class="small">{{ $cost->beneficiary?->beneficiary_code ?? '—' }}</td>
-                <td class="fw-semibold">{{ number_format($cost->debt_amount) }}</td>
+                <td class="fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($cost->debt_amount)) }}</td>
                 <td class="small">
                     @php $linkedUser = $cost->user ?? $cost->beneficiary?->user; @endphp
                     @if($linkedUser && $panel === 'admin')

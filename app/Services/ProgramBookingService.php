@@ -203,6 +203,47 @@ class ProgramBookingService
         });
     }
 
+    public function updateFinancial(
+        Program $program,
+        int $basePrice,
+        int $discountAmount,
+        int $depositAmount,
+    ): Program {
+        return DB::transaction(function () use ($program, $basePrice, $discountAmount, $depositAmount) {
+            $program = $program->fresh(['booking']);
+            $booking = $program->booking;
+
+            abort_unless($booking, 422, 'رزرو مرتبط با این برنامه یافت نشد.');
+
+            $servicesSubtotal = (int) ($program->services_subtotal ?? $booking->services_subtotal ?? 0);
+            $totalAmount = max(0, $basePrice + $servicesSubtotal - $discountAmount);
+
+            $program->update([
+                'base_price'      => $basePrice,
+                'discount_amount' => $discountAmount,
+                'deposit_amount'  => $depositAmount,
+                'total_amount'    => $totalAmount,
+            ]);
+
+            $booking->update([
+                'base_price'        => $basePrice + $servicesSubtotal,
+                'services_subtotal' => $servicesSubtotal,
+                'discount_amount'   => $discountAmount,
+                'total_price'       => $totalAmount,
+            ]);
+
+            $this->commission->syncBookingCommissions($booking->fresh());
+
+            return $program->fresh([
+                'booking.services',
+                'booking.guestDetails',
+                'beneficiaryCosts.beneficiary',
+                'employer',
+                'accommodation.city.province',
+            ]);
+        });
+    }
+
     /**
      * @param  array<int, array<string, mixed>>  $lines
      * @return array<int, array{room_type_id:int, room_rate_id:?int, room_id:int, room_name:string}>
@@ -298,8 +339,9 @@ class ProgramBookingService
     private function mapPaymentMethod(string $paymentType): ?string
     {
         return match ($paymentType) {
-            Program::PAYMENT_CREDIT, Program::PAYMENT_SUPPORTIVE => 'cash',
-            default => 'cash',
+            Program::PAYMENT_CREDIT => Booking::PAYMENT_CREDIT,
+            Program::PAYMENT_SUPPORTIVE => Booking::PAYMENT_CASH,
+            default => Booking::PAYMENT_CASH,
         };
     }
 

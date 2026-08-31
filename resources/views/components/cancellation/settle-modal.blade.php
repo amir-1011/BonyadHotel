@@ -1,8 +1,8 @@
 @if($showSettleModal)
 <div id="cancellation-settle-modal-root">
 <div class="modal-backdrop fade show" style="z-index:1050;"></div>
-<div class="modal fade show" style="display:block;z-index:1055;" tabindex="-1" role="dialog" wire:keydown.escape="closeSettleModal">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+<div class="modal fade show cancellation-livewire-modal" style="display:block;z-index:1055;" tabindex="-1" role="dialog" wire:keydown.escape="closeSettleModal">
+    <div class="modal-dialog" role="document">
         <div class="modal-content" style="border-top:4px solid #2563eb;">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-cash-coin text-primary me-2"></i>ثبت تسویه استرداد وجه</h5>
@@ -38,7 +38,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold small">مبلغ واریز (تومان) <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold small">مبلغ واریز (ریال) <span class="text-danger">*</span></label>
                         <x-money-input wire:model="settleAmount" class="form-control @error('settleAmount') is-invalid @enderror" min="1" />
                         @error('settleAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>

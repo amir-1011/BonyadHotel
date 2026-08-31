@@ -237,8 +237,10 @@ class ManualBookingFullFlowTest extends TestCase
             ->set('guestDetails.0.services.0.service_catalog_id', (string) $pool->id)
             ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
             ->set('guestDetails.0.services.0.quantity', 3)
+            ->call('confirmGuestService', 0, 0)
             ->set('guestDetails.1.services.0.service_catalog_id', (string) $pool->id)
             ->set('guestDetails.1.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->call('confirmGuestService', 1, 0)
             ->set('paymentMethod', 'cash');
 
         $pricing = $component->get('pricingPreview');
@@ -282,6 +284,7 @@ class ManualBookingFullFlowTest extends TestCase
             ->set('guestDetails.0.services.0.excluded_from_veteran_quota', true)
             ->set('guestDetails.0.services.0.manual_discount_percentage', '25')
             ->set('guestDetails.0.services.0.manual_discount_reason', 'پرداخت مستقیم')
+            ->call('confirmGuestService', 0, 0)
             ->set('paymentMethod', 'cash')
             ->call('submit')
             ->assertSet('step', 5);
@@ -397,6 +400,60 @@ class ManualBookingFullFlowTest extends TestCase
             ->assertSet('step', 2);
     }
 
+    public function test_manual_booking_validation_messages_are_persian(): void
+    {
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('nextStep')
+            ->assertHasErrors(['checkIn', 'checkOut'])
+            ->assertSee('تاریخ ورود الزامی است')
+            ->assertSee('تاریخ خروج الزامی است')
+            ->assertDispatched('toast', function ($name, $params) {
+                $message = is_array($params) ? ($params['message'] ?? '') : '';
+
+                return str_contains($message, 'تاریخ ورود الزامی است')
+                    && str_contains($message, 'تاریخ خروج الزامی است');
+            })
+            ->assertDontSee('The check in field is required')
+            ->assertDontSee('The check out field is required');
+    }
+
+    public function test_manual_discount_percentage_range_validation_messages_are_persian(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id)
+            ->call('nextStep')
+            ->set('bookerNationalId', '9999888777')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'کاربر عادی')
+            ->set('guestContactMobile', '09199998887')
+            ->call('nextStep')
+            ->set('guestDetails.0.manual_discount_percentage', '150')
+            ->set('paymentMethod', 'cash')
+            ->call('nextStep')
+            ->assertHasErrors(['guestDetails.0.manual_discount_percentage'])
+            ->assertSee('درصد تخفیف نباید بیشتر از ۱۰۰ باشد')
+            ->assertDispatched('toast', fn ($name, $params) => str_contains(
+                is_array($params) ? ($params['message'] ?? '') : '',
+                'درصد تخفیف نباید بیشتر از ۱۰۰ باشد'
+            ))
+            ->assertDontSee('must not be greater than 100')
+            ->set('guestDetails.0.manual_discount_percentage', '-5')
+            ->call('nextStep')
+            ->assertHasErrors(['guestDetails.0.manual_discount_percentage'])
+            ->assertSee('درصد تخفیف نباید کمتر از ۰ باشد')
+            ->assertDontSee('must be at least 0');
+    }
+
     public function test_existing_guest_booker_skips_contact_validation(): void
     {
         $guest = User::create([
@@ -448,9 +505,77 @@ class ManualBookingFullFlowTest extends TestCase
             ->call('nextStep')
             ->set('guestDetails.1.manual_discount_percentage', '15')
             ->set('paymentMethod', 'cash')
+            ->call('nextStep')
+            ->assertHasErrors(['guestDetails.1.manual_discount_reason'])
+            ->assertSet('step', 3)
             ->call('submit')
             ->assertHasErrors(['guestDetails.1.manual_discount_reason'])
             ->assertSet('step', 3);
+    }
+
+    public function test_apply_main_manual_discount_to_all_guests_at_payment_step(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 3, $this->roomType->id, $this->roomRate->id)
+            ->call('nextStep')
+            ->set('bookerNationalId', '9999888777')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'کاربر عادی')
+            ->set('guestContactMobile', '09199998887')
+            ->call('nextStep')
+            ->set('guestDetails.0.manual_discount_percentage', '20')
+            ->set('guestDetails.0.manual_discount_reason', 'همکاری ویژه')
+            ->call('applyMainManualDiscountToAllGuests')
+            ->assertSet('guestDetails.1.manual_discount_percentage', '20')
+            ->assertSet('guestDetails.1.manual_discount_reason', 'همکاری ویژه')
+            ->assertSet('guestDetails.2.manual_discount_percentage', '20')
+            ->assertSet('guestDetails.2.manual_discount_reason', 'همکاری ویژه')
+            ->set('paymentMethod', 'cash')
+            ->call('nextStep')
+            ->assertSet('step', 4)
+            ->call('submit')
+            ->assertSet('step', 5);
+
+        $booking = Booking::latest('id')->first();
+        foreach ($booking->guestDetails as $guest) {
+            $this->assertSame(20, $guest->manual_discount_percentage);
+            $this->assertSame('همکاری ویژه', $guest->manual_discount_reason);
+        }
+    }
+
+    public function test_pending_guest_service_blocks_next_step_until_confirmed_or_removed(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+        [$pool, $variant] = $this->createPoolVariant(200_000);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز')
+            ->set('guestContactMobile', '09144401239')
+            ->call('nextStep')
+            ->call('addGuestService', 0)
+            ->set('guestDetails.0.services.0.service_catalog_id', (string) $pool->id)
+            ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
+            ->set('paymentMethod', 'cash')
+            ->call('nextStep')
+            ->assertHasErrors(['guestDetails.0.services.0.service_catalog_id'])
+            ->assertSet('step', 3)
+            ->call('confirmGuestService', 0, 0)
+            ->call('nextStep')
+            ->assertSet('step', 4);
     }
 
     public function test_service_manual_discount_requires_reason_when_excluded_from_quota(): void
@@ -474,10 +599,8 @@ class ManualBookingFullFlowTest extends TestCase
             ->set('guestDetails.0.services.0.service_catalog_variant_id', (string) $variant->id)
             ->set('guestDetails.0.services.0.excluded_from_veteran_quota', true)
             ->set('guestDetails.0.services.0.manual_discount_percentage', '10')
-            ->set('paymentMethod', 'cash')
-            ->call('submit')
-            ->assertHasErrors(['guestDetails.0.services.0.manual_discount_reason'])
-            ->assertSet('step', 3);
+            ->call('confirmGuestService', 0, 0)
+            ->assertHasErrors(['guestDetails.0.services.0.manual_discount_reason']);
     }
 
     public function test_veteran_eligible_guest_manual_discount_ignored_on_persist(): void
@@ -508,6 +631,65 @@ class ManualBookingFullFlowTest extends TestCase
         $this->assertNull($guestTwo->manual_discount_percentage);
         $this->assertNull($guestTwo->manual_discount_reason);
         $this->assertFalse($guestTwo->excluded_from_veteran_discount);
+    }
+
+    public function test_submit_preview_exposes_editable_price_confirmation(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(2);
+
+        $component = Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 4, $this->roomType->id, $this->roomRate->id, 0, false, 0, 4)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123456')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز تست')
+            ->set('guestContactMobile', '09144401234')
+            ->call('nextStep')
+            ->set('guestDetails.2.excluded_from_veteran_discount', true)
+            ->set('guestDetails.3.excluded_from_veteran_discount', true)
+            ->set('paymentMethod', 'card_terminal')
+            ->call('nextStep')
+            ->assertSet('step', 4);
+
+        $component->call('previewBookingPriceChange', 'submitManualBooking', [])
+            ->assertReturned(fn (array $result) => $result['error'] === false
+                && $result['affects_price'] === true
+                && $result['auto_delta'] === 0
+                && ($result['price_input_mode'] ?? '') === 'absolute'
+                && $result['current_total'] === 5_200_000
+                && $result['action_label'] === 'ثبت رزرو و صدور فیش');
+    }
+
+    public function test_execute_confirmed_submit_applies_custom_price_delta(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(2);
+
+        $component = Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 4, $this->roomType->id, $this->roomRate->id, 0, false, 0, 4)
+            ->call('nextStep')
+            ->set('bookerNationalId', '4440123999')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'جانباز تست قیمت')
+            ->set('guestContactMobile', '09144401299')
+            ->call('nextStep')
+            ->set('guestDetails.2.excluded_from_veteran_discount', true)
+            ->set('guestDetails.3.excluded_from_veteran_discount', true)
+            ->set('paymentMethod', 'card_terminal')
+            ->call('nextStep')
+            ->call('executeConfirmedPriceChange', 'submitManualBooking', 300_000, [])
+            ->assertSet('step', 5);
+
+        $booking = Booking::find($component->get('createdBookingId'));
+        $this->assertNotNull($booking);
+        $this->assertSame(5_500_000, (int) $booking->total_price);
     }
 
     /** @return array{0:ServiceCatalog,1:ServiceCatalogVariant} */

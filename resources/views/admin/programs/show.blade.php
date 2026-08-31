@@ -21,5 +21,8 @@
         <x-slot name="guestManager">
             @include('components.program.guest-list-manager', ['program' => $program, 'panel' => 'admin'])
         </x-slot>
+        <x-slot name="financialManager">
+            @include('components.program.financial-manager', ['program' => $program, 'panel' => 'admin'])
+        </x-slot>
     </x-program.show-details>
 </div>

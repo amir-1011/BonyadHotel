@@ -170,9 +170,14 @@
 @if($canEditGuestNames ?? false)
 <p class="text-muted small mt-2 mb-0">
     <i class="bi bi-pencil-square me-1"></i>
-    اطلاعات مهمانان (به‌جز مهمان اصلی) قابل ویرایش است و بر قیمت یا تخفیف اثر نمی‌گذارد.
+    اطلاعات مهمانان (به‌جز مهمان اصلی) قابل ویرایش است.
 </p>
 @endif
+
+@include('components.booking.show-details._add-guest-form', [
+    'booking' => $booking,
+    'canModifyBookingRooms' => $canModifyBookingRooms ?? false,
+])
 <p class="text-muted small mt-3 mb-0">
     <i class="bi bi-info-circle me-1"></i>
     <strong>تخفیف اقامت</strong> (ستون بالا) با <strong>سهمیه/تخفیف خدمات</strong> (در بخش خدمات هر مهمان) متفاوت است.

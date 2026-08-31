@@ -16,9 +16,7 @@ if (! function_exists('parse_money_input')) {
             return null;
         }
 
-        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-        $latin   = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        $normalized = str_replace($persian, $latin, (string) $value);
+        $normalized = \App\Support\PdfPersian::toEnglishDigits((string) $value);
         $digits = preg_replace('/[^\d]/', '', $normalized);
 
         return $digits === '' ? null : (int) $digits;

@@ -1,10 +1,24 @@
 /**
- * Thousand-separator formatting for money inputs (Persian UI, Western digits + commas).
+ * Thousand-separator formatting for money inputs (Persian digits).
+ *
+ * This file is loaded as a classic script in admin/host layouts (no type="module").
+ * Do not add ESM imports here — Vite would emit `import` and the browser will throw.
  */
+function toEnDigits(value) {
+    if (window.BonyadDigits && typeof window.BonyadDigits.toEn === 'function') {
+        return window.BonyadDigits.toEn(value);
+    }
+
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+
+    return String(value ?? '')
+        .replace(/[۰-۹]/g, (d) => String(persian.indexOf(d)))
+        .replace(/[٠-٩]/g, (d) => String(arabic.indexOf(d)));
+}
 
 export function parseMoney(value) {
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
-    const normalized = String(value ?? '').replace(/[۰-۹]/g, (d) => String(persian.indexOf(d)));
+    const normalized = toEnDigits(value);
     const digits = normalized.replace(/[^\d]/g, '');
     return digits === '' ? 0 : parseInt(digits, 10);
 }
@@ -17,7 +31,7 @@ export function formatMoney(value) {
     if (Number.isNaN(n)) {
         return '';
     }
-    return n.toLocaleString('en-US');
+    return n.toLocaleString('fa-IR');
 }
 
 function registerAlpineMoneyInput() {
@@ -94,6 +108,76 @@ export function initMoneyInputs(root = document) {
     root.querySelectorAll('input.money-input').forEach(bindPlainMoneyInput);
 }
 
+function wireMoneyInputIsHealthy(el) {
+    const input = el.querySelector('input[type="text"]');
+    if (!input || !el._x_dataStack?.length) {
+        return false;
+    }
+
+    try {
+        const data = window.Alpine.$data(el);
+        return data && Object.prototype.hasOwnProperty.call(data, 'display');
+    } catch {
+        return false;
+    }
+}
+
+function initWireMoneyInputTrees(root = document) {
+    if (!window.Alpine) {
+        return;
+    }
+
+    registerAlpineMoneyInput();
+
+    const scope = root instanceof Element ? root : document;
+    const nodes = typeof scope.matches === 'function' && scope.matches('[x-data*="moneyInputWire"]')
+        ? [scope]
+        : [...scope.querySelectorAll('[x-data*="moneyInputWire"]')];
+
+    nodes.forEach((el) => {
+        if (el._x_dataStack?.length && typeof window.Alpine.destroyTree === 'function') {
+            if (wireMoneyInputIsHealthy(el)) {
+                return;
+            }
+
+            window.Alpine.destroyTree(el);
+        }
+
+        window.Alpine.initTree(el);
+    });
+}
+
+function bindLivewireMoneyInputHooks() {
+    if (document.body.dataset.moneyLivewireBound === '1') {
+        return;
+    }
+    document.body.dataset.moneyLivewireBound = '1';
+
+    const scan = ({ el }) => initWireMoneyInputTrees(el);
+
+    document.addEventListener('livewire:init', () => {
+        registerAlpineMoneyInput();
+        window.Livewire.hook('morph.added', scan);
+        window.Livewire.hook('morph.updated', scan);
+    });
+
+    document.addEventListener('livewire:initialized', () => {
+        if (typeof window.Livewire?.on !== 'function') {
+            return;
+        }
+
+        window.Livewire.on('cancellation-request-modal-opened', () => {
+            requestAnimationFrame(() => initWireMoneyInputTrees());
+        });
+
+        window.Livewire.on('cancellation-settle-modal-opened', () => {
+            requestAnimationFrame(() => initWireMoneyInputTrees());
+        });
+    });
+
+    document.addEventListener('livewire:updated', () => initWireMoneyInputTrees());
+}
+
 function stripMoneyInputsOnSubmit(event) {
     const form = event.target;
     if (!form || form.tagName !== 'FORM') {
@@ -110,6 +194,8 @@ function stripMoneyInputsOnSubmit(event) {
 function bootMoneyInput() {
     registerAlpineMoneyInput();
     initMoneyInputs();
+    initWireMoneyInputTrees();
+    bindLivewireMoneyInputHooks();
 
     if (!document.body.dataset.moneySubmitBound) {
         document.body.dataset.moneySubmitBound = '1';
@@ -136,6 +222,7 @@ if (!window.__bonyadMoneyInputReady) {
     document.addEventListener('livewire:navigated', () => {
         registerAlpineMoneyInput();
         initMoneyInputs();
+        initWireMoneyInputTrees();
     });
 }
 

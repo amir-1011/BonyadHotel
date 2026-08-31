@@ -1,11 +1,7 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.programs.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right"></i></a>
-</div>
-
 {{-- انتخاب سال --}}
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-3">
     <div class="card-body py-2">
         <div class="d-flex align-items-center gap-3">
             <label class="fw-semibold mb-0">سال شمسی:</label>
@@ -19,11 +15,11 @@
 </div>
 
 {{-- کارت‌های خلاصه --}}
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-md-4">
         <div class="card shadow-sm stat-card border-0" style="background:linear-gradient(135deg,#dc3545,#c82333);">
             <div class="card-body text-white text-center py-4">
-                <div class="fs-1 fw-bold">{{ number_format($totalPrograms) }}</div>
+                <div class="fs-1 fw-bold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalPrograms)) }}</div>
                 <div class="opacity-75">برنامه / اردو</div>
             </div>
         </div>
@@ -31,7 +27,7 @@
     <div class="col-md-4">
         <div class="card shadow-sm stat-card border-0" style="background:linear-gradient(135deg,#198754,#146c43);">
             <div class="card-body text-white text-center py-4">
-                <div class="fs-1 fw-bold">{{ number_format($totalGuests) }}</div>
+                <div class="fs-1 fw-bold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalGuests)) }}</div>
                 <div class="opacity-75">نفر بهره‌مند از خدمات</div>
             </div>
         </div>
@@ -39,14 +35,14 @@
     <div class="col-md-4">
         <div class="card shadow-sm stat-card border-0" style="background:linear-gradient(135deg,#0d6efd,#0a58ca);">
             <div class="card-body text-white text-center py-4">
-                <div class="fs-2 fw-bold">{{ number_format($totalDiscount) }} ﷼</div>
+                <div class="fs-2 fw-bold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalDiscount)) }} ﷼</div>
                 <div class="opacity-75">جمع کل خدمات حمایتی</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
     {{-- تفکیک بر اساس نوع خدمت --}}
     @if($byType->isNotEmpty())
     <div class="col-lg-6">
@@ -64,15 +60,15 @@
                         <tr>
                             <td class="fw-semibold small">{{ $type }}</td>
                             <td class="text-center small">{{ $data['count'] }}</td>
-                            <td class="text-center small">{{ number_format($data['guests']) }}</td>
-                            <td class="small text-danger fw-semibold">{{ number_format($data['discount']) }}</td>
+                            <td class="text-center small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($data['guests'])) }}</td>
+                            <td class="small text-danger fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($data['discount'])) }}</td>
                         </tr>
                         @endforeach
                         <tr class="table-light fw-bold">
                             <td>جمع</td>
                             <td class="text-center">{{ $totalPrograms }}</td>
-                            <td class="text-center">{{ number_format($totalGuests) }}</td>
-                            <td class="text-danger">{{ number_format($totalDiscount) }}</td>
+                            <td class="text-center">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalGuests)) }}</td>
+                            <td class="text-danger">{{ \App\Support\PdfPersian::toPersianDigits(number_format($totalDiscount)) }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -98,8 +94,8 @@
                         <tr>
                             <td class="fw-semibold small">{{ $acc }}</td>
                             <td class="text-center small">{{ $data['count'] }}</td>
-                            <td class="text-center small">{{ number_format($data['guests']) }}</td>
-                            <td class="small text-danger fw-semibold">{{ number_format($data['discount']) }}</td>
+                            <td class="text-center small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($data['guests'])) }}</td>
+                            <td class="small text-danger fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($data['discount'])) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -141,10 +137,10 @@
                             —
                         @endif
                     </td>
-                    <td class="text-center small">{{ number_format($p->guest_count) }}</td>
+                    <td class="text-center small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($p->guest_count)) }}</td>
                     <td class="small">{{ $p->employer?->name ?: '—' }}</td>
-                    <td class="small">{{ number_format($p->total_amount) }}</td>
-                    <td class="small text-danger fw-semibold">{{ number_format($p->discount_amount) }}</td>
+                    <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($p->total_amount)) }}</td>
+                    <td class="small text-danger fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($p->discount_amount)) }}</td>
                     <td><span class="badge bg-{{ $p->statusColor() }}">{{ $p->statusLabel() }}</span></td>
                 </tr>
                 @empty

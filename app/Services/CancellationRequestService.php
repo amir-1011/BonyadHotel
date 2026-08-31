@@ -70,7 +70,7 @@ class CancellationRequestService
         }
 
         $accountNumber = $this->normalizeDigits((string) ($data['refund_account_number'] ?? ''));
-        if (trim($accountNumber) === '') {
+        if (trim($accountNumber) === '' && $refundAmount > 0) {
             throw ValidationException::withMessages([
                 'refund_account_number' => 'وارد کردن شماره حساب یا شماره کارت جهت استرداد وجه الزامی است.',
             ]);
@@ -91,6 +91,23 @@ class CancellationRequestService
         ]);
     }
 
+    /**
+     * Staff direct cancellation submit: when refund is zero, auto-approve and settle
+     * so the booking is cancelled and capacity is released in one step.
+     *
+     * @param  array{cancellation_reason_id: int|string|null, custom_reason_text?: string|null, refund_account_number: string, refund_account_holder_name?: string|null, notes?: string|null, refund_amount?: int|string|null}  $data
+     */
+    public function createWithStaffDirectCompletion(Booking $booking, array $data, User $staff): CancellationRequest
+    {
+        $request = $this->create($booking, $data, $staff);
+
+        if ($request->hasZeroRefund()) {
+            return $this->approve($request, $staff);
+        }
+
+        return $request;
+    }
+
     public function approve(CancellationRequest $request, User $staff): CancellationRequest
     {
         if (!$request->isPending()) {
@@ -105,7 +122,49 @@ class CancellationRequestService
             'decided_at'  => now(),
         ]);
 
-        $request->booking->update(['status' => 'cancelled']);
+        $booking = $request->booking()->with('accommodation.medicalAccommodationSetting')->first();
+        $booking?->update(['status' => 'cancelled']);
+
+        if ($booking?->isMedicalAccommodation()) {
+            app(MedicalAccommodationBillingService::class)->applyCancellationToEmployerDebt($booking->fresh());
+        }
+
+        $request = $request->refresh();
+
+        if ($request->hasZeroRefund()) {
+            return $this->markSettledWithoutPayment($request, $staff);
+        }
+
+        return $request;
+    }
+
+    public function markSettledWithoutPayment(CancellationRequest $request, User $staff): CancellationRequest
+    {
+        if (!$request->isApproved()) {
+            throw ValidationException::withMessages([
+                'cancellation_request' => 'فقط درخواست‌های تایید شده قابل تسویه هستند.',
+            ]);
+        }
+
+        if ($request->isSettled()) {
+            throw ValidationException::withMessages([
+                'cancellation_request' => 'این درخواست قبلاً تسویه شده است.',
+            ]);
+        }
+
+        if (!$request->hasZeroRefund()) {
+            throw ValidationException::withMessages([
+                'cancellation_request' => 'تسویه بدون واریز فقط برای درخواست‌های با مبلغ استرداد صفر مجاز است.',
+            ]);
+        }
+
+        $request->update([
+            'settled_by'             => $staff->id,
+            'settled_at'             => now(),
+            'settled_amount'         => 0,
+            'settled_account_number' => $request->refund_account_number,
+            'settlement_notes'       => 'تسویه خودکار — مبلغ استرداد صفر',
+        ]);
 
         return $request->refresh();
     }

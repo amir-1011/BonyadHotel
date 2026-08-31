@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/provinces', [CatalogController::class, 'provinces']);
     Route::get('/locations', [CatalogController::class, 'locations']);
     Route::get('/provinces/{province}/cities', [CatalogController::class, 'cities']);
+    Route::get('/accommodation-types', [CatalogController::class, 'accommodationTypes']);
 
     Route::get('/accommodations', [AccommodationController::class, 'index']);
     Route::get('/accommodations/{accommodation}', [AccommodationController::class, 'show']);

@@ -6,6 +6,7 @@ use App\Models\Accommodation;
 use App\Models\County;
 use App\Models\Province;
 use App\Models\User;
+use App\Livewire\Concerns\ManagesAccommodationImageGallery;
 use App\Livewire\Concerns\ManagesAccommodationContactInfo;
 use App\Livewire\Concerns\ManagesAccommodationCatalog;
 use App\Livewire\Concerns\ManagesLivewireImageUploads;
@@ -20,6 +21,7 @@ use Livewire\WithFileUploads;
 class AccommodationEdit extends Component
 {
     use WithFileUploads;
+    use ManagesAccommodationImageGallery;
     use ManagesAccommodationContactInfo;
     use ManagesAccommodationCatalog;
     use ManagesLivewireImageUploads;
@@ -43,8 +45,6 @@ class AccommodationEdit extends Component
     public string $lng             = '';
     public bool   $isActive        = true;
     public string $amenitiesRaw    = '';
-    public string $image           = '';
-    public array  $keepImages      = [];
     public array  $newImages       = [];
 
     public function mount(Accommodation $accommodation): void
@@ -67,8 +67,7 @@ class AccommodationEdit extends Component
         $this->lng            = $accommodation->lng !== null ? (string) $accommodation->lng : '';
         $this->isActive       = (bool) $accommodation->is_active;
         $this->amenitiesRaw   = implode(', ', $accommodation->amenities ?? []);
-        $this->image          = $accommodation->image ?? '';
-        $this->keepImages     = $accommodation->images ?? [];
+        $this->loadImageGalleryFrom($accommodation);
         $this->loadContactInfoFrom($accommodation);
     }
 
@@ -96,13 +95,6 @@ class AccommodationEdit extends Component
     private function parseAmenities(string $raw): array
     {
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
-    }
-
-    public function removeExistingImage(string $path): void
-    {
-        $this->keepImages = array_values(array_filter(
-            $this->keepImages, fn($img) => $img !== $path
-        ));
     }
 
     public function update(): void
@@ -159,7 +151,7 @@ class AccommodationEdit extends Component
             'lng'             => $this->lng !== '' ? (float) $this->lng : null,
             'is_active'       => $this->isActive,
             'amenities'       => $this->parseAmenities($this->amenitiesRaw),
-            'image'           => $this->image ?: null,
+            'image'           => $this->resolvedFeaturedImage($finalImages),
             'images'          => $finalImages,
         ], $this->contactInfoAttributes()));
 

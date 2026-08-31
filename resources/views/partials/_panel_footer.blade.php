@@ -4,7 +4,7 @@
             &copy; {{ date('Y') }} سامانه رزرو — تمامی حقوق محفوظ است.
         </p>
         <p class="ta-footer__credit mb-0">
-            طراحی شده اختصاصی توسط <span class="ta-footer__brand">شرکت برنامه‌نویسی آترین سازه ویهان</span>
+            طراحی شده اختصاصی توسط <a href="https://wecod.ir/" class="ta-footer__brand" target="_blank" rel="noopener noreferrer">شرکت برنامه‌نویسی آترین سازه ویهان</a>
         </p>
     </div>
 </footer>

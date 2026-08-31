@@ -16,21 +16,22 @@ class BookingPdfService
     {
         $booking->loadMissing([
             'user.country', 'user.residenceCity', 'accommodation.city.province', 'roomType', 'roomRate',
-            'services', 'guestDetails.country', 'guestDetails.residenceCity', 'createdBy',
+            'services', 'guestDetails.country', 'guestDetails.residenceCity',
+            'guestDetails.bookingRoom.room', 'guestDetails.bookingRoom.roomType',
+            'createdBy', 'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
             'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
+            'employer', 'medicalTariff', 'medicalContract',
         ]);
 
-        $html = View::make('pdf.booking-receipt', [
+        $html = app(\App\Support\PersianDigitHtmlConverter::class)->convertHtml(View::make('pdf.booking-receipt', [
             'booking'             => $booking,
             'pricing'             => app(BookingReceiptBreakdownService::class)->pricingForBooking($booking),
-            'veteranLabel' => $booking->veteranTypesApplied()
-                ? $booking->veteranLabelApplied()
-                : ($booking->user?->veteranLabel() ?? 'کاربر عادی'),
+            'veteranLabel' => $booking->veteranDiscountLabel(),
             'paymentLabel' => $this->paymentLabel($booking->payment_method),
             'issuedAt'     => PdfPersian::jalali(now(), 'Y/m/d H:i'),
             'checkInJalali'  => PdfPersian::jalali($booking->check_in),
             'checkOutJalali' => PdfPersian::jalali($booking->check_out),
-        ])->render();
+        ])->render());
 
         $mpdf = $this->makeMpdf();
         $mpdf->WriteHTML($html);
@@ -56,10 +57,11 @@ class BookingPdfService
         return new Mpdf([
             'mode'                 => 'utf-8',
             'format'               => 'A4',
-            'margin_left'          => 15,
-            'margin_right'         => 15,
-            'margin_top'           => 16,
-            'margin_bottom'        => 16,
+            'margin_left'          => 10,
+            'margin_right'         => 10,
+            'margin_top'           => 10,
+            'margin_bottom'        => 10,
+            'shrink_tables_to_fit' => 1,
             'directionality'       => 'rtl',
             'tempDir'              => $tempDir,
             'fontDir'              => array_merge($fontDirs, [$customFontDir]),
@@ -84,6 +86,8 @@ class BookingPdfService
         return match ($method) {
             'cash'          => 'نقدی',
             'card_terminal' => 'کارتخوان',
+            'medical_accommodation' => 'اسکان درمانی',
+            'credit' => 'اعتباری',
             default         => '—',
         };
     }

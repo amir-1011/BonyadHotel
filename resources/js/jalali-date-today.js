@@ -2,13 +2,11 @@
  * Highlight jalali date inputs when the selected value is today.
  * Also exposes helpers for booking calendars (gregorian today check).
  */
+import { autoConvertDigitsToEN } from '@persian-tools/persian-tools';
+
 function normalizeJalaliDigits(str) {
     if (!str) return '';
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
-    const arabic = '٠١٢٣٤٥٦٧٨٩';
-    return String(str).trim()
-        .replace(/[۰-۹]/g, (c) => String(persian.indexOf(c)))
-        .replace(/[٠-٩]/g, (c) => String(arabic.indexOf(c)));
+    return autoConvertDigitsToEN(String(str).trim());
 }
 
 function todayJalali() {

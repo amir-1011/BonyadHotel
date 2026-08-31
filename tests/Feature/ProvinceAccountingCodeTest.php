@@ -51,23 +51,14 @@ class ProvinceAccountingCodeTest extends TestCase
             ->call('addEmployerToCatalog')
             ->assertHasNoErrors();
 
-        $employer = ProgramEmployer::first();
-        $this->assertSame('515401', $employer->employer_code);
+        $employer = ProgramEmployer::query()->where('name', 'بنیاد شهید استان مازندران')->first();
+        $this->assertNotNull($employer);
+        $this->assertSame('515402', $employer->employer_code);
         $this->assertNotNull($employer->province_id);
     }
 
     public function test_second_employer_in_same_province_gets_incremented_code(): void
     {
-        $provinceId = $this->accommodation->fresh()->resolvedProvince()?->id;
-
-        ProgramEmployer::create([
-            'province_id'             => $provinceId,
-            'name'                    => 'استانداری',
-            'employer_code'           => '515401',
-            'national_or_economic_id' => '1234567890',
-            'mobile'                  => '09120001111',
-        ]);
-
         $this->actingAs($this->hostUser);
 
         Livewire::test(ProgramBookingForm::class, ['panel' => 'host', 'accommodationId' => $this->accommodation->id])
@@ -78,7 +69,7 @@ class ProvinceAccountingCodeTest extends TestCase
             ->call('addEmployerToCatalog')
             ->assertHasNoErrors();
 
-        $this->assertSame('515402', ProgramEmployer::query()->latest('id')->value('employer_code'));
+        $this->assertSame('515402', ProgramEmployer::query()->where('name', 'شهرداری مازندران')->value('employer_code'));
     }
 
     public function test_host_create_assigns_personnel_code(): void
@@ -114,14 +105,14 @@ class ProvinceAccountingCodeTest extends TestCase
         $employer = ProgramEmployer::create([
             'province_id'             => $provinceId,
             'name'                    => 'سازمان تست',
-            'employer_code'           => '515401',
+            'employer_code'           => '515408',
             'national_or_economic_id' => '1234567890',
             'mobile'                  => '09125556677',
         ]);
 
         app(EmployerUserProvisioner::class)->linkEmployer($employer);
 
-        $user = app(AccountingEntityLookup::class)->findUserByIdentifier('515401');
+        $user = app(AccountingEntityLookup::class)->findUserByIdentifier('515408');
 
         $this->assertNotNull($user);
         $this->assertSame($employer->fresh()->user_id, $user->id);

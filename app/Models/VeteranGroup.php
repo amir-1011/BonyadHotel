@@ -9,6 +9,7 @@ class VeteranGroup extends Model
 {
     protected $fillable = [
         'accommodation_id', 'key', 'label', 'accommodation_discount',
+        'use_tiered_accommodation_discount', 'accommodation_discount_tiers',
         'nights_per_dependent', 'max_nights_per_period', 'period_months',
         'weekly_free_sessions', 'usage_notes', 'sort_order', 'is_active',
     ];
@@ -16,13 +17,15 @@ class VeteranGroup extends Model
     protected function casts(): array
     {
         return [
-            'accommodation_discount'   => 'integer',
-            'nights_per_dependent'     => 'integer',
-            'max_nights_per_period'    => 'integer',
-            'period_months'            => 'integer',
-            'weekly_free_sessions'     => 'integer',
-            'sort_order'               => 'integer',
-            'is_active'                => 'boolean',
+            'accommodation_discount'            => 'integer',
+            'use_tiered_accommodation_discount' => 'boolean',
+            'accommodation_discount_tiers'      => 'array',
+            'nights_per_dependent'              => 'integer',
+            'max_nights_per_period'             => 'integer',
+            'period_months'                     => 'integer',
+            'weekly_free_sessions'              => 'integer',
+            'sort_order'                        => 'integer',
+            'is_active'                         => 'boolean',
         ];
     }
 

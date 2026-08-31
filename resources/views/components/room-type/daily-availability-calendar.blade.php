@@ -297,14 +297,14 @@
                         $tipValue = ($disc < 0 ? abs($disc) . '٪ تخفیف' : $disc . '٪ گران‌تر');
                         $tipType = $pillType;
                     } elseif ($custom !== null && $custom > 0) {
-                        $pillText = number_format($custom / 1000) . 'K';
+                        $pillText = \App\Support\PdfPersian::toPersianDigits(number_format($custom / 1000)) . 'K';
                         $pillType = 'custom';
-                        $tipValue = number_format($custom, 0, '.', ',') . ' تومان / تخت';
+                        $tipValue = \App\Support\PdfPersian::toPersianDigits(number_format($custom, 0, '.', ',')) . ' ریال / تخت';
                         $tipType = 'custom';
                     } elseif ($eff !== null && $eff > 0) {
-                        $pillText = number_format($eff / 1000) . 'K';
+                        $pillText = \App\Support\PdfPersian::toPersianDigits(number_format($eff / 1000)) . 'K';
                         $pillType = 'custom';
-                        $tipValue = number_format($eff, 0, '.', ',') . ' تومان / تخت';
+                        $tipValue = \App\Support\PdfPersian::toPersianDigits(number_format($eff, 0, '.', ',')) . ' ریال / تخت';
                         $tipType = 'custom';
                     } elseif ($label !== '') {
                         $pillText = '•';
@@ -408,7 +408,7 @@
                         <span class="day-cal-tip__rate-name">{{ $tr['name'] }}</span>
                         <span class="day-cal-tip__rate-val is-{{ $tr['type'] }}">{{ $tr['value'] }}</span>
                         @if(!empty($tr['effective']) && ($tr['type'] ?? '') !== 'custom')
-                        <span class="day-cal-tip__rate-label">قیمت مؤثر: {{ number_format($tr['effective'], 0, '.', ',') }} تومان</span>
+                        <span class="day-cal-tip__rate-label">قیمت مؤثر: {{ \App\Support\PdfPersian::toPersianDigits(number_format($tr['effective'], 0, '.', ',')) }} ریال</span>
                         @endif
                         @if(!empty($tr['label']))
                         <span class="day-cal-tip__rate-label">{{ $tr['label'] }}</span>

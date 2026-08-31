@@ -283,6 +283,10 @@ class RoomStatusBoardBookingServicesTest extends TestCase
                 'guestSortOrder' => 0,
             ])
             ->set("editableServices.{$quotaService->id}.excluded_from_veteran_quota", true)
+            ->call('runDirectPriceChange', 'applyServiceQuotaSettings', [
+                'serviceId'    => $quotaService->id,
+                'changedField' => 'excluded_from_veteran_quota',
+            ])
             ->assertDispatched('booking-services-updated');
 
         $quotaService->refresh();

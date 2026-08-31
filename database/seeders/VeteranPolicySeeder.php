@@ -10,10 +10,13 @@ class VeteranPolicySeeder extends Seeder
 {
     public function run(): void
     {
-        $provisioner = app(VeteranPolicyProvisioner::class);
+        $veteran = app(VeteranPolicyProvisioner::class);
+        $medical = app(\App\Services\MedicalAccommodationProvisioner::class);
 
         foreach (Accommodation::query()->cursor() as $accommodation) {
-            $provisioner->seedForAccommodation($accommodation);
+            $veteran->seedForAccommodation($accommodation);
         }
+
+        $medical->syncDayInsuranceEmployers();
     }
 }

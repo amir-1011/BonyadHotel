@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Livewire\Host\BookingIndex;
 use App\Exports\HostUsersExport;
+use App\Livewire\Host\UserIndex;
 use App\Models\Accommodation;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\County;
+use App\Models\ProgramBeneficiary;
+use App\Models\ProgramEmployer;
 use App\Models\ServiceCatalog;
 use App\Models\ServiceCatalogVariant;
 use App\Models\User;
@@ -35,6 +38,7 @@ class HostBookingFilterTest extends TestCase
         parent::setUp();
 
         Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'guest', 'guard_name' => 'web']);
 
         $provinceId = DB::table('provinces')->insertGetId([
             'name' => 'استان تست', 'created_at' => now(), 'updated_at' => now(),
@@ -330,8 +334,141 @@ class HostBookingFilterTest extends TestCase
         $this->assertSame($guestA->id, $query->first()->id);
     }
 
+    public function test_host_user_filter_includes_accounting_users_in_managed_provinces(): void
+    {
+        $provinceId = (int) $this->ownedAccommodation->fresh()->resolvedProvince()?->id;
+
+        $otherProvinceId = DB::table('provinces')->insertGetId([
+            'name' => 'استان دیگر', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $coHost = User::create([
+            'name'        => 'میزبان هم‌استان',
+            'mobile'      => '09120000005',
+            'province_id' => $provinceId,
+            'personnel_code' => '515701',
+        ]);
+        $coHost->assignRole('host');
+
+        $employerUser = User::create(['name' => 'کارفرما', 'mobile' => '09120000006']);
+        $employerUser->assignRole('guest');
+        ProgramEmployer::create([
+            'user_id'                 => $employerUser->id,
+            'province_id'             => $provinceId,
+            'name'                    => 'کارفرما',
+            'employer_code'           => '515408',
+            'national_or_economic_id' => '1234567890',
+            'mobile'                  => '09120000006',
+        ]);
+
+        $beneficiaryUser = User::create(['name' => 'ذینفع', 'mobile' => '09120000007']);
+        $beneficiaryUser->assignRole('guest');
+        ProgramBeneficiary::create([
+            'user_id'                 => $beneficiaryUser->id,
+            'province_id'             => $provinceId,
+            'name'                    => 'ذینفع',
+            'beneficiary_code'        => '515101',
+            'national_or_economic_id' => '1234567891',
+            'mobile'                  => '09120000007',
+        ]);
+
+        $outOfScopeEmployerUser = User::create(['name' => 'کارفرمای دیگر', 'mobile' => '09120000008']);
+        $outOfScopeEmployerUser->assignRole('guest');
+        ProgramEmployer::create([
+            'user_id'                 => $outOfScopeEmployerUser->id,
+            'province_id'             => $otherProvinceId,
+            'name'                    => 'کارفرمای دیگر',
+            'employer_code'           => '116401',
+            'national_or_economic_id' => '1234567892',
+            'mobile'                  => '09120000008',
+        ]);
+
+        $query = User::query();
+        HostUserFilter::make([], [$this->ownedAccommodation->id])->apply($query);
+        $ids = $query->pluck('id')->all();
+
+        $this->assertContains($coHost->id, $ids);
+        $this->assertContains($employerUser->id, $ids);
+        $this->assertContains($beneficiaryUser->id, $ids);
+        $this->assertNotContains($outOfScopeEmployerUser->id, $ids);
+    }
+
+    public function test_host_users_page_shows_accounting_user_types(): void
+    {
+        $provinceId = (int) $this->ownedAccommodation->fresh()->resolvedProvince()?->id;
+
+        $employerUser = User::create(['name' => 'کارفرمای صفحه', 'mobile' => '09120000009']);
+        $employerUser->assignRole('guest');
+        ProgramEmployer::create([
+            'user_id'                 => $employerUser->id,
+            'province_id'             => $provinceId,
+            'name'                    => 'کارفرمای صفحه',
+            'employer_code'           => '515402',
+            'national_or_economic_id' => '1234567893',
+            'mobile'                  => '09120000009',
+        ]);
+
+        Livewire::actingAs($this->host)
+            ->test(UserIndex::class)
+            ->assertSee('کارفرمای صفحه')
+            ->assertSee('ادارات و ارگان‌ها');
+    }
+
+    public function test_host_user_filter_supports_user_type_and_province_filters(): void
+    {
+        $provinceId = (int) $this->ownedAccommodation->fresh()->resolvedProvince()?->id;
+
+        $employerUser = User::create(['name' => 'کارفرمای فیلتر', 'mobile' => '09120000010']);
+        $employerUser->assignRole('guest');
+        ProgramEmployer::create([
+            'user_id'                 => $employerUser->id,
+            'province_id'             => $provinceId,
+            'name'                    => 'کارفرمای فیلتر',
+            'employer_code'           => '515403',
+            'national_or_economic_id' => '1234567894',
+            'mobile'                  => '09120000010',
+        ]);
+
+        $guestWithBooking = User::create(['name' => 'مهمان رزرودار', 'mobile' => '09120000011']);
+        Booking::create([
+            'user_id'              => $guestWithBooking->id,
+            'accommodation_id'     => $this->ownedAccommodation->id,
+            'tracking_code'        => 'GUESTFILTER1',
+            'check_in'             => '2025-06-01',
+            'check_out'            => '2025-06-02',
+            'nights'               => 1,
+            'guests'               => 2,
+            'base_price'           => 1_000_000,
+            'discount_percentage'  => 0,
+            'discount_amount'      => 0,
+            'total_price'          => 1_000_000,
+            'status'               => 'confirmed',
+        ]);
+
+        $employerQuery = User::query();
+        HostUserFilter::make(['user_type' => 'employer'], [$this->ownedAccommodation->id])->apply($employerQuery);
+        $this->assertSame([$employerUser->id], $employerQuery->pluck('id')->all());
+
+        $provinceQuery = User::query();
+        HostUserFilter::make(['province_id' => (string) $provinceId], [$this->ownedAccommodation->id])->apply($provinceQuery);
+        $this->assertContains($employerUser->id, $provinceQuery->pluck('id')->all());
+
+        $bookedQuery = User::query();
+        HostUserFilter::make(['has_bookings' => '1'], [$this->ownedAccommodation->id])->apply($bookedQuery);
+        $bookedIds = $bookedQuery->pluck('id')->all();
+        $this->assertContains($guestWithBooking->id, $bookedIds);
+        $this->assertNotContains($employerUser->id, $bookedIds);
+    }
+
     public function test_host_can_export_users(): void
     {
+        $this->host->update([
+            'host_panel_permissions' => [
+                'users.list'   => ['read'],
+                'users.export' => ['read'],
+            ],
+        ]);
+
         Excel::fake();
 
         $this->actingAs($this->host)

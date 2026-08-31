@@ -46,7 +46,7 @@
             'spark' => AdminStatSparkline::points((float) $stats['confirmed'] + ($stats['pending'] * 0.4)),
         ],
         [
-            'label' => 'درآمد کل (تومان)',
+            'label' => 'درآمد کل (ریال)',
             'value' => PdfPersian::toPersianDigits(number_format($stats['revenue'])),
             'href' => route('admin.bookings.index', ['status' => 'confirmed']),
             'trend' => $revGrowth !== null

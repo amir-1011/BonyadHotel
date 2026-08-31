@@ -24,9 +24,9 @@
                 @endif
             </div>
             <div class="text-muted" style="font-size:.7rem;">
-                واحد {{ number_format($service->unit_price) }} تومان · تعداد {{ $service->quantity }}
+                واحد {{ \App\Support\PdfPersian::toPersianDigits(number_format($service->unit_price)) }} ریال · تعداد {{ $service->quantity }}
                 @if($discountAmt > 0)
-                · تخفیف −{{ number_format($discountAmt) }}
+                · تخفیف −{{ \App\Support\PdfPersian::toPersianDigits(number_format($discountAmt)) }}
                 @if($discountReason !== '')
                 ({{ $discountReason }})
                 @endif
@@ -43,14 +43,14 @@
         <div class="text-end text-nowrap">
             @if($discountAmt > 0 || $subtotal !== $finalTotal)
             <div class="small text-muted" style="font-size:.68rem;">
-                بدون تخفیف: {{ number_format($subtotal) }}
+                بدون تخفیف: {{ \App\Support\PdfPersian::toPersianDigits(number_format($subtotal)) }}
             </div>
             <div class="small fw-bold text-success">
-                با تخفیف: {{ number_format($finalTotal) }} <span class="text-muted fw-normal">تومان</span>
+                با تخفیف: {{ \App\Support\PdfPersian::toPersianDigits(number_format($finalTotal)) }} <span class="text-muted fw-normal">ریال</span>
             </div>
             @else
             <div class="small fw-bold">
-                {{ number_format($finalTotal) }} <span class="text-muted fw-normal">تومان</span>
+                {{ \App\Support\PdfPersian::toPersianDigits(number_format($finalTotal)) }} <span class="text-muted fw-normal">ریال</span>
             </div>
             @endif
         </div>

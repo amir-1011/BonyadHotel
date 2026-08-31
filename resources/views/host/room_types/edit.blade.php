@@ -8,13 +8,7 @@
 
 <div>
 
-<div class="mb-3">
-    <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
-        <i class="bi bi-chevron-right me-1"></i>بازگشت به مدیریت اتاق‌های {{ $accommodation->name }}
-    </a>
-</div>
-
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-3">
     <div class="card-header fw-bold"><i class="bi bi-door-open me-2"></i>ویرایش مشخصات اتاق: {{ $roomType->name }}</div>
     <div class="card-body">
         <form action="{{ route('host.room-types.update', [$accommodation, $roomType]) }}"

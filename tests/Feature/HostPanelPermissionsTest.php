@@ -182,13 +182,14 @@ class HostPanelPermissionsTest extends TestCase
             ->assertRedirect(route('host.accommodations.index'));
     }
 
-    public function test_null_permissions_mean_full_access_for_backward_compatibility(): void
+    public function test_null_permissions_use_default_template_without_user_management(): void
     {
         $host = User::create(['name' => 'میزبان', 'mobile' => '09100000005']);
         $host->assignRole('host');
 
-        $this->assertSame(HostPermissions::fullAccessGrants(), $host->effectiveHostPermissionGrants());
-        $this->assertSame(HostPermissions::moduleKeys(), $host->effectiveHostPermissions());
+        $this->assertSame(HostPermissions::defaults(), $host->effectiveHostPermissionGrants());
+        $this->assertFalse($host->hostCan('users.list', 'read'));
+        $this->assertTrue($host->hostCan('bookings.list', 'read'));
     }
 
     public function test_host_dashboard_shows_only_permitted_widgets(): void

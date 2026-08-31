@@ -41,7 +41,7 @@ class ProgramShow extends Component
     }
 
     /** @return list<string> */
-    private function programShowRelations(): array
+    protected function programShowRelations(): array
     {
         return [
             'accommodation.city.province',

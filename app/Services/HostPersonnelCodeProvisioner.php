@@ -24,9 +24,18 @@ class HostPersonnelCodeProvisioner
             return $user;
         }
 
-        $province = $this->resolveProvinceFromAccommodations($user, $contextAccommodation);
+        $province = $this->resolveProvinceForProvisioning($user, $contextAccommodation);
 
         if (!$province) {
+            return $user;
+        }
+
+        return $this->provisionForProvince($user, $province);
+    }
+
+    public function provisionForProvince(User $user, Province $province): User
+    {
+        if (!$user->isHost()) {
             return $user;
         }
 
@@ -41,6 +50,19 @@ class HostPersonnelCodeProvisioner
         ])->save();
 
         return $user->fresh(['province']);
+    }
+
+    private function resolveProvinceForProvisioning(User $user, ?Accommodation $contextAccommodation = null): ?Province
+    {
+        if ($user->province_id) {
+            $fromUser = Province::query()->find($user->province_id);
+
+            if ($fromUser) {
+                return $fromUser;
+            }
+        }
+
+        return $this->resolveProvinceFromAccommodations($user, $contextAccommodation);
     }
 
     public function resolveProvinceFromAccommodations(User $user, ?Accommodation $contextAccommodation = null): ?Province

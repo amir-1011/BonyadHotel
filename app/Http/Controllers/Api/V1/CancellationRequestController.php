@@ -41,10 +41,14 @@ class CancellationRequestController extends Controller
     {
         $this->authorizeOwner($request, $booking);
 
+        $refundAmount = (int) app(RefundPolicyService::class)->previewForBooking($booking)['amount'];
+
         $validated = $request->validate([
             'cancellation_reason_id'     => ['required', 'integer'],
             'custom_reason_text'         => ['nullable', 'string', 'max:1000'],
-            'refund_account_number'      => ['required', 'string', 'max:40'],
+            'refund_account_number'      => $refundAmount > 0
+                ? ['required', 'string', 'max:40']
+                : ['nullable', 'string', 'max:40'],
             'refund_account_holder_name' => ['nullable', 'string', 'max:100'],
             'notes'                      => ['nullable', 'string', 'max:1000'],
         ], [
@@ -56,7 +60,7 @@ class CancellationRequestController extends Controller
             $cancellationRequest = $service->create($booking, [
                 'cancellation_reason_id'     => $validated['cancellation_reason_id'],
                 'custom_reason_text'         => $validated['custom_reason_text'] ?? null,
-                'refund_account_number'      => $validated['refund_account_number'],
+                'refund_account_number'      => $validated['refund_account_number'] ?? '',
                 'refund_account_holder_name' => $validated['refund_account_holder_name'] ?? null,
                 'notes'                      => $validated['notes'] ?? null,
             ], $request->user());

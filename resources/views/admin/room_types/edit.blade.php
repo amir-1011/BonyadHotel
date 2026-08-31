@@ -8,13 +8,7 @@
 
 <div>
 
-<div class="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="text-muted small">
-        <i class="bi bi-chevron-right me-1"></i>بازگشت به مدیریت اتاق‌های {{ $accommodation->name }}
-    </a>
-</div>
-
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-3">
     <div class="card-header fw-bold"><i class="bi bi-door-open me-2"></i>ویرایش مشخصات اتاق: {{ $roomType->name }}</div>
     <div class="card-body">
         <form action="{{ route('admin.room-types.update', [$accommodation, $roomType]) }}" method="POST" enctype="multipart/form-data">

@@ -41,7 +41,7 @@ $rateId = $rate?->id ?? 'new';
         </div>
 
         <div class="col-md-6">
-            <label class="form-label fw-semibold">قیمت هر شب به ازای هر تخت (تومان) <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold">قیمت هر شب به ازای هر تخت (ریال) <span class="text-danger">*</span></label>
             <x-money-input name="price_per_night"
                    class="form-control {{ $isSubmittedForm && $errors->has('price_per_night') ? 'is-invalid' : '' }}"
                    value="{{ $rPrice }}" placeholder="مثلاً: 1,500,000" />

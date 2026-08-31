@@ -99,6 +99,10 @@ class GuestBookingService
             'national_id'              => $user->national_id,
         ]);
 
+        $pricing = $this->commission->overlayPricing($pricing, [
+            'booking_source' => 'online',
+        ]);
+
         $roomsNeeded = (int) $pricing['rooms_needed'];
 
         if ($roomType) {

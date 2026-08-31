@@ -54,7 +54,7 @@
 
     <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2 small">
         <span class="text-muted">جمع خدمات (بعد از تخفیف)</span>
-        <strong>{{ number_format($booking->services_subtotal) }} تومان</strong>
+        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->services_subtotal)) }} ریال</strong>
     </div>
 @else
 <p class="text-muted mb-0">خدمت اضافی ثبت نشده است.</p>

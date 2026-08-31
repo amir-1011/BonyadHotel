@@ -215,7 +215,7 @@
                         <select wire:model.live="services.{{ $si }}.service_catalog_variant_id" class="form-select form-select-sm">
                             <option value="">— نوع —</option>
                             @foreach($activeVariants as $variant)
-                                <option value="{{ $variant->id }}">{{ $variant->name }} ({{ number_format($variant->price) }})</option>
+                                <option value="{{ $variant->id }}">{{ $variant->name }} ({{ \App\Support\PdfPersian::toPersianDigits(number_format($variant->price)) }})</option>
                             @endforeach
                         </select>
                     </div>
@@ -225,7 +225,7 @@
                         <input type="text" wire:model.live="services.{{ $si }}.name" class="form-control form-control-sm">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small mb-1">قیمت (تومان)</label>
+                        <label class="form-label small mb-1">قیمت (ریال)</label>
                         <x-money-input wire:model.live="services.{{ $si }}.unit_price" class="form-control form-control-sm" min="0" />
                     </div>
                     <div class="col-md-1">
@@ -242,7 +242,7 @@
             @endforeach
 
             <div class="alert alert-secondary small mb-0">
-                جمع خدمات: <strong>{{ number_format($this->servicesSubtotal) }} تومان</strong>
+                جمع خدمات: <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($this->servicesSubtotal)) }} ریال</strong>
             </div>
         </div>
     </div>
@@ -262,7 +262,7 @@
             },
             fmt(n) {
                 if (window.formatMoney) return window.formatMoney(n);
-                return Number(n || 0).toLocaleString('en-US');
+                return Number(n || 0).toLocaleString('fa-IR');
             },
             syncFromWire() {
                 this.base = this.parseMoney(this.$wire.get('basePrice'));
@@ -302,24 +302,24 @@
                 </div>
 
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold">قیمت پایه برنامه (تومان) <span class="text-danger">*</span></label>
+                    <label class="form-label small fw-semibold">قیمت پایه برنامه (ریال) <span class="text-danger">*</span></label>
                     <x-money-input wire:model.live="basePrice" class="form-control" min="0" />
                     @error('basePrice')<div class="text-danger small">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold">جمع خدمات (تومان)</label>
+                    <label class="form-label small fw-semibold">جمع خدمات (ریال)</label>
                     <input type="text" class="form-control" readonly :value="fmt(servicesSubtotal)">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold">مبلغ تخفیف (تومان)</label>
+                    <label class="form-label small fw-semibold">مبلغ تخفیف (ریال)</label>
                     <x-money-input wire:model.live="discountAmount" class="form-control" min="0" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold">بیعانه (تومان)</label>
+                    <label class="form-label small fw-semibold">بیعانه (ریال)</label>
                     <x-money-input wire:model.live="depositAmount" class="form-control" min="0" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold">باقیمانده (تومان)</label>
+                    <label class="form-label small fw-semibold">باقیمانده (ریال)</label>
                     <input type="text" class="form-control fw-bold text-success" readonly :value="fmt(remaining)">
                 </div>
                 <div class="col-12">
@@ -331,7 +331,7 @@
             <div class="card bg-primary-subtle border-0 mt-3">
                 <div class="card-body py-2 d-flex justify-content-between">
                     <span>مبلغ کل برنامه:</span>
-                    <strong x-text="fmt(total) + ' تومان'"></strong>
+                    <strong x-text="fmt(total) + ' ریال'"></strong>
                 </div>
             </div>
         </div>
@@ -380,7 +380,7 @@
                         @endif
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label small mb-1">میزان بدهی (تومان)</label>
+                        <label class="form-label small mb-1">میزان بدهی (ریال)</label>
                         <x-money-input wire:model="beneficiaryRows.{{ $bi }}.debt_amount" class="form-control form-control-sm" min="0" />
                     </div>
                     <div class="col-md-4">
@@ -419,18 +419,21 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info small mb-3">
-                        ذینفعان در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان اقامتگاه انتخاب‌شده صادر می‌شود.
+                        ذینفعان در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان انتخاب‌شده صادر می‌شود.
                     </div>
                     <div class="row g-2">
+                        <x-accounting.province-select
+                            class="col-12"
+                            :provinces="$provinces"
+                            :show-code-preview="true"
+                            :preview-code="$this->previewNextBeneficiaryCode()"
+                            indicator-label="شاخص ۱ (ذینفع)"
+                            hint="پیش‌فرض از استان اقامتگاه انتخاب‌شده است؛ در صورت نیاز می‌توانید تغییر دهید."
+                        />
                         <div class="col-md-6">
                             <label class="form-label small">نام ذینفع <span class="text-danger">*</span></label>
                             <input type="text" wire:model="newBeneficiaryName" class="form-control form-control-sm">
                             @error('newBeneficiaryName')<div class="text-danger small">{{ $message }}</div>@enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small">کد حسابداری ذینفع</label>
-                            <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextBeneficiaryCode() }}" readonly dir="ltr">
-                            <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۱</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>
@@ -472,18 +475,21 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info small mb-3">
-                        کارفرمایان (ادارات و ارگان‌ها) در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان اقامتگاه انتخاب‌شده صادر می‌شود.
+                        کارفرمایان (ادارات و ارگان‌ها) در کل سامانه یکپارچه هستند. کد حسابداری بر اساس استان انتخاب‌شده صادر می‌شود.
                     </div>
                     <div class="row g-2">
+                        <x-accounting.province-select
+                            class="col-12"
+                            :provinces="$provinces"
+                            :show-code-preview="true"
+                            :preview-code="$this->previewNextEmployerCode()"
+                            indicator-label="شاخص ۴ (ارگان)"
+                            hint="پیش‌فرض از استان اقامتگاه انتخاب‌شده است؛ در صورت نیاز می‌توانید تغییر دهید."
+                        />
                         <div class="col-md-6">
                             <label class="form-label small">نام کارفرما <span class="text-danger">*</span></label>
                             <input type="text" wire:model="newEmployerName" class="form-control form-control-sm">
                             @error('newEmployerName')<div class="text-danger small">{{ $message }}</div>@enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small">کد حسابداری کارفرما</label>
-                            <input type="text" class="form-control form-control-sm bg-light" value="{{ $this->previewNextEmployerCode() }}" readonly dir="ltr">
-                            <div class="form-text">استان: {{ $this->accountingProvinceLabel() }} — شاخص ۴</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small">کد ملی / شناسه اقتصادی <span class="text-danger">*</span></label>

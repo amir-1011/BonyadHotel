@@ -4,7 +4,9 @@ namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\ManagesHostPositionForm;
 use App\Models\Accommodation;
+use App\Models\Province;
 use App\Models\User;
+use App\Services\AccountingProvinceReassignmentService;
 use App\Services\HostPersonnelCodeProvisioner;
 use App\Services\NationalIdVerificationService;
 use App\Support\VeteranGroups;
@@ -36,6 +38,10 @@ class UserEdit extends Component
     public ?int   $accommodationToAssign = null;
     public string $hostPassword         = '';
     public string $hostPassword_confirmation = '';
+
+    public ?int $provinceId = null;
+
+    public ?int $originalProvinceId = null;
 
     public function mount(User $user): void
     {
@@ -72,7 +78,77 @@ class UserEdit extends Component
         $this->discountPct = $user->discount_percentage ?? 0;
         $this->isActive = (bool) ($user->is_active ?? true);
         $this->role = $user->roles->first()?->name ?? 'guest';
+        $this->provinceId = $this->resolveCurrentAccountingProvinceId($this->user);
+        $this->originalProvinceId = $this->provinceId;
         $this->mountHostPositionForm($user);
+    }
+
+    public function accountingProvinceChangePending(): bool
+    {
+        if (!$this->user->hasAccountingProfile() || !$this->provinceId) {
+            return false;
+        }
+
+        return (int) $this->provinceId !== (int) $this->originalProvinceId;
+    }
+
+    public function previewAccountingCodeAfterProvinceChange(): string
+    {
+        if (!$this->accountingProvinceChangePending()) {
+            return '—';
+        }
+
+        try {
+            $province = Province::query()->findOrFail($this->provinceId);
+            $indicator = app(AccountingProvinceReassignmentService::class)->accountingIndicatorForUser($this->user);
+
+            if ($indicator === null) {
+                return '—';
+            }
+
+            return app(AccountingProvinceReassignmentService::class)->previewNextCode($province, $indicator);
+        } catch (\Throwable) {
+            return '—';
+        }
+    }
+
+    public function accountingProvinceChangeConfirmMessage(): string
+    {
+        $currentCode = app(AccountingProvinceReassignmentService::class)->currentCodeForUser($this->user) ?? '—';
+        $newCode = $this->previewAccountingCodeAfterProvinceChange();
+        $oldProvince = $this->originalProvinceId
+            ? Province::query()->find($this->originalProvinceId)?->displayLabel()
+            : 'نامشخص';
+        $newProvince = $this->provinceId
+            ? Province::query()->find($this->provinceId)?->displayLabel()
+            : 'نامشخص';
+
+        return "استان از «{$oldProvince}» به «{$newProvince}» تغییر می‌کند. "
+            . "کد حسابداری از {$currentCode} به {$newCode} تغییر خواهد کرد. "
+            . 'این عملیات قابل بازگشت نیست. ادامه می‌دهید؟';
+    }
+
+    private function resolveCurrentAccountingProvinceId(User $user): ?int
+    {
+        if ($user->province_id) {
+            return (int) $user->province_id;
+        }
+
+        if ($user->isProgramEmployer() && $user->programEmployer?->province_id) {
+            return (int) $user->programEmployer->province_id;
+        }
+
+        if ($user->isProgramBeneficiary() && $user->programBeneficiary?->province_id) {
+            return (int) $user->programBeneficiary->province_id;
+        }
+
+        if ($user->isHost()) {
+            $province = app(HostPersonnelCodeProvisioner::class)->resolveProvinceFromAccommodations($user);
+
+            return $province?->id;
+        }
+
+        return null;
     }
 
     public function updatedVeteranType(): void
@@ -280,10 +356,48 @@ class UserEdit extends Component
             $data['host_position_title'] = null;
         }
 
+        if ($this->user->hasAccountingProfile() && $this->provinceId) {
+            $this->validate([
+                'provinceId' => ['required', 'integer', 'exists:provinces,id'],
+            ], [
+                'provinceId.required' => 'انتخاب استان برای کدینگ حسابداری الزامی است.',
+            ]);
+
+            if ($this->getErrorBag()->isNotEmpty()) {
+                return;
+            }
+        }
+
+        $provinceChangeMessage = null;
+
+        if ($this->accountingProvinceChangePending()) {
+            try {
+                $newProvince = Province::query()->findOrFail($this->provinceId);
+                app(\App\Services\ProvinceAccountingCodeService::class)->ensureProvinceHasCode($newProvince);
+                $newCode = app(AccountingProvinceReassignmentService::class)->reassignForUser($this->user, $newProvince);
+                $this->user = $this->user->fresh([
+                    'province',
+                    'programEmployer.province',
+                    'programBeneficiary.province',
+                ]);
+                $this->originalProvinceId = $this->provinceId;
+                $provinceChangeMessage = "کدینگ حسابداری به {$newCode} تغییر یافت.";
+            } catch (\Throwable $e) {
+                $this->addError('provinceId', $e->getMessage());
+
+                return;
+            }
+        }
+
         $this->user->update($data);
         $this->user->syncRoles([$this->role]);
 
-        session()->flash('status', 'کاربر با موفقیت ویرایش شد.');
+        $statusMessage = 'کاربر با موفقیت ویرایش شد.';
+        if ($provinceChangeMessage) {
+            $statusMessage .= ' ' . $provinceChangeMessage;
+        }
+
+        session()->flash('status', $statusMessage);
         $this->redirectRoute('admin.users.index', navigate: true);
     }
 
@@ -329,6 +443,7 @@ class UserEdit extends Component
             'assignedAccommodations'  => $assignedAccommodations,
             'availableAccommodations' => $availableAccommodations,
             'hostPositionOptions'     => HostPositionTitles::optionsForForm($this->hostPositionPreset),
+            'provinces'               => Province::query()->orderBy('name')->get(),
         ]);
     }
 }

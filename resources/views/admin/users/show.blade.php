@@ -1,7 +1,6 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
+<div class="ta-page-toolbar">
     <a wire:navigate href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-warning"><i class="bi bi-pencil me-1"></i>ویرایش</a>
 </div>
 
@@ -94,7 +93,7 @@
                             <td class="small">{{ Str::limit($b->accommodation->name ?? '', 25) }}</td>
                             <td class="small">@jalali($b->check_in)</td>
                             <td class="small">@jalali($b->check_out)</td>
-                            <td class="small">{{ number_format($b->total_price) }}</td>
+                            <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($b->total_price)) }}</td>
                             <td><span class="badge bg-{{ $b->statusColor() }}">{{ $b->statusLabel() }}</span></td>
                         </tr>
                         @empty
@@ -111,13 +110,13 @@
             <div class="card-header bg-white fw-semibold small"><i class="bi bi-building me-2"></i>اقامتگاه‌ها ({{ $user->accommodations->count() }})</div>
             <div class="table-responsive">
                 <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light"><tr><th>نام</th><th>شهر</th><th>قیمت/شب/تخت</th><th>وضعیت</th></tr></thead>
+                    <thead class="table-light"><tr><th>نام</th><th>شهر</th><th>قیمت/شب/تخت (ریال)</th><th>وضعیت</th></tr></thead>
                     <tbody>
                         @foreach($user->accommodations as $acc)
                         <tr>
                             <td class="small">{{ Str::limit($acc->name, 30) }}</td>
                             <td class="small">{{ $acc->city->name ?? '' }}</td>
-                            <td class="small">{{ number_format($acc->price_per_night) }}</td>
+                            <td class="small">{{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->price_per_night)) }}</td>
                             <td><span class="badge bg-{{ $acc->is_active ? 'success' : 'secondary' }}">{{ $acc->is_active ? 'فعال' : 'غیرفعال' }}</span></td>
                         </tr>
                         @endforeach
@@ -154,7 +153,7 @@
                                                 </a>
                                             </td>
                                             <td>{{ $row->program?->accommodation?->name ?? '—' }}</td>
-                                            <td>{{ number_format((int) $row->debt_amount) }} تومان</td>
+                                            <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) $row->debt_amount)) }} ریال</td>
                                             <td class="small">@jalali($row->created_at)</td>
                                         </tr>
                                     @endforeach
@@ -184,7 +183,7 @@
                                                 </a>
                                             </td>
                                             <td>{{ $row->booking?->accommodation?->name ?? '—' }}</td>
-                                            <td>{{ number_format((int) $row->debt_amount) }} تومان</td>
+                                            <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) $row->debt_amount)) }} ریال</td>
                                             <td class="small">@jalali($row->created_at)</td>
                                         </tr>
                                     @endforeach
@@ -196,13 +195,15 @@
             </div>
         @endif
 
-        @if($programEmployerHistory->isNotEmpty())
+        @if($programEmployerHistory->isNotEmpty() || ($medicalEmployerBookings ?? collect())->isNotEmpty())
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">تاریخچه ادارات و ارگان‌ها (کارفرما)</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
+                    @if($programEmployerHistory->isNotEmpty())
+                    <h6 class="text-muted mb-3">برنامه‌ها و اردوها</h6>
+                    <div class="table-responsive mb-4">
                         <table class="table table-sm table-bordered align-middle">
                             <thead class="table-light">
                                 <tr>
@@ -226,6 +227,39 @@
                             </tbody>
                         </table>
                     </div>
+                    @endif
+
+                    @if(($medicalEmployerBookings ?? collect())->isNotEmpty())
+                    <h6 class="text-muted mb-3">اسکان درمانی (بدهی بیمه دی)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>رزرو</th>
+                                    <th>اقامتگاه</th>
+                                    <th>تعرفه</th>
+                                    <th>بدهی</th>
+                                    <th>تاریخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($medicalEmployerBookings as $row)
+                                    <tr>
+                                        <td>
+                                            <a href="{{ route('admin.bookings.show', $row) }}">
+                                                {{ $row->tracking_code }}
+                                            </a>
+                                        </td>
+                                        <td>{{ $row->accommodation?->name ?? '—' }}</td>
+                                        <td class="small">{{ $row->medicalTariffLabel() ?: '—' }}</td>
+                                        <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($row->employerDebtAmount() ?: $row->total_price)) }} ریال</td>
+                                        <td class="small">@jalali($row->created_at)</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
                 </div>
             </div>
         @endif

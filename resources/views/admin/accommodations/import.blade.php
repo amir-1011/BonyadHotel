@@ -1,19 +1,11 @@
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-        <p class="text-muted small mb-0">فایل CSV شامل اطلاعات اقامتگاه، اتاق‌ها و تعرفه‌ها را بارگذاری کنید.</p>
-    </div>
-    <a wire:navigate href="{{ route('admin.accommodations.index') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-right me-1"></i>بازگشت به لیست
-    </a>
-</div>
-
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-body">
                 <form wire:submit.prevent="import">
+                    <p class="text-muted small mb-3">فایل CSV شامل اطلاعات اقامتگاه، اتاق‌ها و تعرفه‌ها را بارگذاری کنید.</p>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">فایل CSV</label>
                         <input type="file" wire:model="csvFile" class="form-control @error('csvFile') is-invalid @enderror" accept=".csv,.txt">
@@ -114,7 +106,7 @@
 
                 <p class="fw-semibold mb-1">تعرفه</p>
                 <ul class="mb-0 ps-3">
-                    <li>قیمت هر شب به ازای هر تخت (تومان)</li>
+                    <li>قیمت هر شب به ازای هر تخت (ریال)</li>
                     <li>صبحانه رایگان: 1 یا 0</li>
                     <li>لغو: free یا non_refundable</li>
                     <li>پرداخت: pay_at_hotel یا prepay_online</li>

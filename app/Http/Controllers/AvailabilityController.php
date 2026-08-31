@@ -152,8 +152,11 @@ class AvailabilityController extends Controller
         }
 
         $excludeIds = array_filter(array_map('intval', explode(',', (string) $request->input('exclude_room_ids', ''))));
+        $excludeBookingId = $request->filled('exclude_booking_id')
+            ? (int) $request->input('exclude_booking_id')
+            : null;
 
-        $rooms = $service->roomsForRange($roomType, $checkIn, $checkOut, $excludeIds);
+        $rooms = $service->roomsForRange($roomType, $checkIn, $checkOut, $excludeIds, $excludeBookingId);
 
         return response()->json([
             'rooms'      => $rooms,
@@ -185,9 +188,12 @@ class AvailabilityController extends Controller
         }
 
         $excludeIds = array_filter(array_map('intval', explode(',', (string) $request->input('exclude_room_ids', ''))));
+        $excludeBookingId = $request->filled('exclude_booking_id')
+            ? (int) $request->input('exclude_booking_id')
+            : null;
 
         return response()->json([
-            'rooms' => $service->roomsForAccommodation($accommodation, $checkIn, $checkOut, $excludeIds),
+            'rooms' => $service->roomsForAccommodation($accommodation, $checkIn, $checkOut, $excludeIds, $excludeBookingId),
         ]);
     }
 

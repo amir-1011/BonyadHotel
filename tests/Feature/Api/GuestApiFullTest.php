@@ -146,6 +146,38 @@ class GuestApiFullTest extends TestCase
             ->assertJsonPath('data.0.cities.0.name', 'شهر تست');
     }
 
+    public function test_accommodation_types_list(): void
+    {
+        $this->seed(\Database\Seeders\AccommodationTypeSeeder::class);
+
+        $this->getJson('/api/v1/accommodation-types')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    ['key', 'label', 'is_system'],
+                ],
+            ])
+            ->assertJsonFragment(['key' => 'hotel', 'label' => 'هتل', 'is_system' => true])
+            ->assertJsonFragment(['key' => 'traditional', 'label' => 'اقامتگاه سنتی', 'is_system' => true]);
+    }
+
+    public function test_accommodations_index_filters_by_type(): void
+    {
+        $this->seed(\Database\Seeders\AccommodationTypeSeeder::class);
+
+        $this->accommodation->update(['type' => 'hotel']);
+        $this->createTestAccommodation(['name' => 'ویلای تست', 'type' => 'villa']);
+
+        $this->getJson('/api/v1/accommodations?type=hotel')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'hotel');
+
+        $this->getJson('/api/v1/accommodations?type=invalid-type')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['type']);
+    }
+
     public function test_accommodations_index(): void
     {
         $this->getJson('/api/v1/accommodations')

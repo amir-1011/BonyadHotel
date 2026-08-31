@@ -15,12 +15,23 @@ use Livewire\WithFileUploads;
 trait ManagesBookingDetails
 {
     use WithFileUploads;
+    use ManagesPendingPaymentDocuments;
     use AssertsHostPermissions;
+    use ManagesBookingStayExtension;
+    use ManagesBookingRoomModifications;
+    use ManagesBookingPriceConfirmations;
+    use ManagesPosTerminals;
+    use ResolvesAccountingProvince;
 
     public string $selectedStatus = '';
 
     /** @var array<int, array{id?:int, name:string, unit_price:int|string, quantity:int|string}> */
     public array $editableServices = [];
+
+    protected ?string $lastMutatedServiceName = null;
+    protected ?int $lastMutatedServiceQuantity = null;
+    protected ?string $lastServiceQuotaChangedField = null;
+    protected ?bool $lastServiceQuotaExcluded = null;
 
     public ?int $guestSortOrder = null;
 
@@ -40,8 +51,15 @@ trait ManagesBookingDetails
     public function bootBookingDetails(Booking $booking): void
     {
         $this->selectedStatus = $booking->status;
+        $this->syncDefaultAccountingProvinceFromContext();
         $this->loadEditableServices();
         $this->loadEditableGuests();
+        $this->bootStayExtension($booking);
+    }
+
+    protected function accountingProvince(): ?\App\Models\Province
+    {
+        return $this->resolveAccountingProvinceFromAccommodation($this->booking?->accommodation);
     }
 
     public function loadEditableServices(): void
@@ -100,7 +118,7 @@ trait ManagesBookingDetails
 
     public function saveGuestDetails(int $sortOrder): void
     {
-        $this->assertBookingEditable();
+        $this->assertGuestDetailsEditable();
         $this->assertHostCan('bookings.guests', 'edit');
 
         if ($sortOrder <= 0) {
@@ -164,31 +182,7 @@ trait ManagesBookingDetails
     /** Close guests modal and clean up Bootstrap backdrop after Livewire refresh. */
     private function closeGuestsModalAfterSave(): void
     {
-        $modalId = 'bd-modal-guests-' . $this->booking->id;
-
-        $this->js(<<<JS
-            (() => {
-                const modalEl = document.getElementById('{$modalId}');
-                if (modalEl && window.bootstrap?.Modal) {
-                    const instance = bootstrap.Modal.getInstance(modalEl)
-                        ?? bootstrap.Modal.getOrCreateInstance(modalEl);
-                    instance.hide();
-                }
-                const cleanup = () => {
-                    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-                    document.body.classList.remove('modal-open');
-                    document.body.style.removeProperty('overflow');
-                    document.body.style.removeProperty('padding-right');
-                    if (modalEl) {
-                        modalEl.classList.remove('show');
-                        modalEl.setAttribute('aria-hidden', 'true');
-                        modalEl.style.removeProperty('display');
-                    }
-                };
-                cleanup();
-                setTimeout(cleanup, 200);
-            })();
-        JS);
+        $this->releaseBootstrapModalLock('bd-modal-guests-' . $this->booking->id);
     }
 
     public function updatedNewServiceCatalogId(): void
@@ -249,7 +243,7 @@ trait ManagesBookingDetails
             return;
         }
 
-        $this->applyServiceQuotaSettings((int) $matches[1], $matches[2]);
+        $this->requestServiceQuotaPriceConfirm((int) $matches[1], $matches[2]);
     }
 
     public function updatedNewExcludedFromVeteranQuota(): void
@@ -262,66 +256,11 @@ trait ManagesBookingDetails
 
     public function addServiceLine(): void
     {
-        $this->assertBookingEditable();
-        $this->assertHostCan('bookings.services', 'write');
-
-        $catalogId = ($this->newServiceCatalogId && $this->newServiceCatalogId !== 'custom')
-            ? (int) $this->newServiceCatalogId
-            : null;
-
-        if ($catalogId) {
-            $service = app(VeteranPolicyService::class)
-                ->forAccommodation($this->booking->accommodation_id)
-                ->serviceById($catalogId);
-            if ($service && $service->variants->where('is_active', true)->isEmpty()) {
-                $this->addError('newServiceCatalogId', 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
-                return;
-            }
-            if ($service && $service->variants->where('is_active', true)->isNotEmpty() && $this->newServiceCatalogVariantId === '') {
-                $this->addError('newServiceCatalogVariantId', 'نوع این خدمت را انتخاب کنید.');
-                return;
-            }
-        }
-
-        $this->validate([
-            'newServiceName'  => ['required', 'string', 'max:200'],
-            'newServicePrice' => ['required', 'integer', 'min:0'],
-            'newServiceQty'   => ['required', 'integer', 'min:1', 'max:99'],
-        ]);
-
-        if (!$this->validateNewServiceManualDiscount()) {
+        if (!$this->validateAddServiceLineForm()) {
             return;
         }
 
-        $variantId = ($this->newServiceCatalogVariantId && $catalogId)
-            ? (int) $this->newServiceCatalogVariantId
-            : null;
-
-        [$manualPct, $manualReason] = $this->normalizedNewServiceManualDiscount();
-
-        BookingService::create([
-            'booking_id'                 => $this->booking->id,
-            'guest_sort_order'           => $this->guestSortOrder,
-            'service_catalog_id'         => $catalogId,
-            'service_catalog_variant_id' => $variantId,
-            'name'                       => $this->newServiceName,
-            'unit_price'                 => (int) $this->newServicePrice,
-            'quantity'                   => $this->newServiceQty,
-            'total'                      => (int) $this->newServicePrice * $this->newServiceQty,
-            'sort_order'                 => $this->booking->services()->count(),
-            'excluded_from_veteran_quota' => $this->newExcludedFromVeteranQuota,
-            'manual_discount_percentage' => $manualPct,
-            'manual_discount_reason'     => $manualReason,
-        ]);
-
-        $this->booking->refresh();
-        app(ManualBookingService::class)->recalculateTotals($this->booking);
-        $this->booking->refresh();
-        $this->loadEditableServices();
-        $addedServiceName = $this->newServiceName;
-        $this->resetNewServiceForm();
-        $this->dispatchBookingToast('خدمت «' . $addedServiceName . '» اضافه شد.');
-        $this->dispatch('booking-services-updated');
+        $this->runDirectPriceChange('addServiceLine', []);
     }
 
     private function resetNewServiceForm(): void
@@ -385,14 +324,7 @@ trait ManagesBookingDetails
             return;
         }
 
-        $service->update(['quantity' => $newQty]);
-
-        $this->booking->refresh();
-        app(ManualBookingService::class)->recalculateTotals($this->booking);
-        $this->booking->refresh();
-        $this->loadEditableServices();
-        $this->dispatchBookingToast('تعداد «' . $service->name . '» به ' . $newQty . ' تغییر کرد.');
-        $this->dispatch('booking-services-updated');
+        $this->runDirectPriceChange('applyServiceQuantity', ['serviceId' => $serviceId]);
     }
 
     public function removeServiceLine(int $serviceId): void
@@ -404,13 +336,8 @@ trait ManagesBookingDetails
         if (!$this->serviceBelongsToScope($service)) {
             return;
         }
-        $service->delete();
-        $this->booking->refresh();
-        app(ManualBookingService::class)->recalculateTotals($this->booking);
-        $this->booking->refresh();
-        $this->loadEditableServices();
-        $this->dispatchBookingToast('خدمت «' . $service->name . '» حذف شد.');
-        $this->dispatch('booking-services-updated');
+
+        $this->runDirectPriceChange('removeServiceLine', ['serviceId' => $serviceId]);
     }
 
     public function applyServiceLineEdits(int $serviceId): void
@@ -438,23 +365,7 @@ trait ManagesBookingDetails
             return;
         }
 
-        $excluded = !empty($row['excluded_from_veteran_quota']);
-        [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($row, $excluded);
-
-        $service->update([
-            'name'                        => $row['name'],
-            'unit_price'                  => (int) $row['unit_price'],
-            'quantity'                    => (int) $row['quantity'],
-            'excluded_from_veteran_quota' => $excluded,
-            'manual_discount_percentage'  => $manualPct,
-            'manual_discount_reason'      => $manualReason,
-        ]);
-
-        app(ManualBookingService::class)->recalculateTotals($this->booking);
-        $this->booking->refresh();
-        $this->loadEditableServices();
-        $this->dispatchBookingToast('تغییرات «' . $service->name . '» اعمال شد.');
-        $this->dispatch('booking-services-updated');
+        $this->runDirectPriceChange('applyServiceLineEdits', ['serviceId' => $serviceId]);
     }
 
     public function saveServiceEdits(ManualBookingService $manualBooking): void
@@ -472,36 +383,7 @@ trait ManagesBookingDetails
             return;
         }
 
-        $sortOrder = 0;
-        foreach ($this->editableServices as $serviceId => $row) {
-            if (empty($row['id'])) {
-                continue;
-            }
-            $service = $this->booking->services()->find($row['id']);
-            if (!$service || !$this->serviceBelongsToScope($service)) {
-                continue;
-            }
-            $qty = (int) $row['quantity'];
-            $unit = (int) $row['unit_price'];
-            $excluded = !empty($row['excluded_from_veteran_quota']);
-            [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($row, $excluded);
-
-            $service->update([
-                'name'                       => $row['name'],
-                'unit_price'                 => $unit,
-                'quantity'                   => $qty,
-                'sort_order'                 => $sortOrder++,
-                'excluded_from_veteran_quota' => $excluded,
-                'manual_discount_percentage' => $manualPct,
-                'manual_discount_reason'     => $manualReason,
-            ]);
-        }
-
-        $manualBooking->recalculateTotals($this->booking);
-        $this->booking->refresh();
-        $this->loadEditableServices();
-        $this->dispatchBookingToast('همه خدمات رزرو به‌روز شد.');
-        $this->dispatch('booking-services-updated');
+        $this->runDirectPriceChange('saveServiceEdits', []);
     }
 
     public function uploadBookingForm(): void
@@ -570,9 +452,39 @@ trait ManagesBookingDetails
         );
     }
 
+    protected function assertGuestDetailsEditable(): void
+    {
+        abort_unless(
+            $this->booking->canEditGuestDetails(Auth::user()),
+            403,
+            'امکان ویرایش اطلاعات مهمانان این رزرو وجود ندارد.'
+        );
+    }
+
     protected function dispatchBookingToast(string $message, string $type = 'success'): void
     {
         $this->dispatch('toast', type: $type, message: $message);
+    }
+
+    protected function resolveStayExtensionBooking(): ?Booking
+    {
+        return $this->booking ?? null;
+    }
+
+    protected function afterStayExtension(Booking $booking): void
+    {
+        $this->booking = $booking->load([
+            'user.country', 'user.residenceCity', 'accommodation.city.province', 'roomType', 'roomRate',
+            'services.serviceCatalog', 'services.serviceCatalogVariant',
+            'guestDetails.country', 'guestDetails.residenceCity',
+            'guestDetails.bookingRoom.room', 'guestDetails.bookingRoom.roomType',
+            'createdBy',
+            'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
+            'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
+            'program',
+        ]);
+
+        $this->loadEditableServices();
     }
 
     private function syncGuestLabelInSnapshot(int $sortOrder, string $label): void
@@ -599,30 +511,199 @@ trait ManagesBookingDetails
 
     private function applyServiceQuotaSettings(int $serviceId, ?string $changedField = null): void
     {
+        $this->requestServiceQuotaPriceConfirm($serviceId, $changedField);
+    }
+
+    protected function validateAddServiceLineForm(): bool
+    {
+        $this->assertBookingEditable();
+        $this->assertHostCan('bookings.services', 'write');
+
+        $catalogId = ($this->newServiceCatalogId && $this->newServiceCatalogId !== 'custom')
+            ? (int) $this->newServiceCatalogId
+            : null;
+
+        if ($catalogId) {
+            $service = app(VeteranPolicyService::class)
+                ->forAccommodation($this->booking->accommodation_id)
+                ->serviceById($catalogId);
+            if ($service && $service->variants->where('is_active', true)->isEmpty()) {
+                $this->addError('newServiceCatalogId', 'برای این خدمت نوع و قیمت تعریف نشده. از تنظیمات ایثارگری انواع را اضافه کنید.');
+
+                return false;
+            }
+            if ($service && $service->variants->where('is_active', true)->isNotEmpty() && $this->newServiceCatalogVariantId === '') {
+                $this->addError('newServiceCatalogVariantId', 'نوع این خدمت را انتخاب کنید.');
+
+                return false;
+            }
+        }
+
+        $this->validate([
+            'newServiceName'  => ['required', 'string', 'max:200'],
+            'newServicePrice' => ['required', 'integer', 'min:0'],
+            'newServiceQty'   => ['required', 'integer', 'min:1', 'max:99'],
+        ]);
+
+        if (!$this->validateNewServiceManualDiscount()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function createServiceLineRecord(): void
+    {
+        $catalogId = ($this->newServiceCatalogId && $this->newServiceCatalogId !== 'custom')
+            ? (int) $this->newServiceCatalogId
+            : null;
+        $variantId = ($this->newServiceCatalogVariantId && $catalogId)
+            ? (int) $this->newServiceCatalogVariantId
+            : null;
+        [$manualPct, $manualReason] = $this->normalizedNewServiceManualDiscount();
+
+        $this->lastMutatedServiceName = $this->newServiceName;
+
+        BookingService::create([
+            'booking_id'                  => $this->booking->id,
+            'guest_sort_order'            => $this->guestSortOrder,
+            'service_catalog_id'          => $catalogId,
+            'service_catalog_variant_id'  => $variantId,
+            'name'                        => $this->newServiceName,
+            'unit_price'                  => (int) $this->newServicePrice,
+            'quantity'                    => $this->newServiceQty,
+            'total'                       => (int) $this->newServicePrice * $this->newServiceQty,
+            'sort_order'                  => $this->booking->services()->count(),
+            'excluded_from_veteran_quota' => $this->newExcludedFromVeteranQuota,
+            'manual_discount_percentage'  => $manualPct,
+            'manual_discount_reason'      => $manualReason,
+        ]);
+
+        $this->booking->refresh();
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+    }
+
+    protected function updateServiceQuantityRecord(int $serviceId): void
+    {
+        $row = $this->editableServices[$serviceId] ?? null;
+        abort_unless($row && !empty($row['id']), 422);
+
+        $service = $this->booking->services()->findOrFail($serviceId);
+        abort_unless($this->serviceBelongsToScope($service), 403);
+
+        $newQty = (int) $row['quantity'];
+        $this->lastMutatedServiceName = $service->name;
+        $this->lastMutatedServiceQuantity = $newQty;
+
+        $service->update(['quantity' => $newQty]);
+
+        $this->booking->refresh();
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+    }
+
+    protected function deleteServiceLineRecord(int $serviceId): void
+    {
+        $service = $this->booking->services()->findOrFail($serviceId);
+        abort_unless($this->serviceBelongsToScope($service), 403);
+
+        $this->lastMutatedServiceName = $service->name;
+        $service->delete();
+
+        $this->booking->refresh();
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+    }
+
+    protected function updateServiceLineRecord(int $serviceId): void
+    {
+        $row = $this->editableServices[$serviceId] ?? null;
+        abort_unless($row && !empty($row['id']), 422);
+
+        $service = $this->booking->services()->findOrFail($serviceId);
+        abort_unless($this->serviceBelongsToScope($service), 403);
+
+        $excluded = !empty($row['excluded_from_veteran_quota']);
+        [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($row, $excluded);
+
+        $this->lastMutatedServiceName = (string) $row['name'];
+
+        $service->update([
+            'name'                        => $row['name'],
+            'unit_price'                  => (int) $row['unit_price'],
+            'quantity'                    => (int) $row['quantity'],
+            'excluded_from_veteran_quota' => $excluded,
+            'manual_discount_percentage'  => $manualPct,
+            'manual_discount_reason'      => $manualReason,
+        ]);
+
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+    }
+
+    protected function persistAllServiceLineEdits(): void
+    {
+        $sortOrder = 0;
+        foreach ($this->editableServices as $row) {
+            if (empty($row['id'])) {
+                continue;
+            }
+            $service = $this->booking->services()->find($row['id']);
+            if (!$service || !$this->serviceBelongsToScope($service)) {
+                continue;
+            }
+            $qty = (int) $row['quantity'];
+            $unit = (int) $row['unit_price'];
+            $excluded = !empty($row['excluded_from_veteran_quota']);
+            [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($row, $excluded);
+
+            $service->update([
+                'name'                        => $row['name'],
+                'unit_price'                  => $unit,
+                'quantity'                    => $qty,
+                'sort_order'                  => $sortOrder++,
+                'excluded_from_veteran_quota' => $excluded,
+                'manual_discount_percentage'  => $manualPct,
+                'manual_discount_reason'      => $manualReason,
+            ]);
+        }
+
+        app(ManualBookingService::class)->recalculateTotals($this->booking);
+        $this->booking->refresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    protected function persistServiceQuotaSettings(
+        int $serviceId,
+        array $row,
+        ?string $changedField = null,
+        bool $dispatchEvents = true,
+    ): void {
         $this->assertBookingEditable();
         $this->assertHostCan('bookings.services', 'edit');
 
-        $row = $this->editableServices[$serviceId] ?? null;
-        if (!$row) {
-            return;
-        }
-
-        $service = $this->booking->services()->find($serviceId);
-        if (!$service || !$this->serviceBelongsToScope($service)) {
-            return;
-        }
+        $service = $this->booking->services()->findOrFail($serviceId);
+        abort_unless($this->serviceBelongsToScope($service), 403);
 
         $excluded = !empty($row['excluded_from_veteran_quota']);
         if (!$excluded) {
             $this->editableServices[$serviceId]['manual_discount_percentage'] = '';
             $this->editableServices[$serviceId]['manual_discount_reason'] = '';
+            $row = $this->editableServices[$serviceId];
         }
 
-        if (!$this->validateServiceManualDiscountRow($serviceId, $this->editableServices[$serviceId])) {
-            return;
+        if (!$this->validateServiceManualDiscountRow($serviceId, $row)) {
+            throw new \RuntimeException('تنظیمات تخفیف خدمت معتبر نیست.');
         }
 
-        [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($this->editableServices[$serviceId], $excluded);
+        [$manualPct, $manualReason] = $this->normalizedServiceManualDiscount($row, $excluded);
+
+        $this->lastMutatedServiceName = $service->name;
+        $this->lastServiceQuotaChangedField = $changedField;
+        $this->lastServiceQuotaExcluded = $excluded;
 
         $service->update([
             'excluded_from_veteran_quota' => $excluded,
@@ -633,12 +714,15 @@ trait ManagesBookingDetails
         $this->booking->refresh();
         app(ManualBookingService::class)->recalculateTotals($this->booking);
         $this->booking->refresh();
-        $this->loadEditableServices();
-        $this->dispatchBookingToast($this->quotaSettingsToastMessage($service->name, $changedField, $excluded));
-        $this->dispatch('booking-services-updated');
+
+        if ($dispatchEvents) {
+            $this->loadEditableServices();
+            $this->dispatchBookingToast($this->quotaSettingsToastMessage($service->name, $changedField, $excluded));
+            $this->dispatch('booking-services-updated');
+        }
     }
 
-    private function quotaSettingsToastMessage(string $serviceName, ?string $changedField, bool $excluded): string
+    protected function quotaSettingsToastMessage(string $serviceName, ?string $changedField, bool $excluded): string
     {
         return match ($changedField) {
             'excluded_from_veteran_quota' => $excluded

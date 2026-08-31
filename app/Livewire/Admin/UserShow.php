@@ -86,6 +86,7 @@ class UserShow extends Component
             ->get();
 
         $programEmployerHistory = collect();
+        $medicalEmployerBookings = collect();
         if ($user->programEmployer) {
             $programEmployerHistory = Program::query()
                 ->with(['booking.accommodation', 'employer'])
@@ -93,8 +94,16 @@ class UserShow extends Component
                 ->latest('id')
                 ->take(20)
                 ->get();
+
+            $medicalEmployerBookings = \App\Models\Booking::query()
+                ->with('accommodation')
+                ->where('program_employer_id', $user->programEmployer->id)
+                ->where('is_medical_accommodation', true)
+                ->latest('id')
+                ->take(20)
+                ->get();
         }
 
-        return view('admin.users.show', compact('user', 'programBeneficiaryHistory', 'bookingBeneficiaryHistory', 'programEmployerHistory'));
+        return view('admin.users.show', compact('user', 'programBeneficiaryHistory', 'bookingBeneficiaryHistory', 'programEmployerHistory', 'medicalEmployerBookings'));
     }
 }

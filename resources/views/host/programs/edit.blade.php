@@ -1,9 +1,5 @@
 <div id="program-form-root">
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('host.programs.show', $program) }}" class="btn btn-sm btn-outline-secondary" wire:navigate><i class="bi bi-arrow-right"></i></a>
-</div>
-
 @if($errors->any())
 <div class="alert alert-danger"><ul class="mb-0 pe-3">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
 @endif

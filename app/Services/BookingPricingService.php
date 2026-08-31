@@ -137,11 +137,16 @@ class BookingPricingService
                 if ($groupKey === '') {
                     continue;
                 }
-                if (!isset($mergedAccommodationBreakdown[$groupKey])) {
-                    $mergedAccommodationBreakdown[$groupKey] = $item;
+                $mergeKey = $groupKey
+                    . '|' . ($item['type'] ?? AccommodationDiscountTierEngine::TYPE_PERCENTAGE)
+                    . '|' . ($item['pay_amount'] ?? '')
+                    . '|' . ($item['discount_percentage'] ?? 0);
+                if (!isset($mergedAccommodationBreakdown[$mergeKey])) {
+                    $mergedAccommodationBreakdown[$mergeKey] = $item;
                     continue;
                 }
-                $mergedAccommodationBreakdown[$groupKey]['discount_amount'] += (int) ($item['discount_amount'] ?? 0);
+                $mergedAccommodationBreakdown[$mergeKey]['units'] += (int) ($item['units'] ?? 0);
+                $mergedAccommodationBreakdown[$mergeKey]['discount_amount'] += (int) ($item['discount_amount'] ?? 0);
             }
             $aggregated['room_lines'][] = array_merge($linePricing, [
                 'sort_order'      => $index,
@@ -177,7 +182,10 @@ class BookingPricingService
             ? (int) round($totalDiscount / $subtotal * 100)
             : 0;
 
-        $veteranDiscountNights = $this->countDiscountedNights($accommodationNightPlan['night_discounts'] ?? []);
+        $veteranDiscountNights = $this->countDiscountedNights(
+            $accommodationNightPlan['night_discounts'] ?? [],
+            $accommodationNightPlan['night_tiers'] ?? [],
+        );
 
         return [
             'nights'                          => $aggregated['nights'],
@@ -192,7 +200,15 @@ class BookingPricingService
             'manual_accommodation_discount_amount'  => $aggregated['manual_accommodation_discount_amount'],
             'veteran_discount_nights'         => $veteranDiscountNights,
             'veteran_accommodation_group_usage' => $accommodationNightPlan['group_usage'] ?? [],
-            'accommodation_discount_breakdown'  => array_values($mergedAccommodationBreakdown),
+            'accommodation_night_discounts'   => $accommodationNightPlan['night_discounts'] ?? [],
+            'accommodation_night_tiers'       => $accommodationNightPlan['night_tiers'] ?? [],
+            'accommodation_tiered_discount'   => $this->isTieredAccommodationDiscount(
+                $accommodationNightPlan['night_discounts'] ?? [],
+                $veteranTypes,
+                $this->policyFor($params),
+                $accommodationNightPlan['night_tiers'] ?? [],
+            ),
+            'accommodation_discount_breakdown'  => $this->finalizeAccommodationTierBreakdown($mergedAccommodationBreakdown),
             'extra_guests_total'              => $aggregated['extra_guests_total'],
             'services_subtotal'               => $servicesSubtotal,
             'services_discount_amount'        => $servicesDiscountAmount,
@@ -281,8 +297,9 @@ class BookingPricingService
         $accommodationNightPlan = $params['accommodation_night_plan']
             ?? $this->resolveAccommodationNightPlan($params, $nights, $veteranTypes, $bookingGuests);
         $nightDiscounts = $accommodationNightPlan['night_discounts'] ?? array_fill(0, $nights, 0);
+        $nightTiers = $accommodationNightPlan['night_tiers'] ?? $this->nightTiersFromDiscounts($nightDiscounts);
         $nightGroupKeys = $accommodationNightPlan['night_group_keys'] ?? array_fill(0, $nights, null);
-        $veteranDiscountNights = $this->countDiscountedNights($nightDiscounts);
+        $veteranDiscountNights = $this->countDiscountedNights($nightDiscounts, $nightTiers);
         $pricePerNight = $roomRate ? $roomRate->price_per_night : $accommodation->price_per_night;
 
         $roomsNeeded = $this->roomsNeeded($guests, $extraGuests, $roomType, $childrenUnder6, $accommodation);
@@ -317,6 +334,7 @@ class BookingPricingService
         $childrenDiscountAmount = 0;
         $manualAccommodationDiscount = 0;
         $groupVeteranDiscountAmounts = [];
+        $accommodationTierBreakdown = [];
         $cursor = new \DateTime($checkIn);
         $endDate = new \DateTime($checkOut);
         $nightIndex = 0;
@@ -328,13 +346,17 @@ class BookingPricingService
                 ? (int) $dayData['effective_price']
                 : $pricePerNight;
 
-            $nightVeteranPct = (int) ($nightDiscounts[$nightIndex] ?? 0);
+            $nightTier = $nightTiers[$nightIndex] ?? [
+                'type'                => AccommodationDiscountTierEngine::TYPE_PERCENTAGE,
+                'discount_percentage' => (int) ($nightDiscounts[$nightIndex] ?? 0),
+            ];
+            $nightVeteranPct = AccommodationDiscountTierEngine::effectivePercentage($nightPrice, $nightTier);
 
             if (is_array($perGuestSlots) && count($perGuestSlots) > 0) {
                 $nightBreakdown = $this->accommodationNightBreakdownPerGuest(
                     $nightPrice,
                     $perGuestSlots,
-                    $nightVeteranPct,
+                    $nightTier,
                     $childDiscountPct,
                 );
             } else {
@@ -343,7 +365,7 @@ class BookingPricingService
                     $billingGuests,
                     $childrenUnder6,
                     $nonDiscountGuests,
-                    $nightVeteranPct,
+                    $nightTier,
                     $childDiscountPct,
                 );
             }
@@ -356,6 +378,14 @@ class BookingPricingService
             $nightGroupKey = $nightGroupKeys[$nightIndex] ?? null;
             $nightVeteranAmount = (int) ($nightBreakdown['veteran_discount_amount'] ?? 0);
             if ($nightGroupKey && $nightVeteranAmount > 0) {
+                $this->accumulateAccommodationTierBreakdown(
+                    $accommodationTierBreakdown,
+                    $nightGroupKey,
+                    $nightTier,
+                    $nightVeteranAmount,
+                    $this->policyFor($params),
+                    incrementUnits: true,
+                );
                 $groupVeteranDiscountAmounts[$nightGroupKey] = ($groupVeteranDiscountAmounts[$nightGroupKey] ?? 0)
                     + $nightVeteranAmount;
             }
@@ -389,27 +419,31 @@ class BookingPricingService
             : 0;
         $extraVeteranDiscount = 0;
         if ($extraPerNight > 0 && $discountEligibleRatio > 0) {
-            foreach ($nightDiscounts as $nightIdx => $nightPct) {
-                if ($nightPct <= 0) {
+            foreach ($nightTiers as $nightIdx => $nightTier) {
+                if (!AccommodationDiscountTierEngine::tierHasDiscount($nightTier)) {
                     continue;
                 }
-                $nightExtraDiscount = (int) round($extraPerNight * $nightPct / 100 * $discountEligibleRatio);
+                $nightExtraDiscount = (int) round(
+                    AccommodationDiscountTierEngine::unitDiscount($extraPerNight, $nightTier) * $discountEligibleRatio
+                );
                 $extraVeteranDiscount += $nightExtraDiscount;
                 $nightGroupKey = $nightGroupKeys[$nightIdx] ?? null;
                 if ($nightGroupKey && $nightExtraDiscount > 0) {
+                    $this->accumulateAccommodationTierBreakdown(
+                        $accommodationTierBreakdown,
+                        $nightGroupKey,
+                        $nightTier,
+                        $nightExtraDiscount,
+                        $this->policyFor($params),
+                        incrementUnits: false,
+                    );
                     $groupVeteranDiscountAmounts[$nightGroupKey] = ($groupVeteranDiscountAmounts[$nightGroupKey] ?? 0)
                         + $nightExtraDiscount;
                 }
             }
         }
         $veteranAccommodationDiscount = $roomVeteranDiscount + $extraVeteranDiscount;
-        $accommodationDiscountBreakdown = $this->buildAccommodationDiscountBreakdown(
-            $accommodationNightPlan['group_usage'] ?? [],
-            $groupVeteranDiscountAmounts,
-            $nightDiscounts,
-            $nightGroupKeys,
-            $this->policyFor($params),
-        );
+        $accommodationDiscountBreakdown = $this->finalizeAccommodationTierBreakdown($accommodationTierBreakdown);
         $accommodationDiscountAmount = $veteranAccommodationDiscount + $manualAccommodationDiscount;
 
         $subtotal = $accommodationSubtotal + $servicesSubtotal;
@@ -433,6 +467,14 @@ class BookingPricingService
             'manual_accommodation_discount_amount'  => $manualAccommodationDiscount,
             'veteran_discount_nights'           => $veteranDiscountNights,
             'veteran_accommodation_group_usage' => $accommodationNightPlan['group_usage'] ?? [],
+            'accommodation_night_discounts'     => $nightDiscounts,
+            'accommodation_night_tiers'         => $nightTiers,
+            'accommodation_tiered_discount'     => $this->isTieredAccommodationDiscount(
+                $nightDiscounts,
+                $veteranTypes,
+                $this->policyFor($params),
+                $nightTiers,
+            ),
             'accommodation_discount_breakdown'  => $accommodationDiscountBreakdown,
             'extra_guests_total'              => $extraGuestsTotal,
             'services_subtotal'               => $servicesSubtotal,
@@ -448,7 +490,12 @@ class BookingPricingService
 
     /**
      * @param  array<int, string>  $veteranTypes
-     * @return array{night_discounts: array<int, int>, group_usage: array<string, int>}
+     * @return array{
+     *   night_discounts: array<int, int>,
+     *   night_tiers: array<int, array<string, mixed>>,
+     *   night_group_keys: array<int, string|null>,
+     *   group_usage: array<string, int>
+     * }
      */
     private function resolveAccommodationNightPlan(
         array $params,
@@ -459,6 +506,10 @@ class BookingPricingService
         if ($nights <= 0 || empty($veteranTypes)) {
             return [
                 'night_discounts'  => array_fill(0, max(0, $nights), 0),
+                'night_tiers'      => array_fill(0, max(0, $nights), [
+                    'type'                => AccommodationDiscountTierEngine::TYPE_PERCENTAGE,
+                    'discount_percentage' => 0,
+                ]),
                 'night_group_keys' => array_fill(0, max(0, $nights), null),
                 'group_usage'      => [],
             ];
@@ -470,10 +521,16 @@ class BookingPricingService
                 ? (int) $params['discount_percentage']
                 : $this->policyFor($params)->accommodationDiscountForTypes($veteranTypes);
             $nightDiscounts = [];
+            $nightTiers = [];
             $nightGroupKeys = [];
             for ($i = 0; $i < $nights; $i++) {
-                $nightDiscounts[] = $i < $discounted ? $pct : 0;
-                $nightGroupKeys[] = $i < $discounted ? ($veteranTypes[0] ?? null) : null;
+                $eligible = $i < $discounted;
+                $nightDiscounts[] = $eligible ? $pct : 0;
+                $nightTiers[] = [
+                    'type'                => AccommodationDiscountTierEngine::TYPE_PERCENTAGE,
+                    'discount_percentage' => $eligible ? $pct : 0,
+                ];
+                $nightGroupKeys[] = $eligible ? ($veteranTypes[0] ?? null) : null;
             }
             $groupUsage = ($discounted > 0 && !empty($veteranTypes[0]))
                 ? [$veteranTypes[0] => $discounted]
@@ -481,6 +538,7 @@ class BookingPricingService
 
             return [
                 'night_discounts'  => $nightDiscounts,
+                'night_tiers'      => $nightTiers,
                 'night_group_keys' => $nightGroupKeys,
                 'group_usage'      => $groupUsage,
             ];
@@ -493,15 +551,55 @@ class BookingPricingService
             $params['national_id'] ?? null,
             isset($params['user_id']) ? (int) $params['user_id'] : null,
             isset($params['exclude_booking_id']) ? (int) $params['exclude_booking_id'] : null,
+            $this->referenceNightPrice($params),
         );
     }
 
     /**
      * @param  array<int, int>  $nightDiscounts
+     * @param  array<int, array<string, mixed>>  $nightTiers
      */
-    private function countDiscountedNights(array $nightDiscounts): int
+    private function countDiscountedNights(array $nightDiscounts, array $nightTiers = []): int
     {
+        if (!empty($nightTiers)) {
+            return count(array_filter(
+                $nightTiers,
+                fn (array $tier) => AccommodationDiscountTierEngine::tierHasDiscount($tier),
+            ));
+        }
+
         return count(array_filter($nightDiscounts, fn (int $pct) => $pct > 0));
+    }
+
+    /**
+     * @param  array<int, int>  $nightDiscounts
+     * @return array<int, array<string, mixed>>
+     */
+    private function nightTiersFromDiscounts(array $nightDiscounts): array
+    {
+        return array_map(
+            fn (int $pct) => [
+                'type'                => AccommodationDiscountTierEngine::TYPE_PERCENTAGE,
+                'discount_percentage' => $pct,
+            ],
+            $nightDiscounts,
+        );
+    }
+
+    private function referenceNightPrice(array $params): int
+    {
+        $accommodation = $params['accommodation'] ?? null;
+        $roomRate = $params['room_rate'] ?? null;
+
+        if ($roomRate && isset($roomRate->price_per_night)) {
+            return max(0, (int) $roomRate->price_per_night);
+        }
+
+        if ($accommodation instanceof Accommodation && isset($accommodation->price_per_night)) {
+            return max(0, (int) $accommodation->price_per_night);
+        }
+
+        return 0;
     }
 
     private function resolveVeteranDiscountNights(array $params, int $nights, ?string $veteranType): int
@@ -518,7 +616,10 @@ class BookingPricingService
             max(1, (int) ($params['guests'] ?? 1)),
         );
 
-        return $this->countDiscountedNights($plan['night_discounts']);
+        return $this->countDiscountedNights(
+            $plan['night_discounts'],
+            $plan['night_tiers'] ?? [],
+        );
     }
 
     /**
@@ -874,14 +975,15 @@ class BookingPricingService
     }
 
     /**
-     * @return array{gross:int, net:int, children_discount_amount:int}
+     * @param  array<string, mixed>  $nightTier
+     * @return array{gross:int, net:int, children_discount_amount:int, veteran_discount_amount:int}
      */
     private function accommodationNightBreakdown(
         int $nightPrice,
         int $billingGuests,
         int $childrenUnder6,
         int $nonDiscountGuests,
-        int $veteranDiscountPct,
+        array $nightTier,
         int $childDiscountPct = 50,
     ): array {
         $childMultiplier = (100 - max(0, min(100, $childDiscountPct))) / 100;
@@ -900,15 +1002,32 @@ class BookingPricingService
         $net = $nonDiscountAdults * $nightPrice
             + (int) round($nightPrice * $childMultiplier * $nonDiscountChildren);
 
-        if ($veteranDiscountPct > 0) {
-            $net += (int) round($nightPrice * (100 - $veteranDiscountPct) / 100 * $discountAdults);
-            $net += (int) round($nightPrice * $childMultiplier * (100 - $veteranDiscountPct) / 100 * $discountChildren);
-            $veteranDiscountAmount = (int) round($discountAdults * $nightPrice * $veteranDiscountPct / 100)
-                + (int) round($nightPrice * $childMultiplier * $discountChildren * $veteranDiscountPct / 100);
+        $veteranDiscountAmount = 0;
+        if (AccommodationDiscountTierEngine::tierHasDiscount($nightTier)) {
+            $childPrice = (int) round($nightPrice * $childMultiplier);
+            $eligibleAdultGross = $discountAdults * $nightPrice;
+            $eligibleChildGross = $discountChildren * $childPrice;
+            $eligibleGross = $eligibleAdultGross + $eligibleChildGross;
+
+            if (AccommodationDiscountTierEngine::isRoomLevelTier($nightTier)) {
+                $veteranDiscountAmount = AccommodationDiscountTierEngine::unitDiscount($eligibleGross, $nightTier);
+                $net += max(0, $eligibleGross - $veteranDiscountAmount);
+            } else {
+                if ($discountAdults > 0) {
+                    $adultDiscount = AccommodationDiscountTierEngine::unitDiscount($nightPrice, $nightTier);
+                    $veteranDiscountAmount += $adultDiscount * $discountAdults;
+                    $net += ($nightPrice - $adultDiscount) * $discountAdults;
+                }
+
+                if ($discountChildren > 0) {
+                    $childDiscount = AccommodationDiscountTierEngine::unitDiscount($childPrice, $nightTier);
+                    $veteranDiscountAmount += $childDiscount * $discountChildren;
+                    $net += ($childPrice - $childDiscount) * $discountChildren;
+                }
+            }
         } else {
             $net += $discountAdults * $nightPrice;
             $net += (int) round($nightPrice * $childMultiplier * $discountChildren);
-            $veteranDiscountAmount = 0;
         }
 
         return [
@@ -921,12 +1040,13 @@ class BookingPricingService
 
     /**
      * @param  array<int, array{is_child:bool, veteran_eligible:bool, manual_discount_pct:int}>  $guestSlots
-     * @return array{gross:int, net:int, children_discount_amount:int, manual_discount_amount:int}
+     * @param  array<string, mixed>  $nightTier
+     * @return array{gross:int, net:int, children_discount_amount:int, manual_discount_amount:int, veteran_discount_amount:int}
      */
     private function accommodationNightBreakdownPerGuest(
         int $nightPrice,
         array $guestSlots,
-        int $veteranDiscountPct,
+        array $nightTier,
         int $childDiscountPct = 50,
     ): array {
         $childMultiplier = (100 - max(0, min(100, $childDiscountPct))) / 100;
@@ -935,8 +1055,11 @@ class BookingPricingService
         $childrenDiscountAmount = 0;
         $manualDiscountAmount = 0;
         $veteranDiscountAmount = 0;
+        $slotGross = [];
+        $eligibleGross = 0;
+        $eligibleIndexes = [];
 
-        foreach ($guestSlots as $slot) {
+        foreach ($guestSlots as $index => $slot) {
             $isChild = !empty($slot['is_child']);
             $guestGross = $isChild
                 ? (int) round($nightPrice * $childMultiplier)
@@ -947,14 +1070,49 @@ class BookingPricingService
             }
 
             $gross += $guestGross;
+            $slotGross[$index] = $guestGross;
 
+            if (!empty($slot['veteran_eligible'])
+                && AccommodationDiscountTierEngine::tierHasDiscount($nightTier)) {
+                $eligibleGross += $guestGross;
+                $eligibleIndexes[] = $index;
+            }
+        }
+
+        $roomLevelDiscountShares = [];
+        if ($eligibleGross > 0
+            && AccommodationDiscountTierEngine::isRoomLevelTier($nightTier)) {
+            $totalRoomDiscount = AccommodationDiscountTierEngine::unitDiscount($eligibleGross, $nightTier);
+            $allocated = 0;
+            $lastEligibleIndex = $eligibleIndexes[array_key_last($eligibleIndexes)] ?? null;
+
+            foreach ($eligibleIndexes as $index) {
+                if ($index === $lastEligibleIndex) {
+                    $roomLevelDiscountShares[$index] = $totalRoomDiscount - $allocated;
+                    continue;
+                }
+
+                $share = (int) round($totalRoomDiscount * $slotGross[$index] / $eligibleGross);
+                $roomLevelDiscountShares[$index] = $share;
+                $allocated += $share;
+            }
+        }
+
+        foreach ($guestSlots as $index => $slot) {
+            $guestGross = $slotGross[$index];
             $afterBase = $guestGross;
             $veteranEligible = !empty($slot['veteran_eligible']);
             $manualPct = max(0, min(100, (int) ($slot['manual_discount_pct'] ?? 0)));
 
-            if ($veteranEligible && $veteranDiscountPct > 0) {
-                $afterBase = (int) round($guestGross * (100 - $veteranDiscountPct) / 100);
-                $veteranDiscountAmount += $guestGross - $afterBase;
+            if ($veteranEligible && AccommodationDiscountTierEngine::tierHasDiscount($nightTier)) {
+                if (AccommodationDiscountTierEngine::isRoomLevelTier($nightTier)) {
+                    $unitDiscount = (int) ($roomLevelDiscountShares[$index] ?? 0);
+                } else {
+                    $unitDiscount = AccommodationDiscountTierEngine::unitDiscount($guestGross, $nightTier);
+                }
+
+                $afterBase = $guestGross - $unitDiscount;
+                $veteranDiscountAmount += $unitDiscount;
             } elseif ($manualPct > 0) {
                 $afterManual = (int) round($guestGross * (100 - $manualPct) / 100);
                 $manualDiscountAmount += $guestGross - $afterManual;
@@ -971,6 +1129,106 @@ class BookingPricingService
             'manual_discount_amount'   => $manualDiscountAmount,
             'veteran_discount_amount'  => $veteranDiscountAmount,
         ];
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $breakdown
+     */
+    private function accumulateAccommodationTierBreakdown(
+        array &$breakdown,
+        string $groupKey,
+        array $nightTier,
+        int $discountAmount,
+        VeteranPolicyService $policy,
+        bool $incrementUnits,
+    ): void {
+        if ($groupKey === '' || $discountAmount <= 0 || !AccommodationDiscountTierEngine::tierHasDiscount($nightTier)) {
+            return;
+        }
+
+        $tierKey = $groupKey
+            . '|' . AccommodationDiscountTierEngine::tierType($nightTier)
+            . '|' . ($nightTier['pay_amount'] ?? '')
+            . '|' . ($nightTier['discount_percentage'] ?? '');
+        if (!isset($breakdown[$tierKey])) {
+            $group = $policy->groupByKey($groupKey);
+            $breakdown[$tierKey] = [
+                'veteran_group_key'   => $groupKey,
+                'veteran_group_label' => $group?->label ?? $groupKey,
+                'type'                => AccommodationDiscountTierEngine::tierType($nightTier),
+                'units'               => 0,
+                'discount_percentage' => $nightTier['discount_percentage'] ?? null,
+                'pay_amount'          => $nightTier['pay_amount'] ?? null,
+                'discount_amount'     => 0,
+            ];
+        }
+
+        if ($incrementUnits) {
+            $breakdown[$tierKey]['units']++;
+        }
+
+        $breakdown[$tierKey]['discount_amount'] += $discountAmount;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $breakdown
+     * @return array<int, array<string, mixed>>
+     */
+    private function finalizeAccommodationTierBreakdown(array $breakdown): array
+    {
+        return collect($breakdown)
+            ->sortByDesc(fn (array $item) => (int) ($item['discount_amount'] ?? 0))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $nightDiscounts
+     * @param  array<int, string>  $veteranTypes
+     * @param  array<int, array<string, mixed>>  $nightTiers
+     */
+    private function isTieredAccommodationDiscount(
+        array $nightDiscounts,
+        array $veteranTypes,
+        VeteranPolicyService $policy,
+        array $nightTiers = [],
+    ): bool {
+        if (!empty($nightTiers)) {
+            $activeTiers = array_values(array_filter(
+                $nightTiers,
+                fn (array $tier) => AccommodationDiscountTierEngine::tierHasDiscount($tier),
+            ));
+
+            $signatures = array_unique(array_map(
+                fn (array $tier) => AccommodationDiscountTierEngine::tierType($tier)
+                    . '|' . ($tier['pay_amount'] ?? '')
+                    . '|' . ($tier['discount_percentage'] ?? ''),
+                $activeTiers,
+            ));
+
+            if (count($signatures) > 1) {
+                return true;
+            }
+
+            foreach ($activeTiers as $tier) {
+                if (AccommodationDiscountTierEngine::tierType($tier) !== AccommodationDiscountTierEngine::TYPE_PERCENTAGE) {
+                    return true;
+                }
+            }
+        }
+
+        $discountedPcts = array_values(array_unique(array_filter($nightDiscounts, fn (int $pct) => $pct > 0)));
+        if (count($discountedPcts) > 1) {
+            return true;
+        }
+
+        foreach ($veteranTypes as $type) {
+            if ($policy->accommodationDiscountRule($type)['use_tiered_accommodation_discount'] ?? false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

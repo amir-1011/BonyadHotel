@@ -1,3 +1,5 @@
+import { digitsEnToFa } from '@persian-tools/persian-tools';
+
 const statusColors = { confirmed: 'success', pending: 'warning', cancelled: 'danger' };
 
 function escapeHtml(s) {
@@ -27,10 +29,10 @@ function showOccDayModal(cell) {
 
     const jalali = cell.dataset.jalali || '';
     if (titleEl) {
-        titleEl.textContent = bookings.length > 0 ? bookings.length + ' رزرو فعال' : 'بدون رزرو';
+        titleEl.textContent = bookings.length > 0 ? digitsEnToFa(bookings.length + ' رزرو فعال') : 'بدون رزرو';
     }
     if (dateEl) {
-        dateEl.textContent = jalali ? 'تاریخ: ' + jalali : '';
+        dateEl.textContent = jalali ? 'تاریخ: ' + digitsEnToFa(jalali) : '';
     }
 
     if (bookings.length === 0) {

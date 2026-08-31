@@ -1,22 +1,22 @@
-<div>
+<div class="room-status-board">
 
     @php
         $isViewDateToday = $viewDate === now()->toDateString();
     @endphp
 
     <div class="ta-card h-100" id="room-status-board-root">
-        <div class="ta-card__head flex-wrap gap-2">
-            <div>
+        <div class="ta-card__head room-status-board-head flex-wrap gap-2">
+            <div class="min-w-0">
                 <h2 class="ta-card__title mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>وضعیت اتاق‌ها</h2>
                 <div class="ta-card__sub">نمای زنده اتاق‌های فیزیکی بر اساس نقشه ساختمان — رنگ هر باکس وضعیت همان روز را نشان می‌دهد</div>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="room-status-board-toolbar d-flex align-items-center gap-2 flex-wrap min-w-0">
                 @if($panel === 'admin' && !$useDashboardFilter)
-                <div class="d-flex align-items-center gap-2">
-                    <label class="small text-muted mb-0">اقامتگاه:</label>
+                <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                    <label class="small text-muted mb-0 flex-shrink-0">اقامتگاه:</label>
                     <select wire:model="accommodationId"
                             class="form-select form-select-sm @error('accommodationId') is-invalid @enderror"
-                            style="min-width:200px;">
+                            style="min-width:0;max-width:100%;">
                         <option value="">انتخاب اقامتگاه...</option>
                         @foreach($accommodations as $acc)
                         <option value="{{ $acc->id }}">{{ $acc->name }}</option>
@@ -24,15 +24,14 @@
                     </select>
                 </div>
                 @endif
-                <div class="d-flex align-items-center gap-2" wire:ignore>
-                    <label class="small text-muted mb-0">تاریخ:</label>
-                    <div class="input-group input-group-sm" style="width:auto;">
+                <div class="d-flex align-items-center gap-2 room-status-board-date-wrap" wire:ignore>
+                    <label class="small text-muted mb-0 flex-shrink-0">تاریخ:</label>
+                    <div class="input-group input-group-sm room-status-board-date-group">
                         <input type="text"
                                id="room-status-board-date"
                                class="form-control form-control-sm rsb-jalali-date @error('viewDateJalali') is-invalid @enderror{{ $isViewDateToday ? ' jalali-date-is-today' : '' }}"
                                data-wire-prop="viewDateJalali"
                                value="{{ $viewDateJalali }}"
-                               style="width:8.5rem;"
                                placeholder="۱۴۰۵/۰۱/۰۱"
                                autocomplete="off"
                                dir="ltr">
@@ -89,8 +88,13 @@
 
         <div class="ta-card__body">
             @if($boardVisible)
+            @php
+                $anyPhysicalRoomsShown = $layoutEditMode || collect($board)->contains(
+                    fn ($acc) => in_array((int) $acc['accommodation_id'], array_map('intval', $expandedPhysicalRoomIds), true)
+                );
+            @endphp
+            @if($layoutEditMode && $canEditBuildingLayout)
             <div class="d-flex flex-wrap gap-2 mb-3 align-items-center" style="font-size:.75rem;">
-                @if($layoutEditMode && $canEditBuildingLayout)
                 <div class="d-flex flex-column gap-2 w-100">
                     <span class="badge bg-warning text-dark align-self-start"><i class="bi bi-arrows-move me-1"></i>حالت چیدمان — ردیف‌ها با ≡ و اتاق‌ها با ⋮⋮</span>
                     <div class="small text-muted border border-warning border-opacity-25 rounded px-3 py-2 bg-warning-subtle">
@@ -98,15 +102,17 @@
                         اتاق فیزیکی را با موس بردارید؛ روی هر اتاقی که قرار دهید، <strong>سمت راست</strong> آن اتاق قرار می‌گیرد.
                     </div>
                 </div>
-                @else
+            </div>
+            @elseif($anyPhysicalRoomsShown)
+            <div class="d-flex flex-wrap gap-2 mb-3 align-items-center" style="font-size:.75rem;">
                 <span class="badge bg-success-subtle text-success border border-success-subtle">آزاد</span>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle">مهمان فعلی</span>
                 <span class="badge room-status-legend-purple">اردو / برنامه</span>
                 <span class="badge bg-info-subtle text-info border border-info-subtle">رزرو آینده</span>
                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle">بسته (سیاست قیمتی)</span>
                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle">مسدود</span>
-                @endif
             </div>
+            @endif
             @endif
 
             @if($panel === 'admin' && !$boardVisible)
@@ -131,41 +137,144 @@
                 $editLayout = $editLayouts[$accKey] ?? ['cols' => 6, 'rows' => [], 'row_labels' => []];
                 $displayRows = $acc['rows'] ?? [['label' => '', 'rooms' => $acc['rooms']]];
                 $displayCols = $acc['cols'] ?? 6;
+                $showPhysicalRooms = $layoutEditMode
+                    || in_array((int) $acc['accommodation_id'], array_map('intval', $expandedPhysicalRoomIds), true);
+                $summary = $acc['summary'] ?? [
+                    'total' => count($acc['rooms'] ?? []),
+                    'available' => 0,
+                    'occupied' => 0,
+                    'occupied_guests' => 0,
+                    'program' => 0,
+                    'program_guests' => 0,
+                    'future' => 0,
+                    'future_program' => 0,
+                    'capacity_closed' => 0,
+                    'blocked' => 0,
+                ];
+                $busyRooms = (int) $summary['occupied'] + (int) $summary['program'];
+                $occupancyPct = (int) $summary['total'] > 0
+                    ? (int) round(100 * $busyRooms / (int) $summary['total'])
+                    : 0;
             @endphp
-            <div class="mb-4" wire:key="rsb-acc-{{ $acc['accommodation_id'] }}">
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <div class="fw-bold"><i class="bi bi-building me-1 text-primary"></i>{{ $acc['accommodation_name'] }}</div>
-                    @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
-                    <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
-                        <label class="small text-muted mb-0 d-flex align-items-center gap-1">
-                            حداکثر ستون در هر ردیف:
-                            <select class="form-select form-select-sm"
-                                    style="width:auto;min-width:4rem;"
-                                    wire:change="setLayoutCols({{ $acc['accommodation_id'] }}, $event.target.value)">
-                                @foreach([3, 4, 5, 6, 7, 8, 10, 12] as $n)
-                                <option value="{{ $n }}" @selected((int) ($editLayout['cols'] ?? 6) === $n)>{{ $n }}</option>
-                                @endforeach
-                            </select>
-                        </label>
-                        <button type="button"
-                                wire:click="addLayoutRow({{ $acc['accommodation_id'] }})"
-                                class="btn btn-outline-primary btn-sm py-0 px-2"
-                                style="font-size:.72rem;">
-                            <i class="bi bi-plus-lg me-1"></i>ردیف جدید
-                        </button>
-                        <button type="button"
-                                wire:click="resetAccommodationLayout({{ $acc['accommodation_id'] }})"
-                                class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                style="font-size:.72rem;"
-                                data-swal-confirm="چیدمان پیش‌فرض بازگردانده شود؟">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>پیش‌فرض
-                        </button>
+            <div class="mb-4 rsb-acc" wire:key="rsb-acc-{{ $acc['accommodation_id'] }}" data-rsb-accommodation="{{ $acc['accommodation_id'] }}">
+                <div class="ta-card rsb-kpi mb-3">
+                    <div class="ta-card__head rsb-kpi__head flex-wrap gap-2">
+                        <div class="fw-bold min-w-0">
+                            <i class="bi bi-building me-1 text-primary"></i>{{ $acc['accommodation_name'] }}
+                        </div>
+                        @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
+                        <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                            <label class="small text-muted mb-0 d-flex align-items-center gap-1">
+                                حداکثر ستون در هر ردیف:
+                                <select class="form-select form-select-sm"
+                                        style="width:auto;min-width:4rem;"
+                                        wire:change="setLayoutCols({{ $acc['accommodation_id'] }}, $event.target.value)">
+                                    @foreach([3, 4, 5, 6, 7, 8, 10, 12] as $n)
+                                    <option value="{{ $n }}" @selected((int) ($editLayout['cols'] ?? 6) === $n)>{{ $n }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <button type="button"
+                                    wire:click="addLayoutRow({{ $acc['accommodation_id'] }})"
+                                    class="btn btn-outline-primary btn-sm py-0 px-2"
+                                    style="font-size:.72rem;">
+                                <i class="bi bi-plus-lg me-1"></i>ردیف جدید
+                            </button>
+                            <button type="button"
+                                    wire:click="resetAccommodationLayout({{ $acc['accommodation_id'] }})"
+                                    class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                    style="font-size:.72rem;"
+                                    data-swal-confirm="چیدمان پیش‌فرض بازگردانده شود؟">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>پیش‌فرض
+                            </button>
+                        </div>
+                        @endif
                     </div>
-                    @endif
+                    <div class="rsb-kpi__grid">
+                        <article class="rsb-kpi__cell" data-rsb-kpi="total">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--success" aria-hidden="true"><i class="bi bi-door-open-fill"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">مجموع اتاق</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['total'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                <div class="rsb-kpi__chips">
+                                    <span class="rsb-kpi__chip rsb-kpi__chip--ok">{{ $summary['available'] }} آزاد</span>
+                                </div>
+                            </div>
+                        </article>
+                        <article class="rsb-kpi__cell" data-rsb-kpi="occupied">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--primary" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">مهمان فعلی</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['occupied'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                <div class="rsb-kpi__meta">
+                                    {{ $summary['occupied_guests'] }} نفر
+                                    @if((int) $summary['total'] > 0)
+                                        · {{ $occupancyPct }}٪ اشغال
+                                    @endif
+                                </div>
+                            </div>
+                        </article>
+                        <article class="rsb-kpi__cell" data-rsb-kpi="program">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--violet" aria-hidden="true"><i class="bi bi-flag-fill"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">اردو / برنامه</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['program'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                <div class="rsb-kpi__meta">{{ $summary['program_guests'] }} نفر</div>
+                            </div>
+                        </article>
+                        <article class="rsb-kpi__cell" data-rsb-kpi="future">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--info" aria-hidden="true"><i class="bi bi-calendar-event-fill"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">رزرو آینده</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['future'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                @if((int) $summary['future_program'] > 0)
+                                <div class="rsb-kpi__chips">
+                                    <span class="rsb-kpi__chip rsb-kpi__chip--violet">{{ $summary['future_program'] }} اردوی آینده</span>
+                                </div>
+                                @else
+                                <div class="rsb-kpi__meta">ورود بعد از تاریخ انتخاب‌شده</div>
+                                @endif
+                            </div>
+                        </article>
+                        <article class="rsb-kpi__cell" data-rsb-kpi="capacity_closed">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--warning" aria-hidden="true"><i class="bi bi-sliders"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">بسته (سیاست قیمتی)</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['capacity_closed'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                <div class="rsb-kpi__meta">خارج از ظرفیت فروش روز</div>
+                            </div>
+                        </article>
+                        <article class="rsb-kpi__cell" data-rsb-kpi="blocked">
+                            <span class="rsb-kpi__icon rsb-kpi__icon--rose" aria-hidden="true"><i class="bi bi-lock-fill"></i></span>
+                            <div class="rsb-kpi__copy">
+                                <div class="rsb-kpi__label">مسدود</div>
+                                <div class="rsb-kpi__value-row">
+                                    <strong class="rsb-kpi__value">{{ $summary['blocked'] }}</strong>
+                                    <span class="rsb-kpi__unit">اتاق</span>
+                                </div>
+                                <div class="rsb-kpi__meta">خارج از فروش توسط میزبان</div>
+                            </div>
+                        </article>
+                    </div>
                 </div>
 
                 @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
-                    <div class="room-status-rows-list"
+                    <div class="room-status-rows-list rsb-physical-rooms"
                          data-rsb-rows-list
                          data-rsb-accommodation-id="{{ $acc['accommodation_id'] }}"
                          wire:key="rsb-edit-rows-{{ $acc['accommodation_id'] }}">
@@ -217,7 +326,8 @@
                     </div>
                     @endforeach
                     </div>
-                @else
+                @elseif($showPhysicalRooms)
+                    <div class="rsb-physical-rooms" data-rsb-physical-rooms="{{ $acc['accommodation_id'] }}">
                     @foreach($displayRows as $rowIndex => $rowData)
                     @php
                         $rowRooms = $rowData['rooms'] ?? $rowData;
@@ -252,6 +362,24 @@
                         @endforeach
                     </div>
                     @endforeach
+                    </div>
+                    <div class="text-center mt-2">
+                        <button type="button"
+                                wire:click="hidePhysicalRooms({{ $acc['accommodation_id'] }})"
+                                class="btn btn-outline-secondary btn-sm"
+                                data-rsb-hide-rooms="{{ $acc['accommodation_id'] }}">
+                            <i class="bi bi-eye-slash me-1"></i>عدم نمایش
+                        </button>
+                    </div>
+                @else
+                    <div class="text-center">
+                        <button type="button"
+                                wire:click="showPhysicalRooms({{ $acc['accommodation_id'] }})"
+                                class="btn btn-outline-primary btn-sm"
+                                data-rsb-show-rooms="{{ $acc['accommodation_id'] }}">
+                            <i class="bi bi-grid-3x3-gap me-1"></i>نمایش اتاق‌های فیزیکی
+                        </button>
+                    </div>
                 @endif
             </div>
             @endforeach
@@ -260,8 +388,8 @@
     </div>
 
     @if($selectedRoom)
-    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.45);" wire:click.self="closeDetail">
-        <div class="modal-dialog modal-dialog-centered {{ $servicesBookingId ? 'modal-xl' : 'modal-lg' }}">
+    <div class="modal fade show d-block room-status-detail-modal" tabindex="-1" style="background:rgba(0,0,0,.45);" wire:click.self="closeDetail">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable {{ $servicesBookingId ? 'modal-xl' : 'modal-lg' }}">
             <div class="modal-content" wire:click.stop>
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -455,7 +583,7 @@
                                         class="form-select form-select-sm @error('bookingRoomRateId') is-invalid @enderror">
                                     <option value="">انتخاب تعرفه...</option>
                                     @foreach($selectedRoomRates as $rate)
-                                    <option value="{{ $rate['id'] }}">{{ $rate['name'] }} — {{ number_format($rate['price_per_night']) }} تومان/شب/تخت</option>
+                                    <option value="{{ $rate['id'] }}">{{ $rate['name'] }} — {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate['price_per_night'])) }} ریال/شب/تخت</option>
                                     @endforeach
                                 </select>
                                 @error('bookingRoomRateId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
@@ -526,9 +654,11 @@
     @once
     <style>
     .room-status-row {
+        --rsb-gap: .5rem;
+        --rsb-cols-cap: 12;
         display: grid;
-        grid-template-columns: repeat(var(--rsb-cols, 4), minmax(0, 1fr));
-        gap: .5rem;
+        grid-template-columns: repeat(min(var(--rsb-cols, 4), var(--rsb-cols-cap)), minmax(0, 1fr));
+        gap: var(--rsb-gap);
         margin-bottom: .5rem;
     }
     .room-status-row--editable {
@@ -761,6 +891,258 @@
     .room-status-sortable-item.rsb-dnd-dragging,
     .room-status-sortable-item.rsb-dnd-synth-dragging {
         z-index: 5;
+    }
+
+    #room-status-board-root {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .room-status-board {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .rsb-kpi { overflow: hidden; }
+    .rsb-kpi__head {
+        align-items: flex-start;
+        padding-bottom: .85rem;
+    }
+    .rsb-kpi__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .rsb-kpi__cell {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        padding: 18px 20px;
+        background: transparent;
+    }
+    .rsb-kpi__grid > .rsb-kpi__cell {
+        border-inline-end: 1px solid var(--bs-border-color, #eaecf0);
+        border-bottom: 1px solid var(--bs-border-color, #eaecf0);
+    }
+    .rsb-kpi__grid > .rsb-kpi__cell:nth-child(3n) { border-inline-end: none; }
+    .rsb-kpi__grid > .rsb-kpi__cell:nth-last-child(-n+3) { border-bottom: none; }
+    .rsb-kpi__icon {
+        flex: 0 0 42px;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+    .rsb-kpi__icon--primary { color: #465fff; background: rgba(70, 95, 255, .12); }
+    .rsb-kpi__icon--info { color: #0ba5ec; background: rgba(11, 165, 236, .12); }
+    .rsb-kpi__icon--warning { color: #f79009; background: rgba(247, 144, 9, .12); }
+    .rsb-kpi__icon--success { color: #12b76a; background: rgba(18, 183, 106, .12); }
+    .rsb-kpi__icon--violet { color: #7a5af8; background: rgba(122, 90, 248, .12); }
+    .rsb-kpi__icon--rose { color: #e31b54; background: rgba(227, 27, 84, .1); }
+    .rsb-kpi__copy { min-width: 0; flex: 1; }
+    .rsb-kpi__label {
+        color: #667085;
+        font-size: .78rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        line-height: 1.3;
+    }
+    .rsb-kpi__value-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+    .rsb-kpi__value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        line-height: 1.15;
+        color: #101828;
+        letter-spacing: -.02em;
+        font-variant-numeric: tabular-nums;
+    }
+    .rsb-kpi__unit {
+        color: #667085;
+        font-size: .8rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .rsb-kpi__meta {
+        margin-top: 6px;
+        color: #98a2b3;
+        font-size: .75rem;
+        line-height: 1.45;
+    }
+    .rsb-kpi__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    .rsb-kpi__chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: .7rem;
+        font-weight: 600;
+        line-height: 1.4;
+        white-space: nowrap;
+    }
+    .rsb-kpi__chip--ok { color: #027a48; background: #ecfdf3; }
+    .rsb-kpi__chip--violet { color: #6941c6; background: #f4f3ff; }
+    [data-bs-theme="dark"] .rsb-kpi__label,
+    [data-bs-theme="dark"] .rsb-kpi__unit { color: #98a2b3; }
+    [data-bs-theme="dark"] .rsb-kpi__value { color: #f2f4f7; }
+    [data-bs-theme="dark"] .rsb-kpi__meta { color: #667085; }
+    [data-bs-theme="dark"] .rsb-kpi__chip--ok { color: #6ce9a6; background: rgba(18, 183, 106, .16); }
+    [data-bs-theme="dark"] .rsb-kpi__chip--violet { color: #bdb4fe; background: rgba(122, 90, 248, .16); }
+    .room-status-board-head {
+        align-items: flex-start;
+    }
+    .room-status-board-toolbar {
+        max-width: 100%;
+    }
+    .room-status-board-date-group {
+        width: auto;
+        min-width: 0;
+        flex: 1 1 8.5rem;
+        max-width: 12rem;
+    }
+    .room-status-board-date-group .rsb-jalali-date {
+        min-width: 0;
+        width: 8.5rem;
+        flex: 1 1 auto;
+    }
+    .room-status-box__name,
+    .room-status-box__type,
+    .room-status-box__status,
+    .room-status-box__guest {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .room-status-detail-modal {
+        padding: 0;
+    }
+    .room-status-detail-modal .modal-dialog {
+        margin: 1.75rem auto;
+        width: calc(100% - 1.5rem);
+    }
+    .room-status-detail-modal .modal-lg {
+        max-width: min(800px, calc(100vw - 1.5rem));
+    }
+    .room-status-detail-modal .modal-xl {
+        max-width: min(1140px, calc(100vw - 1.5rem));
+    }
+    .room-status-detail-modal .modal-content {
+        max-height: min(92dvh, 920px);
+    }
+
+    @media (max-width: 1199.98px) {
+        .room-status-row:not(.room-status-row--editable) { --rsb-cols-cap: 5; }
+        .rsb-kpi__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .rsb-kpi__grid > .rsb-kpi__cell { border-inline-end: 1px solid var(--bs-border-color, #eaecf0); border-bottom: 1px solid var(--bs-border-color, #eaecf0); }
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-child(3n) { border-inline-end: 1px solid var(--bs-border-color, #eaecf0); }
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-child(2n) { border-inline-end: none; }
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-last-child(-n+3) { border-bottom: 1px solid var(--bs-border-color, #eaecf0); }
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-last-child(-n+2) { border-bottom: none; }
+    }
+    @media (max-width: 991.98px) {
+        .room-status-row:not(.room-status-row--editable) { --rsb-cols-cap: 4; }
+        .room-status-box { padding: .5rem .55rem; }
+    }
+    @media (max-width: 767.98px) {
+        .room-status-row:not(.room-status-row--editable) { --rsb-cols-cap: 3; }
+        .room-status-board-head {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .room-status-board-toolbar,
+        .room-status-board-date-wrap {
+            width: 100%;
+        }
+        .room-status-board-date-group {
+            max-width: none;
+            flex: 1 1 auto;
+        }
+        .room-status-board-date-group .rsb-jalali-date {
+            width: auto;
+        }
+        .room-status-board-toolbar > .btn {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .room-status-rows-list {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+            margin-inline: -4px;
+            padding-inline: 4px;
+        }
+        .room-status-row--editable {
+            min-width: calc(var(--rsb-cols, 4) * 7rem);
+        }
+        .room-status-row__header {
+            flex-wrap: wrap;
+        }
+        .room-status-detail-modal .modal-dialog {
+            margin: .5rem;
+            width: calc(100% - 1rem);
+            max-width: none;
+        }
+        .room-status-detail-modal .modal-content {
+            max-height: calc(100dvh - 1rem);
+        }
+        .room-status-detail-modal .modal-header,
+        .room-status-detail-modal .modal-footer {
+            padding: .75rem 1rem;
+        }
+        .room-status-detail-modal .modal-body {
+            padding: .85rem 1rem;
+        }
+    }
+    @media (max-width: 575.98px) {
+        .room-status-row:not(.room-status-row--editable) {
+            --rsb-cols-cap: 2;
+            --rsb-gap: .4rem;
+        }
+        .rsb-kpi__grid { grid-template-columns: minmax(0, 1fr); }
+        .rsb-kpi__grid > .rsb-kpi__cell,
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-child(2n),
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-child(3n),
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-last-child(-n+3),
+        .rsb-kpi__grid > .rsb-kpi__cell:nth-last-child(-n+2) {
+            border-inline-end: none;
+            border-bottom: 1px solid var(--bs-border-color, #eaecf0);
+        }
+        .rsb-kpi__grid > .rsb-kpi__cell:last-child { border-bottom: none; }
+        .rsb-kpi__cell { padding: 14px 16px; }
+        .rsb-kpi__value { font-size: 1.25rem; }
+        .room-status-box {
+            padding: .45rem .5rem;
+            border-radius: .55rem;
+        }
+        .room-status-box__name { font-size: .74rem; }
+        .room-status-box__type,
+        .room-status-box__future { font-size: .58rem; }
+        .room-status-box__status,
+        .room-status-box__guest { font-size: .62rem; }
+        .room-status-box__hover-tip {
+            max-width: min(16rem, calc(100vw - 1.5rem));
+            font-size: .64rem;
+        }
+    }
+    @media (hover: none) {
+        .room-status-box__hover-tip {
+            display: none !important;
+        }
+        button.room-status-box:hover {
+            transform: none;
+            box-shadow: none;
+        }
     }
     </style>
     @endonce

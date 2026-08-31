@@ -16,6 +16,7 @@
     },
     "dependencies": {
         "@formkit/drag-and-drop": "^0.6.1",
+        "@persian-tools/persian-tools": "^4.0.4",
         "alpinejs": "^3.15.12",
         "aos": "^2.3.4",
         "bootstrap": "^5.3.3",

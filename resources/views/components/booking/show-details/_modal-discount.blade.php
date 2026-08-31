@@ -11,6 +11,24 @@
         <strong class="text-end">{{ $booking->veteranDiscountLabel() }}</strong>
     </li>
 
+    @if($booking->isMedicalAccommodation())
+    <li class="list-group-item px-0">
+        <div class="alert alert-info small py-2 mb-0">
+            این رزرو به‌صورت اسکان درمانی ثبت شده است؛ مبلغ بر اساس تعرفه بیمه دی محاسبه شده،
+            مهمان وجه اقامت را نمی‌پردازد و مانده به‌صورت بدهی کارفرما ثبت می‌شود. سیاست کنسلی اعمال نمی‌گردد.
+        </div>
+    </li>
+    @endif
+
+    @if($booking->isCredit())
+    <li class="list-group-item px-0">
+        <div class="alert alert-warning small py-2 mb-0">
+            این رزرو به‌صورت اعتباری ثبت شده است؛ مهمان اصلی به‌عنوان مهمان عادی محاسبه شده،
+            تخفیف ایثارگری اعمال نشده و سهمیه جانبازی کسر نشده است.
+        </div>
+    </li>
+    @endif
+
     @if($booking->secondary_veteran_type_applied)
     <li class="list-group-item px-0">
         <div class="small text-muted mb-1">ترکیب گروه‌ها (اولویت تخفیف بیشتر)</div>
@@ -125,7 +143,7 @@
     @if(($pricingBreakdown['children_discount_amount'] ?? 0) > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">تخفیف کودک زیر ۶ سال</span>
-        <span class="text-success">− {{ number_format($pricingBreakdown['children_discount_amount']) }} ت</span>
+        <span class="text-success">− {{ \App\Support\PdfPersian::toPersianDigits(number_format($pricingBreakdown['children_discount_amount'])) }} ریال</span>
     </li>
     @endif
 

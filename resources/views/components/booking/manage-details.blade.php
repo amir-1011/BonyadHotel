@@ -15,8 +15,8 @@
     <div class="card-header bg-white fw-semibold small d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span><i class="bi bi-bag-check me-2"></i>مدیریت خدمات و فرم رزرو</span>
         @if($canViewPdf)
-        <a href="{{ route($panel . '.bookings.pdf', $booking) }}" target="_blank" class="btn btn-xs btn-outline-success" style="font-size:.75rem;">
-            <i class="bi bi-file-pdf me-1"></i>دانلود PDF
+        <a href="{{ route($panel . '.bookings.pdf', $booking) }}" target="_blank" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-file-pdf"></i>دانلود PDF
         </a>
         @endif
     </div>
@@ -68,6 +68,28 @@
 
         @if(!$canEditServicesPanel && $booking->services->isEmpty())
         <div class="alert alert-light border small py-2 mb-0">خدمت اضافی ثبت نشده است.</div>
+        @endif
+
+        @if($booking->isMedicalAccommodation() && $booking->hasMedicalReferralLetters())
+        <div class="border rounded p-3 mt-3">
+            <div class="small fw-semibold mb-2"><i class="bi bi-hospital me-1"></i>معرفی‌نامه اسکان درمانی</div>
+            <x-booking.authorized-document-links
+                :urls="collect($booking->medicalReferralLetterPaths())->map(fn ($path, $index) => $booking->medicalReferralLetterUrl($panel ?? null, $index))->all()"
+                btn-class="btn-outline-info"
+                label="دانلود معرفی‌نامه"
+            />
+        </div>
+        @endif
+
+        @if($booking->isCredit() && $booking->hasCreditLetters())
+        <div class="border rounded p-3 mt-3">
+            <div class="small fw-semibold mb-2"><i class="bi bi-wallet2 me-1"></i>معرفی‌نامه اعتباری</div>
+            <x-booking.authorized-document-links
+                :urls="collect($booking->creditLetterPaths())->map(fn ($path, $index) => $booking->creditLetterUrl($panel ?? null, $index))->all()"
+                btn-class="btn-outline-warning"
+                label="دانلود معرفی‌نامه"
+            />
+        </div>
         @endif
 
         @if($canManageForms && $booking->canEditServices())

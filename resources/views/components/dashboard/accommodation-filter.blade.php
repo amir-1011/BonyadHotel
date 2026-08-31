@@ -99,6 +99,15 @@
         max-width: calc(100vw - var(--ta-sidebar-w, 250px) - 24px);
     }
 
+    @media (max-width: 991.98px) {
+        .dashboard-acc-filter .dropdown-menu,
+        .dashboard-acc-filter .dropdown-menu.show {
+            width: min(360px, calc(100vw - 24px));
+            min-width: min(280px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
+        }
+    }
+
     @media (min-width: 992px) {
         body.ta-collapsed .dashboard-acc-filter .dropdown-menu,
         body.ta-collapsed .dashboard-acc-filter .dropdown-menu.show {
@@ -119,12 +128,60 @@
     }
 
     @media (max-width: 575.98px) {
-        .dashboard-acc-filter .dropdown-menu.dashboard-acc-filter__menu--fixed {
-            left: 12px !important;
-            right: 12px !important;
-            width: auto !important;
-            min-width: 0 !important;
+        .ta-list-chrome > .dashboard-acc-filter,
+        .ta-page-toolbar > .dashboard-acc-filter {
+            flex: 1 1 100%;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .dashboard-acc-filter > .btn-light {
+            width: 100%;
+            max-width: 100%;
+            justify-content: center;
+        }
+
+        .dashboard-acc-filter__label {
             max-width: none !important;
+            flex: 1 1 auto;
+        }
+
+        .dashboard-acc-filter .dropdown-menu.dashboard-acc-filter__menu.show,
+        .dashboard-acc-filter .dropdown-menu.dashboard-acc-filter__menu--fixed.show {
+            position: fixed !important;
+            inset: auto 0 0 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            transform: none !important;
+            border-radius: 16px 16px 0 0;
+            max-height: min(85vh, calc(100dvh - 12px));
+            display: flex !important;
+            flex-direction: column;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .dashboard-acc-filter__list {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            overflow-y: auto;
+        }
+    }
+
+    @media (min-width: 576px) and (max-width: 991.98px) {
+        .dashboard-acc-filter .dropdown-menu.dashboard-acc-filter__menu.show,
+        .dashboard-acc-filter .dropdown-menu.dashboard-acc-filter__menu--fixed.show {
+            max-height: min(520px, calc(100dvh - 24px));
+            display: flex !important;
+            flex-direction: column;
+        }
+
+        .dashboard-acc-filter__list {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: min(360px, calc(100dvh - 220px));
         }
     }
 

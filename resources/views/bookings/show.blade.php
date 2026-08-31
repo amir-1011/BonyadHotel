@@ -81,14 +81,14 @@
     {{-- Price details --}}
     <div style="border:1px solid var(--bnb-border);border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="font-size:12px;color:var(--bnb-gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">جزئیات مالی</div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span>قیمت پایه ({{ $booking->nights }} شب × {{ number_format($booking->accommodation->price_per_night) }} تومان)</span><span>{{ number_format($booking->base_price) }} تومان</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span>قیمت پایه ({{ $booking->nights }} شب × {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->accommodation->price_per_night)) }} ریال)</span><span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->base_price)) }} ریال</span></div>
         @if($booking->extra_guests > 0 && $booking->extra_guests_price > 0)
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:#16a34a;"><span><i class="bi bi-person-add me-1"></i>کف‌خوابی ({{ $booking->extra_guests }} نفر × {{ $booking->nights }} شب)</span><span>{{ number_format($booking->extra_guests_price) }} تومان</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:#16a34a;"><span><i class="bi bi-person-add me-1"></i>کف‌خوابی ({{ $booking->extra_guests }} نفر × {{ $booking->nights }} شب)</span><span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->extra_guests_price)) }} ریال</span></div>
         @endif
         @if($booking->discount_percentage > 0)
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:var(--bnb-red);"><span>تخفیف {{ $booking->discount_percentage }}٪ ({{ $booking->user->veteranLabel() }})</span><span>− {{ number_format($booking->discount_amount) }} تومان</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:var(--bnb-red);"><span>تخفیف {{ $booking->discount_percentage }}٪ ({{ $booking->user->veteranLabel() }})</span><span>− {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->discount_amount)) }} ریال</span></div>
         @endif
-        <div style="border-top:1px solid var(--bnb-border);padding-top:12px;margin-top:8px;display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--bnb-dark);"><span>مبلغ نهایی</span><span>{{ number_format($booking->total_price) }} تومان</span></div>
+        <div style="border-top:1px solid var(--bnb-border);padding-top:12px;margin-top:8px;display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--bnb-dark);"><span>مبلغ نهایی</span><span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }} ریال</span></div>
     </div>
 
     {{-- Actions --}}

@@ -32,22 +32,14 @@
 
 <div>
 
-
-<div class="mb-3">
-    <div class="text-muted small">
-        <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}"><i class="bi bi-chevron-right me-1"></i>بازگشت</a>
-        <span class="mx-1">·</span>{{ $accommodation->name }}
-        <span class="mx-1">·</span>حداکثر ظرفیت کل: <strong>{{ $roomType->room_count }} اتاق</strong>
-    </div>
-</div>
-
-<div class="row g-4">
+<div class="row g-3">
     <div class="col-lg-4">
         <div class="card shadow-sm border-0 rounded-4">
             <div class="card-header bg-primary text-white rounded-top-4 border-0">
                 <h6 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2"></i>تنظیم ظرفیت برای بازه</h6>
             </div>
             <div class="card-body p-4">
+                <p class="text-muted small mb-3">حداکثر ظرفیت کل: <strong>{{ $roomType->room_count }} اتاق</strong></p>
                 <x-room-type.daily-availability-form
                     :room-type="$roomType"
                     :store-route="route('admin.room-types.daily-availability.store', [$accommodation, $roomType])" />

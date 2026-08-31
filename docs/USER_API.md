@@ -41,9 +41,12 @@ DELETE /api/v1/auth/tokens     (لغو همه توکن‌ها)
 | DELETE | `/api/v1/auth/tokens` | ✅ |
 | GET | `/api/v1/provinces` | ❌ |
 | GET | `/api/v1/provinces/{id}/cities` | ❌ |
+| GET | `/api/v1/locations` | ❌ |
+| GET | `/api/v1/accommodation-types` | ❌ |
 | GET | `/api/v1/accommodations` | ❌ |
 | GET | `/api/v1/accommodations/{id}` | ❌ |
 | GET | `/api/v1/accommodations/{id}/rooms-availability` | ❌ |
+| GET | `/api/v1/accommodations/{id}/physical-rooms` | ❌ |
 | GET | `/api/v1/room-types/{id}/availability` | ❌ |
 | GET | `/api/v1/room-types/{id}/physical-rooms` | ❌ |
 | GET | `/api/v1/profile` | ✅ |
@@ -83,6 +86,86 @@ DELETE /api/v1/auth/tokens     (لغو همه توکن‌ها)
 | `bill_full_rooms` | bool | ❌ | رزرو کامل اتاق |
 
 > کودک زیر ۶ سال طبق سیاست اقامتگاه تخفیف می‌گیرد (پیش‌فرض ۵۰٪).
+
+### انواع اقامتگاه (`Accommodation Types`)
+
+هر اقامتگاه یک فیلد `type` (کلید انگلیسی) و `type_label` (برچسب فارسی) دارد. انواع از جدول `accommodation_types` خوانده می‌شوند و توسط ادمین قابل گسترش هستند.
+
+#### `GET /api/v1/accommodation-types`
+
+**احراز هویت:** ❌ عمومی
+
+**پاسخ `200`:**
+
+```json
+{
+  "data": [
+    { "key": "hotel", "label": "هتل", "is_system": true },
+    { "key": "villa", "label": "ویلا", "is_system": true },
+    { "key": "apartment", "label": "آپارتمان", "is_system": true },
+    { "key": "hostel", "label": "باغ ویلا", "is_system": true },
+    { "key": "traditional", "label": "اقامتگاه سنتی", "is_system": true }
+  ]
+}
+```
+
+| فیلد | نوع | توضیح |
+|------|-----|--------|
+| `key` | string | شناسه یکتا — در فیلتر `type` و فیلد `type` اقامتگاه استفاده می‌شود |
+| `label` | string | نام فارسی نمایشی |
+| `is_system` | bool | `true` برای انواع پیش‌فرض سیدر؛ `false` برای انواع سفارشی ادمین |
+
+**انواع پیش‌فرض سیستم:**
+
+| `key` | `label` |
+|-------|---------|
+| `hotel` | هتل |
+| `villa` | ویلا |
+| `apartment` | آپارتمان |
+| `hostel` | باغ ویلا |
+| `traditional` | اقامتگاه سنتی |
+
+#### فیلتر نوع در لیست اقامتگاه‌ها
+
+```
+GET /api/v1/accommodations?type=hotel
+```
+
+| پارامتر | نوع | توضیح |
+|---------|-----|--------|
+| `type` | string | فیلتر بر اساس `key` نوع — مقادیر معتبر از `/accommodation-types` |
+
+**خطا `422` (نوع نامعتبر):**
+
+```json
+{
+  "message": "نوع اقامتگاه معتبر نیست.",
+  "errors": { "type": ["نوع اقامتگاه معتبر نیست."] }
+}
+```
+
+#### فیلدهای نوع در پاسخ اقامتگاه
+
+در `AccommodationResource` (لیست، جزئیات، علاقه‌مندی‌ها):
+
+| فیلد | نوع | مثال |
+|------|-----|------|
+| `type` | string | `"hotel"` |
+| `type_label` | string | `"هتل"` |
+
+#### سایر فیلترهای `GET /api/v1/accommodations`
+
+| پارامتر | نوع | توضیح |
+|---------|-----|--------|
+| `province_id` | int | فیلتر استان |
+| `city_id` | int | فیلتر شهر |
+| `check_in` | date | تاریخ ورود (فیلتر دسترسی) |
+| `check_out` | date | تاریخ خروج |
+| `guests` | int | حداقل ظرفیت |
+| `wheelchair` | bool | `true` → فقط اقامتگاه‌های مناسب ویلچر |
+| `lat`, `lng` | float | جستجوی جغرافیایی |
+| `radius` | int | شعاع کیلومتر (۱–۵۰۰، پیش‌فرض ۳۰) |
+| `per_page` | int | تعداد در صفحه (۱–۵۰، پیش‌فرض ۱۲) |
 
 > مسیرهای قدیمی Session-based (`/login`, `/favorites/.../toggle` و ...) همچنان برای وب فعال هستند.
 
@@ -605,6 +688,7 @@ GET /bookings/{booking_id}/pdf
 | `check_out` | date | تاریخ خروج |
 | `guests` | int | حداقل ظرفیت |
 | `wheelchair` | bool | مناسب ویلچر |
+| `type` | string | نوع اقامتگاه (`key` از `/api/v1/accommodation-types`) |
 | `lat`, `lng` | float | جستجوی جغرافیایی |
 | `radius` | int | شعاع کیلومتر (۱–۵۰۰، پیش‌فرض ۳۰) |
 
@@ -785,6 +869,34 @@ GET /bookings/{booking_id}/pdf
 | `444` | جانباز ۷۰+ |
 | `555` | آزادگان |
 | سایر | عادی (۰٪) |
+
+---
+
+### Accommodation (اقامتگاه)
+
+| فیلد | نوع | توضیح |
+|------|-----|--------|
+| `id` | int | |
+| `name` | string | |
+| `type` | string | کلید نوع — مثلاً `hotel` |
+| `type_label` | string | برچسب فارسی نوع — مثلاً «هتل» |
+| `description` | string\|null | |
+| `price_per_night` | int | ریال |
+| `lowest_price` | int | کمترین قیمت بین نرخ‌ها |
+| `capacity` | int | ظرفیت کل |
+| `rooms` | int | تعداد اتاق |
+| `address` | string\|null | |
+| `lat`, `lng` | float\|null | |
+| `amenities` | string[] | |
+| `image` | string\|null | URL تصویر اصلی |
+| `images` | string[] | URL تصاویر |
+| `average_rating` | float | |
+| `review_count` | int | |
+| `city` | object | `{ id, name, province: { id, name } }` |
+| `is_favorited` | bool | فقط با Bearer Token |
+| `user_discount_pct` | int | تخفیف ایثارگری کاربر برای این اقامتگاه |
+
+**انواع `type` (پیش‌فرض):** `hotel`, `villa`, `apartment`, `hostel`, `traditional` — لیست کامل از `GET /api/v1/accommodation-types`
 
 ---
 

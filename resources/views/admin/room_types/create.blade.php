@@ -7,9 +7,6 @@
 @section('content')
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-</div>
 <div class="card shadow-sm">
     <div class="card-body">
         <form method="POST" action="{{ route('admin.room-types.store', $accommodation) }}" enctype="multipart/form-data">

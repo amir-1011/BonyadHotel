@@ -113,6 +113,7 @@ class AccommodationCreate extends Component
 
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\MedicalAccommodationProvisioner::class)->seedForAccommodation($accommodation);
 
         session()->flash('status', 'اقامتگاه با موفقیت ثبت شد.');
         $this->redirectRoute('admin.accommodations.index', navigate: true);

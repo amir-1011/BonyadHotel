@@ -1,65 +1,30 @@
 <div>
 
 @php($hostUser = auth()->user())
-{{-- Stats Row --}}
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:44px;height:44px;flex-shrink:0">
-                    <i class="bi bi-chat-square-text text-primary fs-5"></i>
-                </div>
-                <div>
-                    <div class="fw-bold fs-5">{{ $stats['total'] }}</div>
-                    <div class="text-muted small">کل نظرات</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-warning bg-opacity-10 d-flex align-items-center justify-content-center" style="width:44px;height:44px;flex-shrink:0">
-                    <i class="bi bi-hourglass-split text-warning fs-5"></i>
-                </div>
-                <div>
-                    <div class="fw-bold fs-5">{{ $stats['pending'] }}</div>
-                    <div class="text-muted small">بی‌پاسخ</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-success bg-opacity-10 d-flex align-items-center justify-content-center" style="width:44px;height:44px;flex-shrink:0">
-                    <i class="bi bi-reply-fill text-success fs-5"></i>
-                </div>
-                <div>
-                    <div class="fw-bold fs-5">{{ $stats['replied'] }}</div>
-                    <div class="text-muted small">پاسخ داده شده</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-info bg-opacity-10 d-flex align-items-center justify-content-center" style="width:44px;height:44px;flex-shrink:0">
-                    <i class="bi bi-star-fill text-info fs-5"></i>
-                </div>
-                <div>
-                    <div class="fw-bold fs-5">{{ $stats['avg'] ? number_format($stats['avg'], 1) : '—' }}</div>
-                    <div class="text-muted small">میانگین امتیاز</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Filters --}}
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-3">
     <div class="card-body py-2">
+        <div class="ta-filter-stats mb-2">
+            <div class="ta-filter-stat">
+                <i class="bi bi-chat-square-text"></i>
+                <span class="ta-filter-stat-value">{{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['total'])) }}</span>
+                <span class="ta-filter-stat-label">کل نظرات</span>
+            </div>
+            <div class="ta-filter-stat">
+                <i class="bi bi-hourglass-split"></i>
+                <span class="ta-filter-stat-value">{{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['pending'])) }}</span>
+                <span class="ta-filter-stat-label">بی‌پاسخ</span>
+            </div>
+            <div class="ta-filter-stat">
+                <i class="bi bi-reply-fill"></i>
+                <span class="ta-filter-stat-value">{{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['replied'])) }}</span>
+                <span class="ta-filter-stat-label">پاسخ داده شده</span>
+            </div>
+            <div class="ta-filter-stat">
+                <i class="bi bi-star-fill"></i>
+                <span class="ta-filter-stat-value">{{ $stats['avg'] ? \App\Support\PdfPersian::toPersianDigits(number_format($stats['avg'], 1)) : '—' }}</span>
+                <span class="ta-filter-stat-label">میانگین امتیاز</span>
+            </div>
+        </div>
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
                 <select wire:model.live="accommodationId" class="form-select form-select-sm">

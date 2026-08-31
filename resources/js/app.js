@@ -1,4 +1,5 @@
 import './bootstrap';
+import './persian-digits';
 import './money-input';
 import './image-upload-gate';
 import './jalali-date-today';

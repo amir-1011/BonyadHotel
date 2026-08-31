@@ -706,17 +706,16 @@ class VeteranPolicyBookingTest extends TestCase
     // 8.  Total quota = 6 nights × dependents
     // ──────────────────────────────────────────────────────
 
-    public function test_total_quota_scales_with_number_of_dependents(): void
+    public function test_total_quota_is_unlimited_regardless_of_guest_count(): void
     {
         $policy = $this->veteranPolicyFor($this->accommodation);
 
-        $summary1 = $policy->usageSummary('veteran_70_spouses', 1);
-        $summary2 = $policy->usageSummary('veteran_70_spouses', 2);
-        $summary3 = $policy->usageSummary('veteran_70_spouses', 3);
-
-        $this->assertSame(6, $summary1['total_quota']);
-        $this->assertSame(12, $summary2['total_quota']);
-        $this->assertSame(18, $summary3['total_quota']);
+        foreach ([1, 2, 3] as $guests) {
+            $summary = $policy->usageSummary('veteran_70_spouses', $guests);
+            $this->assertTrue($summary['unlimited_total_quota']);
+            $this->assertNull($summary['total_quota']);
+            $this->assertNull($summary['remaining_total']);
+        }
     }
 
     // ──────────────────────────────────────────────────────

@@ -8,12 +8,6 @@
 
 <div>
 
-<div class="mb-3">
-    <a wire:navigate href="{{ route('host.room-types.index', $accommodation) }}" class="text-muted small">
-        <i class="bi bi-chevron-right me-1"></i>بازگشت به مدیریت اتاق‌های {{ $accommodation->name }}
-    </a>
-</div>
-
 <div class="card shadow-sm">
     <div class="card-header fw-bold"><i class="bi bi-door-open me-2"></i>تعریف نوع اتاق جدید</div>
     <div class="card-body">

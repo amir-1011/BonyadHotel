@@ -10,34 +10,32 @@
     <link rel="stylesheet" href="{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}">
     <style>
-        body {
+        html, body.staff-auth-page {
+            height: 100%;
+            overflow: hidden;
+            overflow: clip;
+        }
+        body.staff-auth-page {
             font-family: 'Vazirmatn', sans-serif;
             background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
-            min-height: 100vh;
+            min-height: 100dvh;
         }
         .staff-auth-shell {
-            min-height: 100vh;
-            min-height: 100dvh;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 40px 16px;
+            overflow: hidden;
+            overscroll-behavior: none;
+            box-sizing: border-box;
         }
-        @media (max-width: 768px) and (orientation: portrait) {
-            body.staff-auth-page {
-                overflow: hidden;
-                position: fixed;
-                width: 100%;
-                height: 100%;
-            }
+        @media (max-height: 640px), (max-width: 768px) and (orientation: portrait) {
             .staff-auth-shell {
-                position: fixed;
-                inset: 0;
                 align-items: flex-start;
+                overflow: auto;
                 padding-top: max(24px, env(safe-area-inset-top));
                 padding-bottom: max(24px, env(safe-area-inset-bottom));
-                overflow-y: auto;
-                overscroll-behavior: none;
                 -webkit-overflow-scrolling: touch;
             }
         }
@@ -69,6 +67,14 @@
             box-shadow: 0 4px 24px rgba(0,0,0,.08);
             position: relative;
             box-sizing: border-box;
+        }
+        .staff-auth-logo {
+            height: 72px;
+            width: auto;
+            max-width: 56px;
+            object-fit: contain;
+            display: block;
+            flex-shrink: 0;
         }
         .staff-auth-heading {
             font-size: 20px;
@@ -127,6 +133,12 @@
         .staff-auth-card.is-morphing [data-staff-flip] {
             backface-visibility: hidden;
         }
+        .staff-auth-card.is-login-fading > *,
+        .staff-auth-shell.is-login-fading .staff-auth-brand-copy {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .32s ease;
+        }
         .staff-auth-input {
             width: 100%;
             padding: 12px 16px;
@@ -173,6 +185,11 @@
         .staff-alert-danger  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
 
         /* ── Post-login "app opening" transition ─────────────────────── */
+        html.staff-login-transitioning,
+        body.staff-login-transitioning {
+            overflow: hidden;
+            background: #ffffff;
+        }
         .staff-login-shell-fade {
             transition: opacity .45s ease, filter .45s ease;
         }
@@ -180,116 +197,243 @@
             opacity: 0;
             filter: blur(4px);
         }
-        .staff-login-transition-overlay {
+        .staff-login-preload-frame {
             position: fixed;
-            top: 0; left: 0; width: 0; height: 0;
-            z-index: 10070;
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-            border-radius: 12px;
-            box-shadow: 0 25px 60px rgba(15, 23, 42, .35);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            z-index: 10069;
             opacity: 0;
             pointer-events: none;
-            visibility: hidden;
+            background: #ffffff;
         }
-        .staff-login-transition-overlay.is-active { visibility: visible; opacity: 1; }
-        .staff-login-transition-overlay.is-expanding {
+        .staff-login-preload-frame.is-warming {
+            opacity: 1;
+        }
+        .staff-login-preload-frame.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .staff-login-flying-logo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            z-index: 10072;
+            display: block;
+            pointer-events: none;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            will-change: top, left, width, height, opacity;
+        }
+        .staff-login-flying-logo.is-active { opacity: 1; }
+        .staff-login-flying-logo.is-moving {
             transition:
                 top .68s cubic-bezier(0.32, 0.72, 0, 1),
                 left .68s cubic-bezier(0.32, 0.72, 0, 1),
                 width .68s cubic-bezier(0.32, 0.72, 0, 1),
-                height .68s cubic-bezier(0.32, 0.72, 0, 1),
-                border-radius .68s cubic-bezier(0.32, 0.72, 0, 1);
+                height .68s cubic-bezier(0.32, 0.72, 0, 1);
         }
-        .staff-login-transition-check {
+        .staff-login-flying-logo.is-to-corner {
+            transition:
+                top .92s cubic-bezier(0.22, 1, 0.36, 1),
+                left .92s cubic-bezier(0.22, 1, 0.36, 1),
+                width .92s cubic-bezier(0.22, 1, 0.36, 1),
+                height .92s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .staff-login-flying-logo.is-done {
+            opacity: 0;
+            transition: opacity .18s ease;
+        }
+        .staff-login-logo-motion {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .staff-login-logo-motion svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .staff-login-flying-logo .logo-piece {
+            opacity: 0;
+            stroke: none;
+            stroke-width: 0;
+            transform-box: fill-box;
+        }
+        .staff-login-flying-logo.is-story .logo-hand-base {
+            transform-origin: 70% 100%;
+            animation: isar-hand-rise .78s cubic-bezier(0.22, 0.82, 0.2, 1) both;
+        }
+        .staff-login-flying-logo.is-story .logo-hand-palm {
+            transform-origin: 55% 95%;
+            animation: isar-hand-rise .84s cubic-bezier(0.22, 0.82, 0.2, 1) .12s both;
+        }
+        .staff-login-flying-logo.is-story .logo-bird-from-hand {
+            transform-origin: 55% 100%;
+            animation: isar-emerge .82s cubic-bezier(0.18, 0.84, 0.24, 1) .5s both;
+        }
+        .staff-login-flying-logo.is-story .logo-bird-curve {
+            transform-origin: 50% 50%;
+            animation: isar-form .62s cubic-bezier(0.22, 0.82, 0.2, 1) .82s both;
+        }
+        .staff-login-flying-logo.is-story .logo-bird-wing {
+            transform-origin: 42% 100%;
+            animation: isar-unfurl .9s cubic-bezier(0.16, 0.86, 0.28, 1) 1.02s both;
+        }
+        .staff-login-flying-logo.is-story .logo-script-left {
+            animation: isar-ink-left .52s ease both;
+            animation-delay: calc(1.55s + (var(--isar-i, 0) * 55ms));
+        }
+        .staff-login-flying-logo.is-story .logo-script-right {
+            animation: isar-ink-right .52s ease both;
+            animation-delay: calc(1.72s + (var(--isar-i, 0) * 22ms));
+        }
+        @keyframes isar-hand-rise {
+            0%   { opacity: 0; transform: translateY(34%) scale(0.86); }
+            62%  { opacity: 1; }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-emerge {
+            0%   { opacity: 0; transform: translateY(26%) scale(0.68); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-form {
+            0%   { opacity: 0; transform: scale(0.42); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-unfurl {
+            0%   { opacity: 0; transform: translateY(22%) scale(0.42); }
+            64%  { opacity: 1; transform: translateY(-4%) scale(1.05); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-ink-left {
+            0%   { opacity: 0; transform: translate(-10px, 8px); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-ink-right {
+            0%   { opacity: 0; transform: translate(10px, -6px); }
+            100% { opacity: 1; transform: none; }
+        }
+        .staff-login-flying-logo.is-built .logo-piece {
+            opacity: 1;
+            transform: none;
+            animation: none;
+        }
+        .staff-login-flying-logo.is-built #logo-mark {
+            transform-origin: 50% 50%;
+            transform-box: fill-box;
+            animation: staff-login-logo-lock .48s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes staff-login-logo-lock {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.035); }
+            100% { transform: scale(1); }
+        }
+        .staff-login-transition-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 0; height: 0;
+            z-index: 10070;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,.08);
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+            overflow: hidden;
+            will-change: top, left, width, height, border-radius, box-shadow;
+        }
+        .staff-login-transition-overlay.is-active {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .staff-login-transition-overlay.is-expanding {
+            border-color: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            transition:
+                top .92s cubic-bezier(0.22, 1, 0.36, 1),
+                left .92s cubic-bezier(0.22, 1, 0.36, 1),
+                width .92s cubic-bezier(0.22, 1, 0.36, 1),
+                height .92s cubic-bezier(0.22, 1, 0.36, 1),
+                border-radius .92s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow .65s ease,
+                border-color .5s ease;
+        }
+        .staff-login-transition-overlay.is-revealing {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .45s ease;
+        }
+        .staff-login-transition-text {
+            position: fixed;
+            inset: 0;
+            z-index: 10071;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0;
-            transform: scale(.5);
-            transition: opacity .35s ease .12s, transform .45s cubic-bezier(0.34, 1.56, 0.64, 1) .12s;
-        }
-        .staff-login-transition-overlay.is-expanding .staff-login-transition-check {
-            opacity: 1;
-            transform: scale(1);
-        }
-        .staff-login-transition-check-svg { width: 84px; height: 84px; }
-        .staff-login-transition-check-circle {
-            stroke: #fff;
-            stroke-width: 2.5;
-            fill: none;
-            stroke-dasharray: 151;
-            stroke-dashoffset: 151;
-            transition: stroke-dashoffset .5s ease-out .15s;
-        }
-        .staff-login-transition-check-mark {
-            stroke: #fff;
-            stroke-width: 3.5;
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            stroke-dasharray: 36;
-            stroke-dashoffset: 36;
-            transition: stroke-dashoffset .35s ease-out .45s;
-        }
-        .staff-login-transition-overlay.is-expanding .staff-login-transition-check-circle,
-        .staff-login-transition-overlay.is-expanding .staff-login-transition-check-mark {
-            stroke-dashoffset: 0;
-        }
-        .staff-login-transition-text {
+            padding-top: 148px;
+            pointer-events: none;
             direction: rtl;
-            color: #fff;
+            color: #1e40af;
             font-family: 'Vazirmatn', sans-serif;
             font-size: 19px;
             font-weight: 600;
             letter-spacing: .2px;
-            min-height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            min-height: 0;
+            overflow: hidden;
             opacity: 0;
-            transform: translateY(6px);
-            transition: opacity .35s ease, transform .35s ease;
+            transition: opacity .35s ease;
         }
-        .staff-login-transition-overlay.is-expanding .staff-login-transition-text {
+        .staff-login-transition-text.is-welcome {
             opacity: 1;
-            transform: translateY(0);
+        }
+        .staff-login-transition-text.is-done {
+            opacity: 0;
         }
         .staff-login-transition-cursor {
             display: inline-block;
             width: 2px;
             height: 20px;
             margin-inline-start: 2px;
-            background: #fff;
+            background: #1e40af;
             animation: staff-login-caret-blink 0.9s steps(1) infinite;
         }
         @keyframes staff-login-caret-blink { 50% { opacity: 0; } }
         @media (prefers-reduced-motion: reduce) {
             .staff-login-transition-overlay,
             .staff-login-transition-overlay *,
-            .staff-login-shell-fade {
+            .staff-login-shell-fade,
+            .staff-login-flying-logo,
+            .staff-login-flying-logo * {
                 transition-duration: .01ms !important;
+                animation: none !important;
             }
             .staff-login-transition-cursor { animation: none; }
         }
     </style>
+    @include('partials._persian-digits-script')
     @livewireStyles
 </head>
 <body class="staff-auth-page">
     {{ $slot }}
 
-    <div id="staff-login-transition-overlay" class="staff-login-transition-overlay" aria-hidden="true">
-        <div class="staff-login-transition-check">
-            <svg viewBox="0 0 52 52" class="staff-login-transition-check-svg">
-                <circle class="staff-login-transition-check-circle" cx="26" cy="26" r="24"/>
-                <path class="staff-login-transition-check-mark" d="M14 27l7 7 16-16"/>
-            </svg>
+    <iframe id="staff-login-preload-frame" class="staff-login-preload-frame" title="پنل" aria-hidden="true" loading="eager" fetchpriority="high"></iframe>
+    <div id="staff-login-transition-overlay" class="staff-login-transition-overlay" aria-hidden="true"></div>
+    <div id="staff-login-transition-text" class="staff-login-transition-text"></div>
+    <div id="staff-login-flying-logo" class="staff-login-flying-logo" aria-hidden="true">
+        <div class="staff-login-logo-motion">
+            @if(is_file(public_path('logo/site-logo.svg')))
+                {!! file_get_contents(public_path('logo/site-logo.svg')) !!}
+            @endif
         </div>
-        <div id="staff-login-transition-text" class="staff-login-transition-text"></div>
     </div>
 
     @livewireScripts
@@ -537,6 +681,19 @@
     <script>
         (function () {
             var WELCOME_TEXT = 'به بنیادیار خوش آمدید';
+            var LOGIN_URL = '{{ route('admin.login') }}';
+            var PANEL_ASSETS = [
+                '{{ vasset('vendor/tailadmin/tailadmin.css') }}',
+                '{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}',
+                '{{ vasset('vendor/vazirmatn/Vazirmatn-font-face.min.css') }}',
+                '{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}',
+                '{{ vasset('vendor/jquery/jquery.min.js') }}',
+                '{{ vasset('vendor/bootstrap/bootstrap.bundle.min.js') }}',
+                '{{ vasset('vendor/persian-datepicker/persian-datepicker.min.css') }}',
+                '{{ vasset('vendor/persian-date/persian-date.min.js') }}',
+                '{{ vasset('vendor/persian-datepicker/persian-datepicker.min.js') }}'
+            ];
+            var panelReady = null;
 
             /* ── Checkmark confirmation chime (Web Audio, no toast needed) ── */
             var _checkAudioCtx = null;
@@ -607,19 +764,249 @@
                 step();
             }
 
+            function prefersReducedMotion() {
+                return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            }
+
+            function copyRect(el) {
+                var r = el.getBoundingClientRect();
+                return { top: r.top, left: r.left, width: r.width, height: r.height };
+            }
+
+            function applyRect(el, rect) {
+                el.style.top = rect.top + 'px';
+                el.style.left = rect.left + 'px';
+                el.style.width = Math.max(1, rect.width) + 'px';
+                el.style.height = Math.max(1, rect.height) + 'px';
+            }
+
+            function wait(ms) {
+                return new Promise(function (resolve) { setTimeout(resolve, ms); });
+            }
+
+            function waitTransition(el, ms) {
+                return new Promise(function (resolve) {
+                    var done = false;
+                    var finish = function () {
+                        if (done) return;
+                        done = true;
+                        el.removeEventListener('transitionend', onEnd);
+                        resolve();
+                    };
+                    var onEnd = function (e) {
+                        if (e.target === el) finish();
+                    };
+                    el.addEventListener('transitionend', onEnd);
+                    setTimeout(finish, (ms || 700) + 80);
+                });
+            }
+
+            function centerLogoRect(source) {
+                var h = 128;
+                var w = source && source.height
+                    ? source.width * (h / source.height)
+                    : 98;
+                var textH = 28;
+                var gap = 18;
+                var group = h + gap + textH;
+                return {
+                    top: Math.max(24, (window.innerHeight - group) / 2),
+                    left: (window.innerWidth - w) / 2,
+                    width: w,
+                    height: h
+                };
+            }
+
+            function fallbackCornerRect(srcW, srcH) {
+                var isRtl = document.documentElement.getAttribute('dir') !== 'ltr';
+                var vw = window.innerWidth;
+                var desktop = vw >= 992;
+                var collapsed = false;
+                try { collapsed = localStorage.getItem('ta-sidebar-collapsed') === '1'; } catch (e) {}
+                var w = srcW || 40;
+                var h = srcH || 40;
+                if (desktop) {
+                    w = Math.min(w, 40);
+                    h = srcH && srcW ? w * (srcH / srcW) : 40;
+                }
+                var pad = 16;
+                var left = isRtl ? vw - pad - w : pad;
+                if (desktop && collapsed) {
+                    var rail = 90;
+                    left = isRtl ? vw - ((rail - w) / 2) - w : (rail - w) / 2;
+                }
+                return { top: desktop ? 18 : 14, left: left, width: w, height: h };
+            }
+
+            function measureDashboardLogo(iframe) {
+                try {
+                    var doc = iframe.contentDocument;
+                    var img = doc && (doc.querySelector('.ta-sidebar__logo img') || doc.querySelector('.ta-sidebar__logo'));
+                    if (!img) return null;
+                    var r = img.getBoundingClientRect();
+                    if (r.width < 8 || r.height < 8) return null;
+                    if (r.left > window.innerWidth - 4 || r.right < 4) return null;
+                    return { top: r.top, left: r.left, width: r.width, height: r.height };
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function hideIframeLogo(iframe) {
+                try {
+                    var doc = iframe.contentDocument;
+                    if (!doc) return null;
+                    var style = doc.getElementById('staff-login-handoff-style');
+                    if (!style) {
+                        style = doc.createElement('style');
+                        style.id = 'staff-login-handoff-style';
+                        style.textContent = '.ta-sidebar__logo, .ta-sidebar__logo img { visibility: hidden !important; }';
+                        (doc.head || doc.documentElement).appendChild(style);
+                    }
+                    return style;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function showIframeLogo(style) {
+                if (style && style.parentNode) style.parentNode.removeChild(style);
+            }
+
+            function isStaffAuthHref(href) {
+                try {
+                    return new URL(href, window.location.origin).pathname
+                        === new URL(LOGIN_URL, window.location.origin).pathname;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function syncShellUrl(iframe) {
+                try {
+                    var href = iframe.contentWindow.location.href;
+                    if (!href || href === 'about:blank') return;
+                    if (isStaffAuthHref(href)) {
+                        window.location.replace(href);
+                        return;
+                    }
+                    if (window.location.href !== href) {
+                        history.replaceState(null, '', href);
+                    }
+                    if (iframe.contentDocument && iframe.contentDocument.title) {
+                        document.title = iframe.contentDocument.title;
+                    }
+                } catch (e) {}
+            }
+
+            function bindIframeShell(iframe) {
+                var attach = function () {
+                    syncShellUrl(iframe);
+                    try {
+                        iframe.contentDocument.addEventListener('livewire:navigated', function () {
+                            syncShellUrl(iframe);
+                        });
+                    } catch (e) {}
+                };
+                attach();
+                iframe.addEventListener('load', attach);
+            }
+
+            function startPanelPreload(iframe, url) {
+                if (panelReady) return panelReady;
+                panelReady = new Promise(function (resolve) {
+                    var settled = false;
+                    var done = function () {
+                        if (settled) return;
+                        settled = true;
+                        hideIframeLogo(iframe);
+                        resolve(iframe);
+                    };
+                    iframe.addEventListener('load', done, { once: true });
+                    iframe.setAttribute('fetchpriority', 'high');
+                    iframe.src = url;
+                    setTimeout(done, 10000);
+                });
+                return panelReady;
+            }
+
+            function warmPanelAssets() {
+                if (warmPanelAssets.done) return;
+                warmPanelAssets.done = true;
+                PANEL_ASSETS.forEach(function (href) {
+                    if (!href) return;
+                    var link = document.createElement('link');
+                    var isJs = /\.js(\?|$)/.test(href);
+                    link.rel = 'preload';
+                    link.as = isJs ? 'script' : 'style';
+                    link.href = href;
+                    document.head.appendChild(link);
+                });
+            }
+
+            function playIsarMotion(root) {
+                var left = 0;
+                var right = 0;
+                root.querySelectorAll('.logo-script-left').forEach(function (el) {
+                    el.style.setProperty('--isar-i', String(left++));
+                });
+                root.querySelectorAll('.logo-script-right').forEach(function (el) {
+                    el.style.setProperty('--isar-i', String(right++));
+                });
+                root.classList.add('is-story');
+                return wait(2920);
+            }
+
             function runStaffLoginTransition(url) {
-                var fallbackUrl = url || '{{ route('admin.login') }}';
+                var fallbackUrl = url || LOGIN_URL;
+
+                if (!url) {
+                    window.location.href = fallbackUrl;
+                    return;
+                }
+
+                if (prefersReducedMotion()) {
+                    window.location.href = url;
+                    return;
+                }
 
                 try {
                     var card = document.querySelector('.staff-auth-card');
                     var shell = document.querySelector('.staff-auth-shell');
                     var overlay = document.getElementById('staff-login-transition-overlay');
                     var textEl = document.getElementById('staff-login-transition-text');
+                    var flying = document.getElementById('staff-login-flying-logo');
+                    var iframe = document.getElementById('staff-login-preload-frame');
+                    var sourceLogo = document.querySelector('.staff-auth-logo');
 
-                    if (!card || !overlay || !url) {
+                    if (!card || !overlay || !flying || !iframe) {
                         window.location.href = fallbackUrl;
                         return;
                     }
+
+                    document.documentElement.classList.add('staff-login-transitioning');
+                    document.body.classList.add('staff-login-transitioning');
+
+                    var completed = false;
+                    var hardNavigate = function (dest) {
+                        if (completed) return;
+                        completed = true;
+                        window.location.href = dest || url;
+                    };
+
+                    var panelReady = startPanelPreload(iframe, url);
+                    var logoStyle = null;
+                    panelReady.then(function () {
+                        logoStyle = hideIframeLogo(iframe);
+                    });
+
+                    var sourceRect = sourceLogo ? copyRect(sourceLogo) : null;
+                    if (sourceLogo) sourceLogo.style.visibility = 'hidden';
+                    applyRect(flying, sourceRect || centerLogoRect(null));
+                    flying.classList.add('is-active');
+
+                    card.classList.add('is-login-fading');
+                    if (shell) shell.classList.add('is-login-fading');
 
                     var rect = card.getBoundingClientRect();
                     overlay.style.top = rect.top + 'px';
@@ -627,48 +1014,87 @@
                     overlay.style.width = rect.width + 'px';
                     overlay.style.height = rect.height + 'px';
                     overlay.style.borderRadius = '12px';
-                    overlay.classList.add('is-active');
 
-                    // Commit the starting rect before animating, then expand to fullscreen.
-                    overlay.offsetHeight;
+                    var centerRect = centerLogoRect(sourceRect);
 
-                    requestAnimationFrame(function () {
+                    setTimeout(function () {
+                        overlay.classList.add('is-active');
+                        overlay.offsetHeight;
+                        card.style.visibility = 'hidden';
+
                         requestAnimationFrame(function () {
-                            if (shell) {
-                                shell.classList.add('staff-login-shell-fade');
-                                shell.classList.add('is-fading');
-                            }
-                            overlay.classList.add('is-expanding');
-                            overlay.style.top = '0px';
-                            overlay.style.left = '0px';
-                            overlay.style.width = '100vw';
-                            overlay.style.height = '100vh';
-                            overlay.style.borderRadius = '0px';
+                            requestAnimationFrame(function () {
+                                overlay.classList.add('is-expanding');
+                                overlay.style.top = '0px';
+                                overlay.style.left = '0px';
+                                overlay.style.width = window.innerWidth + 'px';
+                                overlay.style.height = window.innerHeight + 'px';
+                                overlay.style.borderRadius = '0px';
+                            });
                         });
-                    });
 
-                    // Fire the chime right as the checkmark tick strokes itself in.
-                    setTimeout(playCheckmarkSound, 480);
+                        flying.classList.add('is-moving');
+                        applyRect(flying, centerRect);
+                        setTimeout(function () {
+                            iframe.classList.add('is-warming');
+                        }, 860);
+                    }, 320);
 
-                    var navigated = false;
-                    var navigate = function () {
-                        if (navigated) return;
-                        navigated = true;
-                        window.location.href = url;
+                    var finish = function () {
+                        wait(320).then(function () {
+                            return waitTransition(overlay, 980);
+                        }).then(function () {
+                            return playIsarMotion(flying);
+                        }).then(function () {
+                            flying.classList.add('is-built');
+                            playCheckmarkSound();
+                            return wait(380);
+                        }).then(function () {
+                            if (!textEl) return wait(300);
+                            textEl.classList.add('is-welcome');
+                            return new Promise(function (resolve) {
+                                typeText(textEl, WELCOME_TEXT, 45, resolve);
+                            }).then(function () { return wait(400); });
+                        }).then(function () {
+                            textEl && textEl.classList.add('is-done');
+                            var dest = measureDashboardLogo(iframe)
+                                || fallbackCornerRect(sourceRect ? sourceRect.width : 56, sourceRect ? sourceRect.height : 72);
+
+                            flying.classList.remove('is-moving');
+                            flying.offsetHeight;
+                            flying.classList.add('is-to-corner');
+                            applyRect(flying, dest);
+                            return waitTransition(flying, 920);
+                        }).then(function () {
+                            return panelReady;
+                        }).then(function () {
+                            logoStyle = hideIframeLogo(iframe) || logoStyle;
+                            var real = measureDashboardLogo(iframe);
+                            if (real) applyRect(flying, real);
+
+                            var href = '';
+                            try { href = iframe.contentWindow.location.href; } catch (e) { href = ''; }
+                            if (!href || href === 'about:blank') {
+                                hardNavigate(url);
+                                return;
+                            }
+
+                            iframe.classList.add('is-visible');
+                            iframe.removeAttribute('aria-hidden');
+                            overlay.classList.add('is-revealing');
+                            return wait(420).then(function () {
+                                showIframeLogo(logoStyle);
+                                flying.classList.add('is-done');
+                                completed = true;
+                                bindIframeShell(iframe);
+                            });
+                        }).catch(function () {
+                            hardNavigate(url);
+                        });
                     };
 
-                    // Start typing once the checkmark has drawn itself in (~800ms),
-                    // then hold briefly on the finished text before navigating.
-                    if (textEl) {
-                        setTimeout(function () {
-                            typeText(textEl, WELCOME_TEXT, 45, function () {
-                                setTimeout(navigate, 450);
-                            });
-                        }, 850);
-                    }
-
-                    // Safety net in case typing/transition events never resolve.
-                    setTimeout(navigate, 3200);
+                    finish();
+                    setTimeout(function () { hardNavigate(url); }, 14000);
                 } catch (e) {
                     window.location.href = fallbackUrl;
                 }
@@ -678,8 +1104,28 @@
                 if (Array.isArray(d) && d.length) d = d[0];
                 if (typeof d === 'object' && d !== null && d.detail) d = d.detail;
                 if (Array.isArray(d) && d.length) d = d[0];
-                runStaffLoginTransition(d && d.url ? d.url : null);
+                var url = d && d.url ? d.url : null;
+                var iframe = document.getElementById('staff-login-preload-frame');
+                if (url && iframe) startPanelPreload(iframe, url);
+                runStaffLoginTransition(url);
             }
+
+            document.addEventListener('input', function (e) {
+                if (e.target && e.target.closest && e.target.closest('.staff-auth-card')) {
+                    warmPanelAssets();
+                }
+            }, true);
+
+            document.addEventListener('submit', function (e) {
+                if (e.target && e.target.closest && e.target.closest('.staff-auth-card')) {
+                    warmPanelAssets();
+                }
+            }, true);
+
+            document.addEventListener('click', function (e) {
+                var btn = e.target && e.target.closest && e.target.closest('.staff-auth-card button[type="submit"]');
+                if (btn) warmPanelAssets();
+            }, true);
 
             window.addEventListener('staff-login-success', function (e) {
                 handleLoginSuccessPayload(e.detail);

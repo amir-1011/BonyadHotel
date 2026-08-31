@@ -135,8 +135,8 @@ class DailyAvailabilityWeeklyRulesTest extends TestCase
         $this->assertTrue($result['ok']);
 
         $thursday = $this->nextWeekday(4);
-        $friday = $this->nextWeekday(5);
-        $saturday = $this->nextWeekday(6);
+        $friday = (clone $thursday)->modify('+1 day');
+        $saturday = (clone $thursday)->modify('+2 days');
 
         $end = (clone $saturday)->modify('+1 day');
         $map = $this->roomType->fresh()->availabilityMap($thursday->format('Y-m-d'), $end->format('Y-m-d'));

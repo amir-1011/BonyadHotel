@@ -29,15 +29,114 @@ class PlatformCommissionService
 
     public function calculateBookingCommission(Booking $booking): int
     {
-        if ($booking->isProgram()) {
+        return $this->previewCommissionAmount(
+            $this->commissionContextFromBooking($booking),
+            $this->bookingNaturalSubtotal($booking),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function previewCommissionAmount(array $context, int $subtotalBeforeCommission): int
+    {
+        if ($this->isCommissionExemptFromContext($context)) {
             return 0;
         }
 
-        if ((int) $booking->total_price <= 0) {
+        if ($subtotalBeforeCommission <= 0) {
             return 0;
         }
 
         return $this->fixedAmount();
+    }
+
+    /**
+     * @param  array<string, mixed>  $pricing
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    public function overlayPricing(array $pricing, array $context = []): array
+    {
+        if ($pricing === []) {
+            return $pricing;
+        }
+
+        $subtotalBeforeCommission = (int) ($pricing['subtotal_before_commission'] ?? $pricing['total_price'] ?? 0);
+        $commission = $this->previewCommissionAmount($context, $subtotalBeforeCommission);
+
+        $pricing['subtotal_before_commission'] = $subtotalBeforeCommission;
+        $pricing['platform_commission_amount'] = $commission;
+        $pricing['total_price'] = $subtotalBeforeCommission + $commission;
+
+        return $pricing;
+    }
+
+    /**
+     * @param  array<string, mixed>  $pricing
+     * @return array<string, mixed>
+     */
+    public function overlayPricingForBooking(array $pricing, Booking $booking): array
+    {
+        return $this->overlayPricing($pricing, $this->commissionContextFromBooking($booking));
+    }
+
+    public function bookingSubtotalBeforeCommission(Booking $booking): int
+    {
+        $total = (int) $booking->total_price;
+        if ($total <= 0 || $this->isCommissionExempt($booking)) {
+            return $total;
+        }
+
+        $natural = $this->bookingNaturalSubtotal($booking);
+        $commission = $natural > 0 ? $this->fixedAmount() : 0;
+
+        if ($commission > 0 && $total === $natural + $commission) {
+            return $natural;
+        }
+
+        return $total;
+    }
+
+    public function bookingNaturalSubtotal(Booking $booking): int
+    {
+        return max(0, (int) $booking->base_price - (int) $booking->discount_amount);
+    }
+
+    public function isCommissionExempt(Booking $booking): bool
+    {
+        return $this->isCommissionExemptFromContext($this->commissionContextFromBooking($booking));
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function isCommissionExemptFromContext(array $context): bool
+    {
+        if (($context['booking_source'] ?? null) === 'program') {
+            return true;
+        }
+
+        if (!empty($context['is_credit']) || ($context['payment_method'] ?? null) === Booking::PAYMENT_CREDIT) {
+            return true;
+        }
+
+        if (!empty($context['is_medical_accommodation']) || ($context['payment_method'] ?? null) === Booking::PAYMENT_MEDICAL_ACCOMMODATION) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /** @return array<string, mixed> */
+    public function commissionContextFromBooking(Booking $booking): array
+    {
+        return [
+            'booking_source'           => $booking->booking_source,
+            'payment_method'           => $booking->payment_method,
+            'is_credit'                => $booking->isCredit(),
+            'is_medical_accommodation' => $booking->isMedicalAccommodation(),
+        ];
     }
 
     public function walletBalance(): int
@@ -77,8 +176,8 @@ class PlatformCommissionService
      */
     public function buildCommissionTargets(Booking $booking): array
     {
-        $bookingAmount = (int) $booking->total_price;
         $commissionAmount = $this->calculateBookingCommission($booking);
+        $bookingAmount = $this->bookingSubtotalBeforeCommission($booking);
 
         if ($commissionAmount <= 0 && $bookingAmount <= 0) {
             return [];
@@ -100,7 +199,12 @@ class PlatformCommissionService
                     'fixed_commission'      => $this->fixedAmount(),
                     'services_total'        => $servicesTotal,
                     'accommodation_amount'  => max(0, $bookingAmount - $servicesTotal),
-                    'is_program_booking'    => $booking->isProgram(),
+                    'platform_commission_amount' => $commissionAmount,
+                    'subtotal_before_commission' => $bookingAmount,
+                    'is_program_booking'             => $booking->isProgram(),
+                    'is_credit_booking'              => $booking->isCredit(),
+                    'is_medical_accommodation_booking' => $booking->isMedicalAccommodation(),
+                    'is_commission_exempt'           => $this->isCommissionExempt($booking),
                     'nights'                => $booking->nights,
                     'guests'                => $booking->guests,
                     'base_price'            => $booking->base_price,

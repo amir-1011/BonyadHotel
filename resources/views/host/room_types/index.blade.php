@@ -7,19 +7,6 @@
 @section('content')
 <div>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-        <div class="text-muted small">
-            <a wire:navigate href="{{ route('host.accommodations.index') }}"><i class="bi bi-chevron-right me-1"></i>بازگشت به اقامتگاه‌ها</a>
-        </div>
-    </div>
-    <x-host.can page="room-types.create" action="write">
-    <a wire:navigate href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>اتاق جدید
-    </a>
-    </x-host.can>
-</div>
-
 @if($roomTypes->isEmpty())
 <div class="card shadow-sm text-center py-5">
     <div class="text-muted mb-3"><i class="bi bi-door-open fs-1"></i></div>
@@ -30,6 +17,16 @@
     </x-host.can>
 </div>
 @else
+<div class="card shadow-sm mb-3">
+    <div class="ta-list-chrome">
+        <span class="small text-muted">{{ $roomTypes->count() }} نوع اتاق</span>
+        <x-host.can page="room-types.create" action="write">
+        <a wire:navigate href="{{ route('host.room-types.create', $accommodation) }}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>اتاق جدید
+        </a>
+        </x-host.can>
+    </div>
+</div>
 <div class="row g-3">
     @foreach($roomTypes as $rt)
     <div class="col-12">
@@ -79,7 +76,7 @@
                             <div class="d-flex flex-wrap gap-2">
                                 @foreach($rt->rates as $rate)
                                 <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle" style="font-size:.75rem">
-                                    {{ $rate->name }} — {{ number_format($rate->price_per_night) }} تومان/شب/تخت
+                                    {{ $rate->name }} — {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }} ریال/شب/تخت
                                     @if($rate->breakfast_included) <i class="bi bi-cup-hot ms-1 text-warning"></i> @endif
                                 </span>
                                 @endforeach

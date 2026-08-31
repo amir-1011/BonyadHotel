@@ -17,7 +17,6 @@
 /public_html/hot
 /public_html/videos
 /public_html/storage
-/public_html/vendor
 /storage/*.key
 /storage/pail
 /vendor

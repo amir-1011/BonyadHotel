@@ -22,7 +22,8 @@
     { "key": "check_in", "value": "2026-08-10" },
     { "key": "check_out", "value": "2026-08-13" },
     { "key": "guests", "value": "2" },
-    { "key": "children_under_6", "value": "0" }
+    { "key": "children_under_6", "value": "0" },
+    { "key": "accommodation_type", "value": "hotel" }
   ],
   "item": [
     {
@@ -129,18 +130,31 @@
           }
         },
         {
+          "name": "Accommodation Types",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/api/v1/accommodation-types",
+            "description": "لیست انواع اقامتگاه (hotel, villa, apartment, hostel, traditional و انواع سفارشی). از فیلد `key` برای فیلتر `type` در لیست اقامتگاه‌ها استفاده کنید."
+          }
+        },
+        {
           "name": "Accommodations Index",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
             "url": {
-              "raw": "{{base_url}}/api/v1/accommodations?check_in={{check_in}}&check_out={{check_out}}&guests={{guests}}",
+              "raw": "{{base_url}}/api/v1/accommodations?check_in={{check_in}}&check_out={{check_out}}&guests={{guests}}&type={{accommodation_type}}",
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "accommodations"],
               "query": [
                 { "key": "check_in", "value": "{{check_in}}" },
                 { "key": "check_out", "value": "{{check_out}}" },
-                { "key": "guests", "value": "{{guests}}" }
+                { "key": "guests", "value": "{{guests}}" },
+                { "key": "type", "value": "{{accommodation_type}}", "description": "فیلتر نوع اقامتگاه — key از /accommodation-types" },
+                { "key": "province_id", "value": "{{province_id}}", "disabled": true },
+                { "key": "city_id", "value": "", "disabled": true },
+                { "key": "wheelchair", "value": "1", "disabled": true }
               ]
             }
           }
@@ -181,6 +195,38 @@
               "query": [
                 { "key": "months", "value": "2026-08" },
                 { "key": "room_rate_id", "value": "{{room_rate_id}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Room Type Physical Rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/room-types/{{room_type_id}}/physical-rooms?check_in={{check_in}}&check_out={{check_out}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "room-types", "{{room_type_id}}", "physical-rooms"],
+              "query": [
+                { "key": "check_in", "value": "{{check_in}}" },
+                { "key": "check_out", "value": "{{check_out}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accommodation Physical Rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accommodations/{{accommodation_id}}/physical-rooms?check_in={{check_in}}&check_out={{check_out}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accommodations", "{{accommodation_id}}", "physical-rooms"],
+              "query": [
+                { "key": "check_in", "value": "{{check_in}}" },
+                { "key": "check_out", "value": "{{check_out}}" }
               ]
             }
           }

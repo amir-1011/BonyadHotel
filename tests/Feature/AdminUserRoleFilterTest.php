@@ -113,6 +113,98 @@ class AdminUserRoleFilterTest extends TestCase
             ->assertSet('section', 'users')
             ->assertSee('مهمان فیلتر')
             ->assertDontSee('09120004003')
-            ->assertSeeHtml('wire:click="setSection(\'users\')" class="nav-link py-2 active');
+            ->assertSeeHtml('wire:click="setSection(\'users\')" class="nav-link py-1 px-2 small active');
+    }
+
+    public function test_all_section_lists_users_without_province_groups(): void
+    {
+        $admin = User::create(['name' => 'ادمین', 'mobile' => '09120004011']);
+        $admin->assignRole('super_admin');
+
+        User::create(['name' => 'مهمان همه', 'mobile' => '09120004012'])->assignRole('guest');
+        User::create(['name' => 'میزبان همه', 'mobile' => '09120004013'])->assignRole('host');
+
+        $this->actingAs($admin);
+
+        \Livewire\Livewire::test(\App\Livewire\Admin\UserIndex::class)
+            ->call('setSection', 'all')
+            ->assertSet('section', 'all')
+            ->assertSee('مهمان همه')
+            ->assertSee('میزبان همه')
+            ->assertDontSeeHtml('admin-users-province-header')
+            ->assertSeeHtml('wire:click="setSection(\'all\')" class="nav-link py-1 px-2 small active');
+    }
+
+    public function test_personnel_tabs_start_with_all_personnel(): void
+    {
+        User::create(['name' => 'میزبان ساده', 'mobile' => '09120005001'])->assignRole('host');
+
+        $finance = User::create([
+            'name'                => 'میزبان مالی',
+            'mobile'              => '09120005002',
+            'host_position_title' => 'مدیر مالی',
+        ]);
+        $finance->assignRole('host');
+
+        $options = AdminUserRoleFilterCatalog::personnelTabOptions();
+
+        $this->assertSame(AdminUserRoleFilterCatalog::ALL_PERSONNEL, $options[0]['value']);
+        $this->assertSame('همه پرسنل', $options[0]['label']);
+        $this->assertContains('میزبان', array_column($options, 'label'));
+        $this->assertContains('مدیر مالی', array_column($options, 'label'));
+    }
+
+    public function test_all_personnel_filter_includes_every_host_position(): void
+    {
+        $defaultHost = User::create(['name' => 'میزبان پیش‌فرض', 'mobile' => '09120005011']);
+        $defaultHost->assignRole('host');
+
+        $finance = User::create([
+            'name'                => 'میزبان مالی',
+            'mobile'              => '09120005012',
+            'host_position_title' => 'مدیر مالی',
+        ]);
+        $finance->assignRole('host');
+
+        $guest = User::create(['name' => 'مهمان', 'mobile' => '09120005013']);
+        $guest->assignRole('guest');
+
+        $query = User::query();
+        AdminUserFilter::make(['role' => AdminUserRoleFilterCatalog::ALL_PERSONNEL])->apply($query);
+        $ids = $query->orderBy('id')->pluck('id')->all();
+
+        $this->assertSame([$defaultHost->id, $finance->id], $ids);
+    }
+
+    public function test_personnel_section_defaults_to_all_personnel_tab(): void
+    {
+        $admin = User::create(['name' => 'ادمین', 'mobile' => '09120005021']);
+        $admin->assignRole('super_admin');
+
+        User::create(['name' => 'میزبان پیش‌فرض', 'mobile' => '09120005022'])->assignRole('host');
+
+        $finance = User::create([
+            'name'                => 'میزبان مالی فیلتر',
+            'mobile'              => '09120005023',
+            'host_position_title' => 'مدیر مالی',
+        ]);
+        $finance->assignRole('host');
+
+        User::create(['name' => 'مهمان مخفی', 'mobile' => '09120005024'])->assignRole('guest');
+
+        $this->actingAs($admin);
+
+        \Livewire\Livewire::test(\App\Livewire\Admin\UserIndex::class)
+            ->call('setSection', 'personnel')
+            ->assertSet('section', 'personnel')
+            ->assertSet('role', AdminUserRoleFilterCatalog::ALL_PERSONNEL)
+            ->assertSee('همه پرسنل')
+            ->assertSee('میزبان پیش‌فرض')
+            ->assertSee('میزبان مالی فیلتر')
+            ->assertDontSee('مهمان مخفی')
+            ->call('setRoleTab', 'host_position:مدیر مالی')
+            ->assertSet('role', 'host_position:مدیر مالی')
+            ->assertSee('میزبان مالی فیلتر')
+            ->assertDontSee('09120005022');
     }
 }

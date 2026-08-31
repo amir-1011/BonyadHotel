@@ -8,6 +8,7 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
+                'resources/js/persian-digits.js',
                 'resources/js/bootstrap-collapse-navigate.js',
                 'resources/js/image-upload-gate.js',
                 'resources/js/money-input.js',
@@ -21,6 +22,7 @@ export default defineConfig({
                 'resources/js/bnb-room-picker.js',
                 'resources/js/program-datepicker.js',
                 'resources/js/cancellation-settle-datepicker.js',
+                'resources/js/facility-detail-modal.js',
             ],
             publicDirectory: 'public_html',
             refresh: true,

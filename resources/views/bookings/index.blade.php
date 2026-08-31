@@ -30,8 +30,8 @@
                 <div style="text-align:left;">
                     @php $statusColors = ['confirmed'=>'green','pending'=>'orange','cancelled'=>'var(--bnb-red)']; $sc = $statusColors[$booking->status] ?? 'var(--bnb-gray)'; @endphp
                     <span style="display:inline-block;background:{{ $sc }}1a;color:{{ $sc }};border:1px solid {{ $sc }}40;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;margin-bottom:8px;">{{ $booking->statusLabel() }}</span>
-                    @if($booking->discount_percentage > 0)<div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($booking->base_price) }}</div>@endif
-                    <div style="font-size:18px;font-weight:700;color:var(--bnb-dark);">{{ number_format($booking->total_price) }} <span style="font-size:12px;font-weight:400;color:var(--bnb-gray);">تومان</span></div>
+                    @if($booking->discount_percentage > 0)<div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->base_price)) }}</div>@endif
+                    <div style="font-size:18px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }} <span style="font-size:12px;font-weight:400;color:var(--bnb-gray);">ریال</span></div>
                     @if($booking->discount_percentage > 0)<div style="font-size:12px;color:var(--bnb-red);">{{ $booking->discount_percentage }}٪ تخفیف</div>@endif
                 </div>
             </div>

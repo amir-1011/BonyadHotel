@@ -6,27 +6,22 @@
     $isAccommodation = $entry->category === \App\Models\PlatformCommissionEntry::CATEGORY_ACCOMMODATION;
 @endphp
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a wire:navigate href="{{ route('admin.commission-wallet') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-right me-1"></i>بازگشت به کیف پول
-    </a>
-    <span class="badge bg-{{ $entry->isCredit() ? 'success' : 'danger' }}-subtle text-{{ $entry->isCredit() ? 'success' : 'danger' }}">
-        {{ $entry->entryTypeLabel() }}
-    </span>
-    <span class="badge bg-secondary-subtle text-secondary">{{ $entry->reasonLabel() }}</span>
-    @if($booking)
-    <a wire:navigate href="{{ route('admin.bookings.show', $booking) }}" class="btn btn-sm btn-outline-primary ms-auto">
-        <i class="bi bi-calendar-check me-1"></i>رزرو {{ $booking->tracking_code }}
-    </a>
-    @endif
-</div>
-
-{{-- ── خلاصه و توضیح ─────────────────────────────────────────────── --}}
 <div class="row g-3 mb-3">
     <div class="col-lg-8">
         <div class="card shadow-sm border-{{ $entry->isCredit() ? 'success' : 'danger' }} border-opacity-25">
-            <div class="card-header bg-white fw-semibold">
-                <i class="bi bi-chat-left-text me-2"></i>توضیح کامل این تراکنش
+            <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                <span><i class="bi bi-chat-left-text me-2"></i>توضیح کامل این تراکنش</span>
+                <span class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-{{ $entry->isCredit() ? 'success' : 'danger' }}-subtle text-{{ $entry->isCredit() ? 'success' : 'danger' }}">
+                        {{ $entry->entryTypeLabel() }}
+                    </span>
+                    <span class="badge bg-secondary-subtle text-secondary">{{ $entry->reasonLabel() }}</span>
+                    @if($booking)
+                    <a wire:navigate href="{{ route('admin.bookings.show', $booking) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-calendar-check me-1"></i>رزرو {{ $booking->tracking_code }}
+                    </a>
+                    @endif
+                </span>
             </div>
             <div class="card-body">
                 <p class="mb-0 lead fs-6" style="line-height:1.9">{{ $entry->fullExplanation() }}</p>
@@ -40,8 +35,8 @@
             </div>
             <div class="card-body d-flex flex-column justify-content-center text-center">
                 <div class="fs-2 fw-bold {{ $entry->commission_amount >= 0 ? 'text-success' : 'text-danger' }}">
-                    {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ number_format($entry->commission_amount) }}
-                    <span class="fs-6 fw-normal text-muted">تومان</span>
+                    {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->commission_amount)) }}
+                    <span class="fs-6 fw-normal text-muted">ریال</span>
                 </div>
                 <div class="text-muted small mt-2">@jalali($entry->created_at) · {{ $entry->created_at->format('H:i') }}</div>
                 @if($entry->createdBy)
@@ -86,24 +81,24 @@
             <ul class="list-group list-group-flush">
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">مبلغ تراکنش قبلی</span>
-                    <span>{{ number_format($meta['previous_transaction_amount'] ?? 0) }} تومان</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['previous_transaction_amount'] ?? 0)) }} ریال</span>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">کارمزد خالص قبلی (این دسته)</span>
-                    <span>{{ number_format($meta['previous_net_commission'] ?? 0) }} تومان</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['previous_net_commission'] ?? 0)) }} ریال</span>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">مبلغ تراکنش جدید</span>
-                    <strong>{{ number_format($meta['new_transaction_amount'] ?? $entry->transaction_amount) }} تومان</strong>
+                    <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['new_transaction_amount'] ?? $entry->transaction_amount)) }} ریال</strong>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">کارمزد هدف جدید</span>
-                    <strong>{{ number_format($meta['new_target_commission'] ?? 0) }} تومان</strong>
+                    <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['new_target_commission'] ?? 0)) }} ریال</strong>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">تفاوت ثبت‌شده در این رکورد</span>
                     <strong class="{{ $entry->commission_amount >= 0 ? 'text-success' : 'text-danger' }}">
-                        {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ number_format($entry->commission_amount) }} تومان
+                        {{ $entry->commission_amount >= 0 ? '+' : '' }}{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->commission_amount)) }} ریال
                     </strong>
                 </li>
             </ul>
@@ -118,7 +113,7 @@
             <ul class="list-group list-group-flush">
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">کارمزد خالص برگشت‌داده‌شده</span>
-                    <span>{{ number_format($meta['reversed_net_commission'] ?? abs($entry->commission_amount)) }} تومان</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['reversed_net_commission'] ?? abs($entry->commission_amount))) }} ریال</span>
                 </li>
                 @if(!empty($meta['cancelled_at']))
                 <li class="list-group-item small d-flex justify-content-between">
@@ -205,16 +200,16 @@
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">مبلغ کل رزرو (هنگام ثبت)</span>
-                    <span>{{ number_format($meta['total_price'] ?? $booking?->total_price ?? 0) }} تومان</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['total_price'] ?? $booking?->total_price ?? 0)) }} ریال</span>
                 </li>
                 @if($booking)
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">مبلغ کل فعلی رزرو</span>
-                    <strong>{{ number_format($booking->total_price) }} تومان</strong>
+                    <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }} ریال</strong>
                 </li>
                 <li class="list-group-item small d-flex justify-content-between">
                     <span class="text-muted">جمع کارمزد این رزرو (همه بخش‌ها)</span>
-                    <strong>{{ number_format($bookingCommissionNet) }} تومان</strong>
+                    <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($bookingCommissionNet)) }} ریال</strong>
                 </li>
                 @endif
             </ul>
@@ -235,7 +230,7 @@
                 <ul class="list-group list-group-flush border rounded">
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">مبلغ تراکنش (بخش اقامت)</span>
-                        <strong>{{ number_format($entry->transaction_amount) }} تومان</strong>
+                        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->transaction_amount)) }} ریال</strong>
                     </li>
                     @if(!empty($meta['nights']))
                     <li class="list-group-item small d-flex justify-content-between">
@@ -252,13 +247,13 @@
                     @if(isset($meta['base_price']))
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">قیمت پایه اقامت (قبل تخفیف)</span>
-                        <span>{{ number_format($meta['base_price']) }} تومان</span>
+                        <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['base_price'])) }} ریال</span>
                     </li>
                     @endif
                     @if(isset($meta['discount_amount']) && $meta['discount_amount'] > 0)
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">تخفیف اقامت</span>
-                        <span class="text-danger">− {{ number_format($meta['discount_amount']) }} تومان</span>
+                        <span class="text-danger">− {{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['discount_amount'])) }} ریال</span>
                     </li>
                     @endif
                 </ul>
@@ -285,7 +280,7 @@
                     @if($booking->extra_guests > 0)
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">نفر اضافه / هزینه</span>
-                        <span>{{ $booking->extra_guests }} نفر · {{ number_format($booking->extra_guests_price) }} ت</span>
+                        <span>{{ $booking->extra_guests }} نفر · {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->extra_guests_price)) }} ریال</span>
                     </li>
                     @endif
                     @if($booking->veteran_type_applied)
@@ -296,7 +291,7 @@
                     @endif
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">محاسبه roomSubtotal فعلی</span>
-                        <span>{{ number_format($booking->roomSubtotal() + $booking->extra_guests_price) }} ت</span>
+                        <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->roomSubtotal() + $booking->extra_guests_price)) }} ریال</span>
                     </li>
                 </ul>
             </div>
@@ -325,7 +320,7 @@
                     @endif
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">مبلغ تراکنش (جمع خدمت)</span>
-                        <strong>{{ number_format($entry->transaction_amount) }} تومان</strong>
+                        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->transaction_amount)) }} ریال</strong>
                     </li>
                     @if(isset($meta['quantity']))
                     <li class="list-group-item small d-flex justify-content-between">
@@ -336,7 +331,7 @@
                     @if(isset($meta['unit_price']))
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">قیمت واحد (میانگین خطوط)</span>
-                        <span>{{ number_format($meta['unit_price']) }} تومان</span>
+                        <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['unit_price'])) }} ریال</span>
                     </li>
                     @endif
                     @if(!empty($meta['free_units']))
@@ -348,7 +343,7 @@
                     @if(!empty($meta['discount_amount']))
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">تخفیف خدمت</span>
-                        <span class="text-danger">− {{ number_format($meta['discount_amount']) }} تومان</span>
+                        <span class="text-danger">− {{ \App\Support\PdfPersian::toPersianDigits(number_format($meta['discount_amount'])) }} ریال</span>
                     </li>
                     @endif
                 </ul>
@@ -374,18 +369,18 @@
                             <tr>
                                 <td>{{ $i + 1 }}</td>
                                 <td>{{ $line['name'] ?? '—' }}</td>
-                                <td>{{ number_format($line['unit_price'] ?? 0) }}</td>
+                                <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($line['unit_price'] ?? 0)) }}</td>
                                 <td>{{ $line['quantity'] ?? 0 }}</td>
                                 <td>{{ $line['free_units'] ?? 0 }}</td>
-                                <td>{{ number_format($line['discount_amount'] ?? 0) }}</td>
-                                <td class="fw-semibold">{{ number_format($line['total'] ?? 0) }}</td>
+                                <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($line['discount_amount'] ?? 0)) }}</td>
+                                <td class="fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($line['total'] ?? 0)) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
                                 <td colspan="6" class="text-end fw-semibold">جمع مبلغ خدمت (مبنای کارمزد)</td>
-                                <td class="fw-bold">{{ number_format($entry->transaction_amount) }}</td>
+                                <td class="fw-bold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->transaction_amount)) }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -403,9 +398,9 @@
                             @foreach($booking->services as $svc)
                             <tr>
                                 <td>{{ $svc->name }}</td>
-                                <td>{{ number_format($svc->unit_price) }}</td>
+                                <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->unit_price)) }}</td>
                                 <td>{{ $svc->quantity }}</td>
-                                <td>{{ number_format($svc->total) }}</td>
+                                <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->total)) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -430,7 +425,7 @@
                 <div class="border rounded p-3 text-center">
                     <div class="text-muted small">کارمزد خالص این دسته</div>
                     <div class="fs-4 fw-bold {{ $categoryNet >= 0 ? 'text-success' : 'text-danger' }}">
-                        {{ number_format($categoryNet) }} <span class="fs-6 fw-normal">تومان</span>
+                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($categoryNet)) }} <span class="fs-6 fw-normal">ریال</span>
                     </div>
                 </div>
             </div>
@@ -439,9 +434,9 @@
                 <div class="border rounded p-3 text-center">
                     <div class="text-muted small">کارمزد هدف (بر اساس رزرو فعلی)</div>
                     <div class="fs-4 fw-bold text-primary">
-                        {{ number_format($currentTarget['commission_amount']) }} <span class="fs-6 fw-normal">تومان</span>
+                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($currentTarget['commission_amount'])) }} <span class="fs-6 fw-normal">ریال</span>
                     </div>
-                    <div class="text-muted small mt-1">مبنای {{ number_format($currentTarget['transaction_amount']) }} تومان</div>
+                    <div class="text-muted small mt-1">مبنای {{ \App\Support\PdfPersian::toPersianDigits(number_format($currentTarget['transaction_amount'])) }} ریال</div>
                 </div>
             </div>
             @endif
@@ -490,11 +485,11 @@
                         </span>
                     </td>
                     <td class="small">{{ $h->reasonLabel() }}</td>
-                    <td>{{ number_format($h->transaction_amount) }}</td>
+                    <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($h->transaction_amount)) }}</td>
                     <td class="fw-semibold {{ $h->commission_amount >= 0 ? 'text-success' : 'text-danger' }}">
-                        {{ $h->commission_amount >= 0 ? '+' : '' }}{{ number_format($h->commission_amount) }}
+                        {{ $h->commission_amount >= 0 ? '+' : '' }}{{ \App\Support\PdfPersian::toPersianDigits(number_format($h->commission_amount)) }}
                     </td>
-                    <td class="fw-semibold">{{ number_format($runningNet) }}</td>
+                    <td class="fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($runningNet)) }}</td>
                     <td class="small" style="max-width:280px">{{ $h->fullExplanation() }}</td>
                     <td>
                         @if($h->id !== $entry->id)
@@ -531,9 +526,9 @@
                 @foreach($allCategoryTargets as $key => $target)
                 <tr class="{{ $key === $entry->category_key ? 'table-primary' : '' }}">
                     <td>{{ $key === 'accommodation' ? 'اقامت / رزرو' : ($target['service_name'] ?? $key) }}</td>
-                    <td>{{ number_format($target['transaction_amount']) }}</td>
-                    <td>{{ number_format($target['commission_amount']) }}</td>
-                    <td class="fw-semibold">{{ number_format($categoryNets[$key] ?? 0) }}</td>
+                    <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($target['transaction_amount'])) }}</td>
+                    <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($target['commission_amount'])) }}</td>
+                    <td class="fw-semibold">{{ \App\Support\PdfPersian::toPersianDigits(number_format($categoryNets[$key] ?? 0)) }}</td>
                 </tr>
                 @endforeach
             </tbody>

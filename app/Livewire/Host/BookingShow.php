@@ -34,6 +34,8 @@ class BookingShow extends Component
             'createdBy',
             'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
             'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
+            'employer', 'medicalTariff', 'medicalContract', 'accommodation.medicalAccommodationSetting',
+            'paymentRecords.posTerminal', 'paymentRecords.recordedBy',
         ]);
         $this->bootBookingDetails($booking);
         $this->initCancellationRequestsData();
@@ -51,6 +53,8 @@ class BookingShow extends Component
             'createdBy',
             'bookingRooms.roomType', 'bookingRooms.roomRate', 'bookingRooms.room',
             'beneficiaryCosts.beneficiary.user', 'beneficiaryCosts.user',
+            'employer', 'medicalTariff', 'medicalContract', 'accommodation.medicalAccommodationSetting',
+            'paymentRecords.posTerminal', 'paymentRecords.recordedBy',
         ]);
         $this->loadEditableGuests();
     }

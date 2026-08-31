@@ -19,25 +19,47 @@
     $servicesSubtotal = (int) ($pricing['services_subtotal'] ?? $booking->services_subtotal);
     $subtotalBefore = (int) ($pricing['subtotal_before_discount'] ?? $booking->base_price);
     $totalDiscount = (int) ($pricing['discount_amount'] ?? $booking->discount_amount);
-    $totalPrice = (int) ($pricing['total_price'] ?? $booking->total_price);
+    $naturalTotal = (int) ($pricing['natural_total'] ?? $pricing['total_price'] ?? $booking->total_price);
+    $manualAdjustment = (int) ($pricing['manual_total_adjustment'] ?? 0);
+    $totalPrice = (int) ($pricing['payable_total'] ?? $booking->total_price);
+    $platformCommission = (int) ($pricing['platform_commission_amount'] ?? 0);
     $groupUsage = $pricing['veteran_accommodation_group_usage'] ?? $booking->veteran_accommodation_group_usage ?? [];
     $fmt = $pdf
         ? fn (int $n) => \App\Support\PdfPersian::amount($n)
-        : fn (int $n) => number_format($n) . ' تومان';
+        : fn (int $n) => \App\Support\PdfPersian::toPersianDigits(number_format($n)) . ' ریال';
     $num = $pdf
         ? fn ($n) => \App\Support\PdfPersian::toPersianDigits((string) $n)
         : fn ($n) => $n;
+    $isMedical = $booking->isMedicalAccommodation();
+    $stayLabel = $isMedical ? 'تعرفه اسکان درمانی' : 'هزینه اقامت';
+    $billingGuests = (int) ($pricing['billing_guests'] ?? 0);
+    $stayMeta = $num($totalNights) . ' شب';
+    if ($billingGuests > 1) {
+        $stayMeta .= ' · ' . $num($billingGuests) . ' تخت';
+    }
+    $extraLabel = $isMedical ? 'همراه (تعرفه)' : 'کف‌خواب';
+    $extraCount = $isMedical
+        ? (int) ($pricing['medical']['billed_companions'] ?? $booking->medical_companion_count)
+        : (int) $booking->extra_guests;
+    $payableLabel = $isMedical ? 'بدهی کارفرما (بیمه دی) — قابل پرداخت مهمان: ۰' : 'مبلغ قابل پرداخت';
+    $payableAmount = $isMedical ? ($booking->employerDebtAmount() ?: $totalPrice) : $totalPrice;
 @endphp
 
 @if($pdf)
 <table class="totals">
     <tr>
-        <td>هزینه اقامت ({{ $num($totalNights) }} شب@if(($pricing['billing_guests'] ?? 0) > 1) · {{ $num($pricing['billing_guests']) }} تخت @endif)</td>
+        <td>{{ $stayLabel }} ({{ $stayMeta }})</td>
         <td class="amount">{{ $fmt($roomSubtotal) }}</td>
     </tr>
+    @if($isMedical && $booking->medicalContractNumber())
+    <tr>
+        <td>شماره قرارداد</td>
+        <td class="amount ltr">{{ $booking->medicalContractNumber() }}</td>
+    </tr>
+    @endif
     @if($extraGuestsTotal > 0)
     <tr>
-        <td>کف‌خواب ({{ $num($booking->extra_guests) }} نفر)</td>
+        <td>{{ $extraLabel }} ({{ $num($extraCount) }} نفر)</td>
         <td class="amount">{{ $fmt($extraGuestsTotal) }}</td>
     </tr>
     @endif
@@ -89,8 +111,8 @@
     @endif
     @if($booking->services->isNotEmpty())
     <tr>
-        <td colspan="2">
-            <table class="data" style="font-size:10px;margin-top:4px">
+        <td colspan="2" style="padding:2px 0">
+            <table class="data" style="font-size:7.5px;margin:0">
                 <thead>
                     <tr>
                         <th>خدمت</th>
@@ -118,19 +140,20 @@
                             @elseif($svc->discount_amount > 0)
                                 @php $svcDiscountReason = $svc->discountReasonLabel(); @endphp
                                 <div style="color:#dc2626;font-size:9px;margin-top:2px">
-                                    @if($svcDiscountReason !== '')
-                                    {{ $svcDiscountReason }}
-                                    @else
-                                    تخفیف
-                                    @endif
+                                    {{ $svcDiscountReason !== '' ? $svcDiscountReason : 'تخفیف' }}
                                     (− {{ $fmt($svc->discount_amount) }})
+                                </div>
+                            @endif
+                            @if($svc->hasManualPriceAdjustment())
+                                <div style="color:#d97706;font-size:9px;margin-top:2px">
+                                    تعدیل مبلغ {{ ($svc->manualPriceAdjustmentAmount() > 0 ? '+' : '−') . ' ' . $fmt(abs($svc->manualPriceAdjustmentAmount())) }}
                                 </div>
                             @endif
                         </td>
                         <td>{{ $num($svc->quantity) }}</td>
                         <td class="amount">{{ $fmt($svc->unit_price) }}</td>
                         <td class="amount">{{ $fmt($lineSub) }}</td>
-                        <td class="amount">{{ $fmt($svc->total) }}</td>
+                        <td class="amount">{{ $fmt($svc->payableTotal()) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -148,138 +171,23 @@
         <td class="amount" style="color:#dc2626">− {{ $fmt($totalDiscount) }}</td>
     </tr>
     @endif
+    @if($manualAdjustment !== 0)
+    <tr>
+        <td>تعدیل مبلغ رزرو (محاسبه خودکار: {{ $fmt($naturalTotal) }})</td>
+        <td class="amount" style="color:#d97706">{{ ($manualAdjustment > 0 ? '+' : '−') . ' ' . $fmt(abs($manualAdjustment)) }}</td>
+    </tr>
+    @endif
+    @if($platformCommission > 0)
+    <tr>
+        <td>کارمزد سامانه</td>
+        <td class="amount">{{ $fmt($platformCommission) }}</td>
+    </tr>
+    @endif
     <tr class="grand">
-        <td>مبلغ قابل پرداخت</td>
-        <td class="amount">{{ $fmt($totalPrice) }}</td>
+        <td>{{ $payableLabel }}</td>
+        <td class="amount">{{ $fmt($payableAmount) }}</td>
     </tr>
 </table>
 @else
-<div style="font-size:.85rem">
-    <div class="d-flex justify-content-between py-1">
-        <span class="text-muted">
-            هزینه اقامت ({{ $totalNights }} شب
-            @if(($pricing['billing_guests'] ?? 0) > 1) · {{ $pricing['billing_guests'] }} تخت @endif)
-        </span>
-        <span>{{ $fmt($roomSubtotal) }}</span>
-    </div>
-    @if($extraGuestsTotal > 0)
-    <div class="d-flex justify-content-between py-1">
-        <span class="text-muted">کف‌خواب ({{ $booking->extra_guests }} نفر)</span>
-        <span>{{ $fmt($extraGuestsTotal) }}</span>
-    </div>
-    @endif
-    @if($childrenDiscount > 0)
-    <div class="d-flex justify-content-between py-1 text-success">
-        <span class="text-muted">
-            تخفیف کودک زیر ۶ سال
-            ({{ $pricing['children_under_6'] ?? $booking->children_under_6 }} نفر)
-        </span>
-        <span>− {{ $fmt($childrenDiscount) }}</span>
-    </div>
-    @endif
-
-    <div class="border-top mt-2 pt-2">
-        @if($veteranAccDiscount > 0 || $manualAccDiscount > 0)
-        <div class="text-muted small fw-semibold mb-1">تخفیف‌های اقامت</div>
-        @endif
-
-        @if($veteranAccDiscount > 0)
-        <div class="py-1 text-danger">
-            <div class="d-flex justify-content-between">
-                <span>
-                    تخفیف اقامت ایثارگری
-                    @if($veteranNights > 0 && $veteranNights < $totalNights)
-                    <br><span class="text-muted ms-3" style="font-size:.75rem">فقط {{ $veteranNights }} شب از {{ $totalNights }} شب</span>
-                    @endif
-                </span>
-                @if(empty($accBreakdown))
-                <span class="fw-semibold">− {{ $fmt($veteranAccDiscount) }}</span>
-                @endif
-            </div>
-            <x-booking.accommodation-discount-breakdown
-                :breakdown="$accBreakdown"
-                :total="$veteranAccDiscount"
-                compact
-            />
-        </div>
-        @endif
-
-        @if($manualAccDiscount > 0)
-        <div class="d-flex justify-content-between py-1 text-danger">
-            <span>تخفیف دستی اقامت (مهمانان نرخ عادی)</span>
-            <span class="fw-semibold">− {{ $fmt($manualAccDiscount) }}</span>
-        </div>
-        @endif
-
-        @if($servicesSubtotal > 0)
-        <div class="d-flex justify-content-between py-1 mt-1">
-            <span class="text-muted">خدمات اضافی (قبل از تخفیف)</span>
-            <span>{{ $fmt($servicesSubtotal) }}</span>
-        </div>
-        @endif
-
-        @if($booking->services->isNotEmpty())
-        <div class="py-2 border-top mt-1">
-            <div class="text-muted small mb-2 fw-semibold">جزئیات خدمات و تخفیف</div>
-            @foreach($booking->services as $i => $svc)
-            @php
-                $line = $svcLines[$i] ?? null;
-                $lineSub = $svc->unit_price * $svc->quantity;
-                $veteranApplied = !empty($booking->veteran_type_applied);
-            @endphp
-            <div class="mb-2 ps-2 border-start border-secondary border-opacity-25">
-                @if($svc->guest_sort_order !== null && $booking->guestDetails->isNotEmpty())
-                @php
-                    $svcGuest = $booking->guestDetails->firstWhere('sort_order', $svc->guest_sort_order);
-                @endphp
-                @if($svcGuest)
-                <div class="text-muted mb-1" style="font-size:.68rem">
-                    مهمان: {{ $svcGuest->full_name }}
-                    @if($room = $booking->guestPhysicalRoomLabel($svcGuest))
-                    · اتاق {{ $room }}
-                    @endif
-                </div>
-                @endif
-                @endif
-                @if($line && !empty($line['discount_breakdown']))
-                <div class="d-flex justify-content-between small mb-1">
-                    <span class="fw-semibold">{{ $svc->name }}
-                        <span class="text-muted fw-normal">({{ $svc->quantity }} × {{ number_format($svc->unit_price) }})</span>
-                    </span>
-                    <span>{{ number_format($lineSub) }} ت</span>
-                </div>
-                <x-booking.service-discount-breakdown :line="$line" compact />
-                <div class="d-flex justify-content-between small text-success fw-semibold">
-                    <span>با تخفیف</span>
-                    <span>{{ number_format($svc->total) }} ت</span>
-                </div>
-                @else
-                <x-booking.service-line-readonly
-                    :service="$svc"
-                    :veteran-type-applied="$veteranApplied"
-                    class="border-0 bg-transparent p-0" />
-                @endif
-            </div>
-            @endforeach
-        </div>
-        @endif
-
-        <div class="border-top mt-2 pt-2">
-            <div class="d-flex justify-content-between py-1 text-muted">
-                <span>جمع قبل از تخفیف</span>
-                <span>{{ $fmt($subtotalBefore) }}</span>
-            </div>
-            @if($totalDiscount > 0)
-            <div class="d-flex justify-content-between py-1 text-danger">
-                <span>مجموع تخفیفات</span>
-                <span class="fw-semibold">− {{ $fmt($totalDiscount) }}</span>
-            </div>
-            @endif
-            <div class="d-flex justify-content-between fw-bold pt-2 mt-1 border-top">
-                <span>مبلغ قابل پرداخت</span>
-                <span class="text-primary fs-5">{{ $fmt($totalPrice) }}</span>
-            </div>
-        </div>
-    </div>
-</div>
+@include('components.booking.financial-breakdown-web', compact('booking', 'pricing'))
 @endif

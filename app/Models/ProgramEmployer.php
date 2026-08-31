@@ -34,9 +34,24 @@ class ProgramEmployer extends Model
         return $this->hasMany(Program::class);
     }
 
+    public function medicalBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'program_employer_id');
+    }
+
     public function displayLabel(): string
     {
-        return $this->name . ' (' . $this->employer_code . ')';
+        $name = trim((string) $this->name);
+        $provinceName = trim((string) ($this->province?->name ?? ''));
+
+        if ($provinceName !== '' && ! str_contains($name, $provinceName)) {
+            $provinceLabel = str_starts_with($provinceName, 'استان')
+                ? $provinceName
+                : 'استان ' . $provinceName;
+            $name .= ' ' . $provinceLabel;
+        }
+
+        return $name . ' (' . $this->employer_code . ')';
     }
 
     protected function accountingCodeValue(): ?string

@@ -80,8 +80,8 @@
                     <div class="rt-rate-item__info">
                         <div class="rt-rate-item__name">{{ $rate->name }}</div>
                         <div class="rt-rate-item__price">
-                            {{ number_format($rate->price_per_night) }}
-                            <small>تومان / شب / تخت</small>
+                            {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}
+                            <small>ریال / شب / تخت</small>
                         </div>
                         <div class="rt-rate-item__badges">
                             @if($rate->breakfast_included)

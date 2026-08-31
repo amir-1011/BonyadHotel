@@ -261,7 +261,7 @@
                     @if($showAuthVeteranDiscount)
                     <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->veteranLabel() }} · {{ auth()->user()->discount_percentage }}٪ تخفیف</span>
                     @endif
-                    <span style="color:var(--bnb-red);font-size:12px;font-weight:700;white-space:nowrap;" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="color:var(--bnb-red);font-size:12px;font-weight:700;white-space:nowrap;" x-text="dynamicTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </span>
             </button>
             <div x-show="nightPricesOpen" x-cloak>
@@ -289,7 +289,7 @@
                             <span style="font-size:10px;text-decoration:line-through;color:#f97316;margin-left:4px;" x-text="p.hostEffective.toLocaleString('fa-IR')"></span>
                         </template>
                         @endif
-                        <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ت'"></span>
+                        <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ریال'"></span>
                     </div>
                 </div>
             </template>
@@ -304,7 +304,7 @@
                         <span style="font-size:11px;text-decoration:line-through;color:#f97316;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR')"></span>
                     </template>
                     @endif
-                    <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </div>
             </div>
             {{-- Extra guests line --}}
@@ -320,10 +320,20 @@
                         <template x-if="userDiscountPct > 0 && extraGuestsOriginalTotal > extraGuestsTotal">
                             <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="extraGuestsOriginalTotal.toLocaleString('fa-IR')"></span>
                         </template>
-                        <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </div>
                 </div>
             </template>
+            <template x-if="platformCommissionAmount > 0">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;background:#f8fafc;border-top:1px solid var(--bnb-border);">
+                    <span style="color:#475569;font-weight:600;">کارمزد سامانه</span>
+                    <span style="font-weight:700;color:var(--bnb-dark);" x-text="platformCommissionAmount.toLocaleString('fa-IR') + ' ریال'"></span>
+                </div>
+            </template>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;font-weight:700;background:#f9fafb;border-top:1px solid var(--bnb-border);">
+                <span>مبلغ قابل پرداخت</span>
+                <span style="color:var(--bnb-red);" x-text="payableTotal.toLocaleString('fa-IR') + ' ریال'"></span>
+            </div>
             </div>
         </div>
 
@@ -350,16 +360,16 @@
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
                     <template x-if="dynamicOriginalTotal > dynamicTotal">
-                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </template>
                     @auth
                     @if(auth()->user()->discount_percentage > 0)
                     <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
-                        <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </template>
                     @endif
                     @endauth
-                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="payableTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </div>
                 <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + totalGuests + ' نفر' + (billFullRooms ? ' (رزرو ' + billableGuests + ' تخت)' : '') + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
             </div>
@@ -370,4 +380,5 @@
             </button>
         </div>
     </div>
+</div>
 

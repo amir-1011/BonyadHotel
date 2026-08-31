@@ -1,11 +1,9 @@
 <div class="staff-auth-shell">
     <div style="width:100%;max-width:440px;">
         <div style="text-align:center;margin-bottom:28px;">
-            <div style="display:inline-flex;align-items:center;gap:10px;">
-                <div style="width:44px;height:44px;background:#1e40af;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-                    <i class="bi bi-buildings-fill" style="color:#fff;font-size:22px;"></i>
-                </div>
-                <div style="text-align:right;">
+            <div style="display:inline-flex;align-items:center;gap:12px;">
+                <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار" class="staff-auth-logo">
+                <div class="staff-auth-brand-copy" style="text-align:right;">
                     <div style="font-size:20px;font-weight:700;color:#1e293b;">سامانه رزرو</div>
                     <div style="font-size:13px;color:#64748b;">ورود مدیران و میزبان‌ها</div>
                 </div>

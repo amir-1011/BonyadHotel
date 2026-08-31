@@ -167,6 +167,11 @@ class HostPermissions
                         'description' => 'تنظیم قوانین استرداد و دلایل کنسلی',
                         'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
                     ],
+                    'accommodations.medical-accommodation' => [
+                        'label'       => 'اسکان درمانی',
+                        'description' => 'تعرفه بیمه دی، سقف همراه و کارفرمای پرداخت‌کننده',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
                     'room-types.list' => [
                         'label'       => 'لیست انواع اتاق',
                         'description' => 'مشاهده انواع اتاق هر اقامتگاه',
@@ -216,8 +221,18 @@ class HostPermissions
                     ],
                     'bookings.guests' => [
                         'label'       => 'مهمانان رزرو',
-                        'description' => 'ویرایش اطلاعات مهمانان در جزئیات رزرو',
+                        'description' => 'ویرایش و ثبت اطلاعات مهمانان در جزئیات رزرو',
                         'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'bookings.dates' => [
+                        'label'       => 'تمدید تاریخ رزرو',
+                        'description' => 'تمدید تاریخ پایان و مدت اقامت رزرو',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'bookings.rooms' => [
+                        'label'       => 'افزودن اتاق / مهمان',
+                        'description' => 'افزودن اتاق یا نفر به رزرو موجود در جزئیات رزرو',
+                        'actions'     => [self::ACTION_READ, self::ACTION_WRITE],
                     ],
                     'bookings.services' => [
                         'label'       => 'خدمات رزرو',
@@ -242,6 +257,11 @@ class HostPermissions
                     'bookings.pdf' => [
                         'label'       => 'رسید PDF رزرو',
                         'description' => 'دانلود رسید رزرو',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'bookings.medical-accommodation-report' => [
+                        'label'       => 'گزارش اسکان درمانی',
+                        'description' => 'گزارش رزروهای اسکان درمانی اقامتگاه‌های انتصاب‌شده',
                         'actions'     => [self::ACTION_READ],
                     ],
                     'cancellation-requests.list' => [
@@ -281,6 +301,21 @@ class HostPermissions
                         'description' => 'مشاهده اطلاعات و مهمانان برنامه',
                         'actions'     => [self::ACTION_READ, self::ACTION_DELETE],
                     ],
+                    'programs.guests' => [
+                        'label'       => 'مهمانان برنامه و اردو',
+                        'description' => 'ویرایش و ثبت اطلاعات مهمانان در جزئیات برنامه و اردو',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'programs.dates' => [
+                        'label'       => 'تمدید تاریخ برنامه و اردو',
+                        'description' => 'تمدید تاریخ پایان برنامه و اردو',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'programs.pricing' => [
+                        'label'       => 'مبالغ مالی برنامه و اردو',
+                        'description' => 'ویرایش قیمت پایه، تخفیف و بیعانه در جزئیات برنامه',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
                     'programs.supportive-report' => [
                         'label'       => 'گزارش خدمات حمایتی',
                         'description' => 'گزارش خدمات حمایتی برنامه‌ها',
@@ -302,18 +337,70 @@ class HostPermissions
             ],
             'users' => [
                 'label'       => 'کاربران',
-                'description' => 'مهمانانی که در اقامتگاه‌های انتصاب‌شده رزرو داشته‌اند',
+                'description' => 'مهمانان، ذینفعان، کارفرمایان و میزبان‌های مرتبط با محدوده دسترسی',
                 'icon'        => 'people-fill',
                 'pages'       => [
                     'users.list' => [
                         'label'       => 'لیست کاربران',
-                        'description' => 'مشاهده مهمانان و تاریخچه رزرو',
+                        'description' => 'مشاهده فهرست کاربران در محدوده دسترسی',
                         'actions'     => [self::ACTION_READ],
+                    ],
+                    'users.show' => [
+                        'label'       => 'جزئیات کاربر',
+                        'description' => 'مشاهده پروفایل و تاریخچه کاربر',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'users.edit' => [
+                        'label'       => 'ویرایش کاربر',
+                        'description' => 'ویرایش اطلاعات کاربران در محدوده دسترسی',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
+                    ],
+                    'users.create-host' => [
+                        'label'       => 'افزودن میزبان',
+                        'description' => 'ثبت میزبان جدید و نسبت‌دادن اقامتگاه',
+                        'actions'     => [self::ACTION_WRITE],
                     ],
                     'users.export' => [
                         'label'       => 'خروجی اکسل کاربران',
                         'description' => 'دانلود فایل اکسل کاربران',
                         'actions'     => [self::ACTION_READ],
+                    ],
+                ],
+            ],
+            'facility-management' => [
+                'label'       => 'مدیریت اماکن',
+                'description' => 'تبادل اقلام مازاد و اقلام مورد نیاز بین میزبان‌ها',
+                'icon'        => 'boxes',
+                'pages'       => [
+                    'facility-surplus.list' => [
+                        'label'       => 'لیست اقلام مازاد',
+                        'description' => 'مشاهده اقلام مازاد',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'facility-surplus.create' => [
+                        'label'       => 'ثبت اقلام مازاد',
+                        'description' => 'ثبت اقلام مازاد',
+                        'actions'     => [self::ACTION_WRITE],
+                    ],
+                    'facility-surplus.edit' => [
+                        'label'       => 'ویرایش اقلام مازاد',
+                        'description' => 'ویرایش و حذف اقلام مازاد خود',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT, self::ACTION_DELETE],
+                    ],
+                    'facility-needed.list' => [
+                        'label'       => 'لیست اقلام مورد نیاز',
+                        'description' => 'مشاهده درخواست‌های اقلام مورد نیاز',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'facility-needed.create' => [
+                        'label'       => 'ثبت اقلام مورد نیاز',
+                        'description' => 'ثبت درخواست اقلام مورد نیاز',
+                        'actions'     => [self::ACTION_WRITE],
+                    ],
+                    'facility-needed.edit' => [
+                        'label'       => 'ویرایش اقلام مورد نیاز',
+                        'description' => 'ویرایش و حذف درخواست‌های اقلام مورد نیاز خود',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT, self::ACTION_DELETE],
                     ],
                 ],
             ],
@@ -346,10 +433,40 @@ class HostPermissions
         return self::moduleKeys();
     }
 
+    /**
+     * Pages that are never included in default position templates.
+     * Admin must explicitly grant them via host-positions.
+     *
+     * @return list<string>
+     */
+    public static function optInPageKeys(): array
+    {
+        return [
+            'users.list',
+            'users.show',
+            'users.edit',
+            'users.create-host',
+            'users.export',
+        ];
+    }
+
     /** @return array<string, list<string>> */
     public static function defaults(): array
     {
-        return self::fullAccessGrants();
+        return self::stripOptInPages(self::fullAccessGrants());
+    }
+
+    /**
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    public static function stripOptInPages(array $grants): array
+    {
+        foreach (self::optInPageKeys() as $pageKey) {
+            unset($grants[$pageKey]);
+        }
+
+        return $grants;
     }
 
     /** @return array<string, list<string>> */
@@ -532,6 +649,122 @@ class HostPermissions
         }
 
         return $grants;
+    }
+
+    /**
+     * One-time backfill: grant guest-edit pages when the parent module is already enabled.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    public static function backfillGuestEditGrants(array $grants): array
+    {
+        if ($grants === []) {
+            return $grants;
+        }
+
+        if (self::grantsHaveModuleAccess('bookings', $grants)
+            && !array_key_exists('bookings.guests', $grants)) {
+            $grants['bookings.guests'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        if (self::grantsHaveModuleAccess('programs', $grants)
+            && !array_key_exists('programs.guests', $grants)) {
+            $grants['programs.guests'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        if (self::grantsHaveModuleAccess('bookings', $grants)
+            && !array_key_exists('bookings.dates', $grants)) {
+            $grants['bookings.dates'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        if (self::grantsHaveModuleAccess('bookings', $grants)
+            && !array_key_exists('bookings.rooms', $grants)) {
+            $grants['bookings.rooms'] = [self::ACTION_READ, self::ACTION_WRITE];
+        }
+
+        if (self::grantsHaveModuleAccess('programs', $grants)
+            && !array_key_exists('programs.dates', $grants)) {
+            $grants['programs.dates'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        if (self::grantsHaveModuleAccess('programs', $grants)
+            && !array_key_exists('programs.pricing', $grants)) {
+            $grants['programs.pricing'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        return self::sanitizeGrants($grants);
+    }
+
+    /**
+     * Grant medical-accommodation settings when the host already manages accommodation policies.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    public static function backfillMedicalAccommodationGrants(array $grants): array
+    {
+        if ($grants === []) {
+            return $grants;
+        }
+
+        if (!array_key_exists('accommodations.medical-accommodation', $grants)
+            && (self::grantsHaveModuleAccess('accommodations', $grants)
+                || array_key_exists('accommodations.veteran-policy', $grants)
+                || array_key_exists('accommodations.cancellation-policy', $grants))) {
+            $grants['accommodations.medical-accommodation'] = [self::ACTION_READ, self::ACTION_EDIT];
+        }
+
+        return self::sanitizeGrants($grants);
+    }
+
+    /**
+     * Grant medical-accommodation report when the host already manages bookings.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    public static function backfillMedicalAccommodationReportGrants(array $grants): array
+    {
+        if ($grants === []) {
+            return $grants;
+        }
+
+        if (!array_key_exists('bookings.medical-accommodation-report', $grants)
+            && (self::grantsHaveModuleAccess('bookings', $grants)
+                || array_key_exists('bookings.list', $grants))) {
+            $grants['bookings.medical-accommodation-report'] = [self::ACTION_READ];
+        }
+
+        return self::sanitizeGrants($grants);
+    }
+
+    /**
+     * Grant facility-management pages when the host already has full legacy module access.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
+    public static function backfillFacilityManagementGrants(array $grants): array
+    {
+        if ($grants === []) {
+            return $grants;
+        }
+
+        $facilityPages = self::catalog()['facility-management']['pages'] ?? [];
+
+        foreach ($facilityPages as $pageKey => $page) {
+            if (array_key_exists($pageKey, $grants)) {
+                continue;
+            }
+
+            if (self::grantsHaveModuleAccess('users', $grants)
+                || self::grantsHaveModuleAccess('accommodations', $grants)) {
+                $grants[$pageKey] = $page['actions'];
+            }
+        }
+
+        return self::sanitizeGrants($grants);
     }
 
     /**
@@ -736,6 +969,9 @@ class HostPermissions
             'accommodations.cancellation-policy' => [
                 'host.accommodations.cancellation-policy' => self::ACTION_READ,
             ],
+            'accommodations.medical-accommodation' => [
+                'host.accommodations.medical-accommodation' => self::ACTION_READ,
+            ],
             'room-types.list' => [
                 'host.room-types.index' => self::ACTION_READ,
             ],
@@ -772,12 +1008,16 @@ class HostPermissions
             ],
             'bookings.show' => [
                 'host.bookings.show' => self::ACTION_READ,
+                'host.bookings.medical-referral' => self::ACTION_READ,
             ],
             'bookings.export' => [
                 'host.bookings.export' => self::ACTION_READ,
             ],
             'bookings.pdf' => [
                 'host.bookings.pdf' => self::ACTION_READ,
+            ],
+            'bookings.medical-accommodation-report' => [
+                'host.medical-accommodation-report' => self::ACTION_READ,
             ],
             'cancellation-requests.list' => [
                 'host.cancellation-requests.index' => self::ACTION_READ,
@@ -800,8 +1040,35 @@ class HostPermissions
             'users.list' => [
                 'host.users.index' => self::ACTION_READ,
             ],
+            'users.show' => [
+                'host.users.show' => self::ACTION_READ,
+            ],
+            'users.edit' => [
+                'host.users.edit' => self::ACTION_READ,
+            ],
+            'users.create-host' => [
+                'host.users.create-host' => self::ACTION_WRITE,
+            ],
             'users.export' => [
                 'host.users.export' => self::ACTION_READ,
+            ],
+            'facility-surplus.list' => [
+                'host.facility.surplus.index' => self::ACTION_READ,
+            ],
+            'facility-surplus.create' => [
+                'host.facility.surplus.create' => self::ACTION_WRITE,
+            ],
+            'facility-surplus.edit' => [
+                'host.facility.surplus.edit' => self::ACTION_READ,
+            ],
+            'facility-needed.list' => [
+                'host.facility.needed.index' => self::ACTION_READ,
+            ],
+            'facility-needed.create' => [
+                'host.facility.needed.create' => self::ACTION_WRITE,
+            ],
+            'facility-needed.edit' => [
+                'host.facility.needed.edit' => self::ACTION_READ,
             ],
         ];
 
@@ -837,8 +1104,31 @@ class HostPermissions
             'programs'       => route('host.programs.index'),
             'reviews'        => route('host.reviews.index'),
             'users'          => route('host.users.index'),
+            'facility-management' => route('host.facility.surplus.index'),
             default          => route('host.dashboard'),
         };
+    }
+
+    /**
+     * Resolve landing URL for a module based on the user's effective grants.
+     *
+     * @param  array<string, list<string>>  $grants
+     */
+    public static function landingRouteForGrants(string $moduleOrPage, array $grants): string
+    {
+        $module = self::moduleForPage($moduleOrPage) ?? $moduleOrPage;
+
+        if ($module === 'facility-management') {
+            if (self::grantsAllow('facility-surplus.list', self::ACTION_READ, $grants)) {
+                return route('host.facility.surplus.index');
+            }
+
+            if (self::grantsAllow('facility-needed.list', self::ACTION_READ, $grants)) {
+                return route('host.facility.needed.index');
+            }
+        }
+
+        return self::landingRoute($moduleOrPage);
     }
 
     public static function actionLabel(string $action): string

@@ -25,7 +25,7 @@
         </thead>
         <tbody>
             @foreach($roomLines as $i => $line)
-            <tr>
+            <tr wire:key="booking-room-line-{{ $booking->id }}-{{ $line->id ?? $i }}">
                 <td>{{ $i + 1 }}</td>
                 <td><strong>{{ $line->roomType?->name ?? '—' }}</strong></td>
                 <td>
@@ -39,7 +39,7 @@
                     {{ $line->roomRate?->name ?? '—' }}
                     @unless($compact)
                         @if($line->roomRate)
-                            <span class="text-muted small d-block">{{ number_format($line->roomRate->price_per_night) }} ت/شب/تخت</span>
+                            <span class="text-muted small d-block">{{ \App\Support\PdfPersian::toPersianDigits(number_format($line->roomRate->price_per_night)) }} ریال/شب/تخت</span>
                         @endif
                     @endunless
                 </td>
@@ -63,7 +63,7 @@
     @if($booking->roomRate)
     <li class="list-group-item d-flex justify-content-between px-0">
         <span class="text-muted">تعرفه</span>
-        <span>{{ $booking->roomRate->name }}@unless($compact) · {{ number_format($booking->roomRate->price_per_night) }} ت/شب/تخت @endunless</span>
+        <span>{{ $booking->roomRate->name }}@unless($compact) · {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->roomRate->price_per_night)) }} ریال/شب/تخت @endunless</span>
     </li>
     @endif
 </ul>

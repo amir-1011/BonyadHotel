@@ -63,7 +63,7 @@
         <div class="fw-semibold small text-muted mb-2 pb-1 border-bottom">بدهی این برنامه</div>
         <div class="rounded-3 border border-danger border-opacity-25 bg-danger bg-opacity-10 p-3 d-flex justify-content-between align-items-center">
             <span class="text-muted small">مبلغ بدهی</span>
-            <span class="fw-bold text-danger">{{ number_format((int) $debtAmount) }} <span class="fw-normal small">تومان</span></span>
+            <span class="fw-bold text-danger">{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) $debtAmount)) }} <span class="fw-normal small">ریال</span></span>
         </div>
         @if($debtDescription)
         <div class="small text-muted mt-2 px-1">{{ $debtDescription }}</div>

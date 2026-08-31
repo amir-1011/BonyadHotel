@@ -25,6 +25,8 @@ trait ManagesProgramEmployers
             return;
         }
 
+        $this->accountingProvinceManuallySet = false;
+        $this->syncDefaultAccountingProvinceFromContext();
         $this->showAddEmployer = true;
         $this->newEmployerName = '';
         $this->newEmployerNationalId = '';
@@ -60,6 +62,7 @@ trait ManagesProgramEmployers
             'newEmployerName'       => ['required', 'string', 'max:200'],
             'newEmployerNationalId' => ['required', 'string', 'max:20'],
             'newEmployerMobile'     => ['required', 'regex:/^09\d{9}$/'],
+            'accountingProvinceId'  => ['required', 'integer', 'exists:provinces,id'],
         ], [], [
             'newEmployerName'       => 'نام کارفرما',
             'newEmployerNationalId' => 'کد ملی / شناسه اقتصادی',

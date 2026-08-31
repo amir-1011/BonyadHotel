@@ -23,19 +23,27 @@
     'hosts' => collect(),
     'reservers' => collect(),
     'employers' => collect(),
+    'countFiltered' => null,
+    'totalFiltered' => null,
 ])
 
 <div class="card shadow-sm mb-3">
-    <div class="card-header py-2 d-flex align-items-center justify-content-between" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#bookingFilterBody">
-        <span class="fw-semibold small"><i class="bi bi-funnel me-1"></i>فیلترها</span>
-        @if($hasActiveFilters)
-            <span class="badge bg-primary">فعال</span>
-        @else
+    <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2">
+        <span class="fw-semibold small" role="button" data-bs-toggle="collapse" data-bs-target="#bookingFilterBody">
+            <i class="bi bi-funnel me-1"></i>فیلترها
+            @unless($hasActiveFilters)
             <i class="bi bi-chevron-down text-muted" style="font-size:.8rem"></i>
-        @endif
+            @endunless
+        </span>
+        <div class="d-flex align-items-center gap-2">
+            {{ $actions ?? '' }}
+            @if($hasActiveFilters)
+                <span class="badge bg-primary">فعال</span>
+            @endif
+        </div>
     </div>
     <div class="collapse show" id="bookingFilterBody">
-        <div class="card-body pb-2 pt-3">
+        <div class="card-body py-2">
             <form wire:submit="applyFilters" id="booking-filter-form">
                 <div class="row g-2">
                     <div class="col-12 col-md-4">
@@ -276,11 +284,11 @@
                     </div>
 
                     <div class="col-6 col-md-2">
-                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ از (تومان)</label>
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ از (ریال)</label>
                         <x-money-input wire:model="draftPriceMin" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵۰۰,۰۰۰" />
                     </div>
                     <div class="col-6 col-md-2">
-                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ تا (تومان)</label>
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">مبلغ تا (ریال)</label>
                         <x-money-input wire:model="draftPriceMax" class="form-control form-control-sm" min="0" placeholder="مثلاً ۵,۰۰۰,۰۰۰" />
                     </div>
 
@@ -296,13 +304,18 @@
                         </div>
                     </div>
 
-                    <div class="col-12 d-flex gap-2 justify-content-end mt-1">
-                        <button type="button" wire:click="resetFilters" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-x-circle me-1"></i>پاک کردن
-                        </button>
-                        <button type="submit" class="btn btn-sm btn-primary">
-                            <i class="bi bi-funnel me-1"></i>اعمال فیلتر
-                        </button>
+                    <div class="col-12 d-flex gap-2 justify-content-between align-items-center flex-wrap mt-1">
+                        @if($countFiltered !== null)
+                            <x-filters.summary-stats :count-filtered="$countFiltered" :total-filtered="$totalFiltered" />
+                        @endif
+                        <div class="d-flex gap-2 ms-auto">
+                            <button type="button" wire:click="resetFilters" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-x-circle me-1"></i>پاک کردن
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="bi bi-funnel me-1"></i>اعمال فیلتر
+                            </button>
+                        </div>
                     </div>
                 </div>
             </form>

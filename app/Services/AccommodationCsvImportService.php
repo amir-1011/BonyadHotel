@@ -397,6 +397,7 @@ class AccommodationCsvImportService
 
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
+        app(\App\Services\MedicalAccommodationProvisioner::class)->seedForAccommodation($accommodation);
 
         $roomRows = [];
         foreach ($rows as $row) {

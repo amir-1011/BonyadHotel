@@ -73,6 +73,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/accommodations/{accommodation}/book', [BookingController::class, 'store'])->name('bookings.store');
     Route::get('/bookings',           \App\Livewire\Pages\BookingIndex::class)->name('bookings.index');
     Route::get('/bookings/{booking}/pdf', [\App\Http\Controllers\BookingReceiptController::class, 'download'])->name('bookings.pdf');
+    Route::get('/bookings/{booking}/medical-referral', [\App\Http\Controllers\BookingReceiptController::class, 'medicalReferral'])->name('bookings.medical-referral');
+    Route::get('/bookings/{booking}/credit-letter', [\App\Http\Controllers\BookingReceiptController::class, 'creditLetter'])->name('bookings.credit-letter');
     Route::get('/bookings/{booking}',  \App\Livewire\Pages\BookingShow::class)->name('bookings.show');
     Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
     Route::get('/favorites',          \App\Livewire\Pages\FavoriteIndex::class)->name('favorites.index');
@@ -87,6 +89,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 
     // Dashboard
     Route::get('/', \App\Livewire\Admin\Dashboard::class)->name('dashboard');
+    Route::get('/medical-accommodation', \App\Livewire\Admin\MedicalAccommodationReport::class)->name('medical-accommodation-report');
 
     // Users
     Route::get('/users/export',      [\App\Http\Controllers\Admin\UserController::class, 'export'])->name('users.export');
@@ -110,6 +113,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Admin\AccommodationEdit::class)->name('accommodations.edit');
     Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Admin\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
     Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Admin\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
+    Route::get('/accommodations/{accommodation}/medical-accommodation', \App\Livewire\Admin\AccommodationMedicalAccommodationSettings::class)->name('accommodations.medical-accommodation');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Admin\ManualBooking::class)->name('accommodations.manual-booking');
     // Sales report (keep as controller — complex chart data)
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Admin\AccommodationController::class, 'salesReport'])->name('accommodations.report');
@@ -142,7 +146,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/bookings/export',    [\App\Http\Controllers\Admin\BookingController::class, 'export'])->name('bookings.export');
     Route::get('/bookings',           \App\Livewire\Admin\BookingIndex::class)->name('bookings.index');
     Route::get('/bookings/{booking}/pdf', [\App\Http\Controllers\BookingReceiptController::class, 'download'])->name('bookings.pdf');
+    Route::get('/bookings/{booking}/medical-referral', [\App\Http\Controllers\BookingReceiptController::class, 'medicalReferral'])->name('bookings.medical-referral');
+    Route::get('/bookings/{booking}/credit-letter', [\App\Http\Controllers\BookingReceiptController::class, 'creditLetter'])->name('bookings.credit-letter');
+    Route::get('/bookings/{booking}/payment-records/{record}/document', [\App\Http\Controllers\BookingReceiptController::class, 'paymentDocument'])->name('bookings.payment-document');
     Route::get('/bookings/{booking}', \App\Livewire\Admin\BookingShow::class)->name('bookings.show');
+    Route::get('/booking-payment-records', \App\Livewire\Admin\BookingPaymentRecordIndex::class)->name('booking-payment-records.index');
+    Route::get('/pos-terminals', \App\Livewire\Admin\PosTerminalIndex::class)->name('pos-terminals.index');
 
     // Cancellation / refund requests
     Route::get('/cancellation-settings', \App\Livewire\Admin\CancellationSettings::class)->name('cancellation-settings');
@@ -167,6 +176,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/programs/create',            \App\Livewire\Admin\ProgramCreate::class)->name('programs.create');
     Route::get('/programs',           \App\Livewire\Admin\ProgramIndex::class)->name('programs.index');
     Route::get('/programs/{program}', \App\Livewire\Admin\ProgramShow::class)->name('programs.show');
+
+    // Facility management (اقلام مازاد / اقلام مورد نیاز)
+    Route::prefix('facility')->name('facility.')->group(function () {
+        Route::get('/catalog', \App\Livewire\Admin\FacilityCatalogSettings::class)->name('catalog');
+        Route::get('/surplus/create', \App\Livewire\Admin\FacilitySurplusCreate::class)->name('surplus.create');
+        Route::get('/surplus/{item}/edit', \App\Livewire\Admin\FacilitySurplusEdit::class)->name('surplus.edit');
+        Route::get('/surplus', \App\Livewire\Admin\FacilitySurplusIndex::class)->name('surplus.index');
+        Route::get('/needed/create', \App\Livewire\Admin\FacilityNeededCreate::class)->name('needed.create');
+        Route::get('/needed/{item}/edit', \App\Livewire\Admin\FacilityNeededEdit::class)->name('needed.edit');
+        Route::get('/needed', \App\Livewire\Admin\FacilityNeededIndex::class)->name('needed.index');
+    });
 });
 
 // ─── Host Panel ──────────────────────────────────────────────────────────────
@@ -174,6 +194,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
 
     // Dashboard
     Route::get('/', \App\Livewire\Host\Dashboard::class)->name('dashboard');
+    Route::get('/medical-accommodation', \App\Livewire\Host\MedicalAccommodationReport::class)->name('medical-accommodation-report');
 
     // Profile (available to all hosts)
     Route::get('/profile', \App\Livewire\Host\Profile::class)->name('profile');
@@ -185,13 +206,18 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/accommodations/{accommodation}/edit', \App\Livewire\Host\AccommodationEdit::class)->name('accommodations.edit');
     Route::get('/accommodations/{accommodation}/veteran-policy', \App\Livewire\Host\AccommodationVeteranPolicySettings::class)->name('accommodations.veteran-policy');
     Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Host\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
+    Route::get('/accommodations/{accommodation}/medical-accommodation', \App\Livewire\Host\AccommodationMedicalAccommodationSettings::class)->name('accommodations.medical-accommodation');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Host\ManualBooking::class)->name('accommodations.manual-booking');
 
     // Bookings
     Route::get('/bookings/export',    [\App\Http\Controllers\Host\BookingController::class, 'export'])->name('bookings.export');
     Route::get('/bookings',           \App\Livewire\Host\BookingIndex::class)->name('bookings.index');
     Route::get('/bookings/{booking}/pdf', [\App\Http\Controllers\BookingReceiptController::class, 'download'])->name('bookings.pdf');
+    Route::get('/bookings/{booking}/medical-referral', [\App\Http\Controllers\BookingReceiptController::class, 'medicalReferral'])->name('bookings.medical-referral');
+    Route::get('/bookings/{booking}/credit-letter', [\App\Http\Controllers\BookingReceiptController::class, 'creditLetter'])->name('bookings.credit-letter');
+    Route::get('/bookings/{booking}/payment-records/{record}/document', [\App\Http\Controllers\BookingReceiptController::class, 'paymentDocument'])->name('bookings.payment-document');
     Route::get('/bookings/{booking}', \App\Livewire\Host\BookingShow::class)->name('bookings.show');
+    Route::get('/booking-payment-records', \App\Livewire\Host\BookingPaymentRecordIndex::class)->name('booking-payment-records.index');
 
     // Cancellation / refund requests
     Route::get('/cancellation-requests', \App\Livewire\Host\CancellationRequestIndex::class)->name('cancellation-requests.index');
@@ -201,6 +227,9 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
 
     // Users (guests with bookings at assigned accommodations)
     Route::get('/users/export', [\App\Http\Controllers\Host\UserController::class, 'export'])->name('users.export');
+    Route::get('/users/create-host', \App\Livewire\Host\HostCreate::class)->name('users.create-host');
+    Route::get('/users/{user}/edit', \App\Livewire\Host\UserEdit::class)->name('users.edit');
+    Route::get('/users/{user}', \App\Livewire\Host\UserShow::class)->name('users.show');
     Route::get('/users', \App\Livewire\Host\UserIndex::class)->name('users.index');
 
     // Room Types (nested CRUD — keep as controllers)
@@ -235,6 +264,17 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     // Edit removed — programs are created via multi-step wizard only
     // Delete (Livewire handles this in ProgramIndex/Show via actions; keep controller fallback)
     Route::delete('/programs/{program}',      [\App\Http\Controllers\Host\ProgramController::class, 'destroy'])->name('programs.destroy');
+
+    // Facility management (اقلام مازاد / اقلام مورد نیاز)
+    Route::prefix('facility')->name('facility.')->group(function () {
+        Route::get('/surplus/create', \App\Livewire\Host\FacilitySurplusCreate::class)->name('surplus.create');
+        Route::get('/surplus/{item}/edit', \App\Livewire\Host\FacilitySurplusEdit::class)->name('surplus.edit');
+        Route::get('/surplus', \App\Livewire\Host\FacilitySurplusIndex::class)->name('surplus.index');
+
+        Route::get('/needed/create', \App\Livewire\Host\FacilityNeededCreate::class)->name('needed.create');
+        Route::get('/needed/{item}/edit', \App\Livewire\Host\FacilityNeededEdit::class)->name('needed.edit');
+        Route::get('/needed', \App\Livewire\Host\FacilityNeededIndex::class)->name('needed.index');
+    });
 });
 
 

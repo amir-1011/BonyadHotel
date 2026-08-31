@@ -96,12 +96,17 @@ class RefundPolicyService
   {
     $accommodationId = (int) $booking->accommodation_id;
     $days = $this->daysBeforeCheckin($booking, $now);
-    $percentage = $this->refundPercentageForDays($days, $accommodationId);
 
     $totalNights = max(1, (int) $booking->nights);
     $isMidStay = $days < 0;
     $nightsElapsed = $isMidStay ? $this->nightsElapsed($booking, $now) : 0;
     $nightsRemaining = max(0, $totalNights - $nightsElapsed);
+
+    if ($booking->skipsCancellationPenalties()) {
+      return $this->medicalPreview($booking, $days, $totalNights, $nightsElapsed, $nightsRemaining, $isMidStay);
+    }
+
+    $percentage = $this->refundPercentageForDays($days, $accommodationId);
 
     $basisAmount = $isMidStay
       ? (int) round($booking->total_price * $nightsRemaining / $totalNights)
@@ -118,6 +123,55 @@ class RefundPolicyService
       'nights_remaining' => $nightsRemaining,
       'basis_amount'     => $basisAmount,
       'is_mid_stay'      => $isMidStay,
+      'guest_paid'       => true,
     ];
+  }
+
+  /**
+   * Medical stays have no cancellation penalty. The guest did not pay, so guest refund is 0.
+   * Unused nights are credited against the employer (Day Insurance) debt.
+   *
+   * @return array{days:int, percentage:int, amount:int, nights_total:int, nights_elapsed:int, nights_remaining:int, basis_amount:int, is_mid_stay:bool, guest_paid:bool, medical_used_stay_amount:int, employer_debt_after:int}
+   */
+  private function medicalPreview(
+    Booking $booking,
+    int $days,
+    int $totalNights,
+    int $nightsElapsed,
+    int $nightsRemaining,
+    bool $isMidStay,
+  ): array {
+    $stayPerNight = $this->medicalStayAmountPerNight($booking);
+    $unusedStay = $stayPerNight * $nightsRemaining;
+    $usedStay = $stayPerNight * $nightsElapsed;
+    $services = (int) $booking->services_subtotal;
+    $employerDebtAfter = $days >= 0 ? 0 : max(0, $usedStay + $services);
+
+    return [
+      'days'                      => $days,
+      'percentage'                => 100,
+      'amount'                    => 0,
+      'nights_total'              => $totalNights,
+      'nights_elapsed'            => $nightsElapsed,
+      'nights_remaining'          => $nightsRemaining,
+      'basis_amount'              => $unusedStay,
+      'is_mid_stay'               => $isMidStay,
+      'guest_paid'                => false,
+      'medical_used_stay_amount'  => $usedStay,
+      'employer_debt_after'       => $employerDebtAfter,
+    ];
+  }
+
+  private function medicalStayAmountPerNight(Booking $booking): int
+  {
+    $snapshot = $booking->medical_tariff_snapshot;
+    if (is_array($snapshot) && isset($snapshot['stay_total'], $snapshot['nights']) && (int) $snapshot['nights'] > 0) {
+      return (int) round((int) $snapshot['stay_total'] / (int) $snapshot['nights']);
+    }
+
+    $nights = max(1, (int) $booking->nights);
+    $services = (int) $booking->services_subtotal;
+
+    return (int) round(max(0, (int) $booking->total_price - $services) / $nights);
   }
 }

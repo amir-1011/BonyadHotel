@@ -9,6 +9,46 @@
 @endphp
 
 @unless($hidePanel)
+@once
+@push('styles')
+<style>
+.cancellation-livewire-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.cancellation-livewire-modal .modal-dialog {
+    margin: 0;
+    width: 100%;
+    max-width: 500px;
+    max-height: calc(100vh - 2rem);
+}
+.cancellation-livewire-modal .modal-content {
+    max-height: calc(100vh - 2rem);
+    display: flex;
+    flex-direction: column;
+}
+.cancellation-livewire-modal .modal-content > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+.cancellation-livewire-modal .modal-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+.cancellation-livewire-modal .modal-header,
+.cancellation-livewire-modal .modal-footer {
+    flex-shrink: 0;
+}
+</style>
+@endpush
+@endonce
 <div class="{{ $isStaffPanel ? 'card shadow-sm mt-3' : '' }}" style="{{ $isStaffPanel ? '' : 'border:1px solid var(--bnb-border);border-radius:12px;padding:20px;margin-bottom:16px;' }}">
     <div class="{{ $isStaffPanel ? 'card-header bg-white fw-semibold small d-flex align-items-center justify-content-between flex-wrap gap-2' : 'd-flex align-items-center justify-content-between flex-wrap gap-2 mb-2' }}" style="{{ $isStaffPanel ? '' : 'font-size:12px;color:var(--bnb-gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;' }}">
         <span><i class="bi bi-x-circle me-2"></i>کنسلی و استرداد وجه</span>
@@ -42,11 +82,11 @@
                     <div class="col-6 col-md-3"><span class="text-muted d-block">روزهای باقی‌مانده تا ورود</span><strong>{{ $request->days_before_checkin }} روز</strong></div>
                     @endif
                     <div class="col-6 col-md-3"><span class="text-muted d-block">درصد بازگشت وجه</span><strong>{{ $request->refund_percentage }}٪</strong></div>
-                    <div class="col-6 col-md-3"><span class="text-muted d-block">مبلغ قابل بازگشت</span><strong>{{ number_format($request->refund_amount) }} تومان</strong></div>
+                    <div class="col-6 col-md-3"><span class="text-muted d-block">مبلغ قابل بازگشت</span><strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($request->refund_amount)) }} ریال</strong></div>
                     @if($request->isMidStay())
-                    <div class="col-12"><span class="text-muted small">این درخواست پس از شروع اقامت ثبت شده؛ فقط مبلغ متناسب با شب‌های باقی‌مانده ({{ number_format($request->nightsBasisAmountDisplay()) }} تومان) مشمول {{ $request->refund_percentage }}٪ بازگشت وجه شده است.</span></div>
+                    <div class="col-12"><span class="text-muted small">این درخواست پس از شروع اقامت ثبت شده؛ فقط مبلغ متناسب با شب‌های باقی‌مانده ({{ \App\Support\PdfPersian::toPersianDigits(number_format($request->nightsBasisAmountDisplay())) }} ریال) مشمول {{ $request->refund_percentage }}٪ بازگشت وجه شده است.</span></div>
                     @endif
-                    <div class="col-6 col-md-3"><span class="text-muted d-block">شماره حساب/کارت</span><strong style="direction:ltr;display:inline-block;">{{ $request->refund_account_number }}</strong></div>
+                    <div class="col-6 col-md-3"><span class="text-muted d-block">شماره حساب/کارت</span><strong class="{{ $request->refund_account_number ? '' : 'text-muted fw-normal' }}" style="direction:ltr;display:inline-block;">{{ $request->refund_account_number ?: '—' }}</strong></div>
                     @if($request->refund_account_holder_name)
                     <div class="col-6 col-md-3"><span class="text-muted d-block">به نام</span><strong>{{ $request->refund_account_holder_name }}</strong></div>
                     @endif
@@ -68,7 +108,7 @@
                     @if($request->isSettled())
                     <br>تسویه توسط {{ $request->settledBy?->name ?? $request->settledBy?->mobile ?? '—' }} در تاریخ {{ \Morilog\Jalali\Jalalian::fromCarbon($request->settled_at)->format('Y/m/d H:i') }}.
                     @if($request->settled_amount)
-                    <br>مبلغ واریز: {{ number_format($request->settled_amount) }} تومان به حساب <span style="direction:ltr;display:inline-block;">{{ $request->settled_account_number }}</span>
+                    <br>مبلغ واریز: {{ \App\Support\PdfPersian::toPersianDigits(number_format($request->settled_amount)) }} ریال به حساب <span style="direction:ltr;display:inline-block;">{{ $request->settled_account_number }}</span>
                     @endif
                     @if($request->settlement_notes)
                     <br>توضیحات تسویه: {{ $request->settlement_notes }}
@@ -81,7 +121,7 @@
                 <div class="d-flex gap-2 mt-2">
                     @if($request->isPending())
                     <x-host.can page="cancellation-requests.decide" action="edit" :panel="$panel ?? 'admin'">
-                    <button type="button" wire:click="approveCancellationRequest({{ $request->id }})" data-swal-confirm="با تایید این درخواست، رزرو لغو شده و مبلغ {{ number_format($request->refund_amount) }} تومان قابل استرداد ثبت می‌شود. ادامه می‌دهید؟" class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>تایید کنسلی</button>
+                    <button type="button" wire:click="approveCancellationRequest({{ $request->id }})" data-swal-confirm="با تایید این درخواست، رزرو لغو شده و مبلغ {{ \App\Support\PdfPersian::toPersianDigits(number_format($request->refund_amount)) }} ریال قابل استرداد ثبت می‌شود. ادامه می‌دهید؟" class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>تایید کنسلی</button>
                     <button type="button"
                         data-swal-prompt
                         data-swal-prompt-method="submitCancellationReject"

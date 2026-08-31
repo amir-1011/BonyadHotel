@@ -271,8 +271,8 @@
                         {{ $booking->statusLabel() }}
                     </span>
                     <div style="font-size:15px;font-weight:700;color:var(--bnb-dark);margin-top:6px;text-align:left;">
-                        {{ number_format($booking->total_price) }}
-                        <span style="font-size:11px;font-weight:400;color:var(--bnb-gray);">تومان</span>
+                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }}
+                        <span style="font-size:11px;font-weight:400;color:var(--bnb-gray);">ریال</span>
                     </div>
                 </div>
             </div>

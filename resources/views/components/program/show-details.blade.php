@@ -3,7 +3,6 @@
 @php
     $booking = $program->booking;
     $indexRoute = $panel === 'admin' ? 'admin.programs.index' : 'host.programs.index';
-    $bookingShowRoute = $panel === 'admin' ? 'admin.bookings.show' : 'host.bookings.show';
     $supportiveReportRoute = $panel === 'admin' ? 'admin.programs.supportive-report' : 'host.programs.supportive-report';
     $paymentDocuments = collect($program->payment_documents ?? [])->filter(fn ($p) => is_string($p) && $p !== '');
     $guestListDocuments = collect($program->guest_list_documents ?? [])->filter(fn ($p) => is_string($p) && $p !== '');
@@ -17,27 +16,29 @@
     $registeredGuestCount = $booking
         ? $booking->guestDetails->filter(fn ($g) => !\App\Models\BookingGuestDetail::isGenericGuestName($g->full_name, (int) $g->sort_order))->count()
         : 0;
+    $canExtendProgramStay = $booking
+        && $booking->canExtendStay(auth()->user())
+        && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('programs.dates', 'edit'));
     $city = $program->accommodation->city;
     $province = $city?->province;
 @endphp
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a wire:navigate href="{{ route($indexRoute) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right"></i></a>
-    <h5 class="fw-bold mb-0"><i class="bi bi-flag-fill me-2 text-success"></i>{{ $program->title }}</h5>
-    <span class="badge bg-{{ $program->statusColor() }}">{{ $program->statusLabel() }}</span>
-    <span class="badge bg-info-subtle text-info border">{{ $program->programTypeLabel() }}</span>
-    <span class="badge bg-secondary-subtle text-secondary border">{{ $program->paymentTypeLabel() }}</span>
-    @if($program->payment_type === \App\Models\Program::PAYMENT_SUPPORTIVE)
-    <a wire:navigate href="{{ route($supportiveReportRoute, ['year' => $booking?->check_in?->year]) }}" class="badge bg-warning-subtle text-warning border text-decoration-none">
-        <i class="bi bi-bar-chart me-1"></i>گزارش حمایتی
-    </a>
-    @endif
-</div>
-
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card shadow-sm mb-3">
-            <div class="card-header fw-semibold bg-success text-white py-2"><i class="bi bi-info-circle me-1"></i>اطلاعات برنامه</div>
+            <div class="card-header fw-semibold bg-success text-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span><i class="bi bi-info-circle me-1"></i>{{ $program->title }}</span>
+                <span class="d-flex align-items-center gap-1 flex-wrap">
+                    <span class="badge bg-{{ $program->statusColor() }}">{{ $program->statusLabel() }}</span>
+                    <span class="badge bg-light text-dark">{{ $program->programTypeLabel() }}</span>
+                    <span class="badge bg-light text-dark">{{ $program->paymentTypeLabel() }}</span>
+                    @if($program->payment_type === \App\Models\Program::PAYMENT_SUPPORTIVE)
+                    <a wire:navigate href="{{ route($supportiveReportRoute, ['year' => $booking?->check_in?->year]) }}" class="badge bg-warning text-dark text-decoration-none">
+                        <i class="bi bi-bar-chart me-1"></i>گزارش حمایتی
+                    </a>
+                    @endif
+                </span>
+            </div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-sm-6 col-md-4">
@@ -87,7 +88,7 @@
                     @endif
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">تعداد نفرات (برنامه)</span><br>
-                        <strong>{{ number_format($program->guest_count) }}</strong>
+                        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($program->guest_count)) }}</strong>
                     </div>
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">مهمانان ثبت‌شده</span><br>
@@ -112,6 +113,15 @@
                     </div>
                     @endif
                 </div>
+
+                @if($booking && ($canExtendProgramStay ?? false))
+                <div class="border-top mt-3 pt-3">
+                    @include('components.booking.show-details._stay-extension-form', [
+                        'booking' => $booking,
+                        'canExtendStay' => $canExtendProgramStay,
+                    ])
+                </div>
+                @endif
             </div>
         </div>
 
@@ -148,7 +158,7 @@
                     ->implode('، ');
                 $beneficiarySummary = $program->beneficiaryCosts->count() . ' ذینفع';
                 if ($totalBeneficiaryDebt > 0) {
-                    $beneficiarySummary .= ' · ' . number_format($totalBeneficiaryDebt) . ' تومان بدهی';
+                    $beneficiarySummary .= ' · ' . \App\Support\PdfPersian::toPersianDigits(number_format($totalBeneficiaryDebt)) . ' ریال بدهی';
                 }
                 if ($beneficiaryDocumentCount > 0) {
                     $beneficiarySummary .= ' · <span class="badge text-bg-success"><i class="bi bi-paperclip me-1"></i>' . $beneficiaryDocumentCount . ' مدرک</span>';
@@ -177,28 +187,7 @@
         </p>
         @endif
 
-        <div class="card shadow-sm mb-3">
-            <div class="card-header fw-semibold bg-warning bg-opacity-75 py-2"><i class="bi bi-cash-stack me-1"></i>اطلاعات مالی (تومان)</div>
-            <div class="card-body">
-                <div class="row g-3 text-center">
-                    <div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted small">قیمت پایه</div><div class="fw-bold">{{ number_format($program->base_price) }}</div></div></div>
-                    <div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted small">خدمات</div><div class="fw-bold">{{ number_format($program->services_subtotal) }}</div></div></div>
-                    <div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted small">تخفیف</div><div class="fw-bold text-danger">{{ number_format($program->discount_amount) }}</div></div></div>
-                    <div class="col-6 col-md-3"><div class="border rounded p-2 bg-light"><div class="text-muted small">مبلغ کل</div><div class="fw-bold text-success">{{ number_format($program->total_amount) }}</div></div></div>
-                    <div class="col-6 col-md-4"><div class="border rounded p-2"><div class="text-muted small">بیعانه</div><div class="fw-bold text-primary">{{ number_format($program->deposit_amount) }}</div></div></div>
-                    <div class="col-6 col-md-4"><div class="border rounded p-2"><div class="text-muted small">باقیمانده</div><div class="fw-bold">{{ number_format($program->remainingAmount()) }}</div></div></div>
-                    @if($totalBeneficiaryDebt > 0)
-                    <div class="col-6 col-md-4"><div class="border rounded p-2"><div class="text-muted small">جمع بدهی ذینفعان</div><div class="fw-bold text-danger">{{ number_format($totalBeneficiaryDebt) }}</div></div></div>
-                    @endif
-                </div>
-                @if($program->notes)
-                <div class="mt-3 pt-3 border-top">
-                    <div class="text-muted small mb-1">یادداشت مالی</div>
-                    <div class="small">{{ $program->notes }}</div>
-                </div>
-                @endif
-            </div>
-        </div>
+        {{ $financialManager ?? '' }}
 
         @if($hasDocuments)
         <div class="card shadow-sm mb-3">
@@ -260,15 +249,15 @@
                         <tr>
                             <td>{{ $svc->name }}</td>
                             <td>{{ $svc->quantity }}</td>
-                            <td>{{ number_format($svc->unit_price) }}</td>
-                            <td>{{ number_format($svc->total) }}</td>
+                            <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->unit_price)) }}</td>
+                            <td>{{ \App\Support\PdfPersian::toPersianDigits(number_format($svc->total)) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
                             <th colspan="3" class="text-end">جمع خدمات</th>
-                            <th>{{ number_format($program->services_subtotal) }}</th>
+                            <th>{{ \App\Support\PdfPersian::toPersianDigits(number_format($program->services_subtotal)) }}</th>
                         </tr>
                     </tfoot>
                 </table>
@@ -290,11 +279,7 @@
                 <p class="mb-1 small">نام تماس: <strong>{{ $booking->guest_contact_name }}</strong></p>
                 @endif
                 @if($nights)
-                <p class="mb-2 small text-muted">@jalali($booking->check_in) تا @jalali($booking->check_out) · {{ $nights }} شب</p>
-                @endif
-                <a wire:navigate href="{{ route($bookingShowRoute, $booking) }}" class="btn btn-sm btn-outline-primary w-100 mb-2">مشاهده رزرو</a>
-                @if($registeredGuestCount > 0)
-                <a wire:navigate href="{{ route($bookingShowRoute, $booking) }}#guests" class="btn btn-sm btn-outline-secondary w-100">ویرایش مهمانان در رزرو</a>
+                <p class="mb-0 small text-muted">@jalali($booking->check_in) تا @jalali($booking->check_out) · {{ $nights }} شب</p>
                 @endif
             </div>
         </div>

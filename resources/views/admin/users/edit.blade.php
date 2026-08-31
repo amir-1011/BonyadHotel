@@ -1,9 +1,5 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a wire:navigate href="{{ route('admin.users.show', $user) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-</div>
-
 <div class="row g-3">
     <div class="col-12 col-lg-8">
         <div class="card shadow-sm">
@@ -123,11 +119,59 @@
                     <div class="col-12">
                         <x-profile.accounting-code-card :user="$user" variant="compact" />
                     </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted">استان (کدینگ حسابداری)</label>
+                        <select wire:model.live="provinceId" class="form-select @error('provinceId') is-invalid @enderror">
+                            <option value="">انتخاب استان...</option>
+                            @foreach($provinces as $province)
+                                <option value="{{ $province->id }}">
+                                    {{ $province->name }}
+                                    @if($province->accounting_code)
+                                        ({{ $province->accounting_code }})
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('provinceId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        <div class="form-text">تغییر استان باعث تغییر کدینگ حسابداری می‌شود.</div>
+                    </div>
+
+                    @if($this->accountingProvinceChangePending())
+                    <div class="col-12">
+                        <div class="alert alert-warning border-warning mb-0">
+                            <div class="fw-semibold mb-2">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                هشدار تغییر کدینگ حسابداری
+                            </div>
+                            <div class="small">
+                                با تغییر استان، کد حسابداری فعلی
+                                <strong dir="ltr">{{ app(\App\Services\AccountingProvinceReassignmentService::class)->currentCodeForUser($user) }}</strong>
+                                به کد جدید
+                                <strong dir="ltr">{{ $this->previewAccountingCodeAfterProvinceChange() }}</strong>
+                                تغییر خواهد کرد. این عملیات قابل بازگشت نیست.
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                     @endif
 
                     <div class="col-12 d-flex gap-2 justify-content-end">
                         <a wire:navigate href="{{ route('admin.users.show', $user) }}" class="btn btn-outline-secondary">انصراف</a>
+                        @if($this->accountingProvinceChangePending())
+                        <button
+                            type="button"
+                            wire:click="update"
+                            data-swal-confirm="{{ $this->accountingProvinceChangeConfirmMessage() }}"
+                            data-swal-confirm-title="هشدار تغییر کدینگ حسابداری"
+                            data-swal-confirm-variant="warn"
+                            class="btn btn-warning"
+                        >
+                            ذخیره با تغییر استان و کدینگ
+                        </button>
+                        @else
                         <button wire:click="update" class="btn btn-primary">ذخیره تغییرات</button>
+                        @endif
                     </div>
                 </div>
             </div>

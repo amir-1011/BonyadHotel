@@ -1,15 +1,12 @@
 <div>
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a wire:navigate href="{{ route('admin.bookings.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right me-1"></i>بازگشت</a>
-    <span class="badge bg-{{ $booking->statusColor() }}">{{ $booking->statusLabel() }}</span>
-    @if($booking->isManual())
-    <span class="badge bg-info text-dark">رزرو دستی</span>
-    @endif
-    <a href="{{ route('admin.bookings.pdf', $booking) }}" target="_blank" class="btn btn-sm btn-outline-success ms-auto"><i class="bi bi-file-pdf me-1"></i>PDF</a>
-</div>
+<div x-on:manual-booking-rooms-selected.window="$wire.call('onAddRoomPhysicalSelected', $event.detail.rooms ?? [])">
 
-@include('components.booking.show-details', ['booking' => $booking, 'panel' => $panel])
+@include('components.booking.show-details', [
+    'booking' => $booking,
+    'panel' => $panel,
+    'pdfUrl' => route('admin.bookings.pdf', $booking),
+])
 
 @include('components.cancellation.status-card', ['booking' => $booking, 'panel' => $panel])
 
@@ -30,4 +27,9 @@
 
 @include('components.booking.manage-details', ['booking' => $booking, 'panel' => $panel])
 
+@include('components.booking.payment-capture-support')
+
+<x-manual-booking.room-picker />
+
+</div>
 </div>

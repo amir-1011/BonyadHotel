@@ -46,6 +46,16 @@ trait ParsesCancellationSettleInput
         $this->settleNotes = '';
     }
 
+    protected function presentSettleModalAfterApproval(CancellationRequest $request): void
+    {
+        if ($request->isSettled()) {
+            $this->dispatch('toast', type: 'success', message: 'درخواست کنسلی تایید و تسویه شد و ظرفیت رزرو آزاد گردید.');
+            return;
+        }
+
+        $this->presentSettleModal($request);
+    }
+
     protected function presentSettleModal(CancellationRequest $request): void
     {
         $this->settlingRequestId = $request->id;

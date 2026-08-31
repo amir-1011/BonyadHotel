@@ -274,8 +274,8 @@
                         <div class="fav-card-meta">ظرفیت {{ $acc->capacity }} نفر · {{ $acc->rooms }} اتاق</div>
                         <div class="fav-card-footer">
                             <div class="fav-card-price">
-                                {{ number_format($acc->price_per_night) }}
-                                <span>تومان / شب</span>
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($acc->price_per_night)) }}
+                                <span>ریال / شب</span>
                             </div>
                             @if($rating > 0)
                                 <div class="fav-card-rating">

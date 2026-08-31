@@ -462,7 +462,7 @@
             @if($accommodation->averageRating() > 0)
                 <div class="bnb-rating-badge">
                     <i class="bi bi-star-fill" style="color:var(--bnb-dark); font-size: 13px;"></i>
-                    <span>{{ number_format($accommodation->averageRating(), 1) }}</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->averageRating(), 1)) }}</span>
                 </div>
                 <span class="bnb-rating-count" onclick="document.getElementById('sec-reviews').scrollIntoView({behavior:'smooth'})">
                     {{ $accommodation->reviewCount() }} نظر
@@ -608,12 +608,12 @@
                                 @auth
                                     @if($accDiscountPct > 0)
                                         @php $discExtraCapPrice = round($roomType->extra_capacity_price * (1 - $accDiscountPct / 100)); @endphp
-                                        <s style="opacity:.65;">{{ number_format($roomType->extra_capacity_price) }}</s> {{ number_format($discExtraCapPrice) }} تومان/نفر/شب
+                                        <s style="opacity:.65;">{{ \App\Support\PdfPersian::toPersianDigits(number_format($roomType->extra_capacity_price)) }}</s> {{ \App\Support\PdfPersian::toPersianDigits(number_format($discExtraCapPrice)) }} ریال/نفر/شب
                                     @else
-                                        {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                        {{ \App\Support\PdfPersian::toPersianDigits(number_format($roomType->extra_capacity_price)) }} ریال/نفر/شب
                                     @endif
                                 @else
-                                    {{ number_format($roomType->extra_capacity_price) }} تومان/نفر/شب
+                                    {{ \App\Support\PdfPersian::toPersianDigits(number_format($roomType->extra_capacity_price)) }} ریال/نفر/شب
                                 @endauth
                             </span>
                             @endif
@@ -641,7 +641,7 @@
                         <div style="font-size:14px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;">{{ $rate->name }}</div>
                         <div style="font-size:12px;color:var(--bnb-gray);display:flex;flex-wrap:wrap;gap:8px;">
                             @if($rate->breakfast_included)<span style="color:green"><i class="bi bi-cup-hot-fill me-1"></i>صبحانه رایگان</span>
-                            @elseif($rate->breakfast_price_per_person)<span><i class="bi bi-cup-hot me-1"></i>صبحانه {{ number_format($rate->breakfast_price_per_person) }} تومان/نفر</span>
+                            @elseif($rate->breakfast_price_per_person)<span><i class="bi bi-cup-hot me-1"></i>صبحانه {{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->breakfast_price_per_person)) }} ریال/نفر</span>
                             @else<span><i class="bi bi-x me-1"></i>بدون صبحانه</span>@endif
                             @if($rate->cancellation_policy === 'free')<span style="color:green"><i class="bi bi-check-circle-fill me-1"></i>لغو رایگان</span>
                             @else<span style="color:var(--bnb-red)"><i class="bi bi-x-circle me-1"></i>غیرقابل استرداد</span>@endif
@@ -654,15 +654,15 @@
                             @auth
                                 @if($accDiscountPct > 0)
                                     @php $discRate = round($rate->price_per_night * (1 - $accDiscountPct / 100)); @endphp
-                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ number_format($rate->price_per_night) }}</div>
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ number_format($discRate) }}</div>
+                                    <div style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($discRate)) }}</div>
                                 @else
-                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
                                 @endif
                             @else
-                                <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ number_format($rate->price_per_night) }}</div>
+                                <div style="font-size:16px;font-weight:700;color:var(--bnb-dark);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($rate->price_per_night)) }}</div>
                             @endauth
-                            <div style="font-size:11px;color:var(--bnb-gray);">تومان / شب</div>
+                            <div style="font-size:11px;color:var(--bnb-gray);">ریال / شب</div>
                         </div>
                         <div class="bnb-rate-action">
                             @auth
@@ -809,15 +809,15 @@
                 @auth
                     @if($accDiscountPct > 0)
                         @php $discShow = round($accommodation->lowest_price * (1 - $accDiscountPct / 100)); @endphp
-                        <span style="font-size:14px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ number_format($accommodation->lowest_price) }}</span>
-                        <span class="font-bold text-xl" style="color:var(--bnb-red);">{{ number_format($discShow) }}</span>
+                        <span style="font-size:14px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;">{{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->lowest_price)) }}</span>
+                        <span class="font-bold text-xl" style="color:var(--bnb-red);">{{ \App\Support\PdfPersian::toPersianDigits(number_format($discShow)) }}</span>
                     @else
-                        <span class="font-bold text-xl">{{ number_format($accommodation->lowest_price) }}</span>
+                        <span class="font-bold text-xl">{{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->lowest_price)) }}</span>
                     @endif
                 @else
-                    <span class="font-bold text-xl">{{ number_format($accommodation->lowest_price) }}</span>
+                    <span class="font-bold text-xl">{{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->lowest_price)) }}</span>
                 @endauth
-                <span class="text-xs">تومان</span>
+                <span class="text-xs">ریال</span>
                 <span class="text-slate-400 font-normal">/ شب</span>
                 @if($accommodation->averageRating() > 0)
                 <div style="font-size:13px;color:var(--bnb-gray);font-weight:400;margin-top:4px;">
@@ -943,20 +943,20 @@
             </form>
             <div class="bnb-price-breakdown" :class="checkIn && checkOut ? '' : 'd-none'">
                 <div class="bnb-price-row">
-                    <span>{{ number_format($accommodation->price_per_night) }} × <span x-text="calNights">0</span> شب</span>
-                    <span x-text="(calNights * {{ $accommodation->price_per_night }}).toLocaleString('fa-IR') + ' تومان'">-</span>
+                    <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($accommodation->price_per_night)) }} × <span x-text="calNights">0</span> شب</span>
+                    <span x-text="(calNights * {{ $accommodation->price_per_night }}).toLocaleString('fa-IR') + ' ریال'">-</span>
                 </div>
                 @auth
                     @if($accDiscountPct > 0)
                     <div class="bnb-price-row" style="color:var(--bnb-red);">
                         <span>تخفیف {{ $accDiscountPct }}٪</span>
-                        <span x-text="'-' + Math.round((calNights * {{ $accommodation->price_per_night }} * {{ $accDiscountPct }} / 100)).toLocaleString('fa-IR') + ' تومان'">-</span>
+                        <span x-text="'-' + Math.round((calNights * {{ $accommodation->price_per_night }} * {{ $accDiscountPct }} / 100)).toLocaleString('fa-IR') + ' ریال'">-</span>
                     </div>
                     @endif
                 @endauth
                 <div class="bnb-price-row total">
                     <span>جمع کل</span>
-                    <span x-text="Math.round((calNights * {{ $accommodation->price_per_night }} * (1 - {{ auth()->check() ? $accDiscountPct : 0 }} / 100))).toLocaleString('fa-IR') + ' تومان'">-</span>
+                    <span x-text="Math.round((calNights * {{ $accommodation->price_per_night }} * (1 - {{ auth()->check() ? $accDiscountPct : 0 }} / 100))).toLocaleString('fa-IR') + ' ریال'">-</span>
                 </div>
             </div>
             <p style="font-size:12px;color:var(--bnb-gray);text-align:center;margin-top:12px;"><i class="bi bi-shield-check me-1"></i>تا زمان تأیید نهایی، هیچ مبلغی دریافت نمی‌شود</p>
@@ -1159,7 +1159,7 @@
                         </template>
                         @endif
                         @endauth
-                        <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ت'"></span>
+                        <span style="font-weight:700;color:var(--bnb-dark);" x-text="p.price.toLocaleString('fa-IR') + ' ریال'"></span>
                     </div>
                 </div>
             </template>
@@ -1176,7 +1176,7 @@
                     </template>
                     @endif
                     @endauth
-                    <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="color:var(--bnb-red);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </div>
             </div>
             {{-- Extra guests line --}}
@@ -1194,7 +1194,7 @@
                         <template x-if="userDiscountPct > 0 && extraGuestsOriginalTotal > extraGuestsTotal">
                             <span style="font-size:10px;text-decoration:line-through;color:var(--bnb-gray);margin-left:4px;" x-text="extraGuestsOriginalTotal.toLocaleString('fa-IR')"></span>
                         </template>
-                        <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="color:#15803d;font-weight:700;" x-text="extraGuestsTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </div>
                 </div>
             </template>
@@ -1222,16 +1222,16 @@
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
                     <template x-if="dynamicOriginalTotal > dynamicTotal">
-                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="font-size:12px;text-decoration:line-through;color:var(--bnb-gray);font-weight:400;" x-text="dynamicOriginalTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </template>
                     @auth
                     @if($accDiscountPct > 0)
                     <template x-if="dynamicAfterHostTotal < dynamicOriginalTotal && dynamicAfterHostTotal > dynamicTotal">
-                        <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                        <span style="font-size:12px;text-decoration:line-through;color:#f97316;font-weight:400;" x-text="dynamicAfterHostTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                     </template>
                     @endif
                     @endauth
-                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                    <span style="font-size:16px;font-weight:700;color:var(--bnb-dark);" x-text="dynamicTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </div>
                 <div style="font-size:12px;color:var(--bnb-gray);margin-top:2px;" x-text="nights + ' شب · ' + totalGuests + ' نفر' + (childrenUnder6 > 0 ? ' (' + childrenUnder6 + ' کودک زیر ۶ سال)' : '') + (billFullRooms ? ' (رزرو ' + billableGuests + ' تخت)' : '') + (extraGuests > 0 ? ' (' + extraGuests + ' کف‌خواب)' : '')"></div>
             </div>
@@ -1955,7 +1955,7 @@ function mbbDrawer() {
                         <span style="color:#6b7280;">مبلغ نهایی:</span>
                         <div>
                             ${partialTotal < fullRoomTotal ? `<span style="font-size:12px;text-decoration:line-through;color:#9ca3af;margin-left:6px;">${partialTotal.toLocaleString('fa-IR')}</span>` : ''}
-                            <strong style="color:#15803d;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} تومان</strong>
+                            <strong style="color:#15803d;font-size:16px;">${fullRoomTotal.toLocaleString('fa-IR')} ریال</strong>
                         </div>
                     </div>
                 </div>
@@ -2043,7 +2043,7 @@ function mbbDrawer() {
                                 <div>
                                     <div style="font-weight:700;color:#15803d;margin-bottom:4px;"><i class="bi bi-person-add"></i> کف‌خوابی (پیشنهادی)</div>
                                     <div style="font-size:13px;color:#374151;"><strong>${roomsWithExtra > 0 ? roomsWithExtra : 1} اتاق</strong> + <strong>${remainder} نفر کف‌خواب</strong></div>
-                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: ${this.userDiscountPct > 0 ? `<s style="opacity:.65;">${extraCost.toLocaleString('fa-IR')}</s> ` : ''}<strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} تومان</strong>${this.userDiscountPct > 0 ? ` <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;">${this.userDiscountPct}٪ تخفیف</span>` : ''} (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">هزینه کف‌خوابی: ${this.userDiscountPct > 0 ? `<s style="opacity:.65;">${extraCost.toLocaleString('fa-IR')}</s> ` : ''}<strong style="color:#15803d;">${extraCostDisc.toLocaleString('fa-IR')} ریال</strong>${this.userDiscountPct > 0 ? ` <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;">${this.userDiscountPct}٪ تخفیف</span>` : ''} (${remainder} نفر × ${extraPrice.toLocaleString('fa-IR')} × ${nights} شب)</div>
                                 </div>
                             </label>
                             <label style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:14px;cursor:pointer;" id="swal-opt-multi">

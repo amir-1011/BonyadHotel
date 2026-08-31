@@ -9,7 +9,7 @@ class BookingService extends Model
     protected $fillable = [
         'booking_id', 'guest_sort_order', 'service_catalog_id', 'service_catalog_variant_id', 'name', 'unit_price',
         'discount_percentage', 'discount_amount',
-        'quantity', 'free_units', 'total', 'sort_order', 'veteran_group_usage',
+        'quantity', 'free_units', 'total', 'manual_price_adjustment', 'sort_order', 'veteran_group_usage',
         'excluded_from_veteran_quota', 'manual_discount_percentage', 'manual_discount_reason',
     ];
 
@@ -21,6 +21,7 @@ class BookingService extends Model
             'quantity'                    => 'integer',
             'free_units'                  => 'integer',
             'total'                       => 'integer',
+            'manual_price_adjustment'     => 'integer',
             'sort_order'                  => 'integer',
             'discount_percentage'         => 'integer',
             'discount_amount'             => 'integer',
@@ -95,5 +96,25 @@ class BookingService extends Model
             'free_units'                  => $this->free_units,
             'discount_percentage'         => $this->discount_percentage,
         ]);
+    }
+
+    public function calculatedTotal(): int
+    {
+        return max(0, (int) $this->total);
+    }
+
+    public function manualPriceAdjustmentAmount(): int
+    {
+        return (int) ($this->manual_price_adjustment ?? 0);
+    }
+
+    public function payableTotal(): int
+    {
+        return max(0, $this->calculatedTotal() + $this->manualPriceAdjustmentAmount());
+    }
+
+    public function hasManualPriceAdjustment(): bool
+    {
+        return $this->manualPriceAdjustmentAmount() !== 0;
     }
 }
