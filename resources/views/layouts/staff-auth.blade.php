@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if(config('test_site.enabled'))
+    <meta name="bnb-test-site-mode" content="1">
+    @endif
     <title>ورود پنل مدیریت | سامانه رزرو</title>
     <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
@@ -438,6 +441,7 @@
 
     @livewireScripts
     @include('partials._swal')
+    @include('partials._test_site_notice_dialog')
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('staffAuthMorph', () => ({
@@ -957,7 +961,54 @@
                 return wait(2920);
             }
 
-            function runStaffLoginTransition(url) {
+            function showTestSiteNoticeIfNeeded(flag, iframe) {
+                if (!flag) return;
+
+                function deliver(retry) {
+                    retry = retry || 0;
+
+                    if (iframe && iframe.contentWindow) {
+                        try {
+                            var panelWin = iframe.contentWindow;
+                            if (typeof panelWin.showBnbTestSiteNotice === 'function') {
+                                panelWin.showBnbTestSiteNotice();
+                                return;
+                            }
+                            panelWin.postMessage(
+                                { type: 'bnb-show-test-site-notice' },
+                                window.location.origin
+                            );
+                            return;
+                        } catch (e) {}
+                    }
+
+                    if (retry < 10) {
+                        setTimeout(function () { deliver(retry + 1); }, 350);
+                        return;
+                    }
+
+                    if (typeof window.showBnbTestSiteNotice === 'function') {
+                        window.showBnbTestSiteNotice();
+                    }
+                }
+
+                setTimeout(function () { deliver(0); }, 600);
+            }
+
+            function resolveLoginSuccessPayload(raw) {
+                var d = raw;
+                if (Array.isArray(d) && d.length) d = d[0];
+                if (typeof d === 'object' && d !== null && d.detail) d = d.detail;
+                if (Array.isArray(d) && d.length) d = d[0];
+                return (d && typeof d === 'object') ? d : {};
+            }
+
+            function shouldShowTestSiteNotice(payload) {
+                if (payload && payload.showTestSiteNotice) return true;
+                return !!document.querySelector('meta[name="bnb-test-site-mode"]');
+            }
+
+            function runStaffLoginTransition(url, showTestSiteNotice) {
                 var fallbackUrl = url || LOGIN_URL;
 
                 if (!url) {
@@ -1087,6 +1138,7 @@
                                 flying.classList.add('is-done');
                                 completed = true;
                                 bindIframeShell(iframe);
+                                showTestSiteNoticeIfNeeded(showTestSiteNotice, iframe);
                             });
                         }).catch(function () {
                             hardNavigate(url);
@@ -1101,13 +1153,12 @@
             }
 
             function handleLoginSuccessPayload(d) {
-                if (Array.isArray(d) && d.length) d = d[0];
-                if (typeof d === 'object' && d !== null && d.detail) d = d.detail;
-                if (Array.isArray(d) && d.length) d = d[0];
-                var url = d && d.url ? d.url : null;
+                var payload = resolveLoginSuccessPayload(d);
+                var url = payload.url || null;
+                var showTestSiteNotice = shouldShowTestSiteNotice(payload);
                 var iframe = document.getElementById('staff-login-preload-frame');
                 if (url && iframe) startPanelPreload(iframe, url);
-                runStaffLoginTransition(url);
+                runStaffLoginTransition(url, showTestSiteNotice);
             }
 
             document.addEventListener('input', function (e) {

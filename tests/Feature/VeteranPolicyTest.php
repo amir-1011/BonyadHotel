@@ -29,11 +29,11 @@ class VeteranPolicyTest extends TestCase
         $this->accommodation = $this->createTestAccommodation();
     }
 
-    public function test_seeder_creates_seven_veteran_groups(): void
+    public function test_seeder_creates_eight_veteran_groups(): void
     {
-        $this->assertDatabaseCount('veteran_groups', 7);
+        $this->assertDatabaseCount('veteran_groups', 8);
         $this->assertDatabaseCount('service_catalogs', 6);
-        $this->assertDatabaseCount('veteran_group_service_discounts', 42);
+        $this->assertDatabaseCount('veteran_group_service_discounts', 48);
     }
 
     public function test_veteran_70_group_has_70_percent_accommodation_discount(): void
@@ -351,7 +351,7 @@ class VeteranPolicyTest extends TestCase
 
         $this->assertDatabaseMissing('veteran_groups', ['id' => $group->id]);
         $this->assertSame(
-            6,
+            7,
             VeteranGroup::forAccommodation($this->accommodation->id)->count(),
         );
     }

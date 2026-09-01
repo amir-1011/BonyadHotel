@@ -61,6 +61,8 @@
         </a>
         @endif
 
+        <div class="ta-sidebar__section">مدیریت</div>
+
         @if($hostUser->hasHostPanelAccess('accommodations'))
         <div class="ta-nav-group {{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" aria-expanded="{{ request()->routeIs('host.accommodations.*') || request()->routeIs('host.room-types.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
@@ -83,32 +85,47 @@
         </div>
         @endif
 
-        @if($hostUser->hasHostPanelAccess('bookings'))
-        @if($hostUser->hostCan('bookings.list', 'read'))
-        <a href="{{ route('host.bookings.index') }}" wire:navigate data-label="رزروها"
-           class="ta-nav-link {{ request()->routeIs('host.bookings.*') && !request()->routeIs('host.cancellation-requests.*') && !request()->routeIs('host.booking-payment-records.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check"></i><span class="ta-nav-link__label">رزروها</span>
-        </a>
-        <a href="{{ route('host.booking-payment-records.index') }}" wire:navigate data-label="تراکنش‌های مالی"
-           class="ta-nav-link {{ request()->routeIs('host.booking-payment-records.*') ? 'active' : '' }}">
-            <i class="bi bi-credit-card-2-front"></i><span class="ta-nav-link__label">تراکنش‌های مالی</span>
-        </a>
+        @php
+            $hostHasBookingsList = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('bookings.list', 'read');
+            $hostHasPaymentRecords = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('bookings.list', 'read');
+            $hostHasMedicalReport = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('bookings.medical-accommodation-report', 'read');
+            $hostHasCancellation = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('cancellation-requests.list', 'read');
+            $hostBookingsNavOpen = request()->routeIs('host.bookings.*')
+                || request()->routeIs('host.booking-payment-records.*')
+                || request()->routeIs('host.medical-accommodation-report')
+                || request()->routeIs('host.cancellation-requests.*');
+        @endphp
+        @if($hostHasBookingsList || $hostHasMedicalReport || $hostHasCancellation)
+        <div class="ta-nav-group {{ $hostBookingsNavOpen ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="رزروها" aria-expanded="{{ $hostBookingsNavOpen ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-calendar-check"></i>
+                <span class="ta-nav-link__label">رزروها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                @if($hostHasBookingsList)
+                <li><a href="{{ route('host.bookings.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.bookings.*') ? 'active' : '' }}">لیست رزروها</a></li>
+                @endif
+                @if($hostHasPaymentRecords)
+                <li><a href="{{ route('host.booking-payment-records.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.booking-payment-records.*') ? 'active' : '' }}">تراکنش‌های مالی</a></li>
+                @endif
+                @if($hostHasMedicalReport)
+                <li><a href="{{ route('host.medical-accommodation-report') }}" wire:navigate
+                       class="{{ request()->routeIs('host.medical-accommodation-report') ? 'active' : '' }}">اسکان درمانی</a></li>
+                @endif
+                @if($hostHasCancellation)
+                <li><a href="{{ route('host.cancellation-requests.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">کنسلی و استرداد وجه</a></li>
+                @endif
+            </ul>
+            </div>
+        </div>
         @endif
 
-        @if($hostUser->hostCan('bookings.medical-accommodation-report', 'read'))
-        <a href="{{ route('host.medical-accommodation-report') }}" wire:navigate data-label="اسکان درمانی"
-           class="ta-nav-link {{ request()->routeIs('host.medical-accommodation-report') ? 'active' : '' }}">
-            <i class="bi bi-heart-pulse"></i><span class="ta-nav-link__label">اسکان درمانی</span>
-        </a>
-        @endif
-
-        @if($hostUser->hostCan('cancellation-requests.list', 'read'))
-        <a href="{{ route('host.cancellation-requests.index') }}" wire:navigate data-label="کنسلی و استرداد وجه"
-           class="ta-nav-link {{ request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">
-            <i class="bi bi-x-circle"></i><span class="ta-nav-link__label">کنسلی و استرداد وجه</span>
-        </a>
-        @endif
-        @endif
+        <div class="ta-sidebar__section">خدمات</div>
 
         @if($hostUser->hasHostPanelAccess('programs'))
         <div class="ta-nav-group {{ request()->routeIs('host.programs.*') ? 'open' : '' }}">
@@ -156,7 +173,7 @@
         @if($hostUser->hasHostPanelAccess('facility-management'))
         <div class="ta-nav-group {{ request()->routeIs('host.facility.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="مدیریت اماکن" aria-expanded="{{ request()->routeIs('host.facility.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
-                <i class="bi bi-boxes"></i>
+                <i class="bi bi-box-seam"></i>
                 <span class="ta-nav-link__label">مدیریت اماکن</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>

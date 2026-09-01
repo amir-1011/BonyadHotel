@@ -69,9 +69,6 @@
                 </form>
 
                 <div class="staff-auth-footer" data-staff-fade>
-                    <button type="button" wire:click="switchToOtp" class="staff-auth-link" wire:loading.attr="disabled">
-                        <i class="bi bi-phone me-1"></i>ورود با رمز یکبار مصرف
-                    </button>
                     <button type="button" wire:click="backToMobile" class="staff-auth-link">
                         <i class="bi bi-arrow-right me-1"></i>تغییر شماره موبایل
                     </button>

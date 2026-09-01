@@ -213,6 +213,18 @@ class VeteranPolicyProvisioner
                 'sort_order'             => 7,
                 'is_active'              => true,
             ],
+            [
+                'key'                    => 'foundation_staff_retirees',
+                'label'                  => 'همکاران و بازنشستگان بنیاد',
+                'accommodation_discount' => 30,
+                'nights_per_dependent'   => 6,
+                'max_nights_per_period'  => 3,
+                'period_months'          => 6,
+                'weekly_free_sessions'   => 0,
+                'usage_notes'            => null,
+                'sort_order'             => 8,
+                'is_active'              => true,
+            ],
         ];
     }
 

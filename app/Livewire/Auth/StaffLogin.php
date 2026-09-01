@@ -209,7 +209,11 @@ class StaffLogin extends Component
 
         // Client plays the success toast + "app opening" transition, then performs
         // the actual full page navigation itself (see staff-auth layout script).
-        $this->dispatch('staff-login-success', url: $user->staffDashboardUrl());
+        $this->dispatch(
+            'staff-login-success',
+            url: $user->staffDashboardUrl(),
+            showTestSiteNotice: (bool) config('test_site.enabled'),
+        );
     }
 
     public function render()

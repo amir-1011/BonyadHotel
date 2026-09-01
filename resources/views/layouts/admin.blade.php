@@ -51,18 +51,26 @@
             <i class="bi bi-grid"></i><span class="ta-nav-link__label">داشبورد</span>
         </a>
 
-        {{-- کاربران --}}
-        <a href="{{ route('admin.users.index') }}" wire:navigate data-label="کاربران"
-           class="ta-nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-            <i class="bi bi-people"></i><span class="ta-nav-link__label">کاربران</span>
-        </a>
+        <div class="ta-sidebar__section">مدیریت</div>
 
-        <a href="{{ route('admin.host-positions.index') }}" wire:navigate data-label="سمت‌ها و دسترسی میزبان"
-           class="ta-nav-link {{ request()->routeIs('admin.host-positions.*') ? 'active' : '' }}">
-            <i class="bi bi-shield-lock"></i><span class="ta-nav-link__label">سمت‌ها و دسترسی میزبان</span>
-        </a>
+        {{-- کاربران و دسترسی --}}
+        <div class="ta-nav-group {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.host-positions.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="کاربران و دسترسی" aria-expanded="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.host-positions.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-people"></i>
+                <span class="ta-nav-link__label">کاربران و دسترسی</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.users.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">کاربران</a></li>
+                <li><a href="{{ route('admin.host-positions.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.host-positions.*') ? 'active' : '' }}">سمت‌ها و دسترسی میزبان</a></li>
+            </ul>
+            </div>
+        </div>
 
-        {{-- اقامتگاه‌ها (شاخه) --}}
+        {{-- اقامتگاه‌ها --}}
         <div class="ta-nav-group {{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" aria-expanded="{{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-building"></i>
@@ -72,7 +80,7 @@
             <div class="ta-submenu-panel">
             <ul class="ta-submenu">
                 <li><a href="{{ route('admin.accommodations.index') }}" wire:navigate
-                       class="{{ request()->routeIs('admin.accommodations.index') || request()->routeIs('admin.accommodations.edit') || request()->routeIs('admin.accommodations.manual-booking') || request()->routeIs('admin.accommodations.import') || request()->routeIs('admin.room-types.*') ? 'active' : '' }}">لیست اقامتگاه‌ها</a></li>
+                       class="{{ request()->routeIs('admin.accommodations.index') || request()->routeIs('admin.accommodations.edit') || request()->routeIs('admin.accommodations.manual-booking') || request()->routeIs('admin.room-types.*') ? 'active' : '' }}">لیست اقامتگاه‌ها</a></li>
                 <li><a href="{{ route('admin.accommodations.create') }}" wire:navigate
                        class="{{ request()->routeIs('admin.accommodations.create') ? 'active' : '' }}">افزودن اقامتگاه</a></li>
                 <li><a href="{{ route('admin.accommodations.import') }}" wire:navigate
@@ -82,51 +90,46 @@
         </div>
 
         {{-- رزروها --}}
-        <a href="{{ route('admin.bookings.index') }}" wire:navigate data-label="رزروها"
-           class="ta-nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check"></i><span class="ta-nav-link__label">رزروها</span>
-        </a>
+        <div class="ta-nav-group {{ request()->routeIs('admin.bookings.*') || request()->routeIs('admin.medical-accommodation-report') || request()->routeIs('admin.cancellation-requests.*') || request()->routeIs('admin.cancellation-settings') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="رزروها" aria-expanded="{{ request()->routeIs('admin.bookings.*') || request()->routeIs('admin.medical-accommodation-report') || request()->routeIs('admin.cancellation-requests.*') || request()->routeIs('admin.cancellation-settings') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-calendar-check"></i>
+                <span class="ta-nav-link__label">رزروها</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.bookings.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">لیست رزروها</a></li>
+                <li><a href="{{ route('admin.medical-accommodation-report') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.medical-accommodation-report') ? 'active' : '' }}">اسکان درمانی</a></li>
+                <li><a href="{{ route('admin.cancellation-requests.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.cancellation-requests.*') || request()->routeIs('admin.cancellation-settings') ? 'active' : '' }}">کنسلی و استرداد وجه</a></li>
+            </ul>
+            </div>
+        </div>
 
-        <a href="{{ route('admin.medical-accommodation-report') }}" wire:navigate data-label="اسکان درمانی"
-           class="ta-nav-link {{ request()->routeIs('admin.medical-accommodation-report') ? 'active' : '' }}">
-            <i class="bi bi-heart-pulse"></i><span class="ta-nav-link__label">اسکان درمانی</span>
-        </a>
+        {{-- امور مالی --}}
+        <div class="ta-nav-group {{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="امور مالی" aria-expanded="{{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-wallet2"></i>
+                <span class="ta-nav-link__label">امور مالی</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.commission-wallet') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.commission-wallet*') ? 'active' : '' }}">کیف پول کارمزد</a></li>
+                <li><a href="{{ route('admin.booking-payment-records.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.booking-payment-records.*') ? 'active' : '' }}">تراکنش‌های مالی</a></li>
+                <li><a href="{{ route('admin.pos-terminals.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.pos-terminals.*') ? 'active' : '' }}">ترمینال‌های پز</a></li>
+            </ul>
+            </div>
+        </div>
 
-        {{-- درخواست‌های کنسلی --}}
-        <a href="{{ route('admin.cancellation-requests.index') }}" wire:navigate data-label="کنسلی و استرداد وجه"
-           class="ta-nav-link {{ request()->routeIs('admin.cancellation-requests.*') || request()->routeIs('admin.cancellation-settings') ? 'active' : '' }}">
-            <i class="bi bi-x-circle"></i><span class="ta-nav-link__label">کنسلی و استرداد وجه</span>
-        </a>
+        <div class="ta-sidebar__section">خدمات</div>
 
-        {{-- کیف پول کارمزد --}}
-        <a href="{{ route('admin.commission-wallet') }}" wire:navigate data-label="کیف پول کارمزد"
-           class="ta-nav-link {{ request()->routeIs('admin.commission-wallet*') ? 'active' : '' }}">
-            <i class="bi bi-wallet2"></i><span class="ta-nav-link__label">کیف پول کارمزد</span>
-        </a>
-
-        <a href="{{ route('admin.booking-payment-records.index') }}" wire:navigate data-label="تراکنش‌های مالی"
-           class="ta-nav-link {{ request()->routeIs('admin.booking-payment-records.*') ? 'active' : '' }}">
-            <i class="bi bi-credit-card-2-front"></i><span class="ta-nav-link__label">تراکنش‌های مالی</span>
-        </a>
-
-        <a href="{{ route('admin.pos-terminals.index') }}" wire:navigate data-label="ترمینال‌های پز"
-           class="ta-nav-link {{ request()->routeIs('admin.pos-terminals.*') ? 'active' : '' }}">
-            <i class="bi bi-upc-scan"></i><span class="ta-nav-link__label">ترمینال‌های پز</span>
-        </a>
-
-        {{-- تعاریف اولیه (سراسری) --}}
-        <a href="{{ route('admin.veteran-policy') }}" wire:navigate data-label="تعاریف اولیه"
-           class="ta-nav-link {{ request()->routeIs('admin.veteran-policy') ? 'active' : '' }}">
-            <i class="bi bi-shield-check"></i><span class="ta-nav-link__label">تعاریف اولیه</span>
-        </a>
-
-        {{-- استان‌ها، شهرها و انواع --}}
-        {{-- <a href="{{ route('admin.location-catalog') }}" wire:navigate data-label="استان و شهر"
-           class="ta-nav-link {{ request()->routeIs('admin.location-catalog') ? 'active' : '' }}">
-            <i class="bi bi-geo-alt-fill"></i><span class="ta-nav-link__label">استان‌ها و انواع</span>
-        </a> --}}
-
-        {{-- برنامه‌ها (شاخه) --}}
+        {{-- برنامه‌ها و اردوها --}}
         <div class="ta-nav-group {{ request()->routeIs('admin.programs.*') ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('admin.programs.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-flag"></i>
@@ -145,7 +148,6 @@
             </div>
         </div>
 
-        {{-- نظرات --}}
         <a href="{{ route('admin.reviews.index') }}" wire:navigate data-label="نظرات"
            class="ta-nav-link {{ request()->routeIs('admin.reviews.*') ? 'active' : '' }}">
             <i class="bi bi-star"></i><span class="ta-nav-link__label">نظرات</span>
@@ -169,6 +171,18 @@
             </ul>
             </div>
         </div>
+
+        <div class="ta-sidebar__section">تنظیمات</div>
+
+        <a href="{{ route('admin.veteran-policy') }}" wire:navigate data-label="تعاریف اولیه"
+           class="ta-nav-link {{ request()->routeIs('admin.veteran-policy') ? 'active' : '' }}">
+            <i class="bi bi-shield-check"></i><span class="ta-nav-link__label">تعاریف اولیه</span>
+        </a>
+
+        {{-- <a href="{{ route('admin.location-catalog') }}" wire:navigate data-label="استان و شهر"
+           class="ta-nav-link {{ request()->routeIs('admin.location-catalog') ? 'active' : '' }}">
+            <i class="bi bi-geo-alt-fill"></i><span class="ta-nav-link__label">استان‌ها و انواع</span>
+        </a> --}}
 
         <div class="ta-sidebar__section">دسترسی سریع</div>
         @unless(config('staff_mode.enabled'))
@@ -232,7 +246,7 @@
         </div>
     </header>
 
-    <div class="ta-page @if(request()->routeIs('admin.dashboard') || request()->routeIs('admin.medical-accommodation-report')) flex-grow-1 @endif">
+    <div class="ta-page @if(request()->routeIs('admin.dashboard') || request()->routeIs('admin.medical-accommodation-report') || request()->routeIs('admin.programs.supportive-report')) flex-grow-1 @endif">
         @hasSection('content')
             @yield('content')
         @else

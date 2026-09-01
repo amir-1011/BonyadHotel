@@ -2,64 +2,44 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Program;
+use App\Livewire\Concerns\ManagesSupportiveServicesReport;
+use App\Models\Accommodation;
+use App\Services\SupportiveServicesReportService;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
 use Livewire\Component;
-use Morilog\Jalali\Jalalian;
 
 #[Layout('layouts.admin', ['title' => 'گزارش خدمات حمایتی', 'pageTitle' => 'گزارش خدمات حمایتی'])]
 class ProgramSupportiveReport extends Component
 {
-    #[Url]
-    public int $year = 0;
+    use ManagesSupportiveServicesReport;
 
     public function mount(): void
     {
-        if ($this->year === 0) {
-            $this->year = Jalalian::now()->getYear();
-        }
+        $this->mountSupportiveServicesReport();
     }
 
-    public function render()
+    protected function supportiveServicesReportPanel(): string
     {
-        $jalaliStart = Jalalian::fromFormat('Y-m-d', $this->year . '-01-01');
-        $jalaliEnd   = Jalalian::fromFormat('Y-m-d', $this->year . '-12-29');
-        $startDate   = $jalaliStart->toCarbon()->format('Y-m-d');
-        $endDate     = $jalaliEnd->toCarbon()->addDay()->format('Y-m-d');
+        return 'admin';
+    }
 
-        $programs = Program::where('payment_type', Program::PAYMENT_SUPPORTIVE)
-            ->where('status', '!=', Program::STATUS_CANCELLED)
-            ->whereHas('booking', fn ($q) => $q->whereBetween('check_in', [$startDate, $endDate]))
-            ->with(['accommodation', 'booking', 'employer'])
-            ->latest('id')
-            ->get();
+    protected function supportiveServicesReportRouteName(): string
+    {
+        return 'admin.programs.supportive-report';
+    }
 
-        $totalDiscount  = $programs->sum('discount_amount');
-        $totalGuests    = $programs->sum('guest_count');
-        $totalPrograms  = $programs->count();
+    protected function resolveDashboardAccommodationOptions(): array
+    {
+        return Accommodation::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Accommodation $acc) => ['id' => (int) $acc->id, 'name' => (string) $acc->name])
+            ->values()
+            ->all();
+    }
 
-        $byType = $programs->groupBy(fn ($p) => $p->programTypeLabel())
-            ->map(fn($g) => [
-                'count'    => $g->count(),
-                'guests'   => $g->sum('guest_count'),
-                'discount' => $g->sum('discount_amount'),
-            ]);
-
-        $byAccommodation = $programs->groupBy(fn($p) => $p->accommodation->name ?? 'نامشخص')
-            ->map(fn($g) => [
-                'count'    => $g->count(),
-                'guests'   => $g->sum('guest_count'),
-                'discount' => $g->sum('discount_amount'),
-            ]);
-
-        $jalaliYears = range(Jalalian::now()->getYear(), Jalalian::now()->getYear() - 5, -1);
-
-        $year = $this->year;
-
-        return view('admin.programs.supportive-report', compact(
-            'programs', 'totalDiscount', 'totalGuests', 'totalPrograms',
-            'byType', 'byAccommodation', 'year', 'jalaliYears'
-        ));
+    public function render(SupportiveServicesReportService $service)
+    {
+        return $this->renderSupportiveServicesReport($service);
     }
 }
