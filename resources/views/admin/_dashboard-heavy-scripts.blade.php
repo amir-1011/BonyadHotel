@@ -4,7 +4,6 @@
 
 @push('scripts')
 @vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js', 'resources/js/admin-overview-stats.js'])
-<script src="{{ vasset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
 <script>
 (function () {
     function readAdminPayload() {
@@ -27,8 +26,6 @@
     let cityAccom = dashboardPayload.cityAccom || {};
     let provinceAccom = dashboardPayload.provinceAccom || {};
     let geoMax = dashboardPayload.geoMax || 0;
-    let sparklines = dashboardPayload.sparklines || {};
-    let chartsRendered = false;
 
     function syncAdminPayload() {
         dashboardPayload = readAdminPayload() || dashboardPayload;
@@ -36,7 +33,6 @@
         cityAccom = dashboardPayload.cityAccom || {};
         provinceAccom = dashboardPayload.provinceAccom || {};
         geoMax = dashboardPayload.geoMax || 0;
-        sparklines = dashboardPayload.sparklines || {};
     }
     const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
 
@@ -373,36 +369,11 @@
 
     initIranMap();
 
-    // ── Per-accommodation sparklines ──────────────────────────────────
-    function renderSparklines() {
-        if (!window.ApexCharts) return;
-        chartsRendered = true;
-        Object.entries(sparklines).forEach(([id, data]) => {
-            const el = document.querySelector('#spark-' + id);
-            if (!el) return;
-            el.innerHTML = '';
-            new ApexCharts(el, {
-                series: [{ data }],
-                chart: { type: 'bar', height: 60, sparkline: { enabled: true } },
-                plotOptions: { bar: { columnWidth: '75%', borderRadius: 3 } },
-                colors: ['#465fff'],
-                tooltip: {
-                    fixed: { enabled: false },
-                    x: { show: false },
-                    y: { formatter: v => new Intl.NumberFormat('fa-IR').format(v) + ' ریال' },
-                    marker: { show: false }
-                }
-            }).render();
-        });
-    }
-
     function refreshAdminDashboardVisuals() {
         syncAdminPayload();
         destroyIranMap();
-        chartsRendered = false;
         _mapInitScheduled = false;
         initIranMap();
-        renderSparklines();
     }
 
     const collapseEl = document.getElementById('salesGridCollapse');
@@ -410,18 +381,11 @@
     if (collapseEl) {
         collapseEl.addEventListener('show.bs.collapse', () => {
             if (chevron) chevron.style.transform = 'rotate(0deg)';
-            setTimeout(renderSparklines, 50);
         });
         collapseEl.addEventListener('hide.bs.collapse', () => {
             if (chevron) chevron.style.transform = 'rotate(180deg)';
         });
-        if (collapseEl.classList.contains('show')) {
-            document.addEventListener('DOMContentLoaded', renderSparklines);
-            renderSparklines();
-        }
     }
-    document.getElementById('apexcharts-sdk')?.addEventListener('load', renderSparklines);
-    document.addEventListener('livewire:navigated', renderSparklines);
 
     function bindDashboardFilterRefresh() {
         if (window._adminDashboardFilterBound) return;

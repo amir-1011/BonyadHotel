@@ -64,33 +64,6 @@ class DashboardController extends Controller
             ->orderByDesc('total_revenue')
             ->get();
 
-        // Build 7-day sparkline per accommodation with a single bulk query
-        $dayExpr = match (DB::getDriverName()) {
-            'sqlite' => "strftime('%Y-%m-%d', created_at)",
-            'pgsql'  => "to_char(created_at, 'YYYY-MM-DD')",
-            default  => "DATE(created_at)",
-        };
-        $bulkDaily = Booking::where('status', 'confirmed')
-            ->where('created_at', '>=', now()->subDays(6)->startOfDay())
-            ->selectRaw("accommodation_id, {$dayExpr} as day, SUM(total_price) as total")
-            ->groupBy('accommodation_id', 'day')
-            ->get()
-            ->groupBy('accommodation_id');
-
-        $sparklineDays = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $sparklineDays[] = now()->subDays($i)->format('Y-m-d');
-        }
-
-        $sparklineData = [];
-        foreach ($accommodationsSales as $acc) {
-            $rows = $bulkDaily->get($acc->id) ?? collect();
-            $sparklineData[$acc->id] = array_map(
-                fn($d) => (float) ($rows->firstWhere('day', $d)?->total ?? 0),
-                $sparklineDays
-            );
-        }
-
         // Today / this-week / this-month revenue per accommodation (3 lightweight queries)
         $accTodayRevenue  = Booking::where('status', 'confirmed')->whereDate('created_at', today())
             ->selectRaw('accommodation_id, SUM(total_price) as total')->groupBy('accommodation_id')
@@ -109,7 +82,7 @@ class DashboardController extends Controller
 
         return view('admin.dashboard', compact(
             'stats', 'recentBookings', 'recentUsers', 'topAccommodations', 'monthlyRevenue',
-            'accommodationsSales', 'sparklineData', 'sparklineDays',
+            'accommodationsSales',
             'accTodayRevenue', 'accWeekRevenue', 'accMonthRevenue', 'accLastMonthRevenue'
         ));
     }

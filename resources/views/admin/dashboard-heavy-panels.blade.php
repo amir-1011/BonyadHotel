@@ -29,9 +29,6 @@
         'cityAccom' => $cityAccommodations->all(),
         'provinceAccom' => $provinceAccommodations->all(),
         'geoMax' => $geoMax,
-        'sparklines' => collect($accommodationsSales)->mapWithKeys(fn($a) => [
-            $a->id => $sparklineData[$a->id] ?? array_fill(0, 7, 0),
-        ])->all(),
     ];
 @endphp
 <script type="application/json" id="admin-dashboard-payload" wire:ignore>{!! json_encode($adminDashboardPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
@@ -119,7 +116,7 @@
          role="button" data-bs-toggle="collapse" data-bs-target="#salesGridCollapse"
          aria-expanded="true" aria-controls="salesGridCollapse" style="cursor:pointer;user-select:none">
         <h5 class="mb-0 fw-bold fs-6">
-            <i class="bi bi-bar-chart-line-fill me-2 text-primary"></i>نمودار فروش اقامتگاه‌ها
+            <i class="bi bi-cash-stack me-2 text-primary"></i>فروش اقامتگاه‌ها
             <span class="badge bg-primary bg-opacity-10 text-primary ms-2" style="font-size:.7rem;font-weight:500">{{ $accommodationsSales->count() }} اقامتگاه</span>
         </h5>
         <div class="d-flex align-items-center gap-2">
@@ -153,7 +150,6 @@
                                 <i class="bi bi-graph-up-arrow me-1"></i>جزئیات بیشتر
                             </a>
                         </div>
-                        <div class="px-3" id="spark-{{ $acc->id }}" style="min-height:60px"></div>
                         <div class="card-body pt-1 pb-2 px-3">
                             <div class="row g-2 text-center mb-2">
                                 <div class="col-4">

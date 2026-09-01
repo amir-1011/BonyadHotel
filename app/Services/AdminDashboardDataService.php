@@ -109,8 +109,6 @@ class AdminDashboardDataService
             ->limit(5)
             ->get();
 
-        $driver = DB::getDriverName();
-
         $accommodationsSales = (clone $accommodationQuery)
             ->with('city.province')
             ->withCount([
@@ -122,34 +120,6 @@ class AdminDashboardDataService
             ->withSum(['bookings as total_revenue' => fn ($q) => $q->where('status', 'confirmed')], 'total_price')
             ->orderByDesc('total_revenue')
             ->get();
-
-        $dayExpr = match ($driver) {
-            'sqlite' => "strftime('%Y-%m-%d', created_at)",
-            'pgsql'  => "to_char(created_at, 'YYYY-MM-DD')",
-            default  => "DATE(created_at)",
-        };
-
-        $bulkDaily = (clone $bookingQuery)
-            ->where('status', 'confirmed')
-            ->where('created_at', '>=', now()->subDays(6)->startOfDay())
-            ->selectRaw("accommodation_id, {$dayExpr} as day, SUM(total_price) as total")
-            ->groupBy('accommodation_id', 'day')
-            ->get()
-            ->groupBy('accommodation_id');
-
-        $sparklineDays = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $sparklineDays[] = now()->subDays($i)->format('Y-m-d');
-        }
-
-        $sparklineData = [];
-        foreach ($accommodationsSales as $acc) {
-            $rows = $bulkDaily->get($acc->id) ?? collect();
-            $sparklineData[$acc->id] = array_map(
-                fn ($d) => (float) ($rows->firstWhere('day', $d)?->total ?? 0),
-                $sparklineDays,
-            );
-        }
 
         $confirmedBookingQuery = (clone $bookingQuery)->where('status', 'confirmed');
 
@@ -188,8 +158,6 @@ class AdminDashboardDataService
             'topAccommodations',
             'monthlyRevenue',
             'accommodationsSales',
-            'sparklineData',
-            'sparklineDays',
             'accTodayRevenue',
             'accWeekRevenue',
             'accMonthRevenue',

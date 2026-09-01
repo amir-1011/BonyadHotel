@@ -46,9 +46,6 @@
         'cityAccom' => $cityAccommodations->all(),
         'provinceAccom' => $provinceAccommodations->all(),
         'geoMax' => $geoMax,
-        'sparklines' => collect($accommodationsSales)->mapWithKeys(fn($a) => [
-            $a->id => $sparklineData[$a->id] ?? array_fill(0, 7, 0),
-        ])->all(),
     ];
 @endphp
 <script type="application/json" id="admin-dashboard-payload" wire:ignore>{!! json_encode($adminDashboardPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
@@ -136,7 +133,7 @@
          role="button" data-bs-toggle="collapse" data-bs-target="#salesGridCollapse"
          aria-expanded="true" aria-controls="salesGridCollapse" style="cursor:pointer;user-select:none">
         <h5 class="mb-0 fw-bold fs-6">
-            <i class="bi bi-bar-chart-line-fill me-2 text-primary"></i>نمودار فروش اقامتگاه‌ها
+            <i class="bi bi-cash-stack me-2 text-primary"></i>فروش اقامتگاه‌ها
             <span class="badge bg-primary bg-opacity-10 text-primary ms-2" style="font-size:.7rem;font-weight:500">{{ $accommodationsSales->count() }} اقامتگاه</span>
         </h5>
         <div class="d-flex align-items-center gap-2">
@@ -170,7 +167,6 @@
                                 <i class="bi bi-graph-up-arrow me-1"></i>جزئیات بیشتر
                             </a>
                         </div>
-                        <div class="px-3" id="spark-{{ $acc->id }}" style="min-height:60px"></div>
                         <div class="card-body pt-1 pb-2 px-3">
                             <div class="row g-2 text-center mb-2">
                                 <div class="col-4">
@@ -335,7 +331,6 @@
 
 @push('scripts')
 @vite(['resources/js/rsb-layout-sort.js', 'resources/js/rsb-datepicker.js', 'resources/js/occupancy-calendar.js', 'resources/js/admin-overview-stats.js'])
-<script src="{{ vasset('vendor/apexcharts/apexcharts.min.js') }}" id="apexcharts-sdk"></script>
 <script>
 (function () {
     function readAdminPayload() {
@@ -358,8 +353,6 @@
     let cityAccom = dashboardPayload.cityAccom || {};
     let provinceAccom = dashboardPayload.provinceAccom || {};
     let geoMax = dashboardPayload.geoMax || 0;
-    let sparklines = dashboardPayload.sparklines || {};
-    let chartsRendered = false;
 
     function syncAdminPayload() {
         dashboardPayload = readAdminPayload() || dashboardPayload;
@@ -367,7 +360,6 @@
         cityAccom = dashboardPayload.cityAccom || {};
         provinceAccom = dashboardPayload.provinceAccom || {};
         geoMax = dashboardPayload.geoMax || 0;
-        sparklines = dashboardPayload.sparklines || {};
     }
     const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
 
@@ -704,36 +696,11 @@
 
     initIranMap();
 
-    // ── Per-accommodation sparklines ──────────────────────────────────
-    function renderSparklines() {
-        if (!window.ApexCharts) return;
-        chartsRendered = true;
-        Object.entries(sparklines).forEach(([id, data]) => {
-            const el = document.querySelector('#spark-' + id);
-            if (!el) return;
-            el.innerHTML = '';
-            new ApexCharts(el, {
-                series: [{ data }],
-                chart: { type: 'bar', height: 60, sparkline: { enabled: true } },
-                plotOptions: { bar: { columnWidth: '75%', borderRadius: 3 } },
-                colors: ['#465fff'],
-                tooltip: {
-                    fixed: { enabled: false },
-                    x: { show: false },
-                    y: { formatter: v => new Intl.NumberFormat('fa-IR').format(v) + ' ریال' },
-                    marker: { show: false }
-                }
-            }).render();
-        });
-    }
-
     function refreshAdminDashboardVisuals() {
         syncAdminPayload();
         destroyIranMap();
-        chartsRendered = false;
         _mapInitScheduled = false;
         initIranMap();
-        renderSparklines();
     }
 
     const collapseEl = document.getElementById('salesGridCollapse');
@@ -741,18 +708,11 @@
     if (collapseEl) {
         collapseEl.addEventListener('show.bs.collapse', () => {
             if (chevron) chevron.style.transform = 'rotate(0deg)';
-            setTimeout(renderSparklines, 50);
         });
         collapseEl.addEventListener('hide.bs.collapse', () => {
             if (chevron) chevron.style.transform = 'rotate(180deg)';
         });
-        if (collapseEl.classList.contains('show')) {
-            document.addEventListener('DOMContentLoaded', renderSparklines);
-            renderSparklines();
-        }
     }
-    document.getElementById('apexcharts-sdk')?.addEventListener('load', renderSparklines);
-    document.addEventListener('livewire:navigated', renderSparklines);
 
     function bindDashboardFilterRefresh() {
         if (window._adminDashboardFilterBound) return;
