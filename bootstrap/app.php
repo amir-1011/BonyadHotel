@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->trustProxies(
           at: ['127.0.0.1'],
-          headers: \Illuminate\Http\Request::HEADER_X_FORWARED_FOR
+          headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR
             | \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST
             | \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT
             | \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
