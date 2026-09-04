@@ -456,9 +456,10 @@
     body.ta-ios .ta-submenu a::before {
         content: "";
         position: absolute;
-        width: 12px;
+        width: 11px;
         height: 1.5px;
-        inset-inline-start: -22px;
+        inset-inline-start: auto;
+        inset-inline-end: 100%;
         top: 50%;
         transform: translateY(-50%);
         background: var(--ios-separator);
