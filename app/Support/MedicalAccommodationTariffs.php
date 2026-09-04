@@ -72,7 +72,7 @@ final class MedicalAccommodationTariffs
             ],
             [
                 'key'                    => self::KEY_NORMAL_HOST,
-                'label'                  => 'میزبان عادی',
+                'label'                  => 'کاربر عادی',
                 'nightly_rate'           => 0,
                 'companion_nightly_rate' => 0,
                 'companions_included'    => 0,

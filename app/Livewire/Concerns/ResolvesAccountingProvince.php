@@ -101,4 +101,9 @@ trait ResolvesAccountingProvince
 
         return false;
     }
+
+    protected function requiresAccommodationContextForCatalog(): bool
+    {
+        return true;
+    }
 }

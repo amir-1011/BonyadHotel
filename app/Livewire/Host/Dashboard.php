@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.host', ['title' => 'داشبورد میزبان', 'pageTitle' => 'داشبورد میزبان'])]
+#[Layout('layouts.host', ['title' => 'داشبورد کاربر', 'pageTitle' => 'داشبورد کاربر'])]
 class Dashboard extends Component
 {
     use ManagesDashboardAccommodationFilter;

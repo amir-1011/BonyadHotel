@@ -5,13 +5,14 @@ namespace App\Livewire\Admin;
 use App\Livewire\Concerns\ManagesHostPermissionForm;
 use App\Models\HostPositionTitle;
 use App\Models\User;
+use App\Support\HostLabels;
 use App\Support\HostPermissions;
 use App\Support\HostPositionTitles;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.admin', ['title' => 'سمت‌ها و دسترسی میزبان', 'pageTitle' => 'سمت‌ها و دسترسی پنل میزبان'])]
+#[Layout('layouts.admin', ['title' => 'سمت‌ها و دسترسی کاربر', 'pageTitle' => 'سمت‌ها و دسترسی پنل کاربر'])]
 class HostPositionPermissionIndex extends Component
 {
     use ManagesHostPermissionForm;
@@ -43,7 +44,7 @@ class HostPositionPermissionIndex extends Component
         $position = HostPositionTitle::query()->findOrFail($id);
 
         $this->selectedPositionId = $position->id;
-        $this->editingPositionLabel = $position->label;
+        $this->editingPositionLabel = HostLabels::displayPositionLabel($position->label);
         $this->mountHostPermissionForm($position->host_panel_permissions);
         $this->showAddPosition = false;
         $this->resetErrorBag();
@@ -92,7 +93,7 @@ class HostPositionPermissionIndex extends Component
             return;
         }
 
-        $label = trim($this->editingPositionLabel);
+        $label = HostLabels::storedPositionLabel($this->editingPositionLabel);
 
         $this->validate([
             'editingPositionLabel' => [
@@ -110,7 +111,7 @@ class HostPositionPermissionIndex extends Component
         $oldLabel = $position->label;
 
         if ($oldLabel === HostPositionTitles::DEFAULT_LABEL && $label !== HostPositionTitles::DEFAULT_LABEL) {
-            $this->addError('editingPositionLabel', 'نام سمت پیش‌فرض «میزبان» قابل تغییر نیست.');
+            $this->addError('editingPositionLabel', 'نام سمت پیش‌فرض «کاربر» قابل تغییر نیست.');
             return;
         }
 
@@ -125,7 +126,7 @@ class HostPositionPermissionIndex extends Component
             ->where('host_position_title', $oldLabel)
             ->update(['host_position_title' => $label]);
 
-        $this->dispatch('toast', type: 'success', message: "نام سمت به «{$label}» تغییر کرد.");
+        $this->dispatch('toast', type: 'success', message: 'نام سمت به «' . HostLabels::displayPositionLabel($label) . '» تغییر کرد.');
     }
 
     public function save(): void
@@ -151,9 +152,9 @@ class HostPositionPermissionIndex extends Component
 
         $synced = HostPositionTitles::syncUsersForPosition($position->label, $grants);
 
-        $message = "دسترسی‌های سمت «{$position->label}» ذخیره شد.";
+        $message = 'دسترسی‌های سمت «' . HostLabels::displayPositionLabel($position->label) . '» ذخیره شد.';
         if ($synced > 0) {
-            $message .= " ({$synced} میزبان به‌روز شد)";
+            $message .= " ({$synced} کاربر به‌روز شد)";
         }
 
         $this->dispatch('toast', type: 'success', message: $message);

@@ -52,7 +52,7 @@
                     'free' => ($units === 1 ? '۱ جلسه رایگان' : $units . ' جلسه رایگان'),
                     'fixed_pay' => ($units === 1 ? '۱ جلسه' : $units . ' جلسه') . ' · نرخ ویژه ' . \App\Support\PdfPersian::toPersianDigits(number_format((int) ($item['pay_amount'] ?? 0))),
                     'percentage' => ($units === 1 ? '۱ جلسه' : $units . ' جلسه') . ' · ' . (int) ($item['discount_percentage'] ?? 0) . '٪ تخفیف',
-                    'manual' => 'تخفیف میزبان ' . (int) ($item['discount_percentage'] ?? 0) . '٪',
+                    'manual' => 'تخفیف کاربر ' . (int) ($item['discount_percentage'] ?? 0) . '٪',
                     default => 'تخفیف',
                 };
             @endphp

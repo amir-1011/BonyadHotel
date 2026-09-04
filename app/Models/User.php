@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\DisplaysGuestIdentity;
 use App\Models\Concerns\DisplaysAccountingProfile;
+use App\Support\HostLabels;
 use App\Support\VeteranGroups;
 use App\Support\HostPermissions;
 use App\Support\HostPositionTitles;
@@ -242,9 +243,7 @@ class User extends Authenticatable
             return '';
         }
 
-        return filled($this->host_position_title)
-            ? trim((string) $this->host_position_title)
-            : 'میزبان';
+        return HostLabels::displayPositionLabel($this->host_position_title);
     }
 
     public function isProgramEmployer(): bool

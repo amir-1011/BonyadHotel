@@ -125,7 +125,7 @@
         @if($user->isHost() && $canEdit)
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل میزبان
+                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل کاربر
             </div>
             <div class="card-body">
                 @if(session('password_status'))
@@ -150,7 +150,7 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-building me-1"></i>اقامتگاه‌های میزبان
+                <i class="bi bi-building me-1"></i>اقامتگاه‌های کاربر
             </div>
             <div class="card-body">
                 @if($assignedAccommodations->isNotEmpty())

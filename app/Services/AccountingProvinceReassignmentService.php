@@ -67,7 +67,7 @@ class AccountingProvinceReassignmentService
     public function reassignPersonnelCode(User $user, Province $province): string
     {
         if (!$user->isHost()) {
-            throw new InvalidArgumentException('تغییر کد پرسنلی فقط برای میزبان امکان‌پذیر است.');
+            throw new InvalidArgumentException('تغییر کد پرسنلی فقط برای کاربر امکان‌پذیر است.');
         }
 
         $code = $this->codeService->assignNext(

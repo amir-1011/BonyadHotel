@@ -65,7 +65,7 @@ class HostLeaderboard extends Component
         return <<<'HTML'
             <div class="ta-card">
                 <div class="ta-card__head">
-                    <h2 class="ta-card__title mb-0"><i class="bi bi-trophy me-2"></i>برترین میزبان‌ها</h2>
+                    <h2 class="ta-card__title mb-0"><i class="bi bi-trophy me-2"></i>برترین کاربران</h2>
                 </div>
                 <div class="ta-card__body d-flex align-items-center justify-content-center" style="min-height:180px">
                     <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;">

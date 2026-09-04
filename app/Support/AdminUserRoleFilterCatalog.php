@@ -69,7 +69,7 @@ class AdminUserRoleFilterCatalog
                 ->orWhere('host_position_title', '')
                 ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
         })->exists()) {
-            $options[] = ['value' => 'host', 'label' => HostPositionTitles::DEFAULT_LABEL];
+            $options[] = ['value' => 'host', 'label' => HostLabels::roleLabel()];
         }
 
         return self::uniqueByValue($options);
@@ -95,7 +95,7 @@ class AdminUserRoleFilterCatalog
                 ->orWhere('host_position_title', '')
                 ->orWhere('host_position_title', HostPositionTitles::DEFAULT_LABEL);
         })->exists()) {
-            $options[] = ['value' => 'host', 'label' => HostPositionTitles::DEFAULT_LABEL];
+            $options[] = ['value' => 'host', 'label' => HostLabels::roleLabelPlural()];
         }
 
         $hostTitles = User::query()
@@ -169,7 +169,7 @@ class AdminUserRoleFilterCatalog
     {
         return match ($roleName) {
             'super_admin' => 'ادمین',
-            'host'        => 'میزبان',
+            'host'        => HostLabels::roleLabel(),
             'guest'       => 'مهمان',
             default       => $roleName,
         };

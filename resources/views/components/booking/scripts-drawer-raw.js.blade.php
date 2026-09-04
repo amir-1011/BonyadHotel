@@ -1,4 +1,4 @@
-﻿// ── Rooms section Alpine.js component ──────────────────────────────────────
+// ── Rooms section Alpine.js component ──────────────────────────────────────
 function roomsSection() {
     return {
         guestCount: 1,
@@ -427,7 +427,7 @@ function mbbDrawer() {
                 let roomCountDisplay = '';
                 if (avail && !past) {
                     if (avail.is_blocked) {
-                        availInfo = 'مسدود شده توسط میزبان';
+                        availInfo = 'مسدود شده توسط کاربر';
                         roomCountDisplay = 'مسدود';
                     } else if (avail.available_rooms <= 0) {
                         availInfo = 'تمام شد';

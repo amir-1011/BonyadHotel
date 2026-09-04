@@ -25,9 +25,18 @@ trait ManagesProgramBeneficiaries
     /** @var array<int, array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile>> */
     public array $beneficiaryDocumentUploads = [];
 
+    protected function shouldAttachBeneficiaryToCatalogRows(): bool
+    {
+        return true;
+    }
+
+    protected function afterBeneficiaryAddedToCatalog(ProgramBeneficiary $beneficiary): void
+    {
+    }
+
     public function openBeneficiaryModal(?int $rowIndex = null): void
     {
-        if (!$this->assertAccommodationSelectedForAccounting()) {
+        if ($this->requiresAccommodationContextForCatalog() && !$this->assertAccommodationSelectedForAccounting()) {
             return;
         }
 
@@ -62,7 +71,7 @@ trait ManagesProgramBeneficiaries
 
     public function addBeneficiaryToCatalog(): void
     {
-        if (!$this->assertAccommodationSelectedForAccounting()) {
+        if ($this->requiresAccommodationContextForCatalog() && !$this->assertAccommodationSelectedForAccounting()) {
             return;
         }
 
@@ -105,17 +114,19 @@ trait ManagesProgramBeneficiaries
             return;
         }
 
-        $rowIndex = $this->beneficiaryModalRowIndex;
+        if ($this->shouldAttachBeneficiaryToCatalogRows()) {
+            $rowIndex = $this->beneficiaryModalRowIndex;
 
-        if ($rowIndex !== null && isset($this->beneficiaryRows[$rowIndex])) {
-            $this->beneficiaryRows[$rowIndex]['program_beneficiary_id'] = (string) $beneficiary->id;
-        } else {
-            $this->beneficiaryRows[] = [
-                'program_beneficiary_id' => (string) $beneficiary->id,
-                'debt_amount'            => 0,
-                'description'            => '',
-                'documents'              => [],
-            ];
+            if ($rowIndex !== null && isset($this->beneficiaryRows[$rowIndex])) {
+                $this->beneficiaryRows[$rowIndex]['program_beneficiary_id'] = (string) $beneficiary->id;
+            } else {
+                $this->beneficiaryRows[] = [
+                    'program_beneficiary_id' => (string) $beneficiary->id,
+                    'debt_amount'            => 0,
+                    'description'            => '',
+                    'documents'              => [],
+                ];
+            }
         }
 
         $this->closeBeneficiaryModal();
@@ -123,6 +134,7 @@ trait ManagesProgramBeneficiaries
             ? "ذینفع جدید با کد {$beneficiaryCode} ثبت شد و به حساب کاربری متصل گردید."
             : "ذینفع جدید با کد {$beneficiaryCode} به فهرست اضافه شد.";
         $this->dispatch('toast', type: 'success', message: $message);
+        $this->afterBeneficiaryAddedToCatalog($beneficiary);
     }
 
     public function addBeneficiaryRow(): void

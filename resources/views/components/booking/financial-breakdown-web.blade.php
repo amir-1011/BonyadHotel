@@ -152,7 +152,7 @@
 
                 @if($manualAccDiscount > 0)
                 <x-booking.financial-row
-                    label="تخفیف میزبان (اقامت)"
+                    label="تخفیف کاربر (اقامت)"
                     hint="مهمانان با نرخ عادی"
                     :amount="$manualAccDiscount"
                     variant="discount"

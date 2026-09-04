@@ -3,7 +3,7 @@
 <div class="card shadow-sm">
     <div class="ta-list-chrome">
         <form method="GET" class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 min-w-0">
-            <input type="text" name="search" class="form-control form-control-sm" style="max-width:16rem" placeholder="جستجو نام یا میزبان..." value="{{ request('search') }}">
+            <input type="text" name="search" class="form-control form-control-sm" style="max-width:16rem" placeholder="جستجو نام یا کاربر..." value="{{ request('search') }}">
             <select name="type" class="form-select form-select-sm" style="max-width:9rem">
                 @php $typeOptions = \App\Models\AccommodationType::options(); @endphp
                 <option value="">همه انواع</option>
@@ -38,7 +38,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th class="col-index">#</th><th>نام / نوع</th><th>شهر</th><th>میزبان</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
+                <tr><th class="col-index">#</th><th>نام / نوع</th><th>شهر</th><th>کاربر</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($accommodations as $acc)

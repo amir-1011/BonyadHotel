@@ -43,7 +43,7 @@ class StaffLogin extends Component
         $user = User::where('mobile', $this->mobile)->first();
 
         if (!$user || !$user->hasStaffAccess()) {
-            $this->addError('mobile', 'دسترسی فقط برای مدیران و میزبان‌ها مجاز است.');
+            $this->addError('mobile', 'دسترسی فقط برای مدیران و کاربران مجاز است.');
             return;
         }
 
@@ -177,7 +177,7 @@ class StaffLogin extends Component
 
         if (!$user || !$user->hasStaffAccess()) {
             session()->forget('staff_login_mobile');
-            $this->addError('mobile', 'دسترسی فقط برای مدیران و میزبان‌ها مجاز است.');
+            $this->addError('mobile', 'دسترسی فقط برای مدیران و کاربران مجاز است.');
             $this->step = 'mobile';
             return null;
         }

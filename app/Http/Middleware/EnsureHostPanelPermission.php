@@ -32,7 +32,7 @@ class EnsureHostPanelPermission
                         ->with('error', 'به این بخش دسترسی ندارید.');
                 }
 
-                abort(403, 'دسترسی به پنل میزبان برای شما تعریف نشده است.');
+                abort(403, 'دسترسی به پنل کاربر برای شما تعریف نشده است.');
             }
 
             return $next($request);
@@ -58,7 +58,7 @@ class EnsureHostPanelPermission
                     ->with('error', 'به این بخش دسترسی ندارید.');
             }
 
-            abort(403, 'دسترسی به پنل میزبان برای شما تعریف نشده است.');
+            abort(403, 'دسترسی به پنل کاربر برای شما تعریف نشده است.');
         }
 
         return $next($request);

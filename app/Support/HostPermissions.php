@@ -27,7 +27,7 @@ class HostPermissions
                 'pages'       => [
                     'dashboard.overview' => [
                         'label'       => 'صفحه داشبورد',
-                        'description' => 'دسترسی به صفحه اصلی داشبورد میزبان',
+                        'description' => 'دسترسی به صفحه اصلی داشبورد کاربر',
                         'actions'     => [self::ACTION_READ],
                     ],
                     'dashboard.accommodation-filter' => [
@@ -337,7 +337,7 @@ class HostPermissions
             ],
             'users' => [
                 'label'       => 'کاربران',
-                'description' => 'مهمانان، ذینفعان، کارفرمایان و میزبان‌های مرتبط با محدوده دسترسی',
+                'description' => 'مهمانان، ذینفعان، کارفرمایان و کاربران مرتبط با محدوده دسترسی',
                 'icon'        => 'people-fill',
                 'pages'       => [
                     'users.list' => [
@@ -356,8 +356,8 @@ class HostPermissions
                         'actions'     => [self::ACTION_READ, self::ACTION_EDIT],
                     ],
                     'users.create-host' => [
-                        'label'       => 'افزودن میزبان',
-                        'description' => 'ثبت میزبان جدید و نسبت‌دادن اقامتگاه',
+                        'label'       => 'افزودن کاربر',
+                        'description' => 'ثبت کاربر جدید و نسبت‌دادن اقامتگاه',
                         'actions'     => [self::ACTION_WRITE],
                     ],
                     'users.export' => [
@@ -369,7 +369,7 @@ class HostPermissions
             ],
             'facility-management' => [
                 'label'       => 'مدیریت اماکن',
-                'description' => 'تبادل اقلام مازاد و اقلام مورد نیاز بین میزبان‌ها',
+                'description' => 'تبادل اقلام مازاد و اقلام مورد نیاز بین کاربران',
                 'icon'        => 'boxes',
                 'pages'       => [
                     'facility-surplus.list' => [

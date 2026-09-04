@@ -12,7 +12,7 @@
         <i class="bi bi-info-circle me-1"></i>
         @if($excludedServiceCount > 0 && $quotaEligibleCount > 0)
         {{ $quotaEligibleCount }} خدمت از سهمیه/تخفیف گروه <strong>{{ $booking->veteranLabelApplied() }}</strong> مهمان اصلی استفاده می‌کند؛
-        {{ $excludedServiceCount }} خدمت خارج از سهمیه (نرخ کامل یا تخفیف دستی میزبان) محاسبه شده است.
+        {{ $excludedServiceCount }} خدمت خارج از سهمیه (نرخ کامل یا تخفیف دستی کاربر) محاسبه شده است.
         @elseif($excludedServiceCount > 0)
         همه خدمات این رزرو خارج از سهمیه ایثارگری مهمان اصلی ثبت شده‌اند.
         @else

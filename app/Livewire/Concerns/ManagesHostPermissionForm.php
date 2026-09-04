@@ -58,11 +58,11 @@ trait ManagesHostPermissionForm
         $this->validate([
             'hostPermissionForm' => ['required', 'array'],
         ], [
-            'hostPermissionForm.required' => 'حداقل یک دسترسی از پنل میزبان را انتخاب کنید.',
+            'hostPermissionForm.required' => 'حداقل یک دسترسی از پنل کاربر را انتخاب کنید.',
         ]);
 
         if ($this->hostPermissionGrantsFromForm() === []) {
-            $this->addError('hostPermissionForm', 'حداقل یک دسترسی از پنل میزبان را انتخاب کنید.');
+            $this->addError('hostPermissionForm', 'حداقل یک دسترسی از پنل کاربر را انتخاب کنید.');
         }
     }
 }

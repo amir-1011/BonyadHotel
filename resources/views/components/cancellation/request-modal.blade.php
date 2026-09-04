@@ -39,7 +39,7 @@
                                 با توجه به سیاست بازگشت وجه، بر اساس <strong>{{ $preview['days'] }}</strong> روز باقی‌مانده تا تاریخ ورود، در صورت تایید این درخواست
                                 <strong>{{ $preview['percentage'] }}٪</strong> از مبلغ رزرو، یعنی <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['amount'])) }} ریال</strong> به حساب اعلامی شما بازگردانده خواهد شد.
                             @endif
-                            این درخواست پس از بررسی توسط مدیریت/میزبان تایید یا رد می‌شود.
+                            این درخواست پس از بررسی توسط مدیریت/کاربر تایید یا رد می‌شود.
                         </div>
                     </div>
 

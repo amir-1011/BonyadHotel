@@ -5,7 +5,7 @@
                 <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار" class="staff-auth-logo">
                 <div class="staff-auth-brand-copy" style="text-align:right;">
                     <div style="font-size:20px;font-weight:700;color:#1e293b;">سامانه رزرو</div>
-                    <div style="font-size:13px;color:#64748b;">ورود مدیران و میزبان‌ها</div>
+                    <div style="font-size:13px;color:#64748b;">ورود مدیران و کاربران</div>
                 </div>
             </div>
         </div>

@@ -65,7 +65,7 @@ class FacilitySurplusIndex extends Component
         return view('components.facility._listing-page', [
             'panel' => 'host',
             'type' => 'surplus',
-            'introText' => 'اقلام مازاد ثبت‌شده توسط میزبان‌ها — برای هماهنگی با شماره تماس ارتباط بگیرید.',
+            'introText' => 'اقلام مازاد ثبت‌شده توسط کاربران — برای هماهنگی با شماره تماس ارتباط بگیرید.',
             'showCreateButton' => true,
             'createRoute' => route('host.facility.surplus.create'),
             'createPermissionPage' => 'facility-surplus.create',

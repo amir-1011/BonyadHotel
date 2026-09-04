@@ -73,9 +73,9 @@
 
                     @if($showHostFilter)
                     <div class="col-6 col-md-3">
-                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">میزبان</label>
+                        <label class="form-label form-label-sm mb-1 text-muted" style="font-size:.75rem">کاربر</label>
                         <select wire:model="draftHostId" class="form-select form-select-sm">
-                            <option value="">همه میزبان‌ها</option>
+                            <option value="">همه کاربران</option>
                             @foreach($hosts as $host)
                                 <option value="{{ $host->id }}">{{ $host->name ?? $host->mobile }}</option>
                             @endforeach

@@ -680,7 +680,7 @@ class BookingPricingService
                     'discount_breakdown'         => $manualPct > 0
                         ? [[
                             'type'                => 'manual',
-                            'label'               => 'تخفیف دستی میزبان',
+                            'label'               => 'تخفیف دستی کاربر',
                             'units'               => $qty,
                             'discount_percentage' => $manualPct,
                             'discount_amount'     => $discountAmount,

@@ -14,7 +14,7 @@
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted">نام <span class="text-danger">*</span></label>
-                        <input type="text" wire:model="name" class="form-control" placeholder="نام میزبان">
+                        <input type="text" wire:model="name" class="form-control" placeholder="نام کاربر">
                         @error('name')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
 
@@ -56,7 +56,7 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل میزبان
+                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل کاربر
             </div>
             <div class="card-body">
                 <div class="row g-3">
@@ -73,7 +73,7 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-building me-1"></i>اقامتگاه‌های میزبان
+                <i class="bi bi-building me-1"></i>اقامتگاه‌های کاربر
             </div>
             <div class="card-body">
                 @error('selectedAccommodationIds')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
@@ -104,7 +104,7 @@
         <div class="d-flex gap-2 justify-content-end mt-3">
             <a wire:navigate href="{{ route('host.users.index') }}" class="btn btn-outline-secondary">انصراف</a>
             <button wire:click="save" class="btn btn-primary" wire:loading.attr="disabled">
-                <span wire:loading.remove wire:target="save"><i class="bi bi-check2-circle me-1"></i>ایجاد میزبان</span>
+                <span wire:loading.remove wire:target="save"><i class="bi bi-check2-circle me-1"></i>ایجاد کاربر</span>
                 <span wire:loading wire:target="save">در حال ذخیره...</span>
             </button>
         </div>
@@ -114,7 +114,7 @@
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-semibold small">راهنما</div>
             <div class="card-body small text-muted">
-                <p class="mb-2">میزبان جدید فقط به اقامتگاه‌هایی که شما مدیریت می‌کنید دسترسی خواهد داشت.</p>
+                <p class="mb-2">کاربر جدید فقط به اقامتگاه‌هایی که شما مدیریت می‌کنید دسترسی خواهد داشت.</p>
                 <p class="mb-0">دسترسی‌های پنل بر اساس سمت انتخاب‌شده اعمال می‌شوند و توسط ادمین در تنظیمات سمت‌ها کنترل می‌شوند.</p>
             </div>
         </div>

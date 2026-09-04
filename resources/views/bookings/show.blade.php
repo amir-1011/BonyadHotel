@@ -111,7 +111,7 @@
             <p style="font-size:14px;color:var(--bnb-dark);margin:0;">{{ $userReview->comment ?? '(بدون متن)' }}</p>
             @if($userReview->host_reply)
             <div style="background:#fff;border-radius:8px;padding:12px;margin-top:12px;border:1px solid var(--bnb-border);">
-                <div style="font-size:12px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;"><i class="bi bi-reply-fill me-1"></i>پاسخ میزبان</div>
+                <div style="font-size:12px;font-weight:600;color:var(--bnb-dark);margin-bottom:4px;"><i class="bi bi-reply-fill me-1"></i>پاسخ کاربر</div>
                 <p style="font-size:13px;color:var(--bnb-gray);margin:0;">{{ $userReview->host_reply }}</p>
             </div>
             @endif

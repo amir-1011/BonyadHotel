@@ -218,7 +218,7 @@ class UserEdit extends Component
     public function assignAccommodation(): void
     {
         if ($this->role !== 'host') {
-            $this->addError('accommodations', 'برای نسبت دادن اقامتگاه، نقش کاربر باید میزبان (host) باشد.');
+            $this->addError('accommodations', 'برای نسبت دادن اقامتگاه، نقش باید پرسنل (host) باشد.');
             return;
         }
 
@@ -242,7 +242,7 @@ class UserEdit extends Component
             ? " کد پرسنلی: {$this->user->personnel_code}."
             : '';
 
-        session()->flash('status', "اقامتگاه «{$accommodation->name}» به این میزبان نسبت داده شد.{$codeMessage}");
+        session()->flash('status', "اقامتگاه «{$accommodation->name}» به این کاربر نسبت داده شد.{$codeMessage}");
     }
 
     public function revokeAccommodation(int $accommodationId): void
@@ -254,13 +254,13 @@ class UserEdit extends Component
         $name = $accommodation->name;
         $accommodation->revokeHostAccess($this->user);
 
-        session()->flash('status', "دسترسی میزبان به اقامتگاه «{$name}» لغو شد.");
+        session()->flash('status', "دسترسی کاربر به اقامتگاه «{$name}» لغو شد.");
     }
 
     public function updateHostPassword(): void
     {
         if ($this->role !== 'host') {
-            $this->addError('hostPassword', 'تغییر رمز فقط برای کاربران با نقش میزبان (host) امکان‌پذیر است.');
+            $this->addError('hostPassword', 'تغییر رمز فقط برای کاربران با نقش پرسنل (host) امکان‌پذیر است.');
             return;
         }
 
@@ -276,7 +276,7 @@ class UserEdit extends Component
         $this->user->update(['password' => $this->hostPassword]);
 
         $this->reset('hostPassword', 'hostPassword_confirmation');
-        session()->flash('password_status', 'رمز عبور میزبان با موفقیت تغییر کرد.');
+        session()->flash('password_status', 'رمز عبور کاربر با موفقیت تغییر کرد.');
     }
 
     public function update(): void

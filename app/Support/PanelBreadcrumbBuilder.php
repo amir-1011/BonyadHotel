@@ -56,7 +56,7 @@ class PanelBreadcrumbBuilder
   {
     $crumbs = self::append($crumbs, 'کاربران', route('admin.users.index'));
 
-    return self::append($crumbs, 'سمت‌ها و دسترسی میزبان', null);
+    return self::append($crumbs, 'سمت‌ها و دسترسی کاربر', null);
   }
 
   /**
@@ -80,7 +80,7 @@ class PanelBreadcrumbBuilder
 
     return match ($suffix) {
       'users.index' => self::setLast($crumbs, 'کاربران'),
-      'users.create-host' => self::append($crumbs, 'افزودن میزبان', null),
+      'users.create-host' => self::append($crumbs, 'افزودن کاربر', null),
       'users.show' => self::append($crumbs, 'جزئیات کاربر', null),
       'users.edit' => self::append($crumbs, 'ویرایش کاربر', null),
       default => $crumbs,

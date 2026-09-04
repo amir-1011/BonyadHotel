@@ -28,7 +28,7 @@ class FacilityExchangeSeeder extends Seeder
         $hosts = User::role('host')->get();
 
         if ($hosts->isEmpty()) {
-            $this->command->warn('هیچ میزبانی یافت نشد. ابتدا RolesAndUsersSeeder را اجرا کنید.');
+            $this->command->warn('هیچ کاربری یافت نشد. ابتدا RolesAndUsersSeeder را اجرا کنید.');
 
             return;
         }

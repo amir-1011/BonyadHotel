@@ -14,7 +14,7 @@
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted">نام <span class="text-danger">*</span></label>
-                        <input type="text" wire:model="name" class="form-control" placeholder="نام میزبان">
+                        <input type="text" wire:model="name" class="form-control" placeholder="نام کاربر">
                         @error('name')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
 
@@ -22,7 +22,7 @@
                         <label class="form-label small text-muted">موبایل <span class="text-danger">*</span></label>
                         <input type="text" wire:model="mobile" class="form-control" placeholder="09123456789" dir="ltr">
                         @error('mobile')<div class="text-danger small">{{ $message }}</div>@enderror
-                        <div class="form-text">برای ورود به پنل میزبان (در کنار رمز عبور) استفاده می‌شود.</div>
+                        <div class="form-text">برای ورود به پنل کاربر (در کنار رمز عبور) استفاده می‌شود.</div>
                     </div>
 
                     <div class="col-12 col-md-6">
@@ -56,7 +56,7 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل میزبان
+                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل کاربر
             </div>
             <div class="card-body">
                 <div class="row g-3">
@@ -73,7 +73,7 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-building me-1"></i>اقامتگاه‌های میزبان
+                <i class="bi bi-building me-1"></i>اقامتگاه‌های کاربر
             </div>
             <div class="card-body">
                 @error('selectedAccommodationIds')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
@@ -92,7 +92,7 @@
                                 @endif
                                 <span class="badge bg-{{ $acc->is_active ? 'success' : 'secondary' }} ms-1">{{ $acc->is_active ? 'فعال' : 'غیرفعال' }}</span>
                                 @if($acc->hosts_count > 0)
-                                    <span class="text-muted">({{ $acc->hosts_count }} میزبان دیگر)</span>
+                                    <span class="text-muted">({{ $acc->hosts_count }} کاربر دیگر)</span>
                                 @endif
                             </span>
                         </label>
@@ -100,7 +100,7 @@
                     @endforeach
                 </div>
                 @else
-                <p class="text-muted small mb-0">هنوز اقامتگاهی در سیستم ثبت نشده است. می‌توانید میزبان را بدون اقامتگاه ایجاد کنید و بعداً نسبت دهید.</p>
+                <p class="text-muted small mb-0">هنوز اقامتگاهی در سیستم ثبت نشده است. می‌توانید کاربر را بدون اقامتگاه ایجاد کنید و بعداً نسبت دهید.</p>
                 @endif
             </div>
         </div>
@@ -108,7 +108,7 @@
         <div class="d-flex gap-2 justify-content-end mt-3">
             <a wire:navigate href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">انصراف</a>
             <button wire:click="save" class="btn btn-primary" wire:loading.attr="disabled">
-                <span wire:loading.remove wire:target="save"><i class="bi bi-check2-circle me-1"></i>ایجاد میزبان</span>
+                <span wire:loading.remove wire:target="save"><i class="bi bi-check2-circle me-1"></i>ایجاد کاربر</span>
                 <span wire:loading wire:target="save">در حال ذخیره...</span>
             </button>
         </div>
@@ -118,10 +118,10 @@
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-semibold small">راهنما</div>
             <div class="card-body small text-muted">
-                <p class="mb-2">پس از ایجاد، میزبان می‌تواند با <strong>موبایل</strong> و <strong>رمز عبور</strong> از صفحه ورود پرسنل وارد پنل شود.</p>
+                <p class="mb-2">پس از ایجاد، کاربر می‌تواند با <strong>موبایل</strong> و <strong>رمز عبور</strong> از صفحه ورود پرسنل وارد پنل شود.</p>
                 <p class="mb-2">دسترسی‌های پنل بر اساس <strong>سمت</strong> انتخاب‌شده از <a href="{{ route('admin.host-positions.index') }}" wire:navigate>تنظیمات سمت‌ها</a> اعمال می‌شوند.</p>
                 <p class="mb-2">کد پرسنلی از <strong>اولین اقامتگاه</strong> انتخاب‌شده (بر اساس استان شهر/شهرستان) به‌صورت خودکار صادر می‌شود.</p>
-                <p class="mb-0">اقامتگاه‌های انتخاب‌شده محدوده داده‌های میزبان (رزرو، اتاق، برنامه و ...) را مشخص می‌کنند.</p>
+                <p class="mb-0">اقامتگاه‌های انتخاب‌شده محدوده داده‌های کاربر (رزرو، اتاق، برنامه و ...) را مشخص می‌کنند.</p>
             </div>
         </div>
     </div>

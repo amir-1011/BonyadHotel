@@ -60,7 +60,7 @@ class FacilityNeededIndex extends Component
         return view('components.facility._listing-page', [
             'panel' => 'admin',
             'type' => 'needed',
-            'introText' => 'درخواست‌های اقلام مورد نیاز ثبت‌شده توسط میزبان‌ها.',
+            'introText' => 'درخواست‌های اقلام مورد نیاز ثبت‌شده توسط کاربران.',
             'showCreateButton' => true,
             'createRoute' => route('admin.facility.needed.create'),
             'createPermissionPage' => null,

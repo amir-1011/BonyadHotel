@@ -223,7 +223,7 @@ class RoomStatusBoardService
             'color'        => $this->statusColor($status),
             'has_future'   => $future->isNotEmpty() && $status === 'available',
             'has_future_program' => $hasFutureProgram,
-            'block_reason' => $isRoomBlocked ? ($blockReason ?: 'مسدود توسط میزبان') : null,
+            'block_reason' => $isRoomBlocked ? ($blockReason ?: 'مسدود توسط کاربر') : null,
             'current_booking' => $current ? $this->formatBookingLine($current) : null,
             'future_bookings' => $future->map(fn (BookingRoom $l) => $this->formatBookingLine($l))->all(),
             'is_today'     => $date === $today,

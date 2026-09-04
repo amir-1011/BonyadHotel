@@ -216,7 +216,7 @@ class AccommodationCsvImportService
 
         $hostMobile = trim($first['host_mobile'] ?? '');
         if ($hostMobile !== '' && !User::where('mobile', $hostMobile)->role('host')->exists()) {
-            $errors[] = "ردیف {$firstRow}: میزبان با شماره «{$hostMobile}» یافت نشد.";
+            $errors[] = "ردیف {$firstRow}: کاربر با شماره «{$hostMobile}» یافت نشد.";
         }
 
         foreach ($this->parsePhones($first['phones'] ?? '') as $phoneIndex => $phone) {
@@ -487,6 +487,7 @@ class AccommodationCsvImportService
             'امکانات' => 'amenities',
             'تصویر' => 'image',
             'فعال' => 'is_active',
+            'موبایل_کاربر' => 'host_mobile',
             'موبایل_میزبان' => 'host_mobile',
             'شماره_تماس' => 'phones',
             'کد_اتاق' => 'room_code',

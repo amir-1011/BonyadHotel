@@ -4,7 +4,7 @@
     <div class="col-12 col-lg-4">
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-semibold small d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-person-badge me-1"></i>سمت‌های میزبان</span>
+                <span><i class="bi bi-person-badge me-1"></i>سمت‌های کاربر</span>
                 <button type="button" wire:click="toggleAddPosition" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-plus-lg"></i>
                 </button>
@@ -39,7 +39,7 @@
                                 wire:key="position-{{ $position->id }}"
                                 class="list-group-item list-group-item-action d-flex align-items-center justify-content-between gap-2 {{ $selectedPositionId === $position->id ? 'active' : '' }}"
                             >
-                                <span class="small fw-semibold">{{ $position->label }}</span>
+                                <span class="small fw-semibold">{{ \App\Support\HostLabels::displayPositionLabel($position->label) }}</span>
                                 @if($position->label === \App\Support\HostPositionTitles::DEFAULT_LABEL)
                                     <span class="badge {{ $selectedPositionId === $position->id ? 'bg-light text-dark' : 'bg-primary-subtle text-primary border' }}">پیش‌فرض</span>
                                 @elseif($position->host_panel_permissions)
@@ -56,9 +56,9 @@
 
         <div class="card shadow-sm mt-3">
             <div class="card-body small text-muted">
-                <p class="mb-2">در این بخش برای هر <strong>سمت</strong>، ماتریس دسترسی پنل میزبان تعریف می‌شود.</p>
-                <p class="mb-2">هنگام ایجاد یا ویرایش میزبان، با انتخاب سمت، همین دسترسی‌ها به‌صورت خودکار اعمال می‌شوند.</p>
-                <p class="mb-0">سمت «میزبان» پیش‌فرض میزبانان جدید است. سمت‌های بدون الگوی ذخیره‌شده، دسترسی کامل دریافت می‌کنند.</p>
+                <p class="mb-2">در این بخش برای هر <strong>سمت</strong>، ماتریس دسترسی پنل کاربر تعریف می‌شود.</p>
+                <p class="mb-2">هنگام ایجاد یا ویرایش کاربر، با انتخاب سمت، همین دسترسی‌ها به‌صورت خودکار اعمال می‌شوند.</p>
+                <p class="mb-0">سمت «کاربر» پیش‌فرض کاربران جدید است. سمت‌های بدون الگوی ذخیره‌شده، دسترسی کامل دریافت می‌کنند.</p>
             </div>
         </div>
     </div>
@@ -68,9 +68,9 @@
             <div class="card-header bg-white fw-semibold small">
                 <i class="bi bi-sliders me-1"></i>
                 @if($selectedPosition)
-                    دسترسی‌های پنل — {{ $selectedPosition->label }}
+                    دسترسی‌های پنل — {{ \App\Support\HostLabels::displayPositionLabel($selectedPosition->label) }}
                 @else
-                    دسترسی‌های پنل میزبان
+                    دسترسی‌های پنل کاربر
                 @endif
             </div>
             <div class="card-body">
@@ -90,7 +90,7 @@
                             </button>
                         </div>
                         @error('editingPositionLabel')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                        <div class="form-text">با تغییر نام، سمت کاربران میزبان مرتبط هم به‌روز می‌شود.</div>
+                        <div class="form-text">با تغییر نام، سمت کاربران مرتبط هم به‌روز می‌شود.</div>
                     </div>
 
                     <x-admin.host-permissions-matrix

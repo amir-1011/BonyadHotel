@@ -1,4 +1,4 @@
-﻿@php
+@php
     $navLocations = \Illuminate\Support\Facades\Cache::remember('nav_locations', 3600, function() {
         return \App\Models\Province::with('cities')->orderBy('name')->get()->flatMap(function($p) {
             $items = [['type'=>'province','id'=>$p->id,'name'=>$p->name,'province'=>'','province_id'=>null]];
@@ -541,13 +541,13 @@
                         </a>
                     @elseif(Auth::user()->hasRole('host'))
                         <a href="{{ route('host.dashboard') }}" wire:navigate class="bnb-become-host d-none d-lg-inline-block">
-                            <i class="bi bi-house-heart me-1"></i>پنل میزبان
+                            <i class="bi bi-house-heart me-1"></i>پنل کاربر
                         </a>
                     @else
-                        <a href="#" class="bnb-become-host d-none d-lg-inline-block">میزبان شوید</a>
+                        <a href="#" class="bnb-become-host d-none d-lg-inline-block">کاربر شوید</a>
                     @endif
                 @else
-                    <a href="#" class="bnb-become-host d-none d-lg-inline-block">میزبان شوید</a>
+                    <a href="#" class="bnb-become-host d-none d-lg-inline-block">کاربر شوید</a>
                 @endauth
 
                 {{-- User menu --}}
@@ -574,7 +574,7 @@
                             <li><a class="dropdown-item py-2" href="{{ route('bookings.index') }}" wire:navigate><i class="bi bi-calendar-check me-2"></i>رزروهای من</a></li>
                             <li><a class="dropdown-item py-2" href="{{ route('profile.index') }}" wire:navigate><i class="bi bi-person me-2"></i>پروفایل</a></li>
                             @if(Auth::user()->hasRole('host'))
-                                <li><a class="dropdown-item py-2" href="{{ route('host.dashboard') }}" wire:navigate><i class="bi bi-house-heart me-2" style="color:var(--bnb-red);"></i>پنل میزبان</a></li>
+                                <li><a class="dropdown-item py-2" href="{{ route('host.dashboard') }}" wire:navigate><i class="bi bi-house-heart me-2" style="color:var(--bnb-red);"></i>پنل کاربر</a></li>
                             @endif
                             @if(Auth::user()->hasRole('super_admin'))
                                 <li><a class="dropdown-item py-2" href="{{ route('admin.dashboard') }}" wire:navigate><i class="bi bi-shield-fill me-2" style="color:var(--bnb-red);"></i>پنل مدیریت</a></li>
@@ -590,7 +590,7 @@
                             </li>
                         @else
                             <li><a class="dropdown-item py-2 fw-bold" href="{{ route('auth.mobile') }}" wire:navigate><i class="bi bi-phone me-2"></i>ورود / ثبت‌نام</a></li>
-                            <li><a class="dropdown-item py-2" href="#"><i class="bi bi-house-add me-2"></i>میزبان شوید</a></li>
+                            <li><a class="dropdown-item py-2" href="#"><i class="bi bi-house-add me-2"></i>کاربر شوید</a></li>
                         @endauth
                     </ul>
                 </div>
@@ -652,19 +652,19 @@
                 </ul>
                 </div>
             </div>
-            {{-- میزبانی --}}
+            {{-- کاربری --}}
             <div>
                 <button class="bnb-footer-acc-toggle" onclick="bnbFooterToggle(this)">
-                    <span>میزبانی</span>
+                    <span>کاربری</span>
                     <i class="bi bi-chevron-down acc-arrow"></i>
                 </button>
-                <h6>میزبانی</h6>
+                <h6>کاربری</h6>
                 <div class="bnb-footer-acc-body">
                 <ul>
-                    <li><a href="#">میزبان شوید</a></li>
-                    <li><a href="#">منابع میزبانی</a></li>
-                    <li><a href="#">انجمن میزبانان</a></li>
-                    <li><a href="#">میزبانی مسئولانه</a></li>
+                    <li><a href="#">کاربر شوید</a></li>
+                    <li><a href="#">منابع کاربری</a></li>
+                    <li><a href="#">انجمن کاربران</a></li>
+                    <li><a href="#">کاربری مسئولانه</a></li>
                 </ul>
                 </div>
             </div>

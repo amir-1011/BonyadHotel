@@ -7,7 +7,7 @@
     'check_in_to',
     'month_options',
     'all_time' => false,
-    'title' => 'برترین میزبان‌ها',
+    'title' => 'برترین کاربران',
 ])
 
 @php
@@ -91,7 +91,7 @@
             @endif
             @if($leader)
                 <div class="host-leaderboard__leader-badge text-end">
-                    <div class="text-muted" style="font-size:.72rem">میزبان اول{{ $all_time ? ' (کل دوره)' : ' ' . $month_label }}</div>
+                    <div class="text-muted" style="font-size:.72rem">کاربر اول{{ $all_time ? ' (کل دوره)' : ' ' . $month_label }}</div>
                     <div class="fw-bold" style="font-size:.88rem;color:#101828">{{ $leader->name ?? 'بدون نام' }}</div>
                     <div class="text-primary fw-semibold tabular-nums" style="font-size:.8rem">
                         {{ \App\Support\PdfPersian::toPersianDigits(number_format($leader->revenue)) }} ریال
@@ -105,7 +105,7 @@
         @if($hosts->isEmpty())
             <div class="text-center text-muted py-5">
                 <i class="bi bi-calendar-x fs-1 opacity-25 d-block mb-2"></i>
-                در {{ $month_label }} رزرو تأیید‌شده‌ای برای میزبان‌ها ثبت نشده است
+                در {{ $month_label }} رزرو تأیید‌شده‌ای برای کاربران ثبت نشده است
             </div>
         @else
             @if($podium->count() >= 2)

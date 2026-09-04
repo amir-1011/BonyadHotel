@@ -3,7 +3,7 @@
 @php
     $tip = null;
     if (($room['status'] ?? '') === 'blocked') {
-        $tip = ['type' => 'blocked', 'text' => $room['block_reason'] ?? 'مسدود توسط میزبان'];
+        $tip = ['type' => 'blocked', 'text' => $room['block_reason'] ?? 'مسدود توسط کاربر'];
     } elseif (($room['status'] ?? '') === 'occupied' && !empty($room['current_booking'])) {
         $tip = ['type' => 'booking', 'booking' => $room['current_booking']];
     } elseif (!empty($room['has_future']) && !empty($room['future_bookings'])) {

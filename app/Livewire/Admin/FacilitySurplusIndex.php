@@ -60,7 +60,7 @@ class FacilitySurplusIndex extends Component
         return view('components.facility._listing-page', [
             'panel' => 'admin',
             'type' => 'surplus',
-            'introText' => 'اقلام مازاد ثبت‌شده توسط میزبان‌ها.',
+            'introText' => 'اقلام مازاد ثبت‌شده توسط کاربران.',
             'showCreateButton' => true,
             'createRoute' => route('admin.facility.surplus.create'),
             'createPermissionPage' => null,

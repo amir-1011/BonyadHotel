@@ -58,7 +58,7 @@
             'show' => true,
             'icon' => 'bi-person',
             'label' => 'ثبت‌کننده',
-            'value' => $detailItem->user?->name ?? 'میزبان',
+            'value' => $detailItem->user?->name ?? 'کاربر',
         ],
         [
             'show' => $timeLabel,

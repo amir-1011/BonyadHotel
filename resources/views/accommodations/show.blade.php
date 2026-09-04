@@ -1,4 +1,4 @@
-﻿
+
 
 @php
     $accDiscountPct = $userAccommodationDiscount ?? 0;
@@ -514,7 +514,7 @@
         {{-- Host --}}
         <div class="bnb-host-row">
             <div class="bnb-host-avatar">{{ mb_substr($accommodation->host->name ?? 'م', 0, 1) }}</div>
-            <div><div style="font-size:15px;font-weight:600;color:var(--bnb-dark);">میزبان: {{ $accommodation->host->name ?? 'بنیاد' }}</div><div style="font-size:13px;color:var(--bnb-gray);">میزبان اقامتگاه شما</div></div>
+            <div><div style="font-size:15px;font-weight:600;color:var(--bnb-dark);">کاربر: {{ $accommodation->host->name ?? 'بنیاد' }}</div><div style="font-size:13px;color:var(--bnb-gray);">کاربر اقامتگاه شما</div></div>
         </div>
 
         {{-- Description --}}
@@ -769,7 +769,7 @@
                             @if($review->host_reply)
                             <div class="bg-light rounded-3 p-3 mt-3 border-start border-4 border-dark">
                                 <div class="small fw-bold text-dark mb-2">
-                                    <i class="bi bi-chat-dots-fill me-1"></i> پاسخ میزبان:
+                                    <i class="bi bi-chat-dots-fill me-1"></i> پاسخ کاربر:
                                 </div>
                                 <p class="small text-muted mb-0" style="line-height: 1.6;">{{ $review->host_reply }}</p>
                             </div>
@@ -1140,7 +1140,7 @@
                                   x-text="p.label + (p.hostDiscountPct > 0 ? ' · ' + p.hostDiscountPct + '%' : '')"></span>
                         </template>
                         <template x-if="!p.label && p.hostDiscountPct > 0">
-                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف میزبان ' + p.hostDiscountPct + '%'"></span>
+                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف کاربر ' + p.hostDiscountPct + '%'"></span>
                         </template>
                         @auth
                         @if($accDiscountPct > 0)
@@ -1777,7 +1777,7 @@ function mbbDrawer() {
                 let roomCountDisplay = '';
                 if (avail && !past) {
                     if (avail.is_blocked) {
-                        availInfo = 'مسدود شده توسط میزبان';
+                        availInfo = 'مسدود شده توسط کاربر';
                         roomCountDisplay = 'مسدود';
                     } else if (avail.available_rooms <= 0) {
                         availInfo = 'تمام شد';

@@ -36,9 +36,9 @@
         <input type="number" step="any" wire:model="lng" class="form-control">
     </div>
     <div class="col-md-6">
-        <label class="form-label small fw-semibold">میزبان</label>
+        <label class="form-label small fw-semibold">کاربر</label>
         <select wire:model="hostId" class="form-select">
-            <option value="">بدون میزبان</option>
+            <option value="">بدون کاربر</option>
             @foreach($hosts as $h)
             <option value="{{ $h->id }}">{{ $h->name ?? $h->mobile }}</option>
             @endforeach

@@ -180,13 +180,13 @@
         @if($role === 'host')
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل میزبان
+                <i class="bi bi-shield-lock me-1"></i>رمز عبور پنل کاربر
             </div>
             <div class="card-body">
                 @if(session('password_status'))
                     <div class="alert alert-success py-1 small">{{ session('password_status') }}</div>
                 @endif
-                <p class="text-muted small mb-3">ادمین می‌تواند بدون نیاز به رمز فعلی، رمز ورود میزبان به پنل را تغییر دهد.</p>
+                <p class="text-muted small mb-3">ادمین می‌تواند بدون نیاز به رمز فعلی، رمز ورود کاربر به پنل را تغییر دهد.</p>
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <x-password-input label="رمز عبور جدید" wire:model="hostPassword" placeholder="حداقل ۶ کاراکتر" />
@@ -207,14 +207,14 @@
 
         <div class="alert alert-info small mt-3">
             <i class="bi bi-info-circle me-1"></i>
-            دسترسی‌های پنل میزبان بر اساس <strong>سمت</strong> انتخاب‌شده از
-            <a href="{{ route('admin.host-positions.index') }}" wire:navigate>تنظیمات سمت‌ها و دسترسی میزبان</a>
+            دسترسی‌های پنل کاربر بر اساس <strong>سمت</strong> انتخاب‌شده از
+            <a href="{{ route('admin.host-positions.index') }}" wire:navigate>تنظیمات سمت‌ها و دسترسی کاربر</a>
             اعمال می‌شوند. با ذخیره این فرم، دسترسی‌ها از الگوی سمت به‌روز می‌شوند.
         </div>
 
         <div class="card shadow-sm mt-3">
             <div class="card-header bg-white fw-semibold small">
-                <i class="bi bi-building me-1"></i>اقامتگاه‌های میزبان
+                <i class="bi bi-building me-1"></i>اقامتگاه‌های کاربر
             </div>
             <div class="card-body">
                 @error('accommodations')<div class="alert alert-danger py-1 small">{{ $message }}</div>@enderror
@@ -226,7 +226,7 @@
                             <tr>
                                 <th>نام</th>
                                 <th>شهر</th>
-                                <th>میزبان‌های دیگر</th>
+                                <th>کاربران دیگر</th>
                                 <th>وضعیت</th>
                                 <th class="text-end">عملیات</th>
                             </tr>
@@ -253,7 +253,7 @@
                                     <button
                                         type="button"
                                         wire:click="revokeAccommodation({{ $acc->id }})"
-                                        data-swal-confirm="دسترسی این میزبان به «{{ $acc->name }}» لغو شود؟"
+                                        data-swal-confirm="دسترسی این کاربر به «{{ $acc->name }}» لغو شود؟"
                                         class="btn btn-sm btn-outline-danger"
                                     >
                                         <i class="bi bi-x-circle me-1"></i>لغو دسترسی
@@ -265,7 +265,7 @@
                     </table>
                 </div>
                 @else
-                <p class="text-muted small mb-3">هنوز اقامتگاهی به این میزبان نسبت داده نشده است.</p>
+                <p class="text-muted small mb-3">هنوز اقامتگاهی به این کاربر نسبت داده نشده است.</p>
                 @endif
 
                 @if($availableAccommodations->isNotEmpty())
@@ -279,9 +279,9 @@
                                 {{ $acc->name }}
                                 @if($acc->city) — {{ $acc->city->name }} @endif
                                 @if($acc->hosts_count > 0)
-                                    ({{ $acc->hosts_count }} میزبان دیگر)
+                                    ({{ $acc->hosts_count }} کاربر دیگر)
                                 @else
-                                    (بدون میزبان)
+                                    (بدون کاربر)
                                 @endif
                             </option>
                             @endforeach
@@ -291,10 +291,10 @@
                         </button>
                     </div>
                     @error('accommodationToAssign')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                    <div class="form-text">می‌توانید یک اقامتگاه را به چند میزبان نسبت دهید؛ میزبان‌های قبلی همچنان دسترسی خود را حفظ می‌کنند.</div>
+                    <div class="form-text">می‌توانید یک اقامتگاه را به چند کاربر نسبت دهید؛ کاربران قبلی همچنان دسترسی خود را حفظ می‌کنند.</div>
                 </div>
                 @else
-                <p class="text-muted small mb-0 border-top pt-3">همه اقامتگاه‌ها از قبل به این میزبان نسبت داده شده‌اند.</p>
+                <p class="text-muted small mb-0 border-top pt-3">همه اقامتگاه‌ها از قبل به این کاربر نسبت داده شده‌اند.</p>
                 @endif
             </div>
         </div>

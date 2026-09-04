@@ -2,6 +2,12 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\ManagesProgramBeneficiaries;
+use App\Livewire\Concerns\ManagesProgramEmployers;
+use App\Livewire\Concerns\ResolvesAccountingProvince;
+use App\Models\ProgramBeneficiary;
+use App\Models\ProgramEmployer;
+use App\Models\Province;
 use App\Models\User;
 use App\Support\AdminUserFilter;
 use App\Support\AdminUserProvinceGrouper;
@@ -15,6 +21,9 @@ use Spatie\Permission\Models\Role;
 #[Layout('layouts.admin', ['title' => 'مدیریت کاربران', 'pageTitle' => 'کاربران'])]
 class UserIndex extends Component
 {
+    use ManagesProgramBeneficiaries;
+    use ManagesProgramEmployers;
+    use ResolvesAccountingProvince;
     use WithPagination;
 
     #[Url] public string $search  = '';
@@ -152,6 +161,28 @@ class UserIndex extends Component
         $this->resetPage();
     }
 
+    protected function requiresAccommodationContextForCatalog(): bool
+    {
+        return false;
+    }
+
+    protected function shouldAttachBeneficiaryToCatalogRows(): bool
+    {
+        return false;
+    }
+
+    protected function afterEmployerAddedToCatalog(ProgramEmployer $employer): void
+    {
+        $this->section = 'employers';
+        $this->resetPage();
+    }
+
+    protected function afterBeneficiaryAddedToCatalog(ProgramBeneficiary $beneficiary): void
+    {
+        $this->section = 'beneficiaries';
+        $this->resetPage();
+    }
+
     public function render()
     {
         $effectiveRole = $this->effectiveRole();
@@ -190,6 +221,7 @@ class UserIndex extends Component
         ]);
         $section = $this->section;
         $role    = $this->role;
+        $provinces = Province::query()->orderBy('name')->get();
 
         return view('admin.users.index', compact(
             'users',
@@ -201,6 +233,7 @@ class UserIndex extends Component
             'exportQuery',
             'section',
             'role',
+            'provinces',
         ));
     }
 }

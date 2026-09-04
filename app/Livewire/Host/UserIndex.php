@@ -3,6 +3,11 @@
 namespace App\Livewire\Host;
 
 use App\Livewire\Concerns\ManagesHostUserFilters;
+use App\Livewire\Concerns\ManagesProgramBeneficiaries;
+use App\Livewire\Concerns\ManagesProgramEmployers;
+use App\Livewire\Concerns\ResolvesAccountingProvince;
+use App\Models\ProgramBeneficiary;
+use App\Models\ProgramEmployer;
 use App\Models\Province;
 use App\Models\User;
 use App\Support\HostUserFilter;
@@ -16,10 +21,33 @@ use Livewire\Component;
 class UserIndex extends Component
 {
     use ManagesHostUserFilters;
+    use ManagesProgramBeneficiaries;
+    use ManagesProgramEmployers;
+    use ResolvesAccountingProvince;
 
     public function mount(): void
     {
         $this->mountHostUserFilters();
+    }
+
+    protected function requiresAccommodationContextForCatalog(): bool
+    {
+        return false;
+    }
+
+    protected function shouldAttachBeneficiaryToCatalogRows(): bool
+    {
+        return false;
+    }
+
+    protected function afterEmployerAddedToCatalog(ProgramEmployer $employer): void
+    {
+        $this->resetPage();
+    }
+
+    protected function afterBeneficiaryAddedToCatalog(ProgramBeneficiary $beneficiary): void
+    {
+        $this->resetPage();
     }
 
     public function render()

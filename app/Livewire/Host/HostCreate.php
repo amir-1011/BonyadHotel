@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.host', ['title' => 'افزودن میزبان', 'pageTitle' => 'افزودن میزبان'])]
+#[Layout('layouts.host', ['title' => 'افزودن کاربر', 'pageTitle' => 'افزودن کاربر'])]
 class HostCreate extends Component
 {
     use EnsuresHostManagedUserAccess;
@@ -87,17 +87,17 @@ class HostCreate extends Component
             'selectedAccommodationIds.*'=> ['integer', 'exists:accommodations,id'],
             'accountingProvinceId'      => ['required', 'integer', 'exists:provinces,id'],
         ], [
-            'name.required'                  => 'نام میزبان الزامی است.',
+            'name.required'                  => 'نام کاربر الزامی است.',
             'mobile.required'                => 'شماره موبایل الزامی است.',
             'mobile.regex'                   => 'شماره موبایل معتبر نیست. مثال: 09123456789',
             'mobile.unique'                  => 'این شماره موبایل قبلاً ثبت شده است.',
             'nationalId.digits'              => 'کد ملی باید دقیقاً ۱۰ رقم باشد.',
             'nationalId.unique'              => $this->nationalIdDuplicateMessage(),
-            'hostPassword.required'          => 'رمز عبور پنل میزبان الزامی است.',
+            'hostPassword.required'          => 'رمز عبور پنل کاربر الزامی است.',
             'hostPassword.min'               => 'رمز عبور باید حداقل ۶ کاراکتر باشد.',
             'hostPassword.confirmed'         => 'تکرار رمز عبور مطابقت ندارد.',
-            'selectedAccommodationIds.required'=> 'حداقل یک اقامتگاه برای میزبان الزامی است.',
-            'selectedAccommodationIds.min'   => 'حداقل یک اقامتگاه برای میزبان الزامی است.',
+            'selectedAccommodationIds.required'=> 'حداقل یک اقامتگاه برای کاربر الزامی است.',
+            'selectedAccommodationIds.min'   => 'حداقل یک اقامتگاه برای کاربر الزامی است.',
             'accountingProvinceId.required'  => 'انتخاب استان برای کدینگ حسابداری الزامی است.',
         ]);
 
@@ -177,7 +177,7 @@ class HostCreate extends Component
             return;
         }
 
-        session()->flash('status', "میزبان «{$user->name}» با کد پرسنلی {$user->personnel_code} ایجاد شد.");
+        session()->flash('status', "کاربر «{$user->name}» با کد پرسنلی {$user->personnel_code} ایجاد شد.");
 
         $this->redirectRoute('host.users.edit', $user, navigate: true);
     }

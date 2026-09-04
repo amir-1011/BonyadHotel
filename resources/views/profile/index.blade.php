@@ -224,7 +224,7 @@
                    style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bnb-bg-light);border-radius:10px;text-decoration:none;color:var(--bnb-dark);font-size:14px;font-weight:600;transition:background .15s;"
                    onmouseover="this.style.background='#ffe8ee'" onmouseout="this.style.background='var(--bnb-bg-light)'">
                     <i class="bi bi-house-gear-fill" style="color:var(--bnb-red);font-size:17px;"></i>
-                    پنل میزبان
+                    پنل کاربر
                     <i class="bi bi-chevron-left ms-auto" style="font-size:11px;color:var(--bnb-gray);"></i>
                 </a>
                 @endif

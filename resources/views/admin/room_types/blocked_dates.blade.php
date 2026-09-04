@@ -102,7 +102,7 @@
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <div style="width:20px;height:20px;border-radius:4px;background:#fff0f0;border:1px solid #fca5a5;background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(220,38,38,.15) 3px,rgba(220,38,38,.15) 4px);flex-shrink:0;"></div>
-                        <span class="small text-muted">مسدود شده توسط ادمین/میزبان</span>
+                        <span class="small text-muted">مسدود شده توسط ادمین/کاربر</span>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,4 @@
-﻿@props(['accommodationId', 'defaultDiscountPct' => 0, 'includeCalMixin' => true, 'childAllocateBed' => true, 'childDiscountPct' => 50])
+@props(['accommodationId', 'defaultDiscountPct' => 0, 'includeCalMixin' => true, 'childAllocateBed' => true, 'childDiscountPct' => 50])
 <script>
 @if($includeCalMixin)
 // ─── Shared stay-night date picker helpers ───────────────────────────────────
@@ -548,7 +548,7 @@ function mbbDrawer() {
                 let roomCountDisplay = '';
                 if (avail && !past) {
                     if (avail.is_blocked) {
-                        availInfo = 'مسدود شده توسط میزبان';
+                        availInfo = 'مسدود شده توسط کاربر';
                         roomCountDisplay = 'مسدود';
                     } else if (avail.available_rooms <= 0) {
                         availInfo = 'تمام شد';

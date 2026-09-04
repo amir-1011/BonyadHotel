@@ -40,7 +40,7 @@ class AdminUserRoleFilterTest extends TestCase
         $values = array_column($options, 'value');
 
         $this->assertContains('مدیر مالی', $labels);
-        $this->assertContains('میزبان', $labels);
+        $this->assertContains('کاربر', $labels);
         $this->assertContains('ادمین', $labels);
         $this->assertContains('مهمان', $labels);
         $this->assertContains('host', $values);
@@ -150,7 +150,7 @@ class AdminUserRoleFilterTest extends TestCase
 
         $this->assertSame(AdminUserRoleFilterCatalog::ALL_PERSONNEL, $options[0]['value']);
         $this->assertSame('همه پرسنل', $options[0]['label']);
-        $this->assertContains('میزبان', array_column($options, 'label'));
+        $this->assertContains('کاربران', array_column($options, 'label'));
         $this->assertContains('مدیر مالی', array_column($options, 'label'));
     }
 

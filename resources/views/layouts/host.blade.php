@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl" class="ta-ios" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'پنل میزبان') | سامانه رزرو</title>
+    <title>@yield('title', 'پنل کاربر') | سامانه رزرو</title>
     <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
     <link rel="apple-touch-icon" href="{{ vasset('logo/site-logo.png') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
@@ -46,7 +46,7 @@
     <div class="ta-sidebar__brand">
         <x-panel.brand-logo />
         <div class="ta-sidebar__brand-text">
-            <div class="ta-sidebar__kicker">پنل میزبان</div>
+            <div class="ta-sidebar__kicker">پنل کاربر</div>
             <div class="ta-sidebar__title">{{ Auth::user()->name ?? Auth::user()->mobile }}</div>
         </div>
         <x-panel.sidebar-toggle />

@@ -15,9 +15,15 @@
     <x-slot:actions>
         <x-host.can page="users.create-host" action="write">
         <a wire:navigate href="{{ route('host.users.create-host') }}" class="btn btn-success btn-sm">
-            <i class="bi bi-person-plus me-1"></i>افزودن میزبان
+            <i class="bi bi-person-plus me-1"></i>افزودن کاربر
         </a>
         </x-host.can>
+        <button type="button" wire:click="openEmployerModal" class="btn btn-success btn-sm">
+            <i class="bi bi-building-add me-1"></i>افزودن کارفرما
+        </button>
+        <button type="button" wire:click="openBeneficiaryModal" class="btn btn-success btn-sm">
+            <i class="bi bi-person-heart me-1"></i>افزودن ذینفع
+        </button>
         <x-host.can page="users.export" action="read">
         <a href="{{ route('host.users.export', $exportQuery) }}" class="btn btn-success btn-sm">
             <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
@@ -110,5 +116,19 @@
     </div>
     @endif
 </div>
+
+<x-accounting.add-employer-modal
+    :provinces="$provinces"
+    :show-add-employer="$showAddEmployer"
+    province-hint="استان مورد نظر را برای صدور کد حسابداری انتخاب کنید."
+    save-label="ذخیره"
+/>
+<x-accounting.add-beneficiary-modal
+    :provinces="$provinces"
+    :show-add-beneficiary="$showAddBeneficiary"
+    province-hint="استان مورد نظر را برای صدور کد حسابداری انتخاب کنید."
+    info-message="ذینفعان در کل سامانه یکپارچه هستند. پس از ثبت، در صورت امکان به‌عنوان کاربر سیستم نیز ثبت می‌شوند."
+    save-label="ذخیره"
+/>
 
 </div>

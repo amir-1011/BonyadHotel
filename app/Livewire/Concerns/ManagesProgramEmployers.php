@@ -19,9 +19,13 @@ trait ManagesProgramEmployers
     public string $newEmployerNationalId = '';
     public string $newEmployerMobile = '';
 
+    protected function afterEmployerAddedToCatalog(ProgramEmployer $employer): void
+    {
+    }
+
     public function openEmployerModal(): void
     {
-        if (!$this->assertAccommodationSelectedForAccounting()) {
+        if ($this->requiresAccommodationContextForCatalog() && !$this->assertAccommodationSelectedForAccounting()) {
             return;
         }
 
@@ -54,7 +58,7 @@ trait ManagesProgramEmployers
 
     public function addEmployerToCatalog(): void
     {
-        if (!$this->assertAccommodationSelectedForAccounting()) {
+        if ($this->requiresAccommodationContextForCatalog() && !$this->assertAccommodationSelectedForAccounting()) {
             return;
         }
 
@@ -104,6 +108,7 @@ trait ManagesProgramEmployers
             ? "کارفرما جدید با کد {$employerCode} ثبت شد و به حساب کاربری متصل گردید."
             : "کارفرما جدید با کد {$employerCode} به فهرست اضافه شد.";
         $this->dispatch('toast', type: 'success', message: $message);
+        $this->afterEmployerAddedToCatalog($employer);
     }
 
     protected function resolvedProgramEmployerId(): int

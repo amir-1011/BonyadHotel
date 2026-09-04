@@ -45,7 +45,7 @@
                 <i class="bi bi-pencil"></i>
             </a>
             @if($user->hasRole('host'))
-            <a wire:navigate href="{{ route('admin.accommodations.index', ['search'=> $user->name]) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="اقامتگاه‌های میزبان">
+            <a wire:navigate href="{{ route('admin.accommodations.index', ['search'=> $user->name]) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="اقامتگاه‌های کاربر">
                 <i class="bi bi-building"></i>
             </a>
             @endif

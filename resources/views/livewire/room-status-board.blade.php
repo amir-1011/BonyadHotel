@@ -267,7 +267,7 @@
                                     <strong class="rsb-kpi__value">{{ $summary['blocked'] }}</strong>
                                     <span class="rsb-kpi__unit">اتاق</span>
                                 </div>
-                                <div class="rsb-kpi__meta">خارج از فروش توسط میزبان</div>
+                                <div class="rsb-kpi__meta">خارج از فروش توسط کاربر</div>
                             </div>
                         </article>
                     </div>

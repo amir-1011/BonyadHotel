@@ -37,11 +37,17 @@
                 @endif
             </a>
             <a wire:navigate href="{{ route('admin.users.create-host') }}" class="btn btn-sm btn-success">
-                <i class="bi bi-person-plus me-1"></i>افزودن میزبان
+                <i class="bi bi-person-plus me-1"></i>افزودن کاربر
             </a>
+            <button type="button" wire:click="openEmployerModal" class="btn btn-sm btn-success">
+                <i class="bi bi-building-add me-1"></i>افزودن کارفرما
+            </button>
+            <button type="button" wire:click="openBeneficiaryModal" class="btn btn-sm btn-success">
+                <i class="bi bi-person-heart me-1"></i>افزودن ذینفع
+            </button>
             <x-tutorial-videos
                 variant="inline"
-                :videos="[['label' => 'ساختن میزبان', 'file' => 'ساختن میزبان.mp4']]"
+                :videos="[['label' => 'ساختن کاربر', 'file' => 'ساختن میزبان.mp4']]"
             />
         </div>
     </div>
@@ -165,6 +171,20 @@
     <div class="card-footer bg-white py-2">{{ $users->links() }}</div>
     @endif
 </div>
+
+<x-accounting.add-employer-modal
+    :provinces="$provinces"
+    :show-add-employer="$showAddEmployer"
+    province-hint="استان مورد نظر را برای صدور کد حسابداری انتخاب کنید."
+    save-label="ذخیره"
+/>
+<x-accounting.add-beneficiary-modal
+    :provinces="$provinces"
+    :show-add-beneficiary="$showAddBeneficiary"
+    province-hint="استان مورد نظر را برای صدور کد حسابداری انتخاب کنید."
+    info-message="ذینفعان در کل سامانه یکپارچه هستند. پس از ثبت، در صورت امکان به‌عنوان کاربر سیستم نیز ثبت می‌شوند."
+    save-label="ذخیره"
+/>
 
 <style>
     .admin-users-section-tabs {

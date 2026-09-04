@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl" class="ta-ios" wire:navigate.loading-bar>
 <head>
     <meta charset="UTF-8">
@@ -65,7 +65,7 @@
                 <li><a href="{{ route('admin.users.index') }}" wire:navigate
                        class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">کاربران</a></li>
                 <li><a href="{{ route('admin.host-positions.index') }}" wire:navigate
-                       class="{{ request()->routeIs('admin.host-positions.*') ? 'active' : '' }}">سمت‌ها و دسترسی میزبان</a></li>
+                       class="{{ request()->routeIs('admin.host-positions.*') ? 'active' : '' }}">سمت‌ها و دسترسی کاربر</a></li>
             </ul>
             </div>
         </div>

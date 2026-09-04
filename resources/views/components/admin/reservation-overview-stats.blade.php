@@ -25,7 +25,7 @@
             'label' => 'کل کاربران',
             'value' => PdfPersian::toPersianDigits(number_format($stats['users'])),
             'href' => route('admin.users.index'),
-            'trend' => PdfPersian::toPersianDigits(number_format($stats['hosts'])).' میزبان',
+            'trend' => PdfPersian::toPersianDigits(number_format($stats['hosts'])).' کاربر',
             'up' => true,
             'spark' => AdminStatSparkline::points((float) $stats['users']),
         ],

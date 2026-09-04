@@ -1,4 +1,4 @@
-﻿@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null, 'prefillRoomTypeId' => null, 'prefillRoomRateId' => null, 'prefillRoomId' => null, 'prefillRoomName' => null, 'prefillFocusDates' => false, 'prefillRoomTypeName' => null, 'prefillRoomCapacity' => null, 'prefillPrice' => null, 'prefillOrigPrice' => null, 'prefillExtraCap' => 0, 'prefillExtraPrice' => 0])
+@props(['mode' => 'public', 'defaultDiscountPct' => 0, 'accommodationEditUrl' => null, 'prefillRoomTypeId' => null, 'prefillRoomRateId' => null, 'prefillRoomId' => null, 'prefillRoomName' => null, 'prefillFocusDates' => false, 'prefillRoomTypeName' => null, 'prefillRoomCapacity' => null, 'prefillPrice' => null, 'prefillOrigPrice' => null, 'prefillExtraCap' => 0, 'prefillExtraPrice' => 0])
 @php
     $isManual = $mode === 'manual';
     $showAuthVeteranDiscount = !$isManual && auth()->check() && auth()->user()->discount_percentage > 0;
@@ -274,7 +274,7 @@
                                   x-text="p.label + (p.hostDiscountPct > 0 ? ' · ' + p.hostDiscountPct + '%' : '')"></span>
                         </template>
                         <template x-if="!p.label && p.hostDiscountPct > 0">
-                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف میزبان ' + p.hostDiscountPct + '%'"></span>
+                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;" x-text="'تخفیف کاربر ' + p.hostDiscountPct + '%'"></span>
                         </template>
                         @if($showAuthVeteranDiscount)
                         <span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:700;"><i class="bi bi-star-fill me-1" style="font-size:9px;"></i>{{ auth()->user()->discount_percentage }}%</span>
