@@ -1,8 +1,8 @@
 <div>
 
 <div class="card shadow-sm">
-    <div class="ta-list-chrome">
-        <ul class="nav nav-tabs mb-0 admin-users-section-tabs">
+    <div class="ta-list-chrome admin-users-list-chrome">
+            <ul class="nav nav-tabs mb-0 admin-users-section-tabs">
             <li class="nav-item">
                 <button type="button" wire:click="setSection('all')" class="nav-link py-1 px-2 small {{ $section === 'all' ? 'active' : '' }}">
                     <i class="bi bi-grid me-1"></i>همه
@@ -28,8 +28,29 @@
                     <i class="bi bi-person-heart me-1"></i>ذی‌نفعان
                 </button>
             </li>
-        </ul>
-        <div class="ta-page-toolbar">
+            </ul>
+            <div class="d-flex align-items-center gap-2 admin-users-search">
+                <div class="flex-grow-1" style="min-width:0;">
+                    <input type="text"
+                           wire:model="searchInput"
+                           wire:keydown.enter="applySearch"
+                           class="form-control form-control-sm"
+                           placeholder="جستجو نام / موبایل / کد ملی / کد حسابداری">
+                </div>
+                <button type="button"
+                        wire:click="applySearch"
+                        class="btn btn-sm btn-primary">
+                    اعمال
+                </button>
+                <button type="button"
+                        wire:click="clearSearch"
+                        class="btn btn-sm btn-outline-secondary"
+                        title="پاک کردن جستجو"
+                        @disabled($search === '' && $searchInput === '')>
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        <div class="ta-page-toolbar admin-users-toolbar">
             <a href="{{ route('admin.users.export', $exportQuery) }}" class="btn btn-sm btn-success">
                 <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
                 @if($hasActiveFilters)
@@ -75,27 +96,6 @@
     </div>
     @endif
 
-    <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 border-bottom">
-        <div class="flex-grow-1" style="min-width:min(100%, 220px);">
-            <input type="text"
-                   wire:model="searchInput"
-                   wire:keydown.enter="applySearch"
-                   class="form-control form-control-sm"
-                   placeholder="جستجو نام / موبایل / کد ملی / کد حسابداری">
-        </div>
-        <button type="button"
-                wire:click="applySearch"
-                class="btn btn-sm btn-primary">
-            اعمال
-        </button>
-        <button type="button"
-                wire:click="clearSearch"
-                class="btn btn-sm btn-outline-secondary"
-                title="پاک کردن جستجو"
-                @disabled($search === '' && $searchInput === '')>
-            <i class="bi bi-x-lg"></i>
-        </button>
-    </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 table-sm">
             <thead class="table-light">
@@ -187,12 +187,37 @@
 />
 
 <style>
+    .admin-users-list-chrome {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "search toolbar"
+            "tabs toolbar";
+        gap: 8px;
+        align-items: start;
+    }
+
+    .admin-users-list-chrome .admin-users-section-tabs {
+        grid-area: tabs;
+        flex: none !important;
+        width: 100% !important;
+        align-self: start;
+    }
+
+    .admin-users-list-chrome .admin-users-search {
+        grid-area: search;
+        min-width: 0;
+    }
+
+    .admin-users-list-chrome .admin-users-toolbar {
+        grid-area: toolbar;
+        margin: 0 !important;
+        align-self: start;
+    }
+
     .admin-users-section-tabs {
         display: flex;
         flex-wrap: wrap;
-        flex: 1 1 12rem;
-        min-width: 0;
-        width: auto;
     }
 
     .admin-users-section-tabs .nav-item {
@@ -217,6 +242,36 @@
 
     .admin-users-province-chevron.is-expanded {
         transform: rotate(-90deg);
+    }
+
+    .admin-users-toolbar {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: min(100%, 18rem);
+    }
+
+    .admin-users-toolbar > .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .admin-users-toolbar > :not(.btn) {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 640px) {
+        .admin-users-list-chrome {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "search"
+                "tabs"
+                "toolbar";
+        }
+
+        .admin-users-toolbar {
+            width: 100% !important;
+        }
     }
 </style>
 

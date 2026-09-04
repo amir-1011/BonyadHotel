@@ -1,9 +1,5 @@
 <div>
 
-<div class="ta-page-toolbar">
-    <a wire:navigate href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-warning"><i class="bi bi-pencil me-1"></i>ویرایش</a>
-</div>
-
 <div class="row g-3">
     {{-- Info --}}
     <div class="col-12 col-lg-4">
@@ -18,6 +14,9 @@
                     <span class="badge {{ $r->name === 'super_admin' ? 'bg-danger' : ($r->name === 'host' ? 'bg-success' : 'bg-secondary') }} me-1">{{ $user->roleBadgeLabel($r->name) }}</span>
                 @endforeach
                 @if($user->roles->isEmpty()) <span class="badge bg-secondary">{{ $user->roleBadgeLabel('guest') }}</span> @endif
+                <div class="mt-3">
+                    <a wire:navigate href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-warning"><i class="bi bi-pencil me-1"></i>ویرایش</a>
+                </div>
             </div>
             <ul class="list-group list-group-flush">
                 <li class="list-group-item d-flex justify-content-between small">
