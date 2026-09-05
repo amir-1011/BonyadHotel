@@ -717,6 +717,44 @@ class ManualBookingFullFlowTest extends TestCase
         return [$checkIn, $checkOut];
     }
 
+    /** @return array{0:string,1:string} */
+    private function pastStay(int $nights): array
+    {
+        $checkOut = now()->subDay()->format('Y-m-d');
+        $checkIn = Carbon::parse($checkOut)->subDays($nights)->format('Y-m-d');
+
+        return [$checkIn, $checkOut];
+    }
+
+    public function test_manual_booking_allows_past_check_in_dates(): void
+    {
+        [$checkIn, $checkOut] = $this->pastStay(2);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 2, $this->roomType->id, $this->roomRate->id, 0, false, 0, 2)
+            ->call('nextStep')
+            ->assertHasNoErrors(['checkIn', 'checkOut'])
+            ->assertSet('step', 2)
+            ->set('bookerNationalId', '4440555666')
+            ->call('verifyBooker')
+            ->set('guestContactName', 'رزرو گذشته')
+            ->set('guestContactMobile', '09144405556')
+            ->call('nextStep')
+            ->set('paymentMethod', 'cash')
+            ->call('submit')
+            ->assertSet('step', 5);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertNotNull($booking);
+        $this->assertSame($checkIn, $booking->check_in->format('Y-m-d'));
+        $this->assertSame($checkOut, $booking->check_out->format('Y-m-d'));
+        $this->assertSame('manual', $booking->booking_source);
+    }
+
     public function test_veteran_host_does_not_apply_discount_before_guest_verification(): void
     {
         Role::firstOrCreate(['name' => 'host', 'guard_name' => 'web']);

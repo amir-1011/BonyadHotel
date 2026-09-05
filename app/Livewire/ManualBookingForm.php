@@ -2549,7 +2549,7 @@ class ManualBookingForm extends Component
 
         return match ($step) {
             1 => [
-                'checkIn'  => ['required', 'date', 'after_or_equal:today'],
+                'checkIn'  => ['required', 'date'],
                 'checkOut' => ['required', 'date', 'after:checkIn'],
                 'roomLines' => ['array'],
             ],

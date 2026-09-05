@@ -528,7 +528,8 @@ function mbbDrawer() {
             for (let i = 0; i < offset; i++) cells.push(null);
             for (let d = 1; d <= dim; d++) {
                 const greg = window.bnbJalaliCal.toGregorian(this.calYear, this.calMonth, d);
-                const past = (this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td);
+                const past = this.mode !== 'manual'
+                    && ((this.calYear < ty) || (this.calYear === ty && this.calMonth < tm) || (this.calYear === ty && this.calMonth === tm && d < td));
 
                 const avail        = this.availabilityData[greg];
                 const hasAvailData = !!avail;
