@@ -22,7 +22,12 @@
                     <div class="alert alert-warning small d-flex align-items-start gap-2">
                         <i class="bi bi-info-circle-fill mt-1"></i>
                         <div>
-                            @if($this->booking->isMedicalAccommodation())
+                            @if($this->booking->isManualServiceSale())
+                                این فروش <strong>فقط خدمت</strong> است (بدون اقامت). در صورت تایید کنسلی،
+                                <strong>۱۰۰٪</strong> مبلغ قابل پرداخت، یعنی
+                                <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($preview['amount'])) }} ریال</strong>
+                                به‌عنوان مبلغ پیشنهادی استرداد محاسبه می‌شود (قابل ویرایش توسط پرسنل).
+                            @elseif($this->booking->isMedicalAccommodation())
                                 این رزرو اسکان درمانی است و سیاست کنسلی/جریمه اعمال نمی‌شود.
                                 مهمان وجه اقامت را پرداخت نکرده، بنابراین مبلغ استرداد به مهمان <strong>۰ ریال</strong> است.
                                 @if($preview['is_mid_stay'])

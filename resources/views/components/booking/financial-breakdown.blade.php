@@ -31,6 +31,7 @@
         ? fn ($n) => \App\Support\PdfPersian::toPersianDigits((string) $n)
         : fn ($n) => $n;
     $isMedical = $booking->isMedicalAccommodation();
+    $isServiceSale = $booking->isManualServiceSale();
     $stayLabel = $isMedical ? 'تعرفه اسکان درمانی' : 'هزینه اقامت';
     $billingGuests = (int) ($pricing['billing_guests'] ?? 0);
     $stayMeta = $num($totalNights) . ' شب';
@@ -47,23 +48,25 @@
 
 @if($pdf)
 <table class="totals">
+    @if(!$isServiceSale)
     <tr>
         <td>{{ $stayLabel }} ({{ $stayMeta }})</td>
         <td class="amount">{{ $fmt($roomSubtotal) }}</td>
     </tr>
+    @endif
     @if($isMedical && $booking->medicalContractNumber())
     <tr>
         <td>شماره قرارداد</td>
         <td class="amount ltr">{{ $booking->medicalContractNumber() }}</td>
     </tr>
     @endif
-    @if($extraGuestsTotal > 0)
+    @if(!$isServiceSale && $extraGuestsTotal > 0)
     <tr>
         <td>{{ $extraLabel }} ({{ $num($extraCount) }} نفر)</td>
         <td class="amount">{{ $fmt($extraGuestsTotal) }}</td>
     </tr>
     @endif
-    @if($childrenDiscount > 0)
+    @if(!$isServiceSale && $childrenDiscount > 0)
     <tr>
         <td>
             تخفیف کودک زیر ۶ سال
@@ -72,7 +75,7 @@
         <td class="amount" style="color:#dc2626">− {{ $fmt($childrenDiscount) }}</td>
     </tr>
     @endif
-    @if($veteranAccDiscount > 0)
+    @if(!$isServiceSale && $veteranAccDiscount > 0)
     <tr>
         <td colspan="2" style="padding-top:6px">
             <strong>تخفیف اقامت ایثارگری</strong>
@@ -97,7 +100,7 @@
         <td class="amount" style="color:#dc2626">− {{ $fmt($veteranAccDiscount) }}</td>
     </tr>
     @endif
-    @if($manualAccDiscount > 0)
+    @if(!$isServiceSale && $manualAccDiscount > 0)
     <tr>
         <td>تخفیف دستی اقامت (مهمانان نرخ عادی)</td>
         <td class="amount" style="color:#dc2626">− {{ $fmt($manualAccDiscount) }}</td>
@@ -105,7 +108,7 @@
     @endif
     @if($servicesSubtotal > 0)
     <tr>
-        <td>خدمات اضافی (قبل از تخفیف)</td>
+        <td>{{ $isServiceSale ? 'خدمات (قبل از تخفیف)' : 'خدمات اضافی (قبل از تخفیف)' }}</td>
         <td class="amount">{{ $fmt($servicesSubtotal) }}</td>
     </tr>
     @endif
@@ -179,7 +182,7 @@
     @endif
     @if($platformCommission > 0)
     <tr>
-        <td>کارمزد سامانه</td>
+        <td>حق سرویس</td>
         <td class="amount">{{ $fmt($platformCommission) }}</td>
     </tr>
     @endif

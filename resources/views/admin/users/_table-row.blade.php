@@ -52,8 +52,8 @@
             <a wire:navigate href="{{ route('admin.bookings.index', ['search'=> $user->mobile]) }}" class="btn btn-xs btn-outline-secondary" style="padding:.2rem .5rem;font-size:.75rem;" title="رزروهای کاربر">
                 <i class="bi bi-calendar-check"></i>
             </a>
-            <button wire:click="toggleStatus({{ $user->id }})" class="btn btn-xs {{ $user->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}" style="padding:.2rem .5rem;font-size:.75rem;" title="{{ $user->is_active ? 'غیرفعال کردن' : 'فعال کردن' }}">
-                <i class="bi bi-{{ $user->is_active ? 'pause-fill' : 'play-fill' }}"></i>
+            <button wire:click="toggleStatus({{ $user->id }})" class="btn btn-xs {{ $user->mobile_verified_at ? 'btn-outline-warning' : 'btn-outline-success' }}" style="padding:.2rem .5rem;font-size:.75rem;" title="{{ $user->mobile_verified_at ? 'غیرفعال کردن' : 'فعال کردن' }}">
+                <i class="bi bi-{{ $user->mobile_verified_at ? 'pause-fill' : 'play-fill' }}"></i>
             </button>
             @if(!$user->hasRole('super_admin'))
             <button wire:click="destroy({{ $user->id }})" data-swal-confirm="کاربر حذف شود؟" class="btn btn-xs btn-outline-danger" style="padding:.2rem .5rem;font-size:.75rem;" title="حذف"><i class="bi bi-trash"></i></button>

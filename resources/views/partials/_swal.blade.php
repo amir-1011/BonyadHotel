@@ -8,6 +8,7 @@
       window.bnbConfirm(message[, opts])        — returns Promise<SweetAlertResult>
       window.bnbPrompt(opts)                    — dialog with required textarea
       window.bnbPriceConfirm(preview[, opts])   — price delta confirm with editable input
+      window.bnbIosPanelMorph                   — iOS mobile topbar ↔ sidebar morph (used by taToggleSidebar)
       attribute: data-swal-confirm="message"    — auto-intercepts wire:click / form buttons & submits
       attribute: data-bnb-price-change          — preview price impact, confirm delta, then Livewire execute
       attribute: data-bnb-price-action="method"  — Livewire action name for price change flow
@@ -526,6 +527,39 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
     resize: vertical;
     min-height: 64px;
 }
+.bnb-price-vat-field {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+.bnb-price-vat-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 8px;
+}
+.bnb-price-vat-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.bnb-price-vat-controls input[type="range"] {
+    flex: 1;
+    min-width: 0;
+}
+.bnb-price-vat-percent-input {
+    width: 4.5rem;
+    text-align: center;
+    direction: ltr;
+}
+.bnb-price-vat-amount-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
 .bnb-swal-popup--payment .bnb-swal-step-body {
     animation: bnbSwalStepIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -663,6 +697,18 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
             morphState.popup.style.removeProperty('opacity');
             morphState.popup.style.removeProperty('pointer-events');
             morphState.popup.style.removeProperty('visibility');
+        }
+        if (morphState && morphState.kind === 'sidebar') {
+            if (morphState.target) {
+                morphState.target.classList.remove(
+                    'show',
+                    'ta-sidebar--ios-morph-host',
+                    'ta-sidebar--ios-morph-visible'
+                );
+            }
+            if (morphState.backdrop) {
+                morphState.backdrop.classList.remove('show');
+            }
         }
         morphState = null;
     }
@@ -839,6 +885,129 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
             cleanupMorph(true);
         }, MORPH_MS);
     }
+
+    function shouldSidebarMorph() {
+        return isIosPanel()
+            && window.matchMedia
+            && window.matchMedia('(max-width: 991.98px)').matches
+            && !document.querySelector('.swal2-container');
+    }
+
+    function openSidebarMorph(sb, bd) {
+        if (!sb || sb.classList.contains('show')) return;
+
+        if (!shouldSidebarMorph()) {
+            sb.classList.add('show');
+            if (bd) bd.classList.add('show');
+            return;
+        }
+
+        cleanupMorph(false);
+
+        var bar = getTopbar();
+        if (!bar || overlayReducedMotion()) {
+            sb.classList.add('show');
+            if (bd) bd.classList.add('show');
+            return;
+        }
+
+        var first = rectOf(bar);
+        if (first.width < 80 || first.height < 24) {
+            sb.classList.add('show');
+            if (bd) bd.classList.add('show');
+            return;
+        }
+
+        var gen = ++morphGen;
+        if (bd) bd.classList.add('show');
+        sb.classList.add('show', 'ta-sidebar--ios-morph-host');
+        hideTopbar(bar);
+
+        var ghost = makeGhost(first, '');
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (gen !== morphGen) return;
+                var last = rectOf(sb);
+                morphState = {
+                    kind: 'sidebar',
+                    el: bar,
+                    target: sb,
+                    backdrop: bd,
+                    first: first,
+                    ghost: ghost,
+                    gen: gen
+                };
+                moveGhost(ghost, last, 'panel');
+                window.setTimeout(function () {
+                    if (gen !== morphGen) return;
+                    sb.classList.add('ta-sidebar--ios-morph-visible');
+                    requestAnimationFrame(function () {
+                        if (gen !== morphGen) return;
+                        if (ghost) ghost.classList.add('ta-ios-morph-ghost--settled');
+                    });
+                }, CONTENT_FADE_MS);
+            });
+        });
+    }
+
+    function closeSidebarMorph(sb, bd) {
+        if (!sb || !sb.classList.contains('show')) return;
+
+        if (!morphState || morphState.kind !== 'sidebar' || morphState.target !== sb) {
+            sb.classList.remove('show', 'ta-sidebar--ios-morph-host', 'ta-sidebar--ios-morph-visible');
+            if (bd) bd.classList.remove('show');
+            showTopbar(getTopbar());
+            return;
+        }
+
+        var bar = morphState.el || getTopbar();
+        var first = morphState.first;
+        var ghost = morphState.ghost;
+        var gen = ++morphGen;
+
+        sb.classList.remove('ta-sidebar--ios-morph-visible');
+
+        if (overlayReducedMotion() || !bar || !first) {
+            cleanupMorph(true);
+            return;
+        }
+
+        var from = rectOf(sb);
+        if (!ghost || !ghost.parentNode) {
+            ghost = makeGhost(from, 'panel');
+        } else {
+            ghost.classList.remove('ta-ios-morph-ghost--settled');
+            moveGhost(ghost, from, 'panel');
+            void ghost.offsetWidth;
+        }
+
+        morphState = {
+            kind: 'sidebar',
+            el: bar,
+            target: sb,
+            backdrop: bd,
+            first: first,
+            ghost: ghost,
+            gen: gen
+        };
+
+        requestAnimationFrame(function () {
+            if (gen !== morphGen) return;
+            moveGhost(ghost, first, null);
+        });
+
+        window.setTimeout(function () {
+            if (gen !== morphGen) return;
+            cleanupMorph(true);
+        }, MORPH_MS);
+    }
+
+    window.bnbIosPanelMorph = {
+        shouldUse: shouldSidebarMorph,
+        open: openSidebarMorph,
+        close: closeSidebarMorph
+    };
 
     function iosOverlayHooks(mode, tint) {
         if (!isIosPanel()) {
@@ -1210,6 +1379,40 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
         return n < 0 ? '-' + formatted : formatted;
     }
 
+    function clampBookingVatPercent(raw) {
+        var n = parseInt(raw, 10);
+        if (Number.isNaN(n)) {
+            return 0;
+        }
+        return Math.min(20, Math.max(0, n));
+    }
+
+    function bookingVatAmountOnBase(baseAmount, percent) {
+        var base = parseInt(baseAmount, 10) || 0;
+        var pct = clampBookingVatPercent(percent);
+        if (pct <= 0 || base <= 0) {
+            return 0;
+        }
+        return Math.round(base * pct / 100);
+    }
+
+    function bookingVatReasonPhrase(percent) {
+        var pct = clampBookingVatPercent(percent);
+        if (pct <= 0) {
+            return '';
+        }
+        return 'بعلاوه ' + pct + '٪ مالیات بر ارزش افزوده';
+    }
+
+    function mergePriceAdjustmentReason(vatPercent, userReason) {
+        var vatPart = bookingVatReasonPhrase(vatPercent);
+        var user = String(userReason || '').trim();
+        if (vatPart && user) {
+            return user + ' — ' + vatPart;
+        }
+        return vatPart || user || '';
+    }
+
     var swalBootstrapFocusFixInstalled = false;
     function installSwalBootstrapFocusFix() {
         if (swalBootstrapFocusFixInstalled) return;
@@ -1354,6 +1557,27 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
         var reasonFieldId = 'bnb-price-reason-' + Date.now();
         var calculatedTotal = parseInt(preview.calculated_total, 10) || currentTotal;
         var defaultDelta = parseInt(preview.auto_delta, 10) || 0;
+        var vatFieldId = 'bnb-price-vat-' + Date.now();
+        var vatPercentInputId = vatFieldId + '-pct';
+        var vatRangeId = vatFieldId + '-range';
+        var vatHintId = vatFieldId + '-hint';
+        var taxBase = isAbsolute ? Math.max(0, calculatedTotal) : defaultDelta;
+        var showVatField = !preview.skip_payment_capture && taxBase > 0;
+
+        function buildVatFieldHtml() {
+            if (!showVatField) {
+                return '';
+            }
+            return '<div class="bnb-prompt-field bnb-price-vat-field" id="' + vatFieldId + '">' +
+                '<label for="' + vatRangeId + '">مالیات بر ارزش افزوده (۰ تا ۲۰٪)</label>' +
+                '<div class="bnb-price-vat-controls">' +
+                    '<input id="' + vatRangeId + '" type="range" min="0" max="20" step="1" value="0" class="form-range">' +
+                    '<input id="' + vatPercentInputId + '" type="number" min="0" max="20" step="1" value="0" class="form-control form-control-sm bnb-price-vat-percent-input" dir="ltr" inputmode="numeric">' +
+                    '<span class="small text-muted">٪</span>' +
+                '</div>' +
+                '<div class="bnb-price-vat-amount-hint" id="' + vatHintId + '"></div>' +
+            '</div>';
+        }
 
         function buildReasonFieldHtml() {
             return '<div class="bnb-prompt-field bnb-price-reason-field d-none" id="' + reasonFieldId + '-wrap">' +
@@ -1362,18 +1586,69 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
             '</div>';
         }
 
-        function toggleReasonField(inputValue) {
+        function readVatPercent(popup) {
+            if (!showVatField || !popup) {
+                return 0;
+            }
+            var pctEl = popup.querySelector('#' + vatPercentInputId);
+            return clampBookingVatPercent(pctEl ? pctEl.value : 0);
+        }
+
+        function readManualExtraFromPopup(popup) {
+            var parsed = isAbsolute
+                ? parsePlainMoneyDigits(readPriceDeltaInputValue(popup))
+                : parseSignedTomanInput(readPriceDeltaInputValue(popup));
+            if (Number.isNaN(parsed)) {
+                return 0;
+            }
+            var vatAmount = bookingVatAmountOnBase(taxBase, readVatPercent(popup));
+            if (isAbsolute) {
+                return parsed - taxBase - vatAmount;
+            }
+            return parsed - taxBase - vatAmount;
+        }
+
+        function syncVatHint(popup, vatPercent) {
+            if (!showVatField || !popup) {
+                return;
+            }
+            var hintEl = popup.querySelector('#' + vatHintId);
+            if (!hintEl) {
+                return;
+            }
+            var vatAmount = bookingVatAmountOnBase(taxBase, vatPercent);
+            if (vatAmount <= 0) {
+                hintEl.textContent = 'بدون مالیات بر ارزش افزوده.';
+                return;
+            }
+            hintEl.textContent = 'افزوده به مبلغ: ' + formatTomanAmount(vatAmount) + ' ریال (' + bookingVatReasonPhrase(vatPercent) + ')';
+        }
+
+        function applyCombinedDeltaToInput(popup, vatPercent, manualExtra) {
+            var input = popup ? popup.querySelector('#' + fieldId) : null;
+            if (!input) {
+                return;
+            }
+            var vatAmount = bookingVatAmountOnBase(taxBase, vatPercent);
+            var combined = isAbsolute
+                ? Math.max(0, taxBase + vatAmount + manualExtra)
+                : taxBase + vatAmount + manualExtra;
+            input.value = isAbsolute
+                ? formatPlainMoneyDigits(combined)
+                : formatSignedMoneyInput(combined);
+            var projectedEl = popup.querySelector('#' + projectedId);
+            if (projectedEl) {
+                projectedEl.textContent = formatTomanAmount(
+                    isAbsolute ? combined : Math.max(0, currentTotal + combined)
+                );
+            }
+        }
+
+        function toggleReasonField(popup) {
             var wrap = document.getElementById(reasonFieldId + '-wrap');
             if (!wrap) return;
-            var changed = false;
-            if (isAbsolute) {
-                var parsed = parsePlainMoneyDigits(inputValue);
-                changed = !Number.isNaN(parsed) && parsed !== calculatedTotal;
-            } else {
-                var signed = parseSignedTomanInput(inputValue);
-                changed = !Number.isNaN(signed) && signed !== defaultDelta;
-            }
-            wrap.classList.toggle('d-none', !changed);
+            var manualExtra = readManualExtraFromPopup(popup);
+            wrap.classList.toggle('d-none', manualExtra === 0);
         }
         var inputLabel = isAbsolute
             ? 'مبلغ نهایی (ریال)'
@@ -1424,6 +1699,7 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                         '<div class="bnb-confirm-title">' + escapeHtml(actionLabel) + '</div>' +
                         '<div class="bnb-confirm-msg">' + escapeHtml(description) + '</div>' +
                         buildSummaryHtml(isAbsolute ? currentTotal : (currentTotal + delta)) +
+                        buildVatFieldHtml() +
                         '<div class="bnb-prompt-field bnb-price-field">' +
                             '<label for="' + fieldId + '">' + escapeHtml(inputLabel) + '</label>' +
                             '<input id="' + fieldId + '" type="text" inputmode="numeric" dir="ltr" autocomplete="off" class="money-input bnb-price-delta-input form-control form-control-sm" value="' + escapeHtml(initialInputDisplay) + '">' +
@@ -1457,16 +1733,57 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                 }
 
                 var input = popup.querySelector('#' + fieldId);
-                bindPriceDeltaInput(input, function (parsed) {
-                    var projectedEl = popup.querySelector('#' + projectedId);
+                var manualExtraState = 0;
+
+                bindPriceDeltaInput(input, function () {
+                    var popupEl = Swal.getPopup();
+                    manualExtraState = readManualExtraFromPopup(popupEl);
+                    var parsed = isAbsolute
+                        ? parsePlainMoneyDigits(readPriceDeltaInputValue(popupEl))
+                        : parseSignedTomanInput(readPriceDeltaInputValue(popupEl));
+                    var projectedEl = popupEl ? popupEl.querySelector('#' + projectedId) : null;
                     if (projectedEl && !Number.isNaN(parsed)) {
                         projectedEl.textContent = formatTomanAmount(
                             isAbsolute ? Math.max(0, parsed) : Math.max(0, currentTotal + parsed)
                         );
                     }
-                    toggleReasonField(readPriceDeltaInputValue(popup));
+                    toggleReasonField(popupEl);
                 }, { absolute: isAbsolute });
-                toggleReasonField(initialInputDisplay);
+                toggleReasonField(popup);
+
+                if (showVatField) {
+                    var rangeEl = popup.querySelector('#' + vatRangeId);
+                    var pctInputEl = popup.querySelector('#' + vatPercentInputId);
+
+                    function onVatPercentChange(nextPercent, popupEl) {
+                        var vatPercent = clampBookingVatPercent(nextPercent);
+                        if (rangeEl) {
+                            rangeEl.value = String(vatPercent);
+                        }
+                        if (pctInputEl) {
+                            pctInputEl.value = String(vatPercent);
+                        }
+                        applyCombinedDeltaToInput(popupEl, vatPercent, manualExtraState);
+                        syncVatHint(popupEl, vatPercent);
+                        toggleReasonField(popupEl);
+                    }
+
+                    if (rangeEl) {
+                        rangeEl.addEventListener('input', function () {
+                            onVatPercentChange(rangeEl.value, popup);
+                        });
+                    }
+                    if (pctInputEl) {
+                        pctInputEl.addEventListener('input', function () {
+                            onVatPercentChange(pctInputEl.value, popup);
+                        });
+                        pctInputEl.addEventListener('change', function () {
+                            onVatPercentChange(pctInputEl.value, popup);
+                        });
+                    }
+                    syncVatHint(popup, 0);
+                }
+
                 setTimeout(function () { focusPriceDeltaInput(input); }, isIosPanel() ? 280 : 40);
             },
             willClose: function () {
@@ -1478,9 +1795,10 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                 var popup = Swal.getPopup();
                 var reasonEl = popup ? popup.querySelector('#' + reasonFieldId) : null;
                 var reasonWrap = document.getElementById(reasonFieldId + '-wrap');
-                var priceReason = reasonEl && reasonWrap && !reasonWrap.classList.contains('d-none')
+                var userReason = reasonEl && reasonWrap && !reasonWrap.classList.contains('d-none')
                     ? String(reasonEl.value || '').trim()
                     : '';
+                var vatPercent = readVatPercent(popup);
 
                 if (isAbsolute) {
                     var finalTotal = parsePlainMoneyDigits(readPriceDeltaInputValue(popup));
@@ -1488,7 +1806,12 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                         Swal.showValidationMessage('مبلغ نهایی معتبر نیست.');
                         return false;
                     }
-                    return { delta: finalTotal - currentTotal, price_adjustment_reason: priceReason };
+                    return {
+                        delta: finalTotal - currentTotal,
+                        vat_percent: vatPercent,
+                        vat_base_amount: taxBase,
+                        price_adjustment_reason: userReason,
+                    };
                 }
 
                 var parsed = parseSignedTomanInput(readPriceDeltaInputValue(popup));
@@ -1496,7 +1819,12 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                     Swal.showValidationMessage('مبلغ تغییر معتبر نیست.');
                     return false;
                 }
-                return { delta: parsed, price_adjustment_reason: priceReason };
+                return {
+                    delta: parsed,
+                    vat_percent: vatPercent,
+                    vat_base_amount: taxBase,
+                    price_adjustment_reason: userReason,
+                };
             }
         })).finally(function () {
             resumeBootstrapModalFocusTraps();
@@ -1505,7 +1833,7 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
 
     function shouldSkipPaymentCapture(preview, confirmedDelta) {
         if (preview && preview.skip_payment_capture) return true;
-        if (typeof confirmedDelta === 'number' && confirmedDelta < 0) return true;
+        if (typeof confirmedDelta === 'number' && confirmedDelta <= 0) return true;
         return false;
     }
 
@@ -1844,6 +2172,14 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
         var merged = Object.assign({}, params || {});
         if (priceResult && priceResult.price_adjustment_reason) {
             merged.price_adjustment_reason = priceResult.price_adjustment_reason;
+        }
+        if (priceResult && typeof priceResult.vat_percent === 'number') {
+            merged.vat_percent = priceResult.vat_percent;
+        } else if (priceResult && priceResult.vat_percent != null) {
+            merged.vat_percent = parseInt(priceResult.vat_percent, 10) || 0;
+        }
+        if (priceResult && priceResult.vat_base_amount != null) {
+            merged.vat_base_amount = parseInt(priceResult.vat_base_amount, 10) || 0;
         }
         if (priceResult && priceResult.payment_capture) {
             merged.payment_capture = priceResult.payment_capture;

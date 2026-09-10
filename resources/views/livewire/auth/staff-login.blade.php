@@ -2,10 +2,10 @@
     <div style="width:100%;max-width:440px;">
         <div style="text-align:center;margin-bottom:28px;">
             <div style="display:inline-flex;align-items:center;gap:12px;">
-                <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار" class="staff-auth-logo">
+                <img src="{{ vasset('logo/site-logo.png') }}" alt="موسسه ایثار" class="staff-auth-logo">
                 <div class="staff-auth-brand-copy" style="text-align:right;">
-                    <div style="font-size:20px;font-weight:700;color:#1e293b;">سامانه رزرو</div>
-                    <div style="font-size:13px;color:#64748b;">ورود مدیران و کاربران</div>
+                    <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.45;">سامانه جامع خدمات موسسه ایثار</div>
+                    <div style="font-size:13px;color:#64748b;margin-top:4px;">ورود مدیران و کاربران</div>
                 </div>
             </div>
         </div>

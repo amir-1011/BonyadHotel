@@ -2,7 +2,7 @@
 
 @php($hostUser = Auth::user())
 
-<div x-on:manual-booking-rooms-selected.window="$wire.call('onAddRoomPhysicalSelected', $event.detail.rooms ?? [])">
+<div @if(!$booking->isManualServiceSale()) x-on:manual-booking-rooms-selected.window="$wire.call('onAddRoomPhysicalSelected', $event.detail.rooms ?? [])" @endif>
 
 @include('components.booking.show-details', [
     'booking' => $booking,
@@ -25,7 +25,9 @@
 
 @include('components.booking.payment-capture-support')
 
+@if(!$booking->isManualServiceSale())
 <x-manual-booking.room-picker />
+@endif
 
 </div>
 </div>

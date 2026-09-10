@@ -108,11 +108,11 @@
             </div>
         </div>
 
-        {{-- امور مالی --}}
-        <div class="ta-nav-group {{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="امور مالی" aria-expanded="{{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+        {{-- گزارشات مالی --}}
+        <div class="ta-nav-group {{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.programs.supportive-report') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="گزارشات مالی" aria-expanded="{{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.programs.supportive-report') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-wallet2"></i>
-                <span class="ta-nav-link__label">امور مالی</span>
+                <span class="ta-nav-link__label">گزارشات مالی</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
             </button>
             <div class="ta-submenu-panel">
@@ -123,6 +123,8 @@
                        class="{{ request()->routeIs('admin.booking-payment-records.*') ? 'active' : '' }}">تراکنش‌های مالی</a></li>
                 <li><a href="{{ route('admin.pos-terminals.index') }}" wire:navigate
                        class="{{ request()->routeIs('admin.pos-terminals.*') ? 'active' : '' }}">ترمینال‌های پز</a></li>
+                <li><a href="{{ route('admin.programs.supportive-report') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
             </ul>
             </div>
         </div>
@@ -130,8 +132,8 @@
         <div class="ta-sidebar__section">خدمات</div>
 
         {{-- برنامه‌ها و اردوها --}}
-        <div class="ta-nav-group {{ request()->routeIs('admin.programs.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('admin.programs.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+        <div class="ta-nav-group {{ request()->routeIs('admin.programs.*') && !request()->routeIs('admin.programs.supportive-report') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('admin.programs.*') && !request()->routeIs('admin.programs.supportive-report') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-flag"></i>
                 <span class="ta-nav-link__label">برنامه‌ها و اردوها</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
@@ -142,8 +144,6 @@
                        class="{{ request()->routeIs('admin.programs.index') || request()->routeIs('admin.programs.show') ? 'active' : '' }}">لیست برنامه‌ها</a></li>
                 <li><a href="{{ route('admin.programs.create') }}" wire:navigate
                        class="{{ request()->routeIs('admin.programs.create') ? 'active' : '' }}">افزودن برنامه</a></li>
-                <li><a href="{{ route('admin.programs.supportive-report') }}" wire:navigate
-                       class="{{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
             </ul>
             </div>
         </div>
@@ -289,7 +289,14 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     window.taToggleSidebar = function (force) {
         var sb = document.getElementById('sidebar');
         var bd = document.getElementById('sidebarBackdrop');
+        if (!sb || !bd) return;
         var show = typeof force === 'boolean' ? force : !sb.classList.contains('show');
+        var morph = window.bnbIosPanelMorph;
+        if (morph && morph.shouldUse && morph.shouldUse()) {
+            if (show) morph.open(sb, bd);
+            else morph.close(sb, bd);
+            return;
+        }
         sb.classList.toggle('show', show);
         bd.classList.toggle('show', show);
     };

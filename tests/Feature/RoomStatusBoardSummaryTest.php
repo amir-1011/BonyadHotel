@@ -88,7 +88,7 @@ class RoomStatusBoardSummaryTest extends TestCase
         $this->assertSame('capacity_closed', $byId[$rooms['closed']->id]['status']);
     }
 
-    public function test_host_board_shows_kpi_cards_and_hides_physical_rooms_until_toggled(): void
+    public function test_host_board_shows_kpi_cards_and_physical_rooms_by_default(): void
     {
         [$host, $accommodation, $rooms] = $this->seedMixedStatusBoard();
 
@@ -103,13 +103,6 @@ class RoomStatusBoardSummaryTest extends TestCase
             ->assertSee('بسته (سیاست قیمتی)')
             ->assertSee('مسدود')
             ->assertSeeHtml('data-rsb-kpi="total"')
-            ->assertSee('نمایش اتاق‌های فیزیکی')
-            ->assertDontSeeHtml('data-rsb-physical-rooms="'.$accommodation->id.'"')
-            ->assertDontSeeHtml('data-rsb-hide-rooms="'.$accommodation->id.'"')
-            ->assertDontSeeHtml('<div class="room-status-box__name">'.$rooms['available']->name.'</div>');
-
-        $component
-            ->call('showPhysicalRooms', $accommodation->id)
             ->assertSet('expandedPhysicalRoomIds', [$accommodation->id])
             ->assertSeeHtml('data-rsb-physical-rooms="'.$accommodation->id.'"')
             ->assertSeeHtml('<div class="room-status-box__name">'.$rooms['available']->name.'</div>')
@@ -123,6 +116,13 @@ class RoomStatusBoardSummaryTest extends TestCase
             ->assertDontSeeHtml('data-rsb-physical-rooms="'.$accommodation->id.'"')
             ->assertSee('نمایش اتاق‌های فیزیکی')
             ->assertDontSeeHtml('<div class="room-status-box__name">'.$rooms['available']->name.'</div>');
+
+        $component
+            ->call('showPhysicalRooms', $accommodation->id)
+            ->assertSet('expandedPhysicalRoomIds', [$accommodation->id])
+            ->assertSeeHtml('data-rsb-physical-rooms="'.$accommodation->id.'"')
+            ->assertSee('عدم نمایش')
+            ->assertDontSeeHtml('data-rsb-show-rooms="'.$accommodation->id.'"');
     }
 
     public function test_physical_room_toggle_is_independent_per_accommodation(): void
@@ -145,11 +145,16 @@ class RoomStatusBoardSummaryTest extends TestCase
             ->test(RoomStatusBoard::class, ['panel' => 'host'])
             ->assertSee('نارنجستان ساری')
             ->assertSee('اقامتگاه رشت')
+            ->assertSeeHtml('<div class="room-status-box__name">'.$firstRoom->name.'</div>')
+            ->assertSeeHtml('<div class="room-status-box__name">'.$secondRoom->name.'</div>')
+            ->call('hidePhysicalRooms', $first->id)
+            ->assertDontSeeHtml('<div class="room-status-box__name">'.$firstRoom->name.'</div>')
+            ->assertSeeHtml('<div class="room-status-box__name">'.$secondRoom->name.'</div>')
+            ->call('hidePhysicalRooms', $second->id)
+            ->assertDontSeeHtml('<div class="room-status-box__name">'.$secondRoom->name.'</div>')
             ->call('showPhysicalRooms', $first->id)
             ->assertSeeHtml('<div class="room-status-box__name">'.$firstRoom->name.'</div>')
             ->assertDontSeeHtml('<div class="room-status-box__name">'.$secondRoom->name.'</div>')
-            ->assertSeeHtml('data-rsb-physical-rooms="'.$first->id.'"')
-            ->assertDontSeeHtml('data-rsb-physical-rooms="'.$second->id.'"')
             ->call('showPhysicalRooms', $second->id)
             ->assertSeeHtml('<div class="room-status-box__name">'.$firstRoom->name.'</div>')
             ->assertSeeHtml('<div class="room-status-box__name">'.$secondRoom->name.'</div>')

@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\PlatformCommissionEntry;
 use App\Models\User;
+use App\Support\JalaliDateTimeInput;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PlatformCommissionService
 {
@@ -29,10 +32,12 @@ class PlatformCommissionService
 
     public function calculateBookingCommission(Booking $booking): int
     {
-        return $this->previewCommissionAmount(
-            $this->commissionContextFromBooking($booking),
-            $this->bookingNaturalSubtotal($booking),
-        );
+        $context = $this->commissionContextFromBooking($booking);
+        $subtotal = $booking->booking_source === 'manual_service'
+            ? $this->manualServiceSaleSubtotal($booking)
+            : $this->bookingNaturalSubtotal($booking);
+
+        return $this->previewCommissionAmount($context, $subtotal);
     }
 
     /**
@@ -48,7 +53,29 @@ class PlatformCommissionService
             return 0;
         }
 
+        if (($context['booking_source'] ?? null) === 'manual_service') {
+            return $this->calculatePercentageCappedCommission($subtotalBeforeCommission);
+        }
+
         return $this->fixedAmount();
+    }
+
+    public function calculatePercentageCappedCommission(int $transactionAmount): int
+    {
+        if ($transactionAmount <= 0) {
+            return 0;
+        }
+
+        $pct = $this->percentage();
+        $raw = (int) floor($transactionAmount * $pct / 100);
+
+        return min($this->percentageCommissionCap(), max(0, $raw));
+    }
+
+    /** Commission cap for percentage model (config cap is in tomans; transaction amounts are rials). */
+    public function percentageCommissionCap(): int
+    {
+        return $this->cap() * 10;
     }
 
     /**
@@ -88,6 +115,19 @@ class PlatformCommissionService
             return $total;
         }
 
+        if ($booking->booking_source === 'manual_service') {
+            $natural = $this->manualServiceSaleSubtotal($booking);
+            $commission = $natural > 0
+                ? $this->calculatePercentageCappedCommission($natural)
+                : 0;
+
+            if ($commission > 0 && $total === $natural + $commission) {
+                return $natural;
+            }
+
+            return $total;
+        }
+
         $natural = $this->bookingNaturalSubtotal($booking);
         $commission = $natural > 0 ? $this->fixedAmount() : 0;
 
@@ -100,7 +140,63 @@ class PlatformCommissionService
 
     public function bookingNaturalSubtotal(Booking $booking): int
     {
+        if ($booking->booking_source === 'manual_service') {
+            return $this->manualServiceSaleSubtotal($booking);
+        }
+
         return max(0, (int) $booking->base_price - (int) $booking->discount_amount);
+    }
+
+    public function manualServiceSaleSubtotal(Booking $booking): int
+    {
+        $booking->loadMissing('services');
+
+        return max(0, (int) $booking->services->sum('total'));
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildManualServiceSaleCommissionTargets(Booking $booking): array
+    {
+        $transactionAmount = $this->manualServiceSaleSubtotal($booking);
+        $commissionAmount = $this->calculateBookingCommission($booking);
+
+        if ($commissionAmount <= 0 && $transactionAmount <= 0) {
+            return [];
+        }
+
+        $lines = $booking->services->map(fn ($service) => [
+            'name'             => $service->name,
+            'unit_price'       => (int) $service->unit_price,
+            'quantity'         => (int) $service->quantity,
+            'free_units'       => (int) ($service->free_units ?? 0),
+            'discount_amount'  => (int) ($service->discount_amount ?? 0),
+            'total'            => (int) $service->total,
+        ])->values()->all();
+
+        return [
+            'service_sale' => [
+                'category'             => PlatformCommissionEntry::CATEGORY_SERVICE,
+                'category_key'         => 'service_sale',
+                'service_catalog_id'   => null,
+                'service_name'         => 'فروش دستی خدمات',
+                'transaction_amount'   => $transactionAmount,
+                'commission_amount'    => $commissionAmount,
+                'meta'                 => $this->baseMeta($booking) + [
+                    'description'                  => 'فروش دستی خدمات',
+                    'commission_model'             => 'percentage_capped',
+                    'commission_percentage'        => $this->percentage(),
+                    'commission_cap_tomans'        => $this->cap(),
+                    'commission_cap_rials'           => $this->percentageCommissionCap(),
+                    'services_total'               => $transactionAmount,
+                    'platform_commission_amount'   => $commissionAmount,
+                    'subtotal_before_commission'   => $transactionAmount,
+                    'is_commission_exempt'         => $this->isCommissionExempt($booking),
+                    'lines'                        => $lines,
+                ],
+            ],
+        ];
     }
 
     public function isCommissionExempt(Booking $booking): bool
@@ -144,6 +240,120 @@ class PlatformCommissionService
         return (int) PlatformCommissionEntry::query()->sum('commission_amount');
     }
 
+    public function totalSettledAmount(): int
+    {
+        return abs((int) PlatformCommissionEntry::query()
+            ->where('reason', PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT)
+            ->sum('commission_amount'));
+    }
+
+    public function lastPeriodSettlement(): ?PlatformCommissionEntry
+    {
+        return PlatformCommissionEntry::query()
+            ->where('reason', PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT)
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * @return array{
+     *   net_amount: int,
+     *   entries_count: int,
+     *   period_start: ?string,
+     *   period_end: string,
+     *   period_end_jalali: string
+     * }
+     */
+    public function previewPeriodSettlement(string $periodEndJalali): array
+    {
+        $gregorian = JalaliDateTimeInput::toGregorianDate($periodEndJalali);
+        if (!$gregorian) {
+            throw ValidationException::withMessages([
+                'settlementPeriodEndJalali' => 'تاریخ پایان دوره معتبر نیست.',
+            ]);
+        }
+
+        $tz = config('app.timezone');
+        $periodEndDay = Carbon::parse($gregorian, $tz)->startOfDay();
+        if ($periodEndDay->gt(now($tz)->startOfDay())) {
+            throw ValidationException::withMessages([
+                'settlementPeriodEndJalali' => 'تاریخ پایان دوره نمی‌تواند بعد از امروز باشد.',
+            ]);
+        }
+        $periodEnd = $periodEndDay->copy()->endOfDay();
+
+        $last = $this->lastPeriodSettlement();
+        $periodStart = null;
+        if ($last && !empty($last->meta['period_end'])) {
+            $periodStart = Carbon::parse((string) $last->meta['period_end'])->addDay()->startOfDay();
+            if ($periodEnd->lt($periodStart)) {
+                $lastLabel = $last->meta['period_end_jalali'] ?? $last->meta['period_end'] ?? '';
+                throw ValidationException::withMessages([
+                    'settlementPeriodEndJalali' => 'تاریخ پایان باید بعد از آخرین تسویه (' . $lastLabel . ') باشد.',
+                ]);
+            }
+        }
+
+        $query = PlatformCommissionEntry::query()
+            ->where('reason', '!=', PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT);
+
+        if ($periodStart) {
+            $query->where('created_at', '>=', $periodStart);
+        }
+
+        $query->where('created_at', '<=', $periodEnd);
+
+        $net = (int) $query->sum('commission_amount');
+        $count = (int) $query->count();
+
+        return [
+            'net_amount'        => $net,
+            'entries_count'     => $count,
+            'period_start'      => $periodStart?->toDateString(),
+            'period_end'        => $periodEnd->toDateString(),
+            'period_end_jalali' => JalaliDateTimeInput::normalizeDate($periodEndJalali),
+        ];
+    }
+
+    public function executePeriodSettlement(string $periodEndJalali, ?User $actor = null): PlatformCommissionEntry
+    {
+        $preview = $this->previewPeriodSettlement($periodEndJalali);
+
+        if ($preview['net_amount'] <= 0) {
+            throw ValidationException::withMessages([
+                'settlementPeriodEndJalali' => 'برای این بازه مبلغ قابل تسویه‌ای وجود ندارد.',
+            ]);
+        }
+
+        $actor ??= Auth::user();
+
+        return DB::transaction(function () use ($preview, $actor): PlatformCommissionEntry {
+            return PlatformCommissionEntry::create([
+                'booking_id'            => null,
+                'accommodation_id'      => null,
+                'category'              => PlatformCommissionEntry::CATEGORY_ACCOMMODATION,
+                'category_key'          => PlatformCommissionEntry::CATEGORY_KEY_WALLET_SETTLEMENT,
+                'service_catalog_id'    => null,
+                'service_name'          => null,
+                'entry_type'            => PlatformCommissionEntry::TYPE_ADJUSTMENT,
+                'reason'                => PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT,
+                'transaction_amount'    => 0,
+                'commission_percentage' => 0,
+                'commission_cap'        => 0,
+                'commission_amount'     => -$preview['net_amount'],
+                'meta'                  => [
+                    'description'   => 'تسویه دوره کارمزد',
+                    'period_start'  => $preview['period_start'],
+                    'period_end'    => $preview['period_end'],
+                    'period_end_jalali' => $preview['period_end_jalali'],
+                    'settled_net'   => $preview['net_amount'],
+                    'entries_count' => $preview['entries_count'],
+                ],
+                'created_by'            => $actor?->id,
+            ]);
+        });
+    }
+
     public function syncBookingCommissions(Booking $booking, ?User $actor = null): void
     {
         DB::transaction(function () use ($booking, $actor) {
@@ -176,6 +386,10 @@ class PlatformCommissionService
      */
     public function buildCommissionTargets(Booking $booking): array
     {
+        if ($booking->booking_source === 'manual_service') {
+            return $this->buildManualServiceSaleCommissionTargets($booking);
+        }
+
         $commissionAmount = $this->calculateBookingCommission($booking);
         $bookingAmount = $this->bookingSubtotalBeforeCommission($booking);
 
@@ -326,6 +540,8 @@ class PlatformCommissionService
             $data['reason'] = PlatformCommissionEntry::REASON_BOOKING_CONFIRMED;
         }
 
+        $terms = $this->commissionTermsForEntry($data);
+
         return PlatformCommissionEntry::create([
             'booking_id'            => $booking->id,
             'accommodation_id'      => $booking->accommodation_id,
@@ -336,12 +552,34 @@ class PlatformCommissionService
             'entry_type'            => $data['entry_type'],
             'reason'                => $data['reason'],
             'transaction_amount'    => $data['transaction_amount'],
-            'commission_percentage' => 0,
-            'commission_cap'        => $this->fixedAmount(),
+            'commission_percentage' => $terms['commission_percentage'],
+            'commission_cap'        => $terms['commission_cap'],
             'commission_amount'     => $data['commission_amount'],
             'meta'                  => $data['meta'] ?? [],
             'created_by'            => $actor?->id ?? Auth::id(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{commission_percentage: int, commission_cap: int}
+     */
+    private function commissionTermsForEntry(array $data): array
+    {
+        $meta = $data['meta'] ?? [];
+        $model = $meta['commission_model'] ?? 'fixed_per_booking';
+
+        if ($model === 'percentage_capped') {
+            return [
+                'commission_percentage' => (int) ($meta['commission_percentage'] ?? $this->percentage()),
+                'commission_cap'        => (int) ($meta['commission_cap_rials'] ?? $this->percentageCommissionCap()),
+            ];
+        }
+
+        return [
+            'commission_percentage' => 0,
+            'commission_cap'        => $this->fixedAmount(),
+        ];
     }
 
     /** @return array<string, mixed> */

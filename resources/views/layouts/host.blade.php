@@ -90,12 +90,14 @@
             $hostHasPaymentRecords = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('bookings.list', 'read');
             $hostHasMedicalReport = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('bookings.medical-accommodation-report', 'read');
             $hostHasCancellation = $hostUser->hasHostPanelAccess('bookings') && $hostUser->hostCan('cancellation-requests.list', 'read');
+            $hostHasSupportiveReport = $hostUser->hostCan('programs.supportive-report', 'read');
             $hostBookingsNavOpen = request()->routeIs('host.bookings.*')
                 || request()->routeIs('host.booking-payment-records.*')
                 || request()->routeIs('host.medical-accommodation-report')
-                || request()->routeIs('host.cancellation-requests.*');
+                || request()->routeIs('host.cancellation-requests.*')
+                || request()->routeIs('host.programs.supportive-report');
         @endphp
-        @if($hostHasBookingsList || $hostHasMedicalReport || $hostHasCancellation)
+        @if($hostHasBookingsList || $hostHasMedicalReport || $hostHasCancellation || $hostHasSupportiveReport)
         <div class="ta-nav-group {{ $hostBookingsNavOpen ? 'open' : '' }}">
             <button type="button" class="ta-nav-link" data-label="رزروها" aria-expanded="{{ $hostBookingsNavOpen ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-calendar-check"></i>
@@ -120,6 +122,10 @@
                 <li><a href="{{ route('host.cancellation-requests.index') }}" wire:navigate
                        class="{{ request()->routeIs('host.cancellation-requests.*') ? 'active' : '' }}">کنسلی و استرداد وجه</a></li>
                 @endif
+                @if($hostHasSupportiveReport)
+                <li><a href="{{ route('host.programs.supportive-report') }}" wire:navigate
+                       class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
+                @endif
             </ul>
             </div>
         </div>
@@ -128,8 +134,8 @@
         <div class="ta-sidebar__section">خدمات</div>
 
         @if($hostUser->hasHostPanelAccess('programs'))
-        <div class="ta-nav-group {{ request()->routeIs('host.programs.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('host.programs.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+        <div class="ta-nav-group {{ request()->routeIs('host.programs.*') && !request()->routeIs('host.programs.supportive-report') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="برنامه‌ها و اردوها" aria-expanded="{{ request()->routeIs('host.programs.*') && !request()->routeIs('host.programs.supportive-report') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-flag"></i>
                 <span class="ta-nav-link__label">برنامه‌ها و اردوها</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
@@ -143,10 +149,6 @@
                 @if($hostUser->hostCan('programs.create', 'write'))
                 <li><a href="{{ route('host.programs.create') }}" wire:navigate
                        class="{{ request()->routeIs('host.programs.create') ? 'active' : '' }}">افزودن برنامه</a></li>
-                @endif
-                @if($hostUser->hostCan('programs.supportive-report', 'read'))
-                <li><a href="{{ route('host.programs.supportive-report') }}" wire:navigate
-                       class="{{ request()->routeIs('host.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
                 @endif
             </ul>
             </div>
@@ -303,7 +305,14 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
     window.taToggleSidebar = function (force) {
         var sb = document.getElementById('sidebar');
         var bd = document.getElementById('sidebarBackdrop');
+        if (!sb || !bd) return;
         var show = typeof force === 'boolean' ? force : !sb.classList.contains('show');
+        var morph = window.bnbIosPanelMorph;
+        if (morph && morph.shouldUse && morph.shouldUse()) {
+            if (show) morph.open(sb, bd);
+            else morph.close(sb, bd);
+            return;
+        }
         sb.classList.toggle('show', show);
         bd.classList.toggle('show', show);
     };

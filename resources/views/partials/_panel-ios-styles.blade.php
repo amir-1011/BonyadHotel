@@ -2077,6 +2077,30 @@
         opacity: 0;
     }
 
+    .ta-ios-morph-ghost--panel {
+        border-radius: 28px;
+    }
+
+    @media (max-width: 991.98px) {
+        body.ta-ios .ta-sidebar.ta-sidebar--ios-morph-host {
+            visibility: hidden;
+            transform: none !important;
+            transition: none !important;
+        }
+
+        body.ta-ios .ta-sidebar.ta-sidebar--ios-morph-host.ta-sidebar--ios-morph-visible {
+            visibility: visible;
+        }
+
+        /* Submenu sets visibility:visible when open — overrides hidden sidebar during morph */
+        body.ta-ios .ta-sidebar.ta-sidebar--ios-morph-host:not(.ta-sidebar--ios-morph-visible) .ta-submenu,
+        body.ta-ios .ta-sidebar.ta-sidebar--ios-morph-host:not(.ta-sidebar--ios-morph-visible) .ta-submenu a {
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+    }
+
     body.ta-ios .swal2-container.bnb-ios-overlay-container {
         inset: 0 !important;
         top: 0 !important;
@@ -2845,7 +2869,8 @@
 
         body.ta-ios .ta-topbar {
             border-radius: 18px;
-            padding: 7px 8px;
+            padding: 0 8px;
+            align-items: center;
         }
 
         body.ta-ios .ta-page {
@@ -2866,6 +2891,14 @@
         body.ta-ios .ta-breadcrumb-more {
             width: 40px;
             height: 40px;
+        }
+
+        body.ta-ios .ta-hamburger > i,
+        body.ta-ios .ta-icon-btn > i,
+        body.ta-ios .ta-breadcrumb-back > i,
+        body.ta-ios .ta-breadcrumb-more > i {
+            display: block;
+            line-height: 1;
         }
     }
 

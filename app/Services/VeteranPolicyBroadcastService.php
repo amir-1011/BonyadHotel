@@ -329,6 +329,8 @@ class VeteranPolicyBroadcastService
                     ->whereNotIn('key', $keptKeys)
                     ->delete();
             }
+
+            ServiceCatalog::query()->find($service->id)?->activateWhenHasActiveVariants();
         }
 
         $this->clearCachesFor($accommodationIds);

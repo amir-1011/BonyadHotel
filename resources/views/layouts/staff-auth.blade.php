@@ -7,7 +7,7 @@
     @if(config('test_site.enabled'))
     <meta name="bnb-test-site-mode" content="1">
     @endif
-    <title>ورود پنل مدیریت | سامانه رزرو</title>
+    <title>ورود پنل مدیریت | موسسه ایثار</title>
     <link rel="icon" type="image/png" href="{{ vasset('logo/site-logo.png') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}">
     <link rel="stylesheet" href="{{ vasset('vendor/bootstrap-icons/bootstrap-icons.css') }}">
@@ -72,9 +72,9 @@
             box-sizing: border-box;
         }
         .staff-auth-logo {
-            height: 72px;
+            height: 68px;
             width: auto;
-            max-width: 56px;
+            max-width: 68px;
             object-fit: contain;
             display: block;
             flex-shrink: 0;
@@ -230,7 +230,7 @@
             opacity: 0;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow: visible;
             will-change: top, left, width, height, opacity;
         }
         .staff-login-flying-logo.is-active { opacity: 1; }
@@ -254,8 +254,9 @@
         }
         .staff-login-logo-motion {
             position: relative;
+            flex: 1 1 auto;
             width: 100%;
-            height: 100%;
+            min-height: 0;
         }
         .staff-login-logo-motion svg {
             display: block;
@@ -263,56 +264,134 @@
             height: 100%;
             overflow: hidden;
         }
+        .staff-login-flying-logo__stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+        .staff-login-logo-caption {
+            flex: 0 0 auto;
+            margin: 14px 0 0;
+            padding: 0 4px;
+            width: max-content;
+            max-width: min(92vw, 420px);
+            text-align: center;
+            direction: rtl;
+            color: #475569;
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: clamp(13px, 2.6vw, 16px);
+            font-weight: 600;
+            line-height: 1.55;
+            letter-spacing: .1px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(10px);
+            filter: blur(3px);
+            transition:
+                opacity .55s cubic-bezier(0.22, 1, 0.36, 1),
+                transform .55s cubic-bezier(0.22, 1, 0.36, 1),
+                filter .55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .staff-login-flying-logo.is-story .staff-login-logo-caption {
+            animation: isar-caption-rise .72s cubic-bezier(0.22, 1, 0.36, 1) 1.82s both;
+        }
+        .staff-login-flying-logo.is-built .staff-login-logo-caption {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            animation: none;
+        }
+        .staff-login-flying-logo.is-to-corner .staff-login-logo-caption,
+        .staff-login-flying-logo.is-done .staff-login-logo-caption {
+            opacity: 0;
+            visibility: hidden;
+            position: absolute;
+            pointer-events: none;
+            transform: translateY(-8px);
+            filter: blur(2px);
+            transition:
+                opacity .28s ease,
+                transform .28s ease,
+                filter .28s ease,
+                visibility 0s linear .28s;
+        }
+        .staff-login-flying-logo.is-to-corner .staff-login-flying-logo__stack,
+        .staff-login-flying-logo.is-done .staff-login-flying-logo__stack {
+            display: block;
+        }
+        .staff-login-flying-logo.is-to-corner .staff-login-logo-motion,
+        .staff-login-flying-logo.is-done .staff-login-logo-motion {
+            width: 100%;
+            height: 100%;
+        }
         .staff-login-flying-logo .logo-piece {
             opacity: 0;
             stroke: none;
             stroke-width: 0;
             transform-box: fill-box;
         }
-        .staff-login-flying-logo.is-story .logo-hand-base {
-            transform-origin: 70% 100%;
-            animation: isar-hand-rise .78s cubic-bezier(0.22, 0.82, 0.2, 1) both;
+        .staff-login-flying-logo.is-story .logo-frame {
+            transform-origin: 50% 45%;
+            animation: isar-frame-rise .72s cubic-bezier(0.22, 0.82, 0.2, 1) both;
         }
-        .staff-login-flying-logo.is-story .logo-hand-palm {
-            transform-origin: 55% 95%;
-            animation: isar-hand-rise .84s cubic-bezier(0.22, 0.82, 0.2, 1) .12s both;
+        .staff-login-flying-logo.is-story .logo-tulip-left,
+        .staff-login-flying-logo.is-story .logo-tulip-right {
+            transform-origin: 50% 82%;
+            animation: isar-tulip-bloom .88s cubic-bezier(0.18, 0.84, 0.24, 1) .24s both;
         }
-        .staff-login-flying-logo.is-story .logo-bird-from-hand {
+        .staff-login-flying-logo.is-story .logo-tulip-right {
+            animation-delay: .34s;
+        }
+        .staff-login-flying-logo.is-story .logo-ribbon-green {
+            transform-origin: 50% 68%;
+            animation: isar-ribbon-wrap .76s cubic-bezier(0.22, 0.82, 0.2, 1) .68s both;
+        }
+        .staff-login-flying-logo.is-story .logo-ribbon-red {
+            transform-origin: 50% 74%;
+            animation: isar-ribbon-wrap .76s cubic-bezier(0.22, 0.82, 0.2, 1) .84s both;
+        }
+        .staff-login-flying-logo.is-story .logo-bird {
             transform-origin: 55% 100%;
-            animation: isar-emerge .82s cubic-bezier(0.18, 0.84, 0.24, 1) .5s both;
+            animation: isar-bird-flight .92s cubic-bezier(0.16, 0.86, 0.28, 1) .42s both;
         }
-        .staff-login-flying-logo.is-story .logo-bird-curve {
-            transform-origin: 50% 50%;
-            animation: isar-form .62s cubic-bezier(0.22, 0.82, 0.2, 1) .82s both;
-        }
-        .staff-login-flying-logo.is-story .logo-bird-wing {
-            transform-origin: 42% 100%;
-            animation: isar-unfurl .9s cubic-bezier(0.16, 0.86, 0.28, 1) 1.02s both;
+        .staff-login-flying-logo.is-story .logo-branch {
+            transform-origin: 50% 100%;
+            animation: isar-branch-grow .58s ease .94s both;
         }
         .staff-login-flying-logo.is-story .logo-script-left {
             animation: isar-ink-left .52s ease both;
-            animation-delay: calc(1.55s + (var(--isar-i, 0) * 55ms));
+            animation-delay: calc(1.34s + (var(--isar-i, 0) * 55ms));
         }
         .staff-login-flying-logo.is-story .logo-script-right {
             animation: isar-ink-right .52s ease both;
-            animation-delay: calc(1.72s + (var(--isar-i, 0) * 22ms));
+            animation-delay: calc(1.48s + (var(--isar-i, 0) * 22ms));
         }
-        @keyframes isar-hand-rise {
-            0%   { opacity: 0; transform: translateY(34%) scale(0.86); }
-            62%  { opacity: 1; }
+        @keyframes isar-caption-rise {
+            0%   { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+            100% { opacity: 1; transform: none; filter: none; }
+        }
+        @keyframes isar-frame-rise {
+            0%   { opacity: 0; transform: scale(0.9) translateY(5%); }
             100% { opacity: 1; transform: none; }
         }
-        @keyframes isar-emerge {
-            0%   { opacity: 0; transform: translateY(26%) scale(0.68); }
+        @keyframes isar-tulip-bloom {
+            0%   { opacity: 0; transform: scaleY(0.34) scaleX(0.84); }
+            68%  { opacity: 1; transform: scaleY(1.04) scaleX(1.02); }
             100% { opacity: 1; transform: none; }
         }
-        @keyframes isar-form {
+        @keyframes isar-ribbon-wrap {
+            0%   { opacity: 0; transform: translateX(16%) skewX(-7deg); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-bird-flight {
+            0%   { opacity: 0; transform: translate(-10%, -36%) scale(0.74); }
+            55%  { opacity: 1; transform: translate(2%, -5%) scale(1.03); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes isar-branch-grow {
             0%   { opacity: 0; transform: scale(0.42); }
-            100% { opacity: 1; transform: none; }
-        }
-        @keyframes isar-unfurl {
-            0%   { opacity: 0; transform: translateY(22%) scale(0.42); }
-            64%  { opacity: 1; transform: translateY(-4%) scale(1.05); }
             100% { opacity: 1; transform: none; }
         }
         @keyframes isar-ink-left {
@@ -375,41 +454,6 @@
             pointer-events: none;
             transition: opacity .45s ease;
         }
-        .staff-login-transition-text {
-            position: fixed;
-            inset: 0;
-            z-index: 10071;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding-top: 148px;
-            pointer-events: none;
-            direction: rtl;
-            color: #1e40af;
-            font-family: 'Vazirmatn', sans-serif;
-            font-size: 19px;
-            font-weight: 600;
-            letter-spacing: .2px;
-            min-height: 0;
-            overflow: hidden;
-            opacity: 0;
-            transition: opacity .35s ease;
-        }
-        .staff-login-transition-text.is-welcome {
-            opacity: 1;
-        }
-        .staff-login-transition-text.is-done {
-            opacity: 0;
-        }
-        .staff-login-transition-cursor {
-            display: inline-block;
-            width: 2px;
-            height: 20px;
-            margin-inline-start: 2px;
-            background: #1e40af;
-            animation: staff-login-caret-blink 0.9s steps(1) infinite;
-        }
-        @keyframes staff-login-caret-blink { 50% { opacity: 0; } }
         @media (prefers-reduced-motion: reduce) {
             .staff-login-transition-overlay,
             .staff-login-transition-overlay *,
@@ -419,7 +463,6 @@
                 transition-duration: .01ms !important;
                 animation: none !important;
             }
-            .staff-login-transition-cursor { animation: none; }
         }
     </style>
     @include('partials._persian-digits-script')
@@ -430,12 +473,14 @@
 
     <iframe id="staff-login-preload-frame" class="staff-login-preload-frame" title="پنل" aria-hidden="true" loading="eager" fetchpriority="high"></iframe>
     <div id="staff-login-transition-overlay" class="staff-login-transition-overlay" aria-hidden="true"></div>
-    <div id="staff-login-transition-text" class="staff-login-transition-text"></div>
     <div id="staff-login-flying-logo" class="staff-login-flying-logo" aria-hidden="true">
-        <div class="staff-login-logo-motion">
-            @if(is_file(public_path('logo/site-logo.svg')))
-                {!! file_get_contents(public_path('logo/site-logo.svg')) !!}
-            @endif
+        <div class="staff-login-flying-logo__stack">
+            <div class="staff-login-logo-motion">
+                @if(is_file(public_path('logo/site-logo.svg')))
+                    {!! file_get_contents(public_path('logo/site-logo.svg')) !!}
+                @endif
+            </div>
+            <p class="staff-login-logo-caption">سامانه جامع خدمات موسسه ایثار</p>
         </div>
     </div>
 
@@ -684,8 +729,9 @@
 
     <script>
         (function () {
-            var WELCOME_TEXT = 'به بنیادیار خوش آمدید';
             var LOGIN_URL = '{{ route('admin.login') }}';
+            var LOGO_CAPTION_GAP = 14;
+            var LOGO_CAPTION_HEIGHT = 34;
             var PANEL_ASSETS = [
                 '{{ vasset('vendor/tailadmin/tailadmin.css') }}',
                 '{{ vasset('vendor/bootstrap/bootstrap.rtl.min.css') }}',
@@ -751,23 +797,6 @@
                 }
             }
 
-            function typeText(el, text, speed, onDone) {
-                el.innerHTML = '<span class="staff-login-transition-typed"></span><span class="staff-login-transition-cursor"></span>';
-                var typedEl = el.querySelector('.staff-login-transition-typed');
-                var i = 0;
-
-                function step() {
-                    if (i <= text.length) {
-                        typedEl.textContent = text.slice(0, i);
-                        i++;
-                        setTimeout(step, speed);
-                    } else if (onDone) {
-                        onDone();
-                    }
-                }
-                step();
-            }
-
             function prefersReducedMotion() {
                 return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             }
@@ -805,19 +834,21 @@
                 });
             }
 
-            function centerLogoRect(source) {
-                var h = 128;
+            function centerLogoRect(source, includeCaption) {
+                includeCaption = includeCaption !== false;
+                var logoH = 132;
                 var w = source && source.height
-                    ? source.width * (h / source.height)
-                    : 98;
-                var textH = 28;
-                var gap = 18;
-                var group = h + gap + textH;
+                    ? source.width * (logoH / source.height)
+                    : 100;
+                var totalH = logoH;
+                if (includeCaption) {
+                    totalH += LOGO_CAPTION_GAP + LOGO_CAPTION_HEIGHT;
+                }
                 return {
-                    top: Math.max(24, (window.innerHeight - group) / 2),
+                    top: Math.max(24, (window.innerHeight - totalH) / 2),
                     left: (window.innerWidth - w) / 2,
                     width: w,
-                    height: h
+                    height: totalH
                 };
             }
 
@@ -958,7 +989,7 @@
                     el.style.setProperty('--isar-i', String(right++));
                 });
                 root.classList.add('is-story');
-                return wait(2920);
+                return wait(2680);
             }
 
             function showTestSiteNoticeIfNeeded(flag, iframe) {
@@ -1025,7 +1056,6 @@
                     var card = document.querySelector('.staff-auth-card');
                     var shell = document.querySelector('.staff-auth-shell');
                     var overlay = document.getElementById('staff-login-transition-overlay');
-                    var textEl = document.getElementById('staff-login-transition-text');
                     var flying = document.getElementById('staff-login-flying-logo');
                     var iframe = document.getElementById('staff-login-preload-frame');
                     var sourceLogo = document.querySelector('.staff-auth-logo');
@@ -1099,15 +1129,8 @@
                         }).then(function () {
                             flying.classList.add('is-built');
                             playCheckmarkSound();
-                            return wait(380);
+                            return wait(720);
                         }).then(function () {
-                            if (!textEl) return wait(300);
-                            textEl.classList.add('is-welcome');
-                            return new Promise(function (resolve) {
-                                typeText(textEl, WELCOME_TEXT, 45, resolve);
-                            }).then(function () { return wait(400); });
-                        }).then(function () {
-                            textEl && textEl.classList.add('is-done');
                             var dest = measureDashboardLogo(iframe)
                                 || fallbackCornerRect(sourceRect ? sourceRect.width : 56, sourceRect ? sourceRect.height : 72);
 

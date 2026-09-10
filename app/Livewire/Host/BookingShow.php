@@ -11,7 +11,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-#[Layout('layouts.host', ['title' => 'جزئیات رزرو', 'pageTitle' => 'جزئیات رزرو'])]
+#[Layout('layouts.host')]
 class BookingShow extends Component
 {
     use ManagesBookingDetails;
@@ -78,9 +78,15 @@ class BookingShow extends Component
 
     public function render()
     {
+        $isServiceSale = $this->booking->isManualServiceSale();
+        $pageTitle = $isServiceSale ? 'جزئیات فروش خدمات' : 'جزئیات رزرو';
+
         return view('host.bookings.show', [
             'booking' => $this->booking,
             'panel'   => 'host',
+        ])->layout('layouts.host', [
+            'title'     => $pageTitle,
+            'pageTitle' => $pageTitle,
         ]);
     }
 }

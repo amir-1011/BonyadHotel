@@ -95,7 +95,7 @@ class ManualBookingMedicalAccommodationTest extends TestCase
             ->assertSee('کارتخوان');
     }
 
-    public function test_medical_accommodation_allows_missing_referral_letter(): void
+    public function test_medical_accommodation_requires_referral_letter(): void
     {
         [$checkIn, $checkOut] = $this->futureStay(2);
 
@@ -110,8 +110,8 @@ class ManualBookingMedicalAccommodationTest extends TestCase
             ->call('nextStep')
             ->set('paymentMethod', Booking::PAYMENT_MEDICAL_ACCOMMODATION)
             ->call('nextStep')
-            ->assertHasNoErrors()
-            ->assertSet('step', 4);
+            ->assertHasErrors(['medicalReferralLetter'])
+            ->assertSet('step', 3);
     }
 
     public function test_medical_accommodation_livewire_flow_registers_regular_guest_without_discount(): void

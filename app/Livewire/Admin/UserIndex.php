@@ -135,7 +135,9 @@ class UserIndex extends Component
     public function toggleStatus(int $userId): void
     {
         $user = User::findOrFail($userId);
-        $user->update(['is_active' => !$user->is_active]);
+        $user->update([
+            'mobile_verified_at' => $user->mobile_verified_at ? null : now(),
+        ]);
         session()->flash('status', 'وضعیت کاربر تغییر کرد.');
         $this->dispatch('toast', type: 'success', message: 'وضعیت کاربر تغییر کرد.');
     }

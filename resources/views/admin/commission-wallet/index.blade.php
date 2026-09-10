@@ -12,13 +12,15 @@
         ['label' => 'موجودی کیف پول', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['balance'])), 'icon' => 'wallet2', 'suffix' => 'ریال'],
         ['label' => 'کل واریزی‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['total_credits'])), 'icon' => 'arrow-down-circle', 'suffix' => 'ریال'],
         ['label' => 'کل برگشت‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['total_reversals'])), 'icon' => 'arrow-up-circle', 'suffix' => 'ریال'],
+        ['label' => 'جمع تسویه‌شده', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['total_settled'])), 'icon' => 'cash-coin', 'suffix' => 'ریال'],
+        ['label' => 'آخرین تسویه تا', 'value' => $stats['last_settlement_end'] ? \App\Support\PdfPersian::toPersianDigits($stats['last_settlement_end']) : '—', 'icon' => 'calendar-check', 'suffix' => ''],
         ['label' => 'تعداد تراکنش‌ها', 'value' => \App\Support\PdfPersian::toPersianDigits(number_format($stats['entries_count'])), 'icon' => 'list-check', 'suffix' => 'رکورد'],
     ];
 @endphp
 
 <div class="row g-3 mb-3">
     @foreach($metrics as $m)
-    <div class="col-6 col-xl-3">
+    <div class="col-6 col-md-4 col-xl-2">
         <div class="ta-metric">
             <div class="ta-metric__icon"><i class="bi bi-{{ $m['icon'] }}"></i></div>
             <div class="ta-metric__label">{{ $m['label'] }}</div>
@@ -38,12 +40,17 @@
                 <i class="bi bi-chevron-down text-muted" style="font-size:.8rem"></i>
             @endif
         </span>
-        <a href="{{ route('admin.commission-wallet.export', $exportQuery) }}" class="btn btn-success btn-sm">
-            <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
-            @if($hasActiveFilters)
-            <span class="badge bg-white text-success ms-1">فیلترشده</span>
-            @endif
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" wire:click="openSettlementModal" class="btn btn-primary btn-sm">
+                <i class="bi bi-bank me-1"></i>تسویه دوره
+            </button>
+            <a href="{{ route('admin.commission-wallet.export', $exportQuery) }}" class="btn btn-success btn-sm">
+                <i class="bi bi-file-earmark-excel me-1"></i>خروجی اکسل
+                @if($hasActiveFilters)
+                <span class="badge bg-white text-success ms-1">فیلترشده</span>
+                @endif
+            </a>
+        </div>
     </div>
     <div class="collapse {{ $hasActiveFilters ? 'show' : 'show' }}" id="commissionFilterBody">
         <div class="card-body pb-2 pt-3">
@@ -78,6 +85,7 @@
                         <option value="booking_confirmed">ثبت رزرو</option>
                         <option value="amount_adjusted">تغییر مبلغ</option>
                         <option value="booking_cancelled">لغو رزرو</option>
+                        <option value="period_settlement">تسویه دوره</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
@@ -290,6 +298,90 @@
     @endif
 </div>
 
+@if($showSettlementModal)
+<div class="modal-backdrop fade show" style="z-index:1040;"></div>
+<div class="modal fade show d-block" style="z-index:1045;" tabindex="-1" wire:keydown.escape="closeSettlementModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-bank me-2"></i>تسویه دوره کارمزد</h5>
+                <button type="button" class="btn-close" wire:click="closeSettlementModal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">
+                    تراکنش‌های کارمزد (واریز، برگشت و تعدیل رزرو) از پایان آخرین تسویه تا تاریخ انتخابی جمع می‌شوند و با تأیید، یک رکورد تسویه از موجودی کیف پول کسر می‌گردد.
+                </p>
+                @if($stats['last_settlement_end'])
+                <div class="alert alert-light border small py-2 mb-3">
+                    آخرین تسویه تا: <strong>{{ \App\Support\PdfPersian::toPersianDigits($stats['last_settlement_end']) }}</strong>
+                    · مبلغ: {{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['last_settlement_amount'])) }} ریال
+                </div>
+                @endif
+                <label class="form-label small fw-semibold">پایان دوره (شمسی)</label>
+                <div class="input-group input-group-sm mb-2" wire:ignore>
+                    <input type="text"
+                           id="commission-settlement-period-end"
+                           class="form-control jalali-picker-commission-settlement"
+                           data-wire-prop="settlementPeriodEndJalali"
+                           value="{{ $settlementPeriodEndJalali }}"
+                           autocomplete="off"
+                           placeholder="۱۴۰۴/۰۶/۱۹">
+                    <button type="button" class="btn btn-outline-secondary commission-clear-date"
+                            data-target="commission-settlement-period-end"
+                            data-wire-prop="settlementPeriodEndJalali"
+                            tabindex="-1"><i class="bi bi-x"></i></button>
+                </div>
+                @error('settlementPeriodEndJalali')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary mb-3"
+                        id="commission-settlement-calc-btn">
+                    <i class="bi bi-calculator me-1"></i>محاسبه مبلغ دوره
+                </button>
+                @if($settlementPreview)
+                <div class="border rounded p-3 bg-light">
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span class="text-muted">تعداد رکورد در دوره</span>
+                        <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($settlementPreview['entries_count'])) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span class="text-muted">از تاریخ</span>
+                        <span>{{ $settlementPreview['period_start'] ? \App\Support\PdfPersian::toPersianDigits(str_replace('-', '/', $settlementPreview['period_start'])) : 'ابتدای دوره' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span class="text-muted">تا تاریخ</span>
+                        <span>{{ \App\Support\PdfPersian::toPersianDigits($settlementPreview['period_end_jalali'] ?? '') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                        <span class="fw-semibold">مبلغ قابل تسویه</span>
+                        <span class="fs-5 fw-bold text-primary">
+                            {{ \App\Support\PdfPersian::toPersianDigits(number_format($settlementPreview['net_amount'])) }} <span class="fs-6 fw-normal">ریال</span>
+                        </span>
+                    </div>
+                    <div class="text-muted small mt-2">
+                        موجودی پس از تسویه: {{ \App\Support\PdfPersian::toPersianDigits(number_format($stats['balance'] - $settlementPreview['net_amount'])) }} ریال
+                    </div>
+                </div>
+                @endif
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="closeSettlementModal">انصراف</button>
+                <button type="button"
+                        class="btn btn-primary"
+                        wire:click="confirmPeriodSettlement"
+                        wire:loading.attr="disabled"
+                        @if(!$settlementPreview || ($settlementPreview['net_amount'] ?? 0) <= 0) disabled @endif
+                        data-swal-confirm="تسویه این دوره ثبت شود و مبلغ از موجودی کیف پول کسر گردد؟"
+                        data-swal-confirm-title="تأیید تسویه دوره"
+                        data-swal-confirm-variant="warning">
+                    <span wire:loading.remove wire:target="confirmPeriodSettlement"><i class="bi bi-check2-circle me-1"></i>تأیید تسویه</span>
+                    <span wire:loading wire:target="confirmPeriodSettlement">در حال ثبت...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 </div>
 
 @push('scripts')
@@ -297,20 +389,38 @@
 (function () {
     var commissionDatepickersReady = false;
 
-    function commissionWire() {
-        var root = document.getElementById('commission-filter-form');
-        if (!root) return null;
-        var host = root.closest('[wire\\:id]');
+    function commissionWire(fromEl) {
+        var host = fromEl && fromEl.closest ? fromEl.closest('[wire\\:id]') : null;
+        if (!host) {
+            var root = document.getElementById('commission-filter-form');
+            host = root ? root.closest('[wire\\:id]') : document.querySelector('[wire\\:id]');
+        }
         if (!host) return null;
         return Livewire.find(host.getAttribute('wire:id'));
     }
 
-    function syncCommissionDateToWire(input) {
-        var wire = commissionWire();
+    function syncCommissionDateToWire(input, options) {
+        options = options || {};
+        var wire = commissionWire(input);
         var prop = input.getAttribute('data-wire-prop');
-        if (wire && prop) {
-            wire.set(prop, input.value || '');
+        if (!wire || !prop) {
+            return Promise.resolve();
         }
+
+        return wire.set(prop, input.value || '').then(function () {
+            if (options.refreshPreview && prop === 'settlementPeriodEndJalali' && typeof wire.call === 'function') {
+                return wire.call('refreshSettlementPreview');
+            }
+        });
+    }
+
+    function syncSettlementPeriodDate(refreshPreview) {
+        var input = document.getElementById('commission-settlement-period-end');
+        if (!input) {
+            return Promise.resolve();
+        }
+
+        return syncCommissionDateToWire(input, { refreshPreview: !!refreshPreview });
     }
 
     function syncAllCommissionDates() {
@@ -325,6 +435,14 @@
             }
         });
         commissionDatepickersReady = false;
+    }
+
+    function destroySettlementDatepicker() {
+        var $input = $('#commission-settlement-period-end');
+        if ($input.length && $input.data('pDatepicker')) {
+            try { $input.pDatepicker('destroy'); } catch (e) { /* ignore */ }
+            $input.removeData('pDatepicker');
+        }
     }
 
     function initCommissionDatepickers() {
@@ -348,13 +466,37 @@
                 },
                 onSelect: function () {
                     var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
-                    syncCommissionDateToWire(el);
+                    syncCommissionDateToWire(el, { refreshPreview: false });
                     if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(el);
                 },
             });
         });
 
         commissionDatepickersReady = true;
+    }
+
+    function initSettlementDatepicker() {
+        var $input = $('#commission-settlement-period-end');
+        if (!$input.length || $input.data('pDatepicker')) return;
+
+        $input.pDatepicker({
+            format: 'YYYY/MM/DD',
+            viewMode: 'day',
+            autoClose: true,
+            initialValue: false,
+            initialValueType: 'persian',
+            persianDigit: true,
+            toolbox: {
+                enabled: true,
+                todayButton: { enabled: true },
+                submitButton: { enabled: false },
+            },
+            onSelect: function () {
+                var el = this.model && this.model.inputElement ? this.model.inputElement : $input[0];
+                syncCommissionDateToWire(el, { refreshPreview: false });
+                if (window.BonyadJalaliDate) window.BonyadJalaliDate.syncInputTodayClass(el);
+            },
+        });
     }
 
     window.syncCommissionFilterDates = syncAllCommissionDates;
@@ -367,7 +509,15 @@
         });
 
         $(document).on('blur', '.jalali-picker-commission', function () {
-            syncCommissionDateToWire(this);
+            syncCommissionDateToWire(this, { refreshPreview: false });
+        });
+
+        $(document).on('blur', '.jalali-picker-commission-settlement', function () {
+            syncCommissionDateToWire(this, { refreshPreview: false });
+        });
+
+        $(document).on('click', '#commission-settlement-calc-btn', function () {
+            syncSettlementPeriodDate(true);
         });
 
         $(document).on('click', '.commission-clear-date', function () {
@@ -387,6 +537,13 @@
     });
 
     document.addEventListener('livewire:init', function () {
+        Livewire.on('init-commission-settlement-datepicker', function () {
+            requestAnimationFrame(function () {
+                destroySettlementDatepicker();
+                initSettlementDatepicker();
+            });
+        });
+
         Livewire.on('commission-wallet-dates-sync', function (data) {
             var from = (data && data.from) ? data.from : '';
             var to = (data && data.to) ? data.to : '';

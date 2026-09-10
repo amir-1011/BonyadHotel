@@ -77,6 +77,67 @@
         @media (max-width: 575.98px) {
             #manual-booking-form .mbf-pay { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
+        #manual-booking-form .mbf-pay--medical-options {
+            grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            margin-bottom: 0;
+        }
+        #manual-booking-form .mbf-pay-sublabel {
+            font-size: .68rem;
+            font-weight: 500;
+            color: #a8a8b3;
+            line-height: 1.25;
+            text-align: center;
+            padding: 0 4px;
+        }
+        #manual-booking-form .mbf-pay-option.is-active .mbf-pay-sublabel { color: #8b82f0; }
+        #manual-booking-form .mbf-pay-option.is-disabled {
+            opacity: .55;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-section-title {
+            font-size: .8rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-service-card {
+            border: 1px solid #e8eaef;
+            border-radius: .5rem;
+            background: #fff;
+            transition: box-shadow .15s ease;
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-service-card:hover {
+            box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-tier-ladder {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-tier-ladder li {
+            position: relative;
+            padding: .35rem .5rem .35rem 1.75rem;
+            font-size: .76rem;
+            color: #4b5563;
+            border-right: 2px solid #e5e7eb;
+            margin-right: .35rem;
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-tier-ladder li::before {
+            content: '';
+            position: absolute;
+            right: -.45rem;
+            top: .65rem;
+            width: .5rem;
+            height: .5rem;
+            border-radius: 50%;
+            background: #6366f1;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px #c7d2fe;
+        }
+        #manual-booking-form .mbf-veteran-status-card .mbf-vs-tier-ladder li:last-child {
+            border-right-color: transparent;
+        }
 
         #manual-booking-form .mbf-step-viewport {
             position: relative;
@@ -123,13 +184,21 @@
     </style>
     @error('submit')<div class="alert alert-danger">{{ $message }}</div>@enderror
 
+    @php
+        $isServiceSale = ($formMode ?? 'booking') === 'service_sale';
+        $mbfMaxStep = $isServiceSale ? 4 : 5;
+        $showBookerStep = ($isServiceSale && $step === 1) || (!$isServiceSale && $step === 2);
+        $showGuestServicesPane = (!$isServiceSale && $step === 3) || ($isServiceSale && ($step === 2 || $step === 3));
+        $priceSubmitAction = $isServiceSale ? 'submitManualServiceSale' : 'submitManualBooking';
+    @endphp
+
     <div class="row g-3">
-        <div class="{{ $step < 5 ? 'col-lg-8' : 'col-12' }} mbf-layout-main">
+        <div class="{{ $step < $mbfMaxStep ? 'col-lg-8' : 'col-12' }} mbf-layout-main">
         <div class="mbf-step-viewport">
         <div class="mbf-step-pane" wire:key="mbf-step-{{ $step }}" data-mbf-step="{{ $step }}">
 
     {{-- Step 1: Room & dates --}}
-    @if($step === 1)
+    @if($step === 1 && !$isServiceSale)
     <div class="card shadow-sm mb-3">
         <div class="card-header bg-white fw-semibold"><i class="bi bi-door-open me-2"></i>انتخاب اتاق و تاریخ</div>
         <div class="card-body">
@@ -214,7 +283,7 @@
     @endif
 
     {{-- Step 2: Booker identity & veteran discount --}}
-    @if($step === 2)
+    @if($showBookerStep)
     <div class="card shadow-sm mb-3">
         <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2"></i>مهمان اصلی و گروه ایثارگری</div>
         <div class="card-body">
@@ -224,7 +293,7 @@
                 <input type="checkbox" wire:model.live="bookerIsForeignGuest" class="form-check-input m-0" @if($bookerVerified) disabled @endif>
                 <div>
                     <div class="fw-semibold"><i class="bi bi-globe2 me-1"></i>مهمان خارجی</div>
-                    <div class="small text-muted">ثبت با شماره پاسپورت، کشور و شهر اقامت</div>
+                    <div class="small text-muted">ثبت با شماره پاسپورت، کشور و شهر اقامت (موبایل اختیاری)</div>
                 </div>
             </label>
 
@@ -244,7 +313,7 @@
                     @error('guestContactName')<div class="text-danger small">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small">شماره موبایل</label>
+                    <label class="form-label small">شماره موبایل <span class="text-muted fw-normal">(اختیاری)</span></label>
                     <input type="text" wire:model.live="guestContactMobile" class="form-control" placeholder="09xxxxxxxxx" dir="ltr" maxlength="11"
                            @if($bookerVerified && $bookerIsExistingUser) readonly @endif>
                     @error('guestContactMobile')<div class="text-danger small">{{ $message }}</div>@enderror
@@ -285,7 +354,7 @@
             <div class="border rounded p-3 bg-light mb-3 small">
                 <div class="row g-2">
                     <div class="col-md-3"><span class="text-muted">نام:</span> <strong>{{ $guestContactName ?: '—' }}</strong></div>
-                    <div class="col-md-3"><span class="text-muted">موبایل:</span> <strong dir="ltr">{{ $guestContactMobile }}</strong></div>
+                    <div class="col-md-3"><span class="text-muted">موبایل:</span> <strong dir="ltr">{{ $guestContactMobile ?: '—' }}</strong></div>
                     <div class="col-md-3"><span class="text-muted">پاسپورت:</span> <strong dir="ltr">{{ $bookerPassportNumber }}</strong></div>
                     <div class="col-md-3"><span class="text-muted">محل اقامت:</span>
                         <strong>
@@ -405,364 +474,62 @@
             @endif
 
             @if(!empty($usageSummary))
-            @php
-                $usedTotal        = (int) ($usageSummary['used_total']             ?? 0);
-                $totalQuota       = (int) ($usageSummary['total_quota']            ?? 0);
-                $remainingTotal   = (int) ($usageSummary['remaining_total']        ?? 0);
-                $usedPeriod       = (int) ($usageSummary['used_in_period']         ?? 0);
-                $maxPeriod        = (int) ($usageSummary['max_nights_per_period']  ?? 3);
-                $remainPeriod     = (int) ($usageSummary['remaining_period']       ?? 0);
-                $periodMonths     = (int) ($usageSummary['period_months']          ?? 6);
-                $weeklyUsage      = $usageSummary['weekly_free_usage'] ?? [];
-                $hasWeeklyFree    = !empty($weeklyUsage);
-                $accDiscount      = (int) ($usageSummary['accommodation_discount'] ?? 0);
-                $nightsPerDep     = (int) ($usageSummary['nights_per_dependent']   ?? 6);
-
-                // Progress bar: period usage (more critical cap)
-                $periodPct  = $maxPeriod > 0 ? min(100, (int) round($usedPeriod / $maxPeriod * 100)) : 0;
-                $totalPct   = $totalQuota > 0 ? min(100, (int) round($usedTotal / $totalQuota * 100)) : 0;
-
-                $periodColor = $periodPct >= 100 ? 'danger' : ($periodPct >= 67 ? 'warning' : 'success');
-                $totalColor  = $totalPct  >= 100 ? 'danger' : ($totalPct  >= 67 ? 'warning' : 'primary');
-
-                // How many nights of this booking can receive veteran discount
-                $combinedRemain = (int) ($usageSummary['combined_remaining_discounted_nights'] ?? 0);
-                $canBookNights = $combinedRemain > 0
-                    ? $combinedRemain
-                    : (($usageSummary['unlimited_total_quota'] ?? false)
-                        ? $remainPeriod
-                        : min($remainPeriod, $remainingTotal));
-                $requestedNights = 0;
-                if ($checkIn && $checkOut) {
-                    $requestedNights = (int) (new \DateTime($checkIn))->diff(new \DateTime($checkOut))->days;
-                }
-                $accUsage = $accommodationUsageCheck ?? [];
-                if (!empty($accUsage['discounted_nights']) && $requestedNights > 0) {
-                    $discountedNights = (int) $accUsage['discounted_nights'];
-                } else {
-                    $discountedNights = min($canBookNights, $requestedNights);
-                }
-                $fullRateNights = max(0, $requestedNights - $discountedNights);
-                $groupSummaries = $usageSummary['group_summaries'] ?? [];
-                $dualGroupCaps = count($groupSummaries) > 1;
-                $periodDeductions = $usageSummary['period_deductions'] ?? [];
-            @endphp
-            <div class="border rounded mt-3" style="font-size:.83rem; overflow:hidden">
-
-                {{-- Header --}}
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 bg-light border-bottom flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <i class="bi bi-shield-fill-check text-primary"></i>
-                        <span class="fw-semibold">وضعیت سقف استفاده</span>
-                        <span class="badge bg-primary bg-opacity-10 text-primary">{{ $usageSummary['label'] }}</span>
-                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">
-                            <i class="bi bi-globe2 me-1"></i>سهمیه مشترک بین تمام اقامتگاه‌ها
-                        </span>
-                    </div>
-                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                        <i class="bi bi-house me-1"></i>
-                        @if($dualGroupCaps)
-                            تخفیف اقامت: تا {{ $accDiscount }}٪ (چند گروه)
-                        @elseif(!empty($usageSummary['group_summaries'][0]['use_tiered_accommodation_discount'] ?? false))
-                            تخفیف اقامت: پلکانی
-                        @else
-                            تخفیف اقامت: {{ $accDiscount }}٪
-                        @endif
-                    </span>
-                </div>
-
-                <div class="px-3 py-2">
-
-                    {{-- ── Period cap (most restrictive) ── --}}
-                    @if($dualGroupCaps)
-                    <div class="mb-3">
-                        <div class="fw-semibold mb-2">
-                            <i class="bi bi-calendar-range me-1 text-primary"></i>
-                            سقف دوره‌ای هر گروه ({{ $periodMonths }} ماه)
-                        </div>
-                        @foreach($groupSummaries as $groupSummary)
-                        @php
-                            $gUsed = (int) ($groupSummary['used_in_period'] ?? 0);
-                            $gMax = (int) ($groupSummary['max_nights_per_period'] ?? 3);
-                            $gRemain = (int) ($groupSummary['remaining_period'] ?? 0);
-                            $gPct = $gMax > 0 ? min(100, (int) round($gUsed / $gMax * 100)) : 0;
-                            $gColor = $gPct >= 100 ? 'danger' : ($gPct >= 67 ? 'warning' : 'success');
-                        @endphp
-                        <div class="mb-2 ps-1">
-                            <div class="d-flex justify-content-between align-items-baseline mb-1">
-                                <span class="small fw-semibold">{{ $groupSummary['label'] ?? '' }}
-                                    <span class="text-muted fw-normal">({{ (int) ($groupSummary['accommodation_discount'] ?? 0) }}٪)</span>
-                                </span>
-                                <span class="text-{{ $gColor }} small fw-bold">{{ $gUsed }} / {{ $gMax }} شب</span>
-                            </div>
-                            <div class="progress" style="height:6px; border-radius:4px">
-                                <div class="progress-bar bg-{{ $gColor }}" style="width:{{ $gPct }}%"></div>
-                            </div>
-                            <div class="small text-muted mt-1">
-                                @if($gRemain > 0)
-                                    {{ $gRemain }} شب باقی‌مانده در این دوره
-                                @else
-                                    <span class="text-danger">سقف این گروه در دوره جاری تکمیل شده</span>
-                                @endif
-                            </div>
-                            @php $gDeductions = $groupSummary['period_deductions'] ?? []; @endphp
-                            @if(!empty($gDeductions))
-                            <div class="mt-2 ps-2 border-start border-2 border-{{ $gColor }} border-opacity-50">
-                                <div class="small fw-semibold text-muted mb-1">
-                                    <i class="bi bi-clock-history me-1"></i>رزروهای کاهش‌دهنده سهمیه
-                                </div>
-                                @foreach($gDeductions as $deduction)
-                                <div class="small d-flex justify-content-between gap-2 py-1 {{ !$loop->last ? 'border-bottom border-light' : '' }}">
-                                    <span>
-                                        <span dir="ltr" class="text-muted">{{ $deduction['tracking_code'] ?? '—' }}</span>
-                                        · {{ $deduction['accommodation_name'] }}
-                                        · @jalali($deduction['check_in']) تا @jalali($deduction['check_out'])
-                                    </span>
-                                    <span class="text-{{ $gColor }} fw-bold text-nowrap">{{ $deduction['nights'] }} شب</span>
-                                </div>
-                                @endforeach
-                            </div>
-                            @endif
-                        </div>
-                        @endforeach
-                        @if($combinedRemain > 0)
-                        <div class="small text-muted">
-                            <i class="bi bi-layers me-1"></i>مجموع ظرفیت باقی‌مانده برای تخفیف اقامت: <strong>{{ $combinedRemain }} شب</strong>
-                        </div>
-                        @endif
-                    </div>
-                    @else
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-baseline mb-1">
-                            <span class="fw-semibold">
-                                <i class="bi bi-calendar-range me-1 text-{{ $periodColor }}"></i>
-                                سقف دوره‌ای ({{ $periodMonths }} ماه)
-                            </span>
-                            <span class="text-{{ $periodColor }} fw-bold">
-                                {{ $usedPeriod }} / {{ $maxPeriod }} شب استفاده‌شده
-                            </span>
-                        </div>
-                        <div class="progress" style="height:8px; border-radius:4px">
-                            <div class="progress-bar bg-{{ $periodColor }}"
-                                 style="width:{{ $periodPct }}%"
-                                 title="{{ $usedPeriod }} شب از {{ $maxPeriod }} شب"></div>
-                        </div>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="text-muted">
-                                @if($remainPeriod > 0)
-                                    <i class="bi bi-check-circle text-success me-1"></i>{{ $remainPeriod }} شب باقی‌مانده در این دوره
-                                @else
-                                    <i class="bi bi-x-circle text-danger me-1"></i>سقف این دوره تکمیل شده
-                                @endif
-                            </span>
-                            <span class="text-muted">هر {{ $periodMonths }} ماه تجدید می‌شود</span>
-                        </div>
-                        @if(!empty($periodDeductions))
-                        <div class="mt-2 ps-2 border-start border-2 border-{{ $periodColor }} border-opacity-50">
-                            <div class="small fw-semibold text-muted mb-1">
-                                <i class="bi bi-clock-history me-1"></i>رزروهای کاهش‌دهنده سهمیه ({{ $periodMonths }} ماه اخیر)
-                            </div>
-                            @foreach($periodDeductions as $deduction)
-                            <div class="small d-flex justify-content-between gap-2 py-1 {{ !$loop->last ? 'border-bottom border-light' : '' }}">
-                                <span>
-                                    <span dir="ltr" class="text-muted">{{ $deduction['tracking_code'] ?? '—' }}</span>
-                                    · {{ $deduction['accommodation_name'] }}
-                                    · @jalali($deduction['check_in']) تا @jalali($deduction['check_out'])
-                                </span>
-                                <span class="text-{{ $periodColor }} fw-bold text-nowrap">{{ $deduction['nights'] }} شب</span>
-                            </div>
-                            @endforeach
-                        </div>
-                        @elseif($usedPeriod === 0)
-                        <div class="small text-muted mt-2">
-                            <i class="bi bi-check-circle text-success me-1"></i>هیچ مصرفی در دوره جاری ثبت نشده
-                        </div>
-                        @endif
-                    </div>
-                    @endif
-
-                    {{-- ── Total lifetime quota ── --}}
-                    <div class="mb-2 d-none">
-                        <div class="d-flex justify-content-between align-items-baseline mb-1">
-                            <span class="fw-semibold">
-                                <i class="bi bi-infinity me-1 text-{{ $totalColor }}"></i>
-                                سقف کل اقامت
-                            </span>
-                            <span class="text-{{ $totalColor }} fw-bold">
-                                {{ $usedTotal }} / {{ $totalQuota }} شب
-                            </span>
-                        </div>
-                        <div class="progress" style="height:6px; border-radius:4px">
-                            <div class="progress-bar bg-{{ $totalColor }}"
-                                 style="width:{{ $totalPct }}%"></div>
-                        </div>
-                        <div class="mt-1 text-muted">
-                            <i class="bi bi-people me-1"></i>
-                            {{ $this->totalGuests }} نفر × {{ $nightsPerDep }} شب/نفر = {{ $totalQuota }} شب کل
-                            @if($remainingTotal > 0)
-                            · {{ $remainingTotal }} شب باقی‌مانده
-                            @else
-                            · <span class="text-danger">سقف کل تکمیل شده</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- ── Veteran discount nights for this booking ── --}}
-                    @if($requestedNights > 0)
-                        @if($discountedNights > 0 && $fullRateNights > 0)
-                        <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mt-2"
-                             style="background:#fff8e1; border:1px solid #ffe082">
-                            <i class="bi bi-info-circle-fill text-warning"></i>
-                            <span>
-                                از <strong>{{ $requestedNights }} شب</strong> این رزرو:
-                                <strong class="text-success">{{ $discountedNights }} شب</strong> با تخفیف ایثارگری و
-                                <strong>{{ $fullRateNights }} شب</strong> با نرخ عادی محاسبه می‌شود
-                                @if(!empty($accUsage['night_tiers'] ?? $accUsage['night_discounts']))
-                                @php
-                                    $bookingTierCounts = collect($accUsage['night_tiers'] ?? [])
-                                        ->filter(fn ($tier) => \App\Services\AccommodationDiscountTierEngine::tierHasDiscount($tier))
-                                        ->countBy(fn ($tier) => \App\Services\AccommodationDiscountTierEngine::tierType($tier)
-                                            . '|' . ($tier['pay_amount'] ?? '')
-                                            . '|' . ($tier['discount_percentage'] ?? ''));
-                                    if ($bookingTierCounts->isEmpty() && empty($accUsage['night_tiers']) && !empty($accUsage['night_discounts'])) {
-                                        $bookingTierCounts = collect($accUsage['night_discounts'])
-                                            ->filter(fn ($pct) => (int) $pct > 0)
-                                            ->countBy()
-                                            ->sortKeysDesc();
-                                    }
-                                @endphp
-                                @if($bookingTierCounts->count() > 1)
-                                <br><span class="text-muted" style="font-size:.78rem">
-                                    پله‌های این رزرو:
-                                    @foreach($bookingTierCounts as $tierKey => $count)
-                                        @php
-                                            [$tierType, $payAmount, $pct] = array_pad(explode('|', (string) $tierKey, 3), 3, '');
-                                        @endphp
-                                        <span class="d-inline-block me-2">
-                                            {{ $count }} شب ×
-                                            @if($tierType === 'fixed_pay')
-                                                مبلغ ثابت {{ \App\Support\PdfPersian::toPersianDigits(number_format((int) $payAmount)) }} ریال
-                                            @elseif($tierType === 'free')
-                                                رایگان
-                                            @else
-                                                {{ is_numeric($tierKey) ? $tierKey : $pct }}٪
-                                            @endif
-                                        </span>
-                                    @endforeach
-                                </span>
-                                @endif
-                                @endif
-                                @if(!empty($accUsage['group_usage']))
-                                <br><span class="text-muted" style="font-size:.78rem">
-                                    @foreach($accUsage['group_usage'] as $gKey => $gUnits)
-                                        @php $gInfo = $veteranGroups[$gKey] ?? null; @endphp
-                                        @if($gInfo)
-                                            <span class="d-inline-block me-2">{{ $gUnits }} شب
-                                                @if(!empty($gInfo['use_tiered_accommodation_discount']))
-                                                    (پلکانی · {{ $gInfo['label'] }})
-                                                @else
-                                                    با {{ $gInfo['discount'] }}٪ ({{ $gInfo['label'] }})
-                                                @endif
-                                            </span>
-                                        @endif
-                                    @endforeach
-                                </span>
-                                @endif
-                            </span>
-                        </div>
-                        @elseif($discountedNights > 0)
-                        <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mt-2"
-                             style="background:#e8f5e9; border:1px solid #a5d6a7">
-                            <i class="bi bi-moon-stars-fill text-success"></i>
-                            <span>تمام <strong class="text-success">{{ $discountedNights }} شب</strong> این رزرو با تخفیف ایثارگری محاسبه می‌شود</span>
-                        </div>
-                        @else
-                        <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mt-2"
-                             style="background:#fdecea; border:1px solid #ef9a9a">
-                            <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-                            <span class="text-danger fw-semibold">سقف تخفیف ایثارگری تکمیل شده — تمام {{ $requestedNights }} شب با نرخ عادی محاسبه می‌شود</span>
-                        </div>
-                        @endif
-                    @elseif($canBookNights > 0)
-                    <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mt-2"
-                         style="background:#e8f5e9; border:1px solid #a5d6a7">
-                        <i class="bi bi-moon-stars-fill text-success"></i>
-                        <span>حداکثر <strong class="text-success">{{ $canBookNights }} شب</strong> با تخفیف ایثارگری در دسترس است</span>
-                    </div>
-                    @else
-                    <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mt-2"
-                         style="background:#fdecea; border:1px solid #ef9a9a">
-                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-                        <span class="text-danger fw-semibold">سقف تخفیف ایثارگری تکمیل شده — شب‌های اضافه با نرخ عادی محاسبه می‌شوند</span>
-                    </div>
-                    @endif
-
-                    {{-- ── Free sport sessions ── --}}
-                    @if($hasWeeklyFree)
-                    <div class="border-top mt-3 pt-2">
-                        <div class="fw-semibold mb-2">
-                            <i class="bi bi-trophy-fill text-warning me-1"></i>جلسات رایگان هفتگی
-                            <span class="text-muted fw-normal" style="font-size:.75rem">(هفته ورود: @jalali($checkIn))</span>
-                        </div>
-                        <div class="row g-2">
-                            @foreach([
-                                ['key'=>'pool','catalog'=>'pool','icon'=>'droplet-fill','label'=>'استخر'],
-                                ['key'=>'gym','catalog'=>'gym','icon'=>'dumbbell','label'=>'بدنسازی'],
-                                ['key'=>'multi','catalog'=>'multi_purpose_hall','icon'=>'grid-fill','label'=>'سالن چند منظوره'],
-                            ] as $sport)
-                            @php
-                                $svcUsage = $weeklyUsage[$sport['catalog']] ?? null;
-                                if (!$svcUsage) {
-                                    continue;
-                                }
-                                $svcUsed = $svcUsage['used'] ?? 0;
-                                $svcQuota = $svcUsage['quota'] ?? 0;
-                                $svcRemain = $svcUsage['remaining'] ?? $svcQuota;
-                                $svcColor = $svcRemain <= 0 ? 'danger' : ($svcUsed > 0 ? 'warning' : 'success');
-                            @endphp
-                            <div class="col-4">
-                                <div class="text-center border rounded py-2 border-{{ $svcColor }} border-opacity-25" style="background:#fff8e1">
-                                    <i class="bi bi-{{ $sport['icon'] }} text-warning d-block mb-1" style="font-size:1.1rem"></i>
-                                    <div class="fw-bold text-{{ $svcColor }}" style="font-size:1rem">{{ $svcRemain }}</div>
-                                    <div class="text-muted" style="font-size:.72rem">باقی‌مانده از {{ $svcQuota }}</div>
-                                    @if($svcUsed > 0)
-                                    <div class="text-{{ $svcColor }}" style="font-size:.7rem">{{ $svcUsed }} استفاده‌شده</div>
-                                    @endif
-                                    <div class="small fw-semibold mt-1">{{ $sport['label'] }}</div>
-                                </div>
-                            </div>
-                            @endforeach
-                        </div>
-                        <div class="text-muted mt-2" style="font-size:.75rem">
-                            <i class="bi bi-info-circle me-1"></i>
-                            سهمیه رایگان بین تمام رزروهای همان هفته در تمام اقامتگاه‌ها مشترک است — جلسات بیشتر با نرخ عادی محاسبه می‌شود
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- ── Notes ── --}}
-                    @if(!empty($usageSummary['usage_notes']))
-                    <div class="border-top mt-2 pt-2 text-muted">
-                        <i class="bi bi-journal-text me-1"></i>{{ $usageSummary['usage_notes'] }}
-                    </div>
-                    @endif
-
-                </div>
-            </div>
+            <x-manual-booking.veteran-usage-status-card
+                :usage-summary="$usageSummary"
+                :service-catalog-summary="$serviceDiscountCatalogSummary ?? []"
+                :accommodation-usage-check="$accommodationUsageCheck ?? []"
+                :veteran-groups="$veteranGroups"
+                :check-in="$checkIn"
+                :check-out="$checkOut"
+                :total-guests="$this->totalGuests"
+            />
             @endif
             @endif
         </div>
     </div>
     @endif
 
-    {{-- Step 3: Payment, guests & per-guest services --}}
-    @if($step === 3)
+    {{-- Step 3: Payment, guests & per-guest services (service sale: step 2 = services, step 3 = payment) --}}
+    @if($showGuestServicesPane)
     <div class="card shadow-sm mb-3">
-        <div class="card-header bg-white fw-semibold"><i class="bi bi-credit-card me-2"></i>پرداخت و سایر مهمانان</div>
+        <div class="card-header bg-white fw-semibold">
+            @if($isServiceSale && $step === 2)
+                <i class="bi bi-bag-plus me-2"></i>خدمات
+            @elseif($isServiceSale && $step === 3)
+                <i class="bi bi-credit-card me-2"></i>پرداخت
+            @else
+                <i class="bi bi-credit-card me-2"></i>پرداخت و سایر مهمانان
+            @endif
+        </div>
+        @if($isServiceSale && $step === 2)
+        <div class="alert alert-light border-0 border-bottom rounded-0 small mb-0 py-2 px-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="flex-grow-1" style="min-width:0">
+                    <strong><i class="bi bi-bag-plus me-1"></i>فهرست خدمات اقامتگاه</strong>
+                    <div class="d-flex flex-wrap align-items-center gap-1 text-muted mt-1" dir="rtl">
+                        <span>خدمت والد <span class="opacity-75">(مثل رستوران)</span></span>
+                        <i class="bi bi-chevron-left text-secondary" aria-hidden="true"></i>
+                        <span>انواع با قیمت <span class="opacity-75">(مثل زرشک‌پلو)</span></span>
+                        <i class="bi bi-chevron-left text-secondary" aria-hidden="true"></i>
+                        <span>تخفیف و سهمیه ایثارگری <span class="opacity-75">(تنظیمات اولیه)</span></span>
+                    </div>
+                </div>
+                <button type="button" wire:click="openInlineServiceCatalogModal" class="btn btn-sm btn-primary flex-shrink-0">
+                    <i class="bi bi-grid-3x3-gap me-1"></i>مدیریت و تعریف خدمات
+                </button>
+            </div>
+        </div>
+        @endif
         <div class="card-body">
             {{-- Booker summary from step 2 --}}
             <div class="card shadow-sm border-primary border-opacity-25 mb-4">
-                <div class="card-header bg-primary bg-opacity-10 py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="card-header bg-primary bg-opacity-10 py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2"
+                     role="button"
+                     style="cursor:pointer"
+                     data-bs-toggle="collapse"
+                     data-bs-target="#mbf-booker-summary-collapse"
+                     aria-expanded="false"
+                     aria-controls="mbf-booker-summary-collapse">
                     <div class="d-flex align-items-center gap-2">
                         <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center flex-shrink-0"
                               style="width:32px;height:32px;font-size:.95rem">
@@ -770,10 +537,14 @@
                         </span>
                         <span class="small fw-semibold text-primary">مهمان اصلی</span>
                     </div>
-                    @if($bookerIsForeignGuest)
-                    <span class="badge bg-info-subtle text-info border border-info-subtle">خارجی</span>
-                    @endif
+                    <div class="d-flex align-items-center gap-2">
+                        @if($bookerIsForeignGuest)
+                        <span class="badge bg-info-subtle text-info border border-info-subtle">خارجی</span>
+                        @endif
+                        <i class="bi bi-chevron-down text-primary" style="font-size:.85rem"></i>
+                    </div>
                 </div>
+                <div class="collapse" id="mbf-booker-summary-collapse">
                 <div class="card-body py-3 px-3">
                     <div class="row g-2">
                         <div class="col-sm-6 col-md-3">
@@ -826,8 +597,10 @@
                         @endif
                     </div>
                 </div>
+                </div>
             </div>
 
+            @if(!$isServiceSale || $step === 3)
             <div class="col-12 mb-4">
                 <label class="form-label small">یادداشت</label>
                 <textarea wire:model="notes" class="form-control" rows="2"></textarea>
@@ -840,6 +613,7 @@
                     <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-credit-card-2-front"></i></span>
                     <span class="mbf-pay-label">کارتخوان</span>
                 </label>
+                @if(!$isServiceSale)
                 <label class="mbf-pay-option {{ $paymentMethod === 'medical_accommodation' ? 'is-active' : '' }}" data-kind="medical">
                     <input type="radio" wire:model.live="paymentMethod" value="medical_accommodation" class="mbf-pay-input">
                     <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
@@ -850,6 +624,7 @@
                     <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
                     <span class="mbf-pay-label">اعتباری</span>
                 </label>
+                @endif
             </div>
 
             @if($this->isMedicalAccommodationPayment())
@@ -862,18 +637,31 @@
                             مبلغ اقامت بر اساس نوع تعرفه شبانه محاسبه می‌شود، تخفیف ایثارگری اعمال نمی‌شود
                             و از سهمیه جانبازی کسر نمی‌شود، اما گروه ایثارگری انتخاب‌شده روی پروفایل مهمان ذخیره می‌ماند.
                             مهمان وجه اقامت را پرداخت نمی‌کند و کل مبلغ به‌صورت بدهی کارفرما (بیمه دی) ثبت می‌شود.
-                            کاهش تاریخ اقامت بدون جریمه انجام می‌شود. بارگذاری معرفی‌نامه اختیاری است.
+                            کاهش تاریخ اقامت بدون جریمه انجام می‌شود. بارگذاری سند معرفی‌نامه الزامی است.
                         </div>
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold mb-1">شماره قرارداد <span class="text-danger">*</span></label>
-                    <select wire:model.live="medicalContractId" class="form-select @error('medicalContractId') is-invalid @enderror">
-                        <option value="">— انتخاب قرارداد —</option>
+                    <div class="mbf-pay mbf-pay--medical-options" role="radiogroup" aria-label="شماره قرارداد">
                         @foreach($medicalContracts as $contract)
-                            <option value="{{ $contract->id }}">{{ $contract->displayLabel() }}</option>
+                        <label class="mbf-pay-option {{ (int) $medicalContractId === (int) $contract->id ? 'is-active' : '' }}" data-kind="medical">
+                            <input type="radio"
+                                   wire:model.live="medicalContractId"
+                                   value="{{ $contract->id }}"
+                                   class="mbf-pay-input">
+                            <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-file-earmark-medical"></i></span>
+                            <span class="mbf-pay-label" dir="ltr">{{ $contract->contract_number }}</span>
+                            @if($contract->starts_on || $contract->ends_on)
+                            <span class="mbf-pay-sublabel">
+                                @if($contract->starts_on){{ \Morilog\Jalali\Jalalian::fromCarbon($contract->starts_on)->format('Y/m/d') }}@else…@endif
+                                تا
+                                @if($contract->ends_on){{ \Morilog\Jalali\Jalalian::fromCarbon($contract->ends_on)->format('Y/m/d') }}@else…@endif
+                            </span>
+                            @endif
+                        </label>
                         @endforeach
-                    </select>
+                    </div>
                     @error('medicalContractId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     @if($medicalContracts->isEmpty())
                     <div class="text-danger small mt-1">برای این تاریخ اقامت قرارداد فعالی وجود ندارد. ابتدا از بخش اسکان درمانی قرارداد را ثبت کنید یا بازهٔ قرارداد را بررسی کنید.</div>
@@ -881,18 +669,25 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold mb-1">نوع تعرفه <span class="text-danger">*</span></label>
-                    <select wire:model.live="medicalTariffId" class="form-select @error('medicalTariffId') is-invalid @enderror" @disabled($medicalContracts->isEmpty())>
-                        <option value="">— انتخاب تعرفه —</option>
+                    <div class="mbf-pay mbf-pay--medical-options {{ $medicalContracts->isEmpty() ? 'opacity-50 pe-none' : '' }}" role="radiogroup" aria-label="نوع تعرفه">
                         @foreach($medicalTariffs as $tariff)
-                            <option value="{{ $tariff->id }}">
-                                {{ $tariff->label }}
-                                — {{ \App\Support\PdfPersian::toPersianDigits(number_format($tariff->nightly_rate)) }} ریال / شب
+                        <label class="mbf-pay-option {{ (int) $medicalTariffId === (int) $tariff->id ? 'is-active' : '' }} {{ $medicalContracts->isEmpty() ? 'is-disabled' : '' }}" data-kind="medical">
+                            <input type="radio"
+                                   wire:model.live="medicalTariffId"
+                                   value="{{ $tariff->id }}"
+                                   class="mbf-pay-input"
+                                   @disabled($medicalContracts->isEmpty())>
+                            <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
+                            <span class="mbf-pay-label">{{ $tariff->label }}</span>
+                            <span class="mbf-pay-sublabel">
+                                {{ \App\Support\PdfPersian::toPersianDigits(number_format($tariff->nightly_rate)) }} ریال / شب
                                 @if($tariff->max_companions > 0)
-                                    · حداکثر {{ $tariff->max_companions }} همراه
+                                    · {{ $tariff->max_companions }} همراه
                                 @endif
-                            </option>
+                            </span>
+                        </label>
                         @endforeach
-                    </select>
+                    </div>
                     @error('medicalTariffId')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     @if($medicalContracts->isNotEmpty() && $medicalTariffs->isEmpty())
                     <div class="text-danger small mt-1">تعرفه فعالی برای قرارداد انتخاب‌شده تعریف نشده است. ابتدا از بخش اسکان درمانی تعرفه را ثبت کنید.</div>
@@ -900,28 +695,75 @@
                 </div>
                 @if(!empty($pricing['medical']))
                 @php $med = $pricing['medical']; @endphp
-                <div class="small bg-white border rounded p-2 mb-3">
-                    <div>تعرفه: <strong>{{ $med['label'] }}</strong></div>
-                    @if(!empty($med['contract_number']))
-                    <div>شماره قرارداد: <strong dir="ltr">{{ $med['contract_number'] }}</strong></div>
-                    @endif
-                    <div>بیمار: {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['nightly_rate'])) }} × {{ $med['nights'] }} شب = {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['patient_total'])) }} ریال</div>
-                    <div>همراه: {{ $med['companion_count'] }} نفر
-                        @if($med['billed_companions'] > 0)
-                            ({{ $med['billed_companions'] }} نفر قابل پرداخت × {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['companion_nightly_rate'])) }})
-                            = {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['companion_total'])) }} ریال
-                        @else
-                            (مشمول نرخ / بدون هزینه جداگانه)
-                        @endif
+                <div class="card shadow-sm border-info border-opacity-25 mb-3">
+                    <div class="card-header bg-info bg-opacity-10 py-2 px-3 d-flex align-items-center gap-2">
+                        <span class="rounded-circle bg-info bg-opacity-10 text-info d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                              style="width:32px;height:32px;font-size:.95rem">
+                            <i class="bi bi-heart-pulse"></i>
+                        </span>
+                        <span class="small fw-semibold text-info">خلاصه محاسبه اسکان درمانی</span>
                     </div>
-                    <div class="fw-semibold mt-1">جمع اقامت درمانی: {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['stay_total'])) }} ریال — بدهی کارفرما</div>
-                    <div class="text-muted">قابل پرداخت مهمان: ۰ ریال</div>
+                    <div class="card-body py-3 px-3">
+                        <div class="row g-2 mb-3">
+                            <div class="col-sm-6">
+                                <div class="rounded border bg-light px-3 py-2 h-100">
+                                    <div class="text-muted small mb-1">نوع تعرفه</div>
+                                    <div class="fw-semibold">{{ $med['label'] }}</div>
+                                </div>
+                            </div>
+                            @if(!empty($med['contract_number']))
+                            <div class="col-sm-6">
+                                <div class="rounded border bg-light px-3 py-2 h-100">
+                                    <div class="text-muted small mb-1">شماره قرارداد</div>
+                                    <div class="fw-semibold" dir="ltr">{{ $med['contract_number'] }}</div>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+
+                        <div style="font-size:.82rem">
+                            <div class="d-flex justify-content-between py-1">
+                                <span class="text-muted">
+                                    بیمار
+                                    <span class="text-secondary">({{ $med['nights'] }} شب × {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['nightly_rate'])) }})</span>
+                                </span>
+                                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($med['patient_total'])) }} ریال</span>
+                            </div>
+                            <div class="d-flex justify-content-between py-1">
+                                <span class="text-muted">
+                                    همراه
+                                    <span class="text-secondary">({{ $med['companion_count'] }} نفر
+                                    @if($med['billed_companions'] > 0)
+                                        · {{ $med['billed_companions'] }} نفر قابل پرداخت × {{ \App\Support\PdfPersian::toPersianDigits(number_format($med['companion_nightly_rate'])) }}
+                                    @else
+                                        · مشمول نرخ / بدون هزینه جداگانه
+                                    @endif)</span>
+                                </span>
+                                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($med['companion_total'])) }} ریال</span>
+                            </div>
+
+                            <div class="border-top mt-2 pt-2">
+                                <div class="d-flex justify-content-between fw-bold py-1">
+                                    <span>جمع اقامت درمانی</span>
+                                    <span class="text-info">{{ \App\Support\PdfPersian::toPersianDigits(number_format($med['stay_total'])) }} ریال</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center py-1">
+                                    <span class="text-muted small">بدهی کارفرما (بیمه دی)</span>
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle">ثبت بدهی</span>
+                                </div>
+                                <div class="d-flex justify-content-between fw-semibold pt-1 mt-1 border-top">
+                                    <span>قابل پرداخت مهمان</span>
+                                    <span class="text-success">۰ ریال</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 @endif
                 @if(!empty($pricing['medical_error']))
                 <div class="alert alert-danger small py-2">{{ $pricing['medical_error'] }}</div>
                 @endif
-                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه <span class="text-muted">(اختیاری)</span></label>
+                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه <span class="text-danger">*</span></label>
                 <input type="file"
                        wire:model="medicalReferralLetter"
                        multiple
@@ -951,11 +793,11 @@
                             این رزرو با نرخ کامل ثبت می‌شود، تخفیف ایثارگری و تخفیف دستی اعمال نمی‌شود،
                             و از سهمیه جانبازی مهمان اصلی کسر نخواهد شد.
                             گروه ایثارگری انتخاب‌شده روی پروفایل مهمان ذخیره می‌ماند.
-                            بارگذاری سند معرفی‌نامه / مجوز اعتباری اختیاری است.
+                            بارگذاری سند معرفی‌نامه اعتباری الزامی است.
                         </div>
                     </div>
                 </div>
-                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه اعتباری <span class="text-muted">(اختیاری)</span></label>
+                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه اعتباری <span class="text-danger">*</span></label>
                 <input type="file"
                        wire:model="creditLetter"
                        multiple
@@ -974,8 +816,9 @@
                 @endif
             </div>
             @endif
+            @endif
 
-            @if(!$this->isRegularRatePayment() && $veteranType && $this->discountPct > 0)
+            @if(!$isServiceSale && !$this->isRegularRatePayment() && $veteranType && $this->discountPct > 0)
             @php $excludedCount = $this->nonVeteranDiscountGuestCount(); @endphp
             <div class="alert {{ $excludedCount > 0 ? 'alert-warning border-warning' : 'alert-info' }} small py-2 mb-3">
                 <div class="d-flex align-items-start gap-2">
@@ -991,15 +834,16 @@
                     </div>
                 </div>
             </div>
-            @elseif(!$this->isRegularRatePayment() && $veteranType)
+            @elseif(!$isServiceSale && !$this->isRegularRatePayment() && $veteranType)
             <div class="alert alert-info small py-2 mb-3">
                 <i class="bi bi-info-circle me-1"></i>
                 برای مهمانانی که عضو خانواده تحت پوشش ایثارگری نیستند، گزینه «نرخ عادی» را فعال کنید.
             </div>
             @endif
 
-            <label class="form-label fw-semibold"><i class="bi bi-people me-1"></i>مهمانان ({{ $this->totalGuests }} نفر)</label>
-            @if(count($roomLines) > 1 || collect($guestDetails)->contains(fn ($g) => !empty($g['room_name'])))
+            @if(!$isServiceSale || $step === 2)
+            <label class="form-label fw-semibold"><i class="bi bi-people me-1"></i>@if($isServiceSale)خدمات مهمان@elseمهمانان ({{ $this->totalGuests }} نفر)@endif</label>
+            @if(!$isServiceSale && (count($roomLines) > 1 || collect($guestDetails)->contains(fn ($g) => !empty($g['room_name']))))
             <div class="alert alert-light border small py-2 mb-3">
                 <i class="bi bi-info-circle me-1"></i>
                 هر مهمان بر اساس اتاق انتخاب‌شده در مرحله قبل، به شماره اتاق خودش اختصاص داده شده است.
@@ -1007,6 +851,9 @@
             @endif
             @php $prevRoomLabel = null; @endphp
             @foreach($guestDetails as $i => $guest)
+            @if($isServiceSale && $i > 0)
+                @continue
+            @endif
             @php
                 $excluded = !empty($guest['excluded_from_veteran_discount']);
                 $canManualDiscount = $this->guestCanReceiveManualDiscount($i);
@@ -1054,9 +901,9 @@
                                 <i class="bi bi-cash-coin me-1"></i>نرخ عادی
                             </span>
                         @endif
-                        @if($manualPct > 0)
+                        @if(!$isServiceSale && $manualPct > 0)
                             <span class="badge rounded-pill text-bg-info">
-                                <i class="bi bi-percent me-1"></i>تخفیف دستی {{ $manualPct }}٪
+                                <i class="bi bi-percent me-1"></i>تخفیف دستی اقامت {{ $manualPct }}٪
                             </span>
                         @endif
                         @if($roomLabel && count($roomLines) <= 1)
@@ -1067,7 +914,7 @@
                     </div>
                 </div>
 
-                @if(!$this->isRegularRatePayment() && $veteranType && $this->discountPct > 0)
+                @if(!$isServiceSale && !$this->isRegularRatePayment() && $veteranType && $this->discountPct > 0)
                 <label class="d-flex align-items-center gap-3 rounded-3 px-3 py-2 mb-3 border user-select-none {{ $excluded ? 'border-warning bg-white' : 'border-success border-opacity-25 bg-success bg-opacity-10' }}"
                        style="cursor:pointer;">
                     <input type="checkbox"
@@ -1086,7 +933,7 @@
                 </label>
                 @endif
 
-                @if($canManualDiscount)
+                @if($canManualDiscount && !$isServiceSale)
                 @php
                     $otherManualDiscountIndices = ($i === 0 && count($guestDetails) > 1)
                         ? collect($guestDetails)->keys()->filter(fn ($idx) => $idx !== 0 && $this->guestCanReceiveManualDiscount($idx))->values()->all()
@@ -1324,21 +1171,33 @@
                         @endif
 
                         @if(!$this->isRegularRatePayment() && $excludedFromQuota && !empty(trim($service['name'] ?? '')))
-                        <div class="row g-2 mt-3">
-                            <div class="col-sm-4">
-                                <label class="form-label small mb-1">تخفیف دستی ٪</label>
-                                <input type="number"
-                                       wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_percentage"
-                                       class="form-control form-control-sm" min="0" max="100" placeholder="۰">
-                                @error("guestDetails.{$i}.services.{$si}.manual_discount_percentage")<div class="text-danger small">{{ $message }}</div>@enderror
+                        <div class="border rounded-3 p-3 mt-3 mb-0 bg-white">
+                            <div class="small fw-semibold mb-2">
+                                <i class="bi bi-sliders me-1 text-primary"></i>تخفیف دستی خدمت
                             </div>
-                            <div class="col-sm-8">
-                                <label class="form-label small mb-1">دلیل تخفیف @if($serviceManualPct > 0)<span class="text-danger">*</span>@endif</label>
-                                <input type="text"
-                                       wire:model="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_reason"
-                                       class="form-control form-control-sm"
-                                       placeholder="مثلاً: پرداخت مستقیم، توافق مدیر، ...">
-                                @error("guestDetails.{$i}.services.{$si}.manual_discount_reason")<div class="text-danger small">{{ $message }}</div>@enderror
+                            <p class="text-muted mb-2" style="font-size:.78rem;">
+                                برای خدماتی که از سهمیه و تخفیف ایثارگری مستثنی شده‌اند، می‌توانید درصد تخفیف خدمت را با ذکر دلیل ثبت کنید.
+                            </p>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-1">درصد تخفیف</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number"
+                                               wire:model.live="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_percentage"
+                                               class="form-control"
+                                               min="0" max="100" placeholder="۰">
+                                        <span class="input-group-text">٪</span>
+                                    </div>
+                                    @error("guestDetails.{$i}.services.{$si}.manual_discount_percentage")<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-9">
+                                    <label class="form-label small mb-1">دلیل تخفیف @if($serviceManualPct > 0)<span class="text-danger">*</span>@endif</label>
+                                    <input type="text"
+                                           wire:model="guestDetails.{{ $i }}.services.{{ $si }}.manual_discount_reason"
+                                           class="form-control form-control-sm"
+                                           placeholder="مثلاً: پرداخت مستقیم، توافق مدیر، ...">
+                                    @error("guestDetails.{$i}.services.{$si}.manual_discount_reason")<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
                             </div>
                         </div>
                         @endif
@@ -1367,21 +1226,22 @@
                 </div>
             </div>
             @endforeach
+            @endif
         </div>
     </div>
     @endif
 
     {{-- Step 4: Beneficiaries --}}
-    @if($step === 4)
+    @if(!$isServiceSale && $step === 4)
         @include('livewire.concerns.beneficiary-rows-step', ['beneficiaries' => $beneficiaries, 'provinces' => $provinces])
     @endif
 
     {{-- Step 5: Success + full booking details --}}
-    @if($step === 5)
+    @if($step === $mbfMaxStep)
     <div class="alert alert-success d-flex align-items-center gap-3 mb-3">
         <i class="bi bi-check-circle-fill fs-3"></i>
         <div class="flex-grow-1">
-            <div class="fw-semibold">رزرو با موفقیت ثبت شد</div>
+            <div class="fw-semibold">{{ $isServiceSale ? 'فروش خدمات با موفقیت ثبت شد' : 'رزرو با موفقیت ثبت شد' }}</div>
             @if($createdBooking)
             <div class="small text-muted">کد پیگیری: <code dir="ltr">{{ $createdBooking->tracking_code }}</code></div>
             @endif
@@ -1411,11 +1271,16 @@
         </div>{{-- /.mbf-step-viewport --}}
         </div>{{-- /.mbf-layout-main --}}
 
-        @if($step < 5)
+        @if($step < $mbfMaxStep)
         <div class="col-lg-4 mbf-layout-aside order-first order-lg-0">
             <div class="mbf-aside-sticky">
     @php
-        $mbfSteps = [
+        $mbfSteps = $isServiceSale ? [
+            1 => ['label' => 'مهمان و ایثارگری', 'icon' => 'bi-person-badge', 'num' => '۱'],
+            2 => ['label' => 'خدمات', 'icon' => 'bi-bag-plus', 'num' => '۲'],
+            3 => ['label' => 'پرداخت', 'icon' => 'bi-credit-card', 'num' => '۳'],
+            4 => ['label' => 'تأیید', 'icon' => 'bi-clipboard-check', 'num' => '۴'],
+        ] : [
             1 => ['label' => 'اتاق و تاریخ', 'icon' => 'bi-calendar3', 'num' => '۱'],
             2 => ['label' => 'مهمان اصلی و ایثارگری', 'icon' => 'bi-person-badge', 'num' => '۲'],
             3 => ['label' => 'پرداخت', 'icon' => 'bi-credit-card', 'num' => '۳'],
@@ -1619,7 +1484,7 @@
                 @php $platformCommission = (int) ($pricing['platform_commission_amount'] ?? 0); @endphp
                 @if($platformCommission > 0)
                 <div class="d-flex justify-content-between py-1">
-                    <span class="text-muted">کارمزد سامانه</span>
+                    <span class="text-muted">حق سرویس</span>
                     <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($platformCommission)) }} ریال</span>
                 </div>
                 @endif
@@ -1645,22 +1510,22 @@
 
     {{-- Navigation --}}
     <div id="manual-booking-nav" class="d-flex gap-2">
-        @if($step > 1 && $step < 5)
+        @if($step > 1 && $step < $mbfMaxStep)
         <button type="button" wire:click="prevStep" data-mbf-slide="-1" class="btn btn-outline-secondary flex-fill"><i class="bi bi-arrow-right me-1"></i>قبلی</button>
         @endif
 
-        @if($step < 4)
+        @if($step < $mbfMaxStep - 1)
         <button type="button" wire:click="nextStep" data-mbf-slide="1" class="btn btn-primary flex-fill">بعدی <i class="bi bi-arrow-left ms-1"></i></button>
-        @elseif($step === 4)
+        @elseif($step === $mbfMaxStep - 1)
         <button type="button"
                 data-mbf-slide="1"
                 class="btn btn-success flex-fill"
                 data-bnb-price-change
-                data-bnb-price-action="submitManualBooking"
+                data-bnb-price-action="{{ $priceSubmitAction }}"
                 data-bnb-price-params="{}"
                 wire:loading.attr="disabled"
                 wire:target="executeConfirmedPriceChange,previewBookingPriceChange,submit">
-            <span wire:loading.remove wire:target="executeConfirmedPriceChange,previewBookingPriceChange,submit"><i class="bi bi-check-circle me-1"></i>ثبت رزرو و صدور فیش</span>
+            <span wire:loading.remove wire:target="executeConfirmedPriceChange,previewBookingPriceChange,submit"><i class="bi bi-check-circle me-1"></i>{{ $isServiceSale ? 'ثبت فروش و صدور فیش' : 'ثبت رزرو و صدور فیش' }}</span>
             <span wire:loading wire:target="executeConfirmedPriceChange,previewBookingPriceChange,submit">در حال ثبت...</span>
         </button>
         @endif
@@ -1690,6 +1555,177 @@
             @endif
         </div>
     </div>
+
+    @if($showInlineServiceCatalogModal)
+    <div class="modal-backdrop fade show" style="z-index:10100;"></div>
+    <div class="modal fade show" style="display:block;z-index:10105;" tabindex="-1" wire:keydown.escape="closeInlineServiceCatalogModal">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-bottom">
+                    <div>
+                        <h5 class="modal-title mb-1">مدیریت خدمات و تخفیف ایثارگری</h5>
+                        <p class="text-muted small mb-0">همان قوانین «تعاریف اولیه» — سه مرحله: خدمت والد، انواع با قیمت، تخفیف گروه‌ها (ساده یا پله‌ای / سهمیه).</p>
+                    </div>
+                    <button type="button" class="btn-close" wire:click="closeInlineServiceCatalogModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if($inlineCatalogScreen === 'list')
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <span class="small text-muted">خدمات ثبت‌شده برای این اقامتگاه — برای ویرایش روی کارت کلیک کنید.</span>
+                        <button type="button" wire:click="startInlineWizardNew" class="btn btn-sm btn-success">
+                            <i class="bi bi-plus-lg me-1"></i>خدمت جدید
+                        </button>
+                    </div>
+                    @if(empty($inlineCatalogCards))
+                    <div class="alert alert-info small mb-0">
+                        هنوز خدمتی تعریف نشده. با «خدمت جدید» شروع کنید — مثال: والد «رستوران»، نوع «زرشک‌پلو» با مبلغ ۵٬۰۰۰٬۰۰۰ ریال.
+                    </div>
+                    @else
+                    <div class="row g-3">
+                        @foreach($inlineCatalogCards as $card)
+                        <div class="col-md-6" wire:key="svc-card-{{ $card['id'] }}">
+                            <div class="card h-100 border shadow-sm">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                        <div>
+                                            <h6 class="fw-semibold mb-1">{{ $card['name'] }}</h6>
+                                            <span class="badge {{ $card['is_active'] ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.7rem">
+                                                {{ $card['is_active'] ? 'فعال' : 'غیرفعال' }}
+                                            </span>
+                                        </div>
+                                        <span class="badge text-bg-light border text-dark" style="font-size:.72rem">
+                                            {{ $card['variants_count'] }} نوع
+                                        </span>
+                                    </div>
+                                    <p class="text-muted small flex-grow-1 mb-3">
+                                        خدمت والد در dropdown فروش نمایش داده می‌شود؛ قیمت از انواع (فرزند) خوانده می‌شود.
+                                        با داشتن حداقل یک نوع فعال، خدمت والد به‌صورت خودکار <strong>فعال</strong> می‌شود.
+                                    </p>
+                                    <button type="button"
+                                            wire:click="startInlineWizardEdit({{ $card['id'] }})"
+                                            class="btn btn-sm btn-outline-primary w-100">
+                                        <i class="bi bi-pencil-square me-1"></i>ویرایش انواع و تخفیف
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
+                    @else
+                    @php
+                        $wizardSteps = [
+                            1 => '۱. خدمت والد',
+                            2 => '۲. انواع و قیمت',
+                            3 => '۳. تخفیف ایثارگری',
+                        ];
+                    @endphp
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-4" dir="rtl">
+                        @foreach($wizardSteps as $num => $label)
+                        <span class="badge rounded-pill px-3 py-2 {{ $inlineWizardStep === $num ? 'text-bg-primary' : ($inlineWizardStep > $num ? 'text-bg-success' : 'text-bg-light text-muted border') }}">
+                            {{ $label }}
+                        </span>
+                        @if(!$loop->last)
+                        <i class="bi bi-chevron-left text-muted" aria-hidden="true"></i>
+                        @endif
+                        @endforeach
+                    </div>
+
+                    @if($inlineWizardStep === 1)
+                    <div class="card border-primary border-opacity-25 mb-0">
+                        <div class="card-header bg-primary bg-opacity-10 fw-semibold small">مرحله ۱ — خدمت والد (عنوان کلی)</div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                این نام در لیست فروش دستی دیده می‌شود. <strong>قیمت اینجا تعریف نمی‌شود</strong>؛ مبلغ در مرحله بعد برای هر «نوع» ثبت می‌شود.
+                                مثال والد: <em>رستوران</em>، <em>استخر</em>، <em>پارکینگ</em>.
+                            </p>
+                            <label class="form-label small fw-semibold">نام خدمت والد</label>
+                            <input type="text"
+                                   wire:model="inlineParentServiceName"
+                                   class="form-control"
+                                   placeholder="مثلاً: رستوران">
+                            @error('inlineParentServiceName')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($inlineWizardStep === 2)
+                    <div class="card border-success border-opacity-25 mb-0">
+                        <div class="card-header bg-success bg-opacity-10 fw-semibold small">مرحله ۲ — انواع و قیمت (فرزندان)</div>
+                        <div class="card-body p-0">
+                            <p class="text-muted small px-3 pt-3 mb-0">
+                                هر ردیف یک قلم قابل فروش با قیمت مشخص است. مثال: <em>زرشک‌پلو با مرغ</em> — ۵٬۰۰۰٬۰۰۰ ریال.
+                                تخفیف ایثارگری روی <strong>خدمت والد</strong> در مرحله بعد اعمال می‌شود.
+                            </p>
+                            @error('inlineWizardVariants')<div class="text-danger small px-3">{{ $message }}</div>@enderror
+                            @foreach($inlineWizardServicesList as $service)
+                            <x-veteran-policy.service-variants-section
+                                :service="$service"
+                                state-path="inlineWizardServices"
+                                add-variant-method="addInlineServiceVariant"
+                                remove-variant-method="removeInlineServiceVariant"
+                                :show-policy-tab-hint="false"
+                                wire:key="inline-wizard-variants-{{ $service['id'] }}" />
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($inlineWizardStep === 3 && $inlineEditingServiceId)
+                    <div class="card border-warning border-opacity-25 mb-0">
+                        <div class="card-header bg-warning bg-opacity-10 fw-semibold small">مرحله ۳ — تخفیف و سهمیه ایثارگری</div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                برای هر <strong>گروه ایثارگری</strong> درصد ثابت یا حالت <strong>پله‌ای</strong>  را مثل تب «تخفیف خدمات» در تنظیمات اولیه تنظیم کنید.
+                            </p>
+                            <div class="row g-3">
+                                @foreach($inlineCatalogGroups as $group)
+                                @php
+                                    $serviceId = $inlineEditingServiceId;
+                                    $cell = $discountMatrix[$group['key']][$serviceId] ?? [];
+                                @endphp
+                                <div class="col-md-6" wire:key="inline-disc-group-{{ $group['key'] }}">
+                                    <div class="border rounded p-3 h-100 bg-light">
+                                        <div class="fw-semibold small mb-2">{{ $group['label'] }}</div>
+                                        <x-veteran-policy.discount-matrix-cell
+                                            :group-key="$group['key']"
+                                            :service-ref="$serviceId"
+                                            :cell="$cell" />
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                    @endif
+                </div>
+                <div class="modal-footer border-top">
+                    @if($inlineCatalogScreen === 'wizard')
+                    <button type="button" class="btn btn-outline-secondary" wire:click="inlineWizardBack">
+                        <i class="bi bi-arrow-right me-1"></i>{{ $inlineWizardStep <= 1 ? 'بازگشت به فهرست' : 'مرحله قبل' }}
+                    </button>
+                    @if($inlineWizardStep === 1)
+                    <button type="button" class="btn btn-primary" wire:click="inlineWizardAdvanceFromParent">
+                        مرحله بعد: انواع و قیمت <i class="bi bi-arrow-left ms-1"></i>
+                    </button>
+                    @elseif($inlineWizardStep === 2)
+                    <button type="button" class="btn btn-primary" wire:click="inlineWizardAdvanceFromVariants">
+                        مرحله بعد: تخفیف ایثارگری <i class="bi bi-arrow-left ms-1"></i>
+                    </button>
+                    @elseif($inlineWizardStep === 3)
+                    <button type="button" class="btn btn-success" wire:click="finishInlineWizardDiscounts">
+                        <i class="bi bi-check-lg me-1"></i>ذخیره و بستن
+                    </button>
+                    @endif
+                    @else
+                    <button type="button" class="btn btn-outline-secondary" wire:click="closeInlineServiceCatalogModal">بستن</button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     @if($showAddPosTerminal)
     <div class="modal-backdrop fade show" style="z-index:10100;"></div>

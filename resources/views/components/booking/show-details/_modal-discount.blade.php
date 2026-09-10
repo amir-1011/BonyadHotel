@@ -39,7 +39,7 @@
     </li>
     @endif
 
-    @if(!empty($accBreakdown))
+    @if(!$booking->isManualServiceSale() && !empty($accBreakdown))
     <li class="list-group-item px-0">
         <span class="text-muted d-block mb-2">تخفیف اقامت به تفکیک گروه</span>
         <x-booking.accommodation-discount-breakdown
@@ -48,21 +48,21 @@
             compact
         />
     </li>
-    @elseif($booking->veteran_type_applied)
+    @elseif(!$booking->isManualServiceSale() && $booking->veteran_type_applied)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">تخفیف اقامت گروه</span>
         <span>{{ $booking->discount_percentage }}٪</span>
     </li>
     @endif
 
-    @if($veteranNights > 0)
+    @if(!$booking->isManualServiceSale() && $veteranNights > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">شب‌های با تخفیف ایثارگری</span>
         <span>{{ $veteranNights }} از {{ $totalNights }} شب</span>
     </li>
     @endif
 
-    @if(!empty($accGroupUsage))
+    @if(!$booking->isManualServiceSale() && !empty($accGroupUsage))
     <li class="list-group-item px-0">
         <span class="text-muted d-block mb-2">مصرف سقف اقامت در این رزرو</span>
         @foreach($accGroupUsage as $gKey => $gNights)
@@ -77,7 +77,7 @@
 
     @if($booking->services->isNotEmpty())
     <li class="list-group-item px-0 border-top mt-1 pt-2">
-        <span class="text-muted d-block mb-2">مصرف سقف خدمات در این رزرو</span>
+        <span class="text-muted d-block mb-2">{{ $booking->isManualServiceSale() ? 'مصرف سقف خدمات در این فروش' : 'مصرف سقف خدمات در این رزرو' }}</span>
         @foreach($booking->services as $i => $svc)
         @php
             $line = $serviceLines[$i] ?? null;
@@ -102,7 +102,7 @@
     </li>
     @endif
 
-    @if($excludedGuests->isNotEmpty())
+    @if(!$booking->isManualServiceSale() && $excludedGuests->isNotEmpty())
     <li class="list-group-item px-0">
         <span class="text-muted d-block mb-2">مهمانان با نرخ عادی (بدون تخفیف ایثارگری)</span>
         @foreach($excludedGuests as $g)
@@ -119,7 +119,7 @@
     </li>
     @endif
 
-    @if($manualDiscountGuests->isNotEmpty())
+    @if(!$booking->isManualServiceSale() && $manualDiscountGuests->isNotEmpty())
     <li class="list-group-item px-0">
         <span class="text-muted d-block mb-2">تخفیف‌های دستی اقامت</span>
         @foreach($manualDiscountGuests as $g)
@@ -140,7 +140,7 @@
     </li>
     @endif
 
-    @if(($pricingBreakdown['children_discount_amount'] ?? 0) > 0)
+    @if(!$booking->isManualServiceSale() && ($pricingBreakdown['children_discount_amount'] ?? 0) > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">تخفیف کودک زیر ۶ سال</span>
         <span class="text-success">− {{ \App\Support\PdfPersian::toPersianDigits(number_format($pricingBreakdown['children_discount_amount'])) }} ریال</span>

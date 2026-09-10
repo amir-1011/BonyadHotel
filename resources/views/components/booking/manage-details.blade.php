@@ -1,5 +1,6 @@
 {{-- Shared booking management: per-guest services + form upload --}}
 @php
+    $isServiceSale = $booking->isManualServiceSale();
     $guestRows = $booking->guestDetails->sortBy('sort_order');
     $unassignedServices = $booking->unassignedGuestServices();
     $isHostPanel = ($panel ?? 'guest') === 'host';
@@ -13,7 +14,7 @@
 
 <div class="card shadow-sm mt-3">
     <div class="card-header bg-white fw-semibold small d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-bag-check me-2"></i>مدیریت خدمات و فرم رزرو</span>
+        <span><i class="bi bi-bag-check me-2"></i>{{ $isServiceSale ? 'مدیریت خدمات فروش' : 'مدیریت خدمات و فرم رزرو' }}</span>
         @if($canViewPdf)
         <a href="{{ route($panel . '.bookings.pdf', $booking) }}" target="_blank" class="btn btn-sm btn-outline-success">
             <i class="bi bi-file-pdf"></i>دانلود PDF
@@ -24,7 +25,11 @@
         @if($guestRows->isNotEmpty())
         <div class="small text-muted mb-3">
             <i class="bi bi-people me-1"></i>
-            خدمات به‌ازای هر مهمان مدیریت می‌شود. برای هر مهمان می‌توانید سهمیه ایثارگری، تخفیف دستی و قیمت/تعداد را جداگانه تنظیم کنید.
+            @if($isServiceSale)
+                خدمات این فروش به‌ازای مهمان اصلی ثبت شده‌اند. سهمیه ایثارگری، تخفیف دستی خدمت و قیمت/تعداد را از همین بخش می‌توانید ویرایش کنید.
+            @else
+                خدمات به‌ازای هر مهمان مدیریت می‌شود. برای هر مهمان می‌توانید سهمیه ایثارگری، تخفیف دستی و قیمت/تعداد را جداگانه تنظیم کنید.
+            @endif
         </div>
 
         @foreach($guestRows as $guest)
@@ -92,7 +97,7 @@
         </div>
         @endif
 
-        @if($canManageForms && $booking->canEditServices())
+        @if(!$isServiceSale && $canManageForms && $booking->canEditServices())
         <div class="border rounded p-3 mt-3">
             <div class="small fw-semibold mb-2"><i class="bi bi-upload me-1"></i>فرم رزرو امضا‌شده</div>
             @if($booking->form_file_path)
@@ -112,7 +117,7 @@
             @error('uploadedForm')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
             </x-host.can>
         </div>
-        @elseif($booking->form_file_path)
+        @elseif(!$isServiceSale && $booking->form_file_path)
         <div class="border rounded p-3 mt-3">
             <div class="small fw-semibold mb-2"><i class="bi bi-upload me-1"></i>فرم رزرو امضا‌شده</div>
             <a href="{{ asset('storage/' . $booking->form_file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>مشاهده فایل</a>

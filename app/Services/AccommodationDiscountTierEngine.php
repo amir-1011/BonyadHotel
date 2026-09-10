@@ -296,6 +296,29 @@ class AccommodationDiscountTierEngine
         return array_values($grouped);
     }
 
+    /**
+     * @param  array<string, mixed>  $tier
+     */
+    public static function describePolicyTier(array $tier, int $stepIndex = 0): string
+    {
+        $count = $tier['night_count'] ?? null;
+        $scope = ($count === null || $count === '')
+            ? 'شب‌های بعدی در دوره'
+            : ((int) $count === 1 ? '۱ شب اول دوره' : (int) $count . ' شب اول دوره');
+
+        $benefit = match (self::tierType($tier)) {
+            self::TYPE_FREE => 'اقامت رایگان',
+            self::TYPE_FIXED_PAY => 'مبلغ ثابت '
+                . number_format(max(0, (int) ($tier['pay_amount'] ?? 0))) . ' ریال',
+            self::TYPE_PERCENTAGE => max(0, min(100, (int) ($tier['discount_percentage'] ?? 0))) . '٪ تخفیف اقامت',
+            default => 'بدون تخفیف',
+        };
+
+        $step = $stepIndex > 0 ? 'پله ' . ($stepIndex + 1) . ' · ' : '';
+
+        return $step . $scope . ': ' . $benefit;
+    }
+
     public static function describeBreakdownItem(array $item): string
     {
         $units = (int) ($item['units'] ?? 0);

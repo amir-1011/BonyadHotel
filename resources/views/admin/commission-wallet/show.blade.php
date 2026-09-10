@@ -3,7 +3,10 @@
 @php
     $meta = $entry->meta ?? [];
     $booking = $entry->booking;
-    $isAccommodation = $entry->category === \App\Models\PlatformCommissionEntry::CATEGORY_ACCOMMODATION;
+    $isAccommodation = $entry->category === \App\Models\PlatformCommissionEntry::CATEGORY_ACCOMMODATION
+        && !$entry->isPeriodSettlement();
+    $isServiceSaleCommission = $entry->isServiceSaleCommission();
+    $isPeriodSettlement = $entry->isPeriodSettlement();
 @endphp
 
 <div class="row g-3 mb-3">
@@ -220,11 +223,34 @@
 {{-- ── جزئیات اقامت یا خدمت ─────────────────────────────────────── --}}
 <div class="card shadow-sm mt-3">
     <div class="card-header bg-white fw-semibold small">
-        <i class="bi bi-{{ $isAccommodation ? 'house-door' : 'stars' }} me-2"></i>
-        جزئیات {{ $isAccommodation ? 'اقامت / رزرو' : 'خدمت' }} — موضوع این کارمزد
+        <i class="bi bi-{{ $isPeriodSettlement ? 'bank' : ($isAccommodation && !$isServiceSaleCommission ? 'house-door' : ($isServiceSaleCommission ? 'bag-check' : 'stars')) }} me-2"></i>
+        @if($isPeriodSettlement)
+        جزئیات تسویه دوره
+        @else
+        جزئیات {{ $isAccommodation && !$isServiceSaleCommission ? 'اقامت / رزرو' : ($isServiceSaleCommission ? 'فروش دستی خدمات' : 'خدمت') }} — موضوع این کارمزد
+        @endif
     </div>
     <div class="card-body">
-        @if($isAccommodation)
+        @if($isPeriodSettlement)
+        <ul class="list-group list-group-flush border rounded">
+            <li class="list-group-item small d-flex justify-content-between">
+                <span class="text-muted">پایان دوره</span>
+                <strong>{{ \App\Support\PdfPersian::toPersianDigits($meta['period_end_jalali'] ?? $meta['period_end'] ?? '—') }}</strong>
+            </li>
+            <li class="list-group-item small d-flex justify-content-between">
+                <span class="text-muted">شروع دوره</span>
+                <span>{{ !empty($meta['period_start']) ? $meta['period_start'] : 'ابتدای بازه (پس از تسویه قبلی)' }}</span>
+            </li>
+            <li class="list-group-item small d-flex justify-content-between">
+                <span class="text-muted">تعداد رکورد در دوره</span>
+                <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) ($meta['entries_count'] ?? 0))) }}</span>
+            </li>
+            <li class="list-group-item small d-flex justify-content-between">
+                <span class="text-muted">مبلغ خالص تسویه‌شده</span>
+                <strong class="text-primary">{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) ($meta['settled_net'] ?? abs($entry->commission_amount)))) }} ریال</strong>
+            </li>
+        </ul>
+        @elseif($isAccommodation && !$isServiceSaleCommission)
         <div class="row g-3">
             <div class="col-md-6">
                 <ul class="list-group list-group-flush border rounded">
@@ -301,10 +327,17 @@
         {{-- خدمت --}}
         <div class="row g-3">
             <div class="col-md-5">
+                @if($isServiceSaleCommission)
+                <div class="alert alert-light border small mb-3 mb-md-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    کارمزد روی <strong>جمع خطوط خدمت</strong> (والد + نوع با قیمت) پس از تخفیف ایثارگری محاسبه می‌شود؛
+                    {{ $entry->effectiveCommissionPercentage() }}٪ با سقف {{ \App\Support\PdfPersian::toPersianDigits(number_format((int) ($entry->effectiveCommissionCapRials() / 10))) }} تومان.
+                </div>
+                @endif
                 <ul class="list-group list-group-flush border rounded">
                     <li class="list-group-item small d-flex justify-content-between">
-                        <span class="text-muted">نام خدمت</span>
-                        <strong>{{ $entry->service_name ?? $meta['description'] ?? '—' }}</strong>
+                        <span class="text-muted">{{ $isServiceSaleCommission ? 'نوع تراکنش' : 'نام خدمت' }}</span>
+                        <strong>{{ $isServiceSaleCommission ? 'فروش دستی خدمات' : ($entry->service_name ?? $meta['description'] ?? '—') }}</strong>
                     </li>
                     @if($entry->serviceCatalog)
                     <li class="list-group-item small d-flex justify-content-between">
@@ -319,9 +352,15 @@
                     </li>
                     @endif
                     <li class="list-group-item small d-flex justify-content-between">
-                        <span class="text-muted">مبلغ تراکنش (جمع خدمت)</span>
+                        <span class="text-muted">{{ $isServiceSaleCommission ? 'مبنای کارمزد (جمع خدمات)' : 'مبلغ تراکنش (جمع خدمت)' }}</span>
                         <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($entry->transaction_amount)) }} ریال</strong>
                     </li>
+                    @if($isServiceSaleCommission && $booking)
+                    <li class="list-group-item small d-flex justify-content-between">
+                        <span class="text-muted">مبلغ کل رزرو (شامل کارمزد)</span>
+                        <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->total_price)) }} ریال</span>
+                    </li>
+                    @endif
                     @if(isset($meta['quantity']))
                     <li class="list-group-item small d-flex justify-content-between">
                         <span class="text-muted">تعداد کل</span>
@@ -350,7 +389,11 @@
             </div>
             @if(!empty($meta['lines']) && is_array($meta['lines']))
             <div class="col-md-7">
-                <div class="small text-muted mb-2">خطوط خدمت در این رزرو (جمع‌شده در یک کارمزد):</div>
+                <div class="small text-muted mb-2">
+                    {{ $isServiceSaleCommission
+                        ? 'خطوط خدمت این فروش (قیمت نوع × تعداد؛ تخفیف ساده یا پله‌ای ایثارگری در ستون تخفیف):'
+                        : 'خطوط خدمت در این رزرو (جمع‌شده در یک کارمزد):' }}
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">

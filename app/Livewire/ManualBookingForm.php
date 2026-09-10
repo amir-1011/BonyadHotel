@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\AssertsHostPermissions;
+use App\Livewire\Concerns\ManagesInlineServiceCatalogWizard;
 use App\Livewire\Concerns\ManagesForeignGuestLocation;
 use App\Livewire\Concerns\ManagesPendingPaymentDocuments;
 use App\Livewire\Concerns\ManagesPosTerminals;
@@ -42,8 +43,12 @@ class ManualBookingForm extends Component
     use ManagesForeignGuestLocation;
     use WithFileUploads;
     use AssertsHostPermissions;
+    use ManagesInlineServiceCatalogWizard;
     public Accommodation $accommodation;
     public string $panel = 'admin';
+
+    /** @var 'booking'|'service_sale' */
+    public string $formMode = 'booking';
 
     public int $step = 1;
 
@@ -119,16 +124,30 @@ class ManualBookingForm extends Component
         return app(VeteranPolicyService::class)->forAccommodation($this->accommodation->id);
     }
 
-    public function mount(Accommodation $accommodation, string $panel = 'admin'): void
+    public function mount(Accommodation $accommodation, string $panel = 'admin', string $formMode = 'booking'): void
     {
         $this->accommodation = $accommodation->load(['roomTypes.rates', 'roomTypes.rooms', 'city']);
         $this->panel = $panel;
+        $this->formMode = $formMode === 'service_sale' ? 'service_sale' : 'booking';
         app(\App\Services\VeteranPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\CancellationPolicyProvisioner::class)->seedForAccommodation($accommodation);
         app(\App\Services\MedicalAccommodationProvisioner::class)->seedForAccommodation($accommodation);
         $this->syncGuestDetailRows();
+        if ($this->isServiceSaleMode()) {
+            $this->paymentMethod = Booking::PAYMENT_CARD_TERMINAL;
+        }
         $this->applyPrefillFromRequest();
         $this->syncDefaultAccountingProvinceFromContext();
+    }
+
+    public function isServiceSaleMode(): bool
+    {
+        return $this->formMode === 'service_sale';
+    }
+
+    private function maxFormStep(): int
+    {
+        return $this->isServiceSaleMode() ? 4 : 5;
     }
 
     private function applyPrefillFromRequest(): void
@@ -587,7 +606,7 @@ class ManualBookingForm extends Component
             'foreignCountryId' => ['required', 'integer', 'exists:countries,id'],
             'foreignResidenceCityId' => ['required', 'integer', ...$this->residenceCityIdRules()],
             'guestContactName' => ['required', 'string', 'max:120'],
-            'guestContactMobile' => ['required', 'regex:/^09[0-9]{9}$/'],
+            'guestContactMobile' => ['nullable', 'regex:/^09[0-9]{9}$/'],
         ]);
 
         $passport = strtoupper(trim($this->bookerPassportNumber));
@@ -1035,6 +1054,21 @@ class ManualBookingForm extends Component
 
     public function syncGuestDetailRows(): void
     {
+        if ($this->isServiceSaleMode()) {
+            while (count($this->guestDetails) < 1) {
+                $this->guestDetails[] = $this->emptyGuestDetailRow();
+            }
+            $this->guestDetails = array_slice($this->guestDetails, 0, 1);
+            if (!isset($this->guestDetails[0]['services']) || !is_array($this->guestDetails[0]['services'])) {
+                $this->guestDetails[0]['services'] = [];
+            }
+            if ($this->bookerVerified) {
+                $this->syncBookerToGuestDetails();
+            }
+
+            return;
+        }
+
         $count = max(1, $this->totalGuests);
         while (count($this->guestDetails) < $count) {
             $this->guestDetails[] = $this->emptyGuestDetailRow();
@@ -1104,6 +1138,12 @@ class ManualBookingForm extends Component
 
     public function nextStep(): void
     {
+        if ($this->isServiceSaleMode()) {
+            $this->nextServiceSaleStep();
+
+            return;
+        }
+
         if ($this->step === 2 && !$this->bookerVerified) {
             $message = $this->bookerIsForeignGuest
                 ? 'لطفاً ابتدا اطلاعات مهمان خارجی را بررسی کنید.'
@@ -1159,7 +1199,62 @@ class ManualBookingForm extends Component
             }
         }
 
-        $this->step = min(5, $this->step + 1);
+        $this->step = min($this->maxFormStep(), $this->step + 1);
+        $this->scrollToTopAfterStepChange();
+    }
+
+    private function nextServiceSaleStep(): void
+    {
+        if ($this->step === 1 && !$this->bookerVerified) {
+            $message = $this->bookerIsForeignGuest
+                ? 'لطفاً ابتدا اطلاعات مهمان خارجی را بررسی کنید.'
+                : 'لطفاً ابتدا کد ملی را بررسی کنید.';
+            $this->validationError(
+                $this->bookerIsForeignGuest ? 'bookerPassportNumber' : 'bookerNationalId',
+                $message,
+            );
+
+            return;
+        }
+
+        $stepRules = $this->rulesForServiceSaleStep($this->step);
+        if ($stepRules !== []) {
+            $this->validateManualBooking($stepRules);
+        }
+
+        if ($this->step === 1) {
+            $this->syncBookerToGuestDetails();
+            if (!$this->validateNewBookerContacts()) {
+                $this->dispatchValidationErrorToast();
+
+                return;
+            }
+        }
+
+        if ($this->step === 2) {
+            if (!$this->validateNoPendingGuestServices()) {
+                $this->dispatchValidationErrorToast();
+
+                return;
+            }
+            if (!$this->validateServiceVariants()) {
+                $this->dispatchValidationErrorToast();
+
+                return;
+            }
+            if (!$this->validateManualServiceDiscounts()) {
+                $this->dispatchValidationErrorToast();
+
+                return;
+            }
+            if ($this->filledServices() === []) {
+                $this->validationError('guestServices.0', 'حداقل یک خدمت تأیید‌شده ثبت کنید.');
+
+                return;
+            }
+        }
+
+        $this->step = min($this->maxFormStep(), $this->step + 1);
         $this->scrollToTopAfterStepChange();
     }
 
@@ -1226,7 +1321,8 @@ class ManualBookingForm extends Component
     {
         $this->skipRender();
 
-        if ($action !== 'submitManualBooking') {
+        $isServiceSale = $action === 'submitManualServiceSale';
+        if ($action !== 'submitManualBooking' && !$isServiceSale) {
             return [
                 'error'        => true,
                 'message'      => 'عملیات قیمت‌گذاری ناشناخته.',
@@ -1235,13 +1331,22 @@ class ManualBookingForm extends Component
             ];
         }
 
+        if ($isServiceSale && !$this->isServiceSaleMode()) {
+            return [
+                'error'        => true,
+                'message'      => 'عملیات قیمت‌گذاری ناشناخته.',
+                'action'       => $action,
+                'action_label' => 'ثبت فروش خدمات',
+            ];
+        }
+
         if (!$this->validateBeforeSubmit(forPreview: true)) {
             return [
                 'error'        => true,
                 'message'      => $this->validationMessagesForToast($this->getErrorBag()->messages())
-                    ?? 'ورودی‌های رزرو معتبر نیست.',
+                    ?? ($isServiceSale ? 'ورودی‌های فروش خدمات معتبر نیست.' : 'ورودی‌های رزرو معتبر نیست.'),
                 'action'       => $action,
-                'action_label' => 'ثبت رزرو و صدور فیش',
+                'action_label' => $isServiceSale ? 'ثبت فروش و صدور فیش' : 'ثبت رزرو و صدور فیش',
             ];
         }
 
@@ -1249,9 +1354,11 @@ class ManualBookingForm extends Component
         if ($pricing === []) {
             return [
                 'error'        => true,
-                'message'      => 'محاسبه قیمت ممکن نیست. اتاق و تاریخ را بررسی کنید.',
+                'message'      => $isServiceSale
+                    ? 'محاسبه قیمت ممکن نیست. خدمت و اطلاعات مهمان را بررسی کنید.'
+                    : 'محاسبه قیمت ممکن نیست. اتاق و تاریخ را بررسی کنید.',
                 'action'       => $action,
-                'action_label' => 'ثبت رزرو و صدور فیش',
+                'action_label' => $isServiceSale ? 'ثبت فروش و صدور فیش' : 'ثبت رزرو و صدور فیش',
             ];
         }
 
@@ -1276,8 +1383,10 @@ class ManualBookingForm extends Component
             'auto_delta'      => 0,
             'price_input_mode' => 'absolute',
             'action'          => $action,
-            'action_label'    => 'ثبت رزرو و صدور فیش',
-            'description'     => 'رزرو با مبلغ محاسبه‌شده ثبت می‌شود. در صورت نیاز مبلغ نهایی را می‌توانید تغییر دهید.',
+            'action_label'    => $isServiceSale ? 'ثبت فروش و صدور فیش' : 'ثبت رزرو و صدور فیش',
+            'description'     => $isServiceSale
+                ? 'فروش خدمات با مبلغ محاسبه‌شده (شامل کارمزد سامانه) ثبت می‌شود. در صورت نیاز مبلغ نهایی را می‌توانید تغییر دهید.'
+                : 'رزرو با مبلغ محاسبه‌شده ثبت می‌شود. در صورت نیاز مبلغ نهایی را می‌توانید تغییر دهید.',
             'payment_method'  => $this->paymentMethod,
             'skip_payment_capture' => $this->isMedicalAccommodationPayment() || $this->isCreditPayment(),
             'pos_terminals'   => $captureService->terminalsForProvince($provinceId),
@@ -1292,11 +1401,15 @@ class ManualBookingForm extends Component
      */
     public function executeConfirmedPriceChange(string $action, int $confirmedDelta, array $params = []): void
     {
-        if ($action !== 'submitManualBooking') {
+        if ($action === 'submitManualBooking') {
+            $this->submit(app(ManualBookingService::class), $confirmedDelta, $params);
+
             return;
         }
 
-        $this->submit(app(ManualBookingService::class), $confirmedDelta, $params);
+        if ($action === 'submitManualServiceSale' && $this->isServiceSaleMode()) {
+            $this->submit(app(ManualBookingService::class), $confirmedDelta, $params);
+        }
     }
 
     /**
@@ -1327,8 +1440,9 @@ class ManualBookingForm extends Component
                 ? [null, null]
                 : $this->veteranPolicy()->splitVeteranTypes($profileVeteranTypes);
 
-            $booking = $manualBooking->create($this->accommodation, [
-                'room_lines'           => $this->normalizedRoomLinesForSubmit(),
+            $payload = [
+                'service_sale_only'    => $this->isServiceSaleMode(),
+                'room_lines'           => $this->isServiceSaleMode() ? [] : $this->normalizedRoomLinesForSubmit(),
                 'check_in'             => $this->checkIn,
                 'check_out'            => $this->checkOut,
                 'guests'               => $this->totalGuests,
@@ -1352,7 +1466,7 @@ class ManualBookingForm extends Component
                 'credit_letter'          => $isCredit ? $this->creditLetter : null,
                 'user_id'              => $this->userId,
                 'guest_contact_name'   => $this->guestContactName,
-                'guest_contact_mobile' => $this->guestContactMobile,
+                'guest_contact_mobile' => $this->guestContactMobile !== '' ? $this->guestContactMobile : null,
                 'notes'                => $this->notes,
                 'services'             => $this->filledServices(),
                 'guest_details'        => $this->guestDetails,
@@ -1363,7 +1477,25 @@ class ManualBookingForm extends Component
                 'price_adjustment_reason' => is_array($paymentCapture)
                     ? ($paymentCapture['price_adjustment_reason'] ?? null)
                     : ($params['price_adjustment_reason'] ?? null),
-            ], Auth::user());
+                'vat_percent' => (int) ($params['vat_percent'] ?? 0),
+                'vat_base_amount' => (int) ($params['vat_base_amount'] ?? 0),
+            ];
+
+            if ($this->isServiceSaleMode()) {
+                $today = now()->format('Y-m-d');
+                $payload['check_in'] = $today;
+                $payload['check_out'] = $today;
+                $payload['guests'] = 1;
+                $payload['children_under_6'] = 0;
+                $payload['extra_guests'] = 0;
+                $payload['is_medical_accommodation'] = false;
+                $payload['is_credit'] = false;
+                $payload['payment_method'] = in_array($this->paymentMethod, [Booking::PAYMENT_CASH, Booking::PAYMENT_CARD_TERMINAL], true)
+                    ? $this->paymentMethod
+                    : Booking::PAYMENT_CARD_TERMINAL;
+            }
+
+            $booking = $manualBooking->create($this->accommodation, $payload, Auth::user());
 
             $this->clearPendingPaymentDocuments();
 
@@ -1376,10 +1508,13 @@ class ManualBookingForm extends Component
                 'bookingRooms.roomType', 'bookingRooms.room',
                 'employer', 'medicalTariff', 'medicalContract',
             ]);
-            $this->step = 5;
+            $this->step = $this->maxFormStep();
             $this->scrollToTopAfterStepChange();
-            session()->flash('status', 'رزرو دستی با موفقیت ثبت شد.');
-            $this->dispatch('toast', type: 'success', message: 'رزرو دستی با موفقیت ثبت شد.');
+            $successMessage = $this->isServiceSaleMode()
+                ? 'فروش دستی خدمات با موفقیت ثبت شد.'
+                : 'رزرو دستی با موفقیت ثبت شد.';
+            session()->flash('status', $successMessage);
+            $this->dispatch('toast', type: 'success', message: $successMessage);
         } catch (\Throwable $e) {
             $this->addError('submit', $e->getMessage());
             $this->dispatch('toast', type: 'error', message: $e->getMessage());
@@ -1388,6 +1523,10 @@ class ManualBookingForm extends Component
 
     public function getPricingPreviewProperty(BookingPricingService $pricing): array
     {
+        if ($this->isServiceSaleMode()) {
+            return $this->serviceSalePricingPreview($pricing);
+        }
+
         if (!$this->checkIn || !$this->checkOut || empty($this->roomLines)) {
             return [];
         }
@@ -1431,11 +1570,35 @@ class ManualBookingForm extends Component
         }
 
         return app(PlatformCommissionService::class)->overlayPricing($pricing, [
-            'booking_source'           => 'manual',
+            'booking_source'           => $this->isServiceSaleMode() ? 'manual_service' : 'manual',
             'payment_method'           => $this->paymentMethod,
             'is_credit'                => $this->isCreditPayment(),
             'is_medical_accommodation' => $this->isMedicalAccommodationPayment(),
         ]);
+    }
+
+    private function serviceSalePricingPreview(BookingPricingService $pricing): array
+    {
+        if (!$this->bookerVerified || $this->filledServices() === []) {
+            return [];
+        }
+
+        $pricingVeteranTypes = $this->veteranTypesForPricing();
+        [$primaryType, $secondaryType] = $this->veteranPolicy()->splitVeteranTypes($pricingVeteranTypes);
+
+        $calculated = $pricing->calculateManualServiceSale([
+            'veteran_type'         => $primaryType,
+            'secondary_veteran_type' => $secondaryType,
+            'veteran_types'        => $pricingVeteranTypes,
+            'services'             => $this->filledServices(),
+            'accommodation'        => $this->accommodation,
+            'national_id'          => $this->primaryNationalId(),
+            'user_id'              => $this->userId,
+            'non_veteran_discount_guests' => $this->nonVeteranDiscountGuestCount(),
+            'per_guest_slots'      => $this->perGuestSlotsForPricing(),
+        ]);
+
+        return $this->overlayPlatformCommission($calculated);
     }
 
     private function overlayMedicalPricing(array $calculated): array
@@ -1639,6 +1802,25 @@ class ManualBookingForm extends Component
             $this->userId,
             $this->checkIn ?: null,
             $secondary,
+        );
+    }
+
+    public function getServiceDiscountCatalogSummaryProperty(): array
+    {
+        if (!$this->bookerVerified || $this->bookerIsForeignGuest) {
+            return [];
+        }
+
+        $types = $this->resolvedVeteranTypes();
+        if ($types === []) {
+            return [];
+        }
+
+        return $this->veteranPolicy()->serviceDiscountCatalogSummary(
+            $types,
+            $this->primaryNationalId(),
+            $this->userId,
+            $this->checkIn ?: null,
         );
     }
 
@@ -2320,7 +2502,10 @@ class ManualBookingForm extends Component
     private function validateBeforeSubmit(bool $forPreview = false): bool
     {
         if ($this->panel === 'host') {
-            $this->assertHostCan('accommodations.manual-booking', 'write');
+            $this->assertHostCan(
+                $this->isServiceSaleMode() ? 'accommodations.manual-service-sale' : 'accommodations.manual-booking',
+                'write',
+            );
         }
 
         if (!$this->bookerVerified) {
@@ -2336,15 +2521,22 @@ class ManualBookingForm extends Component
         }
 
         try {
-            $this->validateManualBooking(array_merge(
-                $this->rulesForStep(1),
-                $this->rulesForStep(2),
-                $this->rulesForStep(3),
-            ));
+            if ($this->isServiceSaleMode()) {
+                $this->validateManualBooking(array_merge(
+                    $this->rulesForServiceSaleStep(1),
+                    $this->rulesForServiceSaleStep(3),
+                ));
+            } else {
+                $this->validateManualBooking(array_merge(
+                    $this->rulesForStep(1),
+                    $this->rulesForStep(2),
+                    $this->rulesForStep(3),
+                ));
 
-            $this->validateManualBooking([
-                'beneficiaryRows.*.documents.*' => ProgramDocumentService::fileRules(),
-            ]);
+                $this->validateManualBooking([
+                    'beneficiaryRows.*.documents.*' => ProgramDocumentService::fileRules(),
+                ]);
+            }
         } catch (ValidationException) {
             if (!$forPreview) {
                 $this->dispatchValidationErrorToast();
@@ -2380,7 +2572,7 @@ class ManualBookingForm extends Component
             return false;
         }
 
-        if (!$this->validateManualGuestDiscounts()) {
+        if (!$this->isServiceSaleMode() && !$this->validateManualGuestDiscounts()) {
             $this->step = 3;
             $this->scrollToTopAfterStepChange();
             if (!$forPreview) {
@@ -2391,11 +2583,19 @@ class ManualBookingForm extends Component
         }
 
         if (!$this->validateManualServiceDiscounts()) {
-            $this->step = 3;
+            $this->step = $this->isServiceSaleMode() ? 2 : 3;
             $this->scrollToTopAfterStepChange();
             if (!$forPreview) {
                 $this->dispatchValidationErrorToast();
             }
+
+            return false;
+        }
+
+        if ($this->isServiceSaleMode() && $this->filledServices() === []) {
+            $this->validationError('guestServices.0', 'حداقل یک خدمت تأیید‌شده ثبت کنید.');
+            $this->step = 2;
+            $this->scrollToTopAfterStepChange();
 
             return false;
         }
@@ -2543,6 +2743,29 @@ class ManualBookingForm extends Component
         ];
     }
 
+    /** @return array<string, mixed> */
+    private function rulesForServiceSaleStep(int $step): array
+    {
+        if ($step === 1) {
+            return $this->rulesForStep(2);
+        }
+
+        if ($step === 3) {
+            return [
+                'paymentMethod' => ['required', 'in:cash,card_terminal'],
+                'guestContactName'   => ['required', 'string', 'max:120'],
+                'guestContactMobile' => [
+                    Rule::requiredIf(!$this->bookerIsForeignGuest),
+                    'nullable',
+                    'string',
+                    'max:15',
+                ],
+            ];
+        }
+
+        return [];
+    }
+
     private function rulesForStep(int $step): array
     {
         $veteranKeys = array_keys(VeteranGroups::options($this->accommodation->id));
@@ -2558,7 +2781,7 @@ class ManualBookingForm extends Component
                 'foreignCountryId' => ['required', 'integer', 'exists:countries,id'],
                 'foreignResidenceCityId' => ['required', 'integer', ...$this->residenceCityIdRules()],
                 'guestContactName' => ['required', 'string', 'max:120'],
-                'guestContactMobile' => ['required', 'regex:/^09[0-9]{9}$/'],
+                'guestContactMobile' => ['nullable', 'regex:/^09[0-9]{9}$/'],
             ] : [
                 'bookerNationalId' => ['required', 'digits:10'],
                 'veteranType'      => ['nullable', 'string', Rule::in($veteranKeys)],
@@ -2593,19 +2816,24 @@ class ManualBookingForm extends Component
                     ]
                     : ['nullable'],
                 'medicalReferralLetter' => $this->isMedicalAccommodationPayment()
-                    ? ['nullable', 'array']
+                    ? ['required', 'array', 'min:1']
                     : ['nullable'],
                 'medicalReferralLetter.*' => $this->isMedicalAccommodationPayment()
                     ? ProgramDocumentService::fileRules(nullable: false)
                     : ['nullable'],
                 'creditLetter' => $this->isCreditPayment()
-                    ? ['nullable', 'array']
+                    ? ['required', 'array', 'min:1']
                     : ['nullable'],
                 'creditLetter.*' => $this->isCreditPayment()
                     ? ProgramDocumentService::fileRules(nullable: false)
                     : ['nullable'],
                 'guestContactName'   => ['required', 'string', 'max:120'],
-                'guestContactMobile' => ['required', 'string', 'max:15'],
+                'guestContactMobile' => [
+                    Rule::requiredIf(!$this->bookerIsForeignGuest),
+                    'nullable',
+                    'string',
+                    'max:15',
+                ],
                 'guestDetails.*.full_name' => ['nullable', 'string', 'max:120'],
                 'guestDetails.*.excluded_from_veteran_discount' => ['nullable', 'boolean'],
                 'guestDetails.*.manual_discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
@@ -2627,6 +2855,7 @@ class ManualBookingForm extends Component
         $policy = $this->veteranPolicy();
 
         return view('livewire.manual-booking-form', [
+            'formMode'         => $this->formMode,
             'roomTypes'        => $this->accommodation->roomTypes,
             'veteranGroups'    => VeteranGroups::options($this->accommodation->id),
             'serviceCatalog'   => $policy->activeServices(),
@@ -2634,6 +2863,7 @@ class ManualBookingForm extends Component
             'medicalTariffs'   => $this->medicalTariffOptions(),
             'medicalContracts' => $this->medicalContractOptions(),
             'usageSummary'     => $this->usageSummary,
+            'serviceDiscountCatalogSummary' => $this->serviceDiscountCatalogSummary,
             'accommodationUsageCheck' => $this->accommodationUsageCheck,
             'beneficiaries'    => \App\Models\ProgramBeneficiary::orderBy('name')->get(),
             'countries'        => Country::orderBy('name')->get(),
@@ -2647,6 +2877,9 @@ class ManualBookingForm extends Component
                 ? route($this->panel . '.bookings.show', $this->createdBookingId)
                 : null,
             'provinces'        => \App\Models\Province::query()->orderBy('name')->get(),
+            'inlineCatalogCards'   => $this->inlineCatalogCards,
+            'inlineCatalogGroups'  => $this->inlineCatalogGroups,
+            'inlineWizardServicesList' => $this->inlineWizardServicesList(),
         ]);
     }
 

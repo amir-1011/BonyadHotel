@@ -1,14 +1,16 @@
 """Trace site-logo.png into an animated-ready SVG with named groups."""
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PIL import Image
 
-SRC = Path("public_html/logo/site-logo.png")
-DST = Path("public_html/logo/site-logo.svg")
+SRC = Path("public_html/logo/newlogo.png")
+PNG_DST = Path("public_html/logo/site-logo.png")
+SVG_DST = Path("public_html/logo/site-logo.svg")
 
 
 def approx_contour(contour: np.ndarray, epsilon_ratio: float = 0.0018) -> np.ndarray:
@@ -24,7 +26,7 @@ def contour_d(contour: np.ndarray) -> str:
     pts = approx_contour(contour).reshape(-1, 2)
     if len(pts) < 3:
         return ""
-    parts = [f"M{pts[0,0]:.1f} {pts[0,1]:.1f}"]
+    parts = [f"M{pts[0, 0]:.1f} {pts[0, 1]:.1f}"]
     for x, y in pts[1:]:
         parts.append(f"L{x:.1f} {y:.1f}")
     parts.append("Z")
@@ -37,11 +39,9 @@ def extract_shapes(mask: np.ndarray, min_area: float = 40.0) -> list[dict]:
         return []
     hierarchy = hierarchy[0]
     shapes: list[dict] = []
-    used_children: set[int] = set()
 
     for i, cnt in enumerate(contours):
-        parent = hierarchy[i][3]
-        if parent != -1:
+        if hierarchy[i][3] != -1:
             continue
         area = abs(cv2.contourArea(cnt))
         if area < min_area:
@@ -57,12 +57,14 @@ def extract_shapes(mask: np.ndarray, min_area: float = 40.0) -> list[dict]:
                 hd = contour_d(hole)
                 if hd:
                     holes.append(hd)
-            used_children.add(child)
             child = hierarchy[child][0]
+        xs = cnt[:, 0, 0]
+        ys = cnt[:, 0, 1]
         shapes.append({
             "d": d + ((" " + " ".join(holes)) if holes else ""),
             "area": area,
-            "has_holes": bool(holes),
+            "cx": float(np.mean(xs)),
+            "cy": float(np.mean(ys)),
         })
     shapes.sort(key=lambda s: s["area"], reverse=True)
     return shapes
@@ -74,13 +76,13 @@ def color_mask(rgb: np.ndarray, alpha: np.ndarray, kind: str) -> np.ndarray:
     b = rgb[:, :, 2].astype(np.int16)
     opaque = alpha > 72
     if kind == "red":
-        m = opaque & (r > g + 28) & (r > b + 28) & (r > 140)
+        m = opaque & (r > g + 24) & (r > b + 24) & (r > 120)
     elif kind == "green":
-        m = opaque & (g > r + 18) & (g > b) & (g > 90)
+        m = opaque & (g > r + 12) & (g > b + 8) & (g > 70)
     else:
-        m = opaque & ~((r > g + 28) & (r > b + 28) & (r > 140))
-        m &= ~((g > r + 18) & (g > b) & (g > 90))
-        m &= (np.maximum(np.maximum(r, g), b) > 28)
+        m = opaque & ~((r > g + 24) & (r > b + 24) & (r > 120))
+        m &= ~((g > r + 12) & (g > b + 8) & (g > 70))
+        m &= np.maximum(np.maximum(r, g), b) > 24
     mask = m.astype(np.uint8) * 255
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
@@ -90,61 +92,106 @@ def color_mask(rgb: np.ndarray, alpha: np.ndarray, kind: str) -> np.ndarray:
 
 def path_el(shape: dict, fill: str, cls: str) -> str:
     return (
-        f'    <path class="{cls}" fill="{fill}" stroke="{fill}" '
+        f'    <path class="logo-piece {cls}" fill="{fill}" stroke="{fill}" '
         f'stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" '
         f'paint-order="stroke fill" d="{shape["d"]}"/>'
     )
 
 
+def classify_red(shape: dict, mid_x: float) -> str | None:
+    if shape["cy"] < 520 and shape["area"] > 2500:
+        return "logo-tulip-right" if shape["cx"] >= mid_x else "logo-tulip-left"
+    if 500 < shape["cy"] < 900 and shape["area"] < 12000:
+        return "logo-ribbon-red"
+    return None
+
+
+def classify_green(shape: dict) -> str | None:
+    if shape["cy"] < 210:
+        return "logo-branch"
+    if shape["cy"] >= 420:
+        return "logo-ribbon-green"
+    return None
+
+
+def classify_gray(shape: dict, mid_x: float) -> str | None:
+    if shape["cy"] < 210 and shape["area"] > 400:
+        return "logo-bird"
+    if shape["cy"] > 760:
+        return "logo-script-right" if shape["cx"] >= mid_x else "logo-script-left"
+    if shape["area"] > 180:
+        return "logo-frame"
+    return None
+
+
 def main() -> None:
+    if not SRC.is_file():
+        raise SystemExit(f"missing source logo: {SRC}")
+
+    shutil.copy2(SRC, PNG_DST)
+
     img = Image.open(SRC).convert("RGBA")
     arr = np.array(img)
     rgb, alpha = arr[:, :, :3], arr[:, :, 3]
+    h, w = arr.shape[:2]
+    mid_x = w / 2
 
-    groups = {
-        "logo-hand": ("red", "#dc2626"),
-        "logo-bird": ("green", "#059669"),
-        "logo-script": ("gray", "#374151"),
+    buckets: dict[str, list[tuple[dict, str, str]]] = {
+        "logo-frame": [],
+        "logo-tulip": [],
+        "logo-ribbon": [],
+        "logo-bird": [],
+        "logo-branch": [],
+        "logo-script": [],
     }
 
+    for shape in extract_shapes(color_mask(rgb, alpha, "red"), min_area=120):
+        cls = classify_red(shape, mid_x)
+        if cls:
+            buckets["logo-tulip" if cls.startswith("logo-tulip") else "logo-ribbon"].append(
+                (shape, "#c41e3a", cls)
+            )
+
+    for shape in extract_shapes(color_mask(rgb, alpha, "green"), min_area=16):
+        cls = classify_green(shape)
+        if cls:
+            group = "logo-branch" if cls == "logo-branch" else "logo-ribbon"
+            buckets[group].append((shape, "#15803d", cls))
+
+    for shape in extract_shapes(color_mask(rgb, alpha, "gray"), min_area=14):
+        cls = classify_gray(shape, mid_x)
+        if cls:
+            if cls == "logo-bird":
+                group = "logo-bird"
+            elif cls == "logo-frame":
+                group = "logo-frame"
+            else:
+                group = "logo-script"
+            buckets[group].append((shape, "#374151", cls))
+
     chunks = ['<g id="logo-mark">']
-    counts = {}
-    for gid, (kind, color) in groups.items():
-        mask = color_mask(rgb, alpha, kind)
-        shapes = extract_shapes(mask, min_area=28 if kind != "gray" else 18)
-        counts[gid] = (len(shapes), float(sum(s["area"] for s in shapes)))
-        if not shapes:
+    counts: dict[str, int] = {}
+    for gid, items in buckets.items():
+        if not items:
             continue
-        if gid == "logo-bird" and len(shapes) >= 2:
-            body = [s for s in shapes if s["area"] >= 1200]
-            line = [s for s in shapes if s["area"] < 1200]
-            chunks.append(f'  <g id="{gid}">')
-            if body:
-                chunks.append('    <g id="logo-bird-body">')
-                chunks.extend(path_el(s, color, "logo-path logo-path-body") for s in body)
-                chunks.append("    </g>")
-            if line:
-                chunks.append('    <g id="logo-bird-line">')
-                chunks.extend(path_el(s, color, "logo-path logo-path-line") for s in line)
-                chunks.append("    </g>")
-            chunks.append("  </g>")
-        else:
-            chunks.append(f'  <g id="{gid}">')
-            cls = "logo-path logo-path-hand" if gid == "logo-hand" else "logo-path logo-path-script"
-            chunks.extend(path_el(s, color, cls) for s in shapes)
-            chunks.append("  </g>")
+        chunks.append(f'  <g id="{gid}">')
+        for shape, color, cls in items:
+            chunks.append(path_el(shape, color, cls))
+            key = f"{gid}:{cls}"
+            counts[key] = counts.get(key, 0) + 1
+        chunks.append("  </g>")
     chunks.append("</g>")
 
-    h, w = arr.shape[:2]
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" fill="none" aria-hidden="true">',
-        "  <title>ایثار</title>",
+        "  <title>موسسه ایثار</title>",
         *chunks,
         "</svg>",
         "",
     ]
-    DST.write_text("\n".join(svg), encoding="utf-8")
-    print("wrote", DST, "bytes", DST.stat().st_size)
+    SVG_DST.write_text("\n".join(svg), encoding="utf-8")
+    print("wrote", PNG_DST)
+    print("wrote", SVG_DST, "bytes", SVG_DST.stat().st_size)
     print("counts", counts)
 
 

@@ -67,8 +67,10 @@ class BookingPriceChangePreviewService
 
     public function bookingSupportsAutoRepricing(Booking $booking): bool
     {
-        return $booking->isManual()
-            && !$booking->isProgram()
-            && $booking->booking_source !== 'online';
+        if ($booking->isProgram() || $booking->booking_source === 'online') {
+            return false;
+        }
+
+        return $booking->isManual() || $booking->isManualServiceSale();
     }
 }

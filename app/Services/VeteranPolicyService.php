@@ -829,6 +829,98 @@ class VeteranPolicyService
     }
 
     /**
+     * Active services with veteran discount rules and weekly free-session usage for manual booking UI.
+     *
+     * @param  array<int, string|null>|string|null  $veteranKeys
+     * @return array{
+     *   reference_date: string,
+     *   veteran_groups: array<int, array{key: string, label: string}>,
+     *   services: array<int, array<string, mixed>>
+     * }
+     */
+    public function serviceDiscountCatalogSummary(
+        array|string|null $veteranKeys,
+        ?string $nationalId = null,
+        ?int $userId = null,
+        ?string $referenceDate = null,
+    ): array {
+        $keys = $this->normalizeVeteranTypes($veteranKeys);
+        if ($keys === []) {
+            return ['reference_date' => $referenceDate ?? now()->format('Y-m-d'), 'veteran_groups' => [], 'services' => []];
+        }
+
+        $referenceDate ??= now()->format('Y-m-d');
+        $weeklyUsage = $this->weeklyFreeUsageByServiceForTypes($keys, $nationalId, $userId, $referenceDate);
+
+        $veteranGroups = [];
+        foreach ($keys as $key) {
+            $veteranGroups[] = [
+                'key'   => $key,
+                'label' => $this->groupByKey($key)?->label ?? $key,
+            ];
+        }
+
+        $services = [];
+        foreach ($this->activeServices()->sortBy('sort_order') as $service) {
+            $rulesByGroup = [];
+            $hasBenefit = false;
+
+            foreach ($keys as $key) {
+                $rule = $this->serviceDiscountRule($key, $service->id);
+                $useTiered = (bool) ($rule['use_tiered_discount'] ?? false);
+                $tiers = $useTiered
+                    ? ServiceDiscountTierEngine::normalizeTiers($rule['discount_tiers'] ?? [])
+                    : ServiceDiscountTierEngine::normalizeTiers(
+                        ServiceDiscountTierEngine::tiersFromLegacyRule($rule),
+                    );
+
+                $tierLabels = [];
+                foreach ($tiers as $i => $tier) {
+                    $tierLabels[] = ServiceDiscountTierEngine::describePolicyTier($tier, $i);
+                }
+
+                $pct = (int) ($rule['discount_percentage'] ?? 0);
+                $weeklyFree = (int) ($rule['weekly_free_sessions'] ?? 0);
+                if ($pct > 0 || $useTiered || ($rule['free_sessions_eligible'] ?? false) || $weeklyFree > 0) {
+                    $hasBenefit = true;
+                }
+
+                $rulesByGroup[] = [
+                    'group_key'              => $key,
+                    'group_label'            => $this->groupByKey($key)?->label ?? $key,
+                    'discount_percentage'    => $pct,
+                    'min_discount'           => $rule['min_discount'],
+                    'max_discount'           => $rule['max_discount'],
+                    'free_sessions_eligible' => (bool) ($rule['free_sessions_eligible'] ?? false),
+                    'weekly_free_sessions'   => $weeklyFree,
+                    'use_tiered_discount'    => $useTiered,
+                    'discount_tiers'         => $tiers,
+                    'tier_labels'            => $tierLabels,
+                ];
+            }
+
+            if (!$hasBenefit) {
+                continue;
+            }
+
+            $services[] = [
+                'id'                     => $service->id,
+                'key'                    => $service->key,
+                'name'                   => $service->name,
+                'supports_free_sessions' => (bool) $service->supports_free_sessions,
+                'weekly_usage'           => $weeklyUsage[$service->key] ?? null,
+                'rules_by_group'         => $rulesByGroup,
+            ];
+        }
+
+        return [
+            'reference_date'  => $referenceDate,
+            'veteran_groups'  => $veteranGroups,
+            'services'        => $services,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function singleGroupUsageSummary(
@@ -1356,7 +1448,7 @@ class VeteranPolicyService
         $query = Booking::query()
             ->consumesVeteranQuota()
             ->with(['services.serviceCatalog', 'accommodation:id,name'])
-            ->where('booking_source', 'manual')
+            ->whereIn('booking_source', ['manual', 'manual_service'])
             ->where('status', '!=', 'cancelled')
             ->whereBetween('check_in', [$weekStart->toDateString(), $weekEnd->toDateString()]);
 

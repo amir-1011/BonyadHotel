@@ -3,7 +3,7 @@
 <div class="card shadow-sm">
     <div class="ta-list-chrome">
         <form method="GET" class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 min-w-0">
-            <input type="text" name="search" class="form-control form-control-sm" style="max-width:16rem" placeholder="جستجو نام یا کاربر..." value="{{ request('search') }}">
+            <input type="text" name="search" class="form-control form-control-sm" style="max-width:16rem" placeholder="جستجو نام یا مدیر..." value="{{ request('search') }}">
             <select name="type" class="form-select form-select-sm" style="max-width:9rem">
                 @php $typeOptions = \App\Models\AccommodationType::options(); @endphp
                 <option value="">همه انواع</option>
@@ -38,7 +38,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
-                <tr><th class="col-index">#</th><th>نام / نوع</th><th>شهر</th><th>کاربر</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
+                <tr><th class="col-index">#</th><th>نام / نوع</th><th>شهر</th><th>مدیر</th><th>وضعیت اداره</th><th>وضعیت</th><th>عملیات</th></tr>
             </thead>
             <tbody>
                 @forelse($accommodations as $acc)
@@ -86,6 +86,7 @@
                         <div class="d-flex gap-1 flex-wrap">
                             <a href="{{ route('accommodations.show', $acc) }}" class="btn btn-xs btn-outline-secondary" style="padding:.2rem .5rem;font-size:.75rem;" title="نمایش در سایت" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.manual-booking', $acc) }}" class="btn btn-xs btn-success" style="padding:.2rem .5rem;font-size:.75rem;" title="رزرو دستی"><i class="bi bi-plus-circle"></i></a>
+                            <a wire:navigate href="{{ route('admin.accommodations.manual-service-sale', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="فروش دستی خدمات"><i class="bi bi-bag-plus"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.report', $acc) }}" class="btn btn-xs btn-outline-info" style="padding:.2rem .5rem;font-size:.75rem;" title="گزارش فروش"><i class="bi bi-graph-up-arrow"></i></a>
                             <a wire:navigate href="{{ route('admin.room-types.index', $acc) }}" class="btn btn-xs btn-outline-success" style="padding:.2rem .5rem;font-size:.75rem;" title="مدیریت اتاق‌ها"><i class="bi bi-door-open"></i></a>
                             <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $acc) }}" class="btn btn-xs btn-outline-primary" style="padding:.2rem .5rem;font-size:.75rem;" title="تعاریف اولیه"><i class="bi bi-shield-check"></i></a>

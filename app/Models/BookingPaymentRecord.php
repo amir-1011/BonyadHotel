@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BookingPaymentCaptureService;
 use App\Support\ProgramDocumentPaths;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,6 +62,11 @@ class BookingPaymentRecord extends Model
     public function hasDocuments(): bool
     {
         return $this->documentPaths() !== [];
+    }
+
+    public function priceAdjustmentReasonLabel(): ?string
+    {
+        return BookingPaymentCaptureService::displayPriceAdjustmentReason($this->price_adjustment_reason);
     }
 
     public function contextLabel(): string

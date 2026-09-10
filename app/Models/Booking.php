@@ -177,6 +177,11 @@ class Booking extends Model
         return $this->booking_source === 'manual';
     }
 
+    public function isManualServiceSale(): bool
+    {
+        return $this->booking_source === 'manual_service';
+    }
+
     public function isProgram(): bool
     {
         return $this->booking_source === 'program';
@@ -505,20 +510,22 @@ class Booking extends Model
     public function bookingSourceLabel(): string
     {
         return match ($this->booking_source) {
-            'manual'  => 'رزرو دستی',
-            'online'  => 'آنلاین',
-            'program' => 'برنامه / اردو',
-            default   => $this->booking_source ?: '—',
+            'manual'         => 'رزرو دستی',
+            'manual_service' => 'فروش دستی خدمات',
+            'online'         => 'آنلاین',
+            'program'        => 'برنامه / اردو',
+            default          => $this->booking_source ?: '—',
         };
     }
 
     public function bookingTypeLabel(): string
     {
         return match ($this->booking_source) {
-            'manual'  => 'حضوری',
-            'online'  => 'اینترنتی',
-            'program' => 'اردو',
-            default   => $this->bookingSourceLabel(),
+            'manual'         => 'حضوری',
+            'manual_service' => 'فروش خدمات',
+            'online'         => 'اینترنتی',
+            'program'        => 'اردو',
+            default          => $this->bookingSourceLabel(),
         };
     }
 

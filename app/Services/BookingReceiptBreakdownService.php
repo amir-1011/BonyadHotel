@@ -125,7 +125,9 @@ class BookingReceiptBreakdownService
         $naturalTotal = (int) ($pricing['total_price'] ?? $displayTotal);
 
         if (app(BookingPriceChangePreviewService::class)->bookingSupportsAutoRepricing($booking)) {
+            $captureService = app(BookingPaymentCaptureService::class);
             $manualAdjustment = $displayTotal - $naturalTotal;
+            $manualAdjustment -= $captureService->totalRecordedVatForBooking($booking);
 
             $pricing['natural_total'] = $naturalTotal;
             $pricing['payable_total'] = $displayTotal;

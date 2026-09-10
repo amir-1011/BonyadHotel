@@ -88,7 +88,7 @@
                             @if($record->transaction_tracking)<div dir="ltr">پیگیری: {{ $record->transaction_tracking }}</div>@endif
                         </td>
                         <td class="small">{{ $record->posTerminal?->displayLabel() ?? '—' }}</td>
-                        <td class="small text-muted">{{ \Illuminate\Support\Str::limit($record->price_adjustment_reason ?? '—', 40) }}</td>
+                        <td class="small text-muted">{{ \Illuminate\Support\Str::limit($record->priceAdjustmentReasonLabel() ?? '—', 40) }}</td>
                         <td class="text-end">
                             @if($record->hasDocuments())
                             <div class="d-flex flex-wrap gap-1 justify-content-end">

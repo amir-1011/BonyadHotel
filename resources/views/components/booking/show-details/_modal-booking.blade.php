@@ -26,6 +26,20 @@
         </span>
     </li>
     @endif
+    @if($booking->isManualServiceSale())
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">تاریخ فروش</span>
+        <span dir="ltr">@jalali($booking->check_in)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">نوع ثبت</span>
+        <span class="badge text-bg-info">فروش دستی خدمات (بدون اقامت)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between gap-2 px-0">
+        <span class="text-muted">تعداد خدمات</span>
+        <span><strong>{{ $booking->services->count() }}</strong> مورد</span>
+    </li>
+    @else
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">تاریخ ورود</span>
         <span dir="ltr">@jalali($booking->check_in)</span>
@@ -51,7 +65,8 @@
         <span class="text-muted">تخت / صورتحساب</span>
         <span>{{ $booking->billingGuests() }} تخت · {{ $booking->rooms_consumed }} اتاق مصرف‌شده</span>
     </li>
-    @if($booking->extra_guests > 0)
+    @endif
+    @if(!$booking->isManualServiceSale() && $booking->extra_guests > 0)
     <li class="list-group-item d-flex justify-content-between gap-2 px-0">
         <span class="text-muted">کف‌خواب</span>
         <span>{{ $booking->extra_guests }} نفر · {{ \App\Support\PdfPersian::toPersianDigits(number_format($booking->extra_guests_price)) }} ریال</span>

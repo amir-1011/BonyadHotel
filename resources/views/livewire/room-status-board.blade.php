@@ -155,15 +155,28 @@
                 $occupancyPct = (int) $summary['total'] > 0
                     ? (int) round(100 * $busyRooms / (int) $summary['total'])
                     : 0;
+                $kpiCollapseId = 'rsb-kpi-collapse-' . $acc['accommodation_id'];
             @endphp
             <div class="mb-4 rsb-acc" wire:key="rsb-acc-{{ $acc['accommodation_id'] }}" data-rsb-accommodation="{{ $acc['accommodation_id'] }}">
                 <div class="ta-card rsb-kpi mb-3">
-                    <div class="ta-card__head rsb-kpi__head flex-wrap gap-2">
-                        <div class="fw-bold min-w-0">
+                    <div class="ta-card__head rsb-kpi__head flex-wrap gap-2"
+                         role="button"
+                         data-bs-toggle="collapse"
+                         data-bs-target="#{{ $kpiCollapseId }}"
+                         aria-expanded="false"
+                         aria-controls="{{ $kpiCollapseId }}"
+                         style="cursor:pointer;user-select:none">
+                        <div class="fw-bold min-w-0 d-flex align-items-center flex-wrap gap-2">
                             <i class="bi bi-building me-1 text-primary"></i>{{ $acc['accommodation_name'] }}
+                            <span class="badge bg-light text-dark border fw-normal" style="font-size:.7rem;font-weight:500">
+                                {{ $summary['total'] }} اتاق
+                                @if((int) $summary['total'] > 0)
+                                    · {{ $occupancyPct }}٪ اشغال
+                                @endif
+                            </span>
                         </div>
                         @if($layoutEditMode && $panel === 'host' && $canEditBuildingLayout)
-                        <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                        <div class="d-flex align-items-center gap-2 ms-auto flex-wrap" onclick="event.stopPropagation()">
                             <label class="small text-muted mb-0 d-flex align-items-center gap-1">
                                 حداکثر ستون در هر ردیف:
                                 <select class="form-select form-select-sm"
@@ -189,7 +202,9 @@
                             </button>
                         </div>
                         @endif
+                        <i class="bi bi-chevron-down text-muted rsb-kpi-chevron ms-auto flex-shrink-0" aria-hidden="true" style="transition:transform .25s"></i>
                     </div>
+                    <div class="collapse" id="{{ $kpiCollapseId }}">
                     <div class="rsb-kpi__grid">
                         <article class="rsb-kpi__cell" data-rsb-kpi="total">
                             <span class="rsb-kpi__icon rsb-kpi__icon--success" aria-hidden="true"><i class="bi bi-door-open-fill"></i></span>
@@ -270,6 +285,7 @@
                                 <div class="rsb-kpi__meta">خارج از فروش توسط کاربر</div>
                             </div>
                         </article>
+                    </div>
                     </div>
                 </div>
 
@@ -903,8 +919,15 @@
     }
     .rsb-kpi { overflow: hidden; }
     .rsb-kpi__head {
-        align-items: flex-start;
+        align-items: center;
         padding-bottom: .85rem;
+    }
+    .rsb-kpi__head[aria-expanded="false"] {
+        padding-bottom: .85rem;
+        border-bottom: none;
+    }
+    .rsb-kpi__head[aria-expanded="true"] .rsb-kpi-chevron {
+        transform: rotate(180deg);
     }
     .rsb-kpi__grid {
         display: grid;

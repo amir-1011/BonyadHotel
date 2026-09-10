@@ -35,6 +35,10 @@ class ManualBookingService
      */
     public function create(Accommodation $accommodation, array $data, User $createdBy): Booking
     {
+        if (!empty($data['service_sale_only'])) {
+            return $this->createServiceSale($accommodation, $data, $createdBy);
+        }
+
         return DB::transaction(function () use ($accommodation, $data, $createdBy) {
             $roomLinesInput = $this->normalizeRoomLines($accommodation, $data);
             $isMultiRoom = count($roomLinesInput) > 1
@@ -341,6 +345,158 @@ class ManualBookingService
     }
 
     /**
+     * Standalone manual service sale (no accommodation nights / rooms).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function createServiceSale(Accommodation $accommodation, array $data, User $createdBy): Booking
+    {
+        return DB::transaction(function () use ($accommodation, $data, $createdBy) {
+            $guestUser = $this->resolveGuestUser($data, $accommodation->id);
+
+            $hasProfileVeteranTypes = array_key_exists('profile_veteran_types', $data)
+                && is_array($data['profile_veteran_types']);
+
+            $profileVeteranTypes = $this->veteranPolicy
+                ->forAccommodation($accommodation->id)
+                ->normalizeVeteranTypes(
+                    $hasProfileVeteranTypes
+                        ? $data['profile_veteran_types']
+                        : ($data['veteran_types'] ?? [
+                            $data['veteran_type'] ?? null,
+                            $data['secondary_veteran_type'] ?? null,
+                        ]),
+                );
+
+            $veteranTypes = $profileVeteranTypes;
+            [$veteranType, $secondaryVeteranType] = $this->veteranPolicy
+                ->forAccommodation($accommodation->id)
+                ->splitVeteranTypes($veteranTypes);
+
+            if ($hasProfileVeteranTypes || $profileVeteranTypes !== []) {
+                $this->syncUserVeteranProfile($guestUser, $profileVeteranTypes, $accommodation->id);
+            }
+
+            $services = $data['services'] ?? [];
+            $guestDetails = $data['guest_details'] ?? [];
+            $primaryNationalId = $this->primaryNationalId($guestDetails, $data);
+
+            if ($services === []) {
+                throw new \RuntimeException('حداقل یک خدمت باید ثبت شود.');
+            }
+
+            $today = now()->format('Y-m-d');
+            $billingGuests = 1;
+            $veteranDiscountPct = VeteranGroups::accommodationDiscountForTypes($veteranTypes, $accommodation->id);
+            $perGuestSlots = $this->pricing->buildPerGuestSlotsFromGuestDetails(
+                $guestDetails,
+                $billingGuests,
+                0,
+                $veteranType,
+                $veteranDiscountPct,
+            );
+
+            $pricing = $this->pricing->calculateManualServiceSale([
+                'veteran_type'         => $veteranType,
+                'secondary_veteran_type' => $secondaryVeteranType,
+                'veteran_types'        => $veteranTypes,
+                'services'             => $services,
+                'accommodation'        => $accommodation,
+                'national_id'          => $primaryNationalId,
+                'user_id'              => $guestUser->id,
+                'non_veteran_discount_guests' => !empty($guestDetails[0]['excluded_from_veteran_discount']) ? 1 : 0,
+                'per_guest_slots'      => $perGuestSlots,
+                'reference_date'       => $today,
+            ]);
+
+            $pricing = $this->commission->overlayPricing($pricing, [
+                'booking_source'           => 'manual_service',
+                'payment_method'           => $data['payment_method'] ?? null,
+                'is_credit'                => false,
+                'is_medical_accommodation' => false,
+            ]);
+
+            $priceAdjustment = (int) ($data['total_price_adjustment'] ?? 0);
+            if ($priceAdjustment !== 0) {
+                $pricing['total_price'] = max(0, (int) $pricing['total_price'] + $priceAdjustment);
+            }
+
+            $guestDiscountSnapshot = $this->buildGuestDiscountSnapshot(
+                $guestDetails,
+                $billingGuests,
+                $veteranType,
+                $data,
+                $accommodation->id,
+            );
+
+            $booking = Booking::create([
+                'user_id'               => $guestUser->id,
+                'created_by'            => $createdBy->id,
+                'accommodation_id'      => $accommodation->id,
+                'room_type_id'          => null,
+                'room_rate_id'          => null,
+                'check_in'              => $today,
+                'check_out'             => $today,
+                'guests'                => 1,
+                'children_under_6'      => 0,
+                'guest_contact_name'    => $data['guest_contact_name'] ?? $guestUser->name,
+                'guest_contact_mobile'  => $data['guest_contact_mobile'] ?? $guestUser->mobile,
+                'rooms_consumed'        => 0,
+                'extra_guests'          => 0,
+                'extra_guests_price'    => 0,
+                'bill_full_rooms'       => false,
+                'nights'                => 0,
+                'base_price'            => $pricing['subtotal_before_discount'],
+                'services_subtotal'     => $pricing['services_subtotal'],
+                'discount_percentage'   => 0,
+                'veteran_type_applied'  => $veteranType ?: null,
+                'secondary_veteran_type_applied' => $secondaryVeteranType,
+                'veteran_accommodation_group_usage' => null,
+                'discount_amount'       => $pricing['discount_amount'],
+                'total_price'           => $pricing['total_price'],
+                'status'                => 'confirmed',
+                'booking_source'        => 'manual_service',
+                'payment_method'        => $data['payment_method'] ?? null,
+                'is_medical_accommodation' => false,
+                'is_credit'              => false,
+                'notes'                 => $data['notes'] ?? null,
+                'guest_discount_snapshot' => $guestDiscountSnapshot,
+                'tracking_code'         => strtoupper(Str::random(10)),
+            ]);
+
+            foreach ($pricing['service_lines'] as $i => $line) {
+                BookingService::create([
+                    'booking_id'                 => $booking->id,
+                    'guest_sort_order'           => $line['guest_sort_order'] ?? null,
+                    'service_catalog_id'         => $line['service_catalog_id'] ?: null,
+                    'service_catalog_variant_id' => $line['service_catalog_variant_id'] ?? null,
+                    'name'                       => $line['name'],
+                    'unit_price'                 => $line['unit_price'],
+                    'quantity'                   => $line['quantity'],
+                    'free_units'                 => $line['free_units'] ?? 0,
+                    'discount_percentage'        => $line['discount_percentage'],
+                    'discount_amount'            => $line['discount_amount'],
+                    'total'                      => $line['line_total'],
+                    'sort_order'                 => $i,
+                    'veteran_group_usage'        => $line['veteran_group_usage'] ?? null,
+                    'excluded_from_veteran_quota' => !empty($line['excluded_from_veteran_quota']),
+                    'manual_discount_percentage' => $line['manual_discount_percentage'] ?? null,
+                    'manual_discount_reason'     => $line['manual_discount_reason'] ?? null,
+                ]);
+            }
+
+            $this->persistGuestDetails($booking, $guestDetails, $billingGuests, $veteranType, $data, []);
+
+            $booking = $booking->fresh(['services.serviceCatalog', 'guestDetails', 'user', 'accommodation.city']);
+            $this->commission->syncBookingCommissions($booking, $createdBy);
+
+            $this->persistPaymentCaptureForManualBooking($booking, $data, $createdBy, $priceAdjustment);
+
+            return $booking;
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<int, array{
      *   room_type: ?RoomType,
@@ -354,6 +510,10 @@ class ManualBookingService
      */
     private function normalizeRoomLines(Accommodation $accommodation, array $data): array
     {
+        if (!empty($data['service_sale_only'])) {
+            return [];
+        }
+
         if (!empty($data['room_lines']) && is_array($data['room_lines'])) {
             return collect($data['room_lines'])->map(function ($line) use ($accommodation) {
                 return $this->resolveRoomLine($accommodation, $line);
@@ -543,7 +703,7 @@ class ManualBookingService
             throw new \RuntimeException('شماره پاسپورت مهمان خارجی معتبر نیست.');
         }
 
-        if (!$mobile || !preg_match('/^09[0-9]{9}$/', $mobile)) {
+        if ($mobile !== '' && !preg_match('/^09[0-9]{9}$/', $mobile)) {
             throw new \RuntimeException('شماره موبایل مهمان خارجی معتبر نیست.');
         }
 
@@ -558,13 +718,35 @@ class ManualBookingService
             ->first();
 
         if ($byPassport) {
-            if ($byPassport->mobile !== $mobile) {
+            if ($mobile !== '' && $byPassport->mobile && $byPassport->mobile !== $mobile) {
                 throw new \RuntimeException(
                     "شماره پاسپورت با شماره موبایل هم‌خوانی ندارد. این پاسپورت متعلق به {$byPassport->mobile} است."
                 );
             }
 
             return $byPassport;
+        }
+
+        if ($mobile === '') {
+            if (User::where('passport_number', $passport)->exists()) {
+                throw new \RuntimeException('این شماره پاسپورت قبلاً برای کاربر دیگری ثبت شده است.');
+            }
+
+            $user = User::create([
+                'name'               => $name,
+                'mobile'             => null,
+                'is_foreign_guest'   => true,
+                'passport_number'    => $passport,
+                'country_id'         => $countryId,
+                'residence_city_id' => $residenceCityId,
+                'mobile_verified_at' => now(),
+            ]);
+
+            if (!$user->hasAnyRole(['super_admin', 'host', 'guest'])) {
+                $user->assignRole('guest');
+            }
+
+            return $user;
         }
 
         $byMobile = User::where('mobile', $mobile)->first();
@@ -1127,9 +1309,17 @@ class ManualBookingService
     ): void {
         $captureService = app(BookingPaymentCaptureService::class);
         $capture = $data['payment_capture'] ?? null;
-        $reason = $data['price_adjustment_reason'] ?? null;
+        $composedReason = $captureService->composePriceAdjustmentReason(
+            is_string($data['price_adjustment_reason'] ?? null) ? $data['price_adjustment_reason'] : null,
+            (int) ($data['vat_percent'] ?? 0),
+            (int) ($data['vat_base_amount'] ?? 0),
+        );
 
         if (is_array($capture)) {
+            if ($composedReason !== null) {
+                $capture['price_adjustment_reason'] = $composedReason;
+            }
+
             $captureService->record(
                 $booking,
                 $priceAdjustment,
@@ -1146,7 +1336,7 @@ class ManualBookingService
         $captureService->recordOptionalAdjustmentNote(
             $booking,
             $priceAdjustment,
-            $reason,
+            $composedReason,
             BookingPaymentRecord::CONTEXT_MANUAL_BOOKING,
             'submitManualBooking',
             $createdBy,

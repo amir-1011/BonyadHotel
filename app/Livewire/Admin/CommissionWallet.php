@@ -7,8 +7,10 @@ use App\Models\City;
 use App\Models\PlatformCommissionEntry;
 use App\Models\ServiceCatalog;
 use App\Services\PlatformCommissionService;
+use App\Support\JalaliDateTimeInput;
 use App\Support\PlatformCommissionEntryFilter;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -107,9 +109,66 @@ class CommissionWallet extends Component
 
     public string $draftTransactionMax = '';
 
+    public bool $showSettlementModal = false;
+
+    public string $settlementPeriodEndJalali = '';
+
+    /** @var array<string, mixed>|null */
+    public ?array $settlementPreview = null;
+
     public function mount(): void
     {
         $this->syncDraftFromApplied();
+    }
+
+    public function openSettlementModal(): void
+    {
+        $this->showSettlementModal = true;
+        $this->settlementPeriodEndJalali = JalaliDateTimeInput::nowJalaliDate();
+        $this->refreshSettlementPreview();
+        $this->dispatch('init-commission-settlement-datepicker');
+    }
+
+    public function closeSettlementModal(): void
+    {
+        $this->showSettlementModal = false;
+        $this->settlementPeriodEndJalali = '';
+        $this->settlementPreview = null;
+        $this->resetErrorBag('settlementPeriodEndJalali');
+    }
+
+    public function refreshSettlementPreview(): void
+    {
+        $this->resetErrorBag('settlementPeriodEndJalali');
+
+        if (trim($this->settlementPeriodEndJalali) === '') {
+            $this->settlementPreview = null;
+
+            return;
+        }
+
+        try {
+            $this->settlementPreview = app(PlatformCommissionService::class)
+                ->previewPeriodSettlement($this->settlementPeriodEndJalali);
+        } catch (ValidationException $exception) {
+            $this->settlementPreview = null;
+            throw $exception;
+        }
+    }
+
+    public function confirmPeriodSettlement(): void
+    {
+        try {
+            app(PlatformCommissionService::class)->executePeriodSettlement(
+                $this->settlementPeriodEndJalali,
+                auth()->user(),
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
+        }
+
+        $this->closeSettlementModal();
+        $this->dispatch('toast', type: 'success', message: 'تسویه دوره با موفقیت ثبت شد و از موجودی کیف پول کسر گردید.');
     }
 
     public function applyFilters(): void
@@ -216,11 +275,22 @@ class CommissionWallet extends Component
             'sum_transaction'    => (int) (clone $filteredQuery)->sum('transaction_amount'),
         ];
 
+        $lastSettlement = $commission->lastPeriodSettlement();
+
         $stats = [
-            'balance'        => $commission->walletBalance(),
-            'total_credits'  => (int) PlatformCommissionEntry::query()->where('commission_amount', '>', 0)->sum('commission_amount'),
-            'total_reversals'=> abs((int) PlatformCommissionEntry::query()->where('commission_amount', '<', 0)->sum('commission_amount')),
-            'entries_count'  => PlatformCommissionEntry::count(),
+            'balance'               => $commission->walletBalance(),
+            'total_credits'         => (int) PlatformCommissionEntry::query()
+                ->where('reason', '!=', PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT)
+                ->where('commission_amount', '>', 0)
+                ->sum('commission_amount'),
+            'total_reversals'       => abs((int) PlatformCommissionEntry::query()
+                ->where('reason', '!=', PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT)
+                ->where('commission_amount', '<', 0)
+                ->sum('commission_amount')),
+            'total_settled'         => $commission->totalSettledAmount(),
+            'last_settlement_end'   => $lastSettlement?->meta['period_end_jalali'] ?? null,
+            'last_settlement_amount'=> $lastSettlement ? abs((int) $lastSettlement->commission_amount) : 0,
+            'entries_count'         => PlatformCommissionEntry::count(),
         ];
 
         $driver = DB::getDriverName();

@@ -12,7 +12,7 @@
     @endif
     <li class="mb-1"><strong>جمع تخفیف:</strong> −{{ \App\Support\PdfPersian::toPersianDigits(number_format($pricing['discount_amount'])) }} ریال</li>
     @if(($pricing['platform_commission_amount'] ?? 0) > 0)
-    <li class="mb-1"><strong>کارمزد سامانه:</strong> {{ \App\Support\PdfPersian::toPersianDigits(number_format($pricing['platform_commission_amount'])) }} ریال</li>
+    <li class="mb-1"><strong>حق سرویس:</strong> {{ \App\Support\PdfPersian::toPersianDigits(number_format($pricing['platform_commission_amount'])) }} ریال</li>
     @endif
     <li class="mb-1"><strong>پرداخت:</strong>
         @if($paymentMethod === 'cash') نقدی

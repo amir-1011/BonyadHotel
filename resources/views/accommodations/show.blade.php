@@ -1134,7 +1134,7 @@
             <template x-for="(p, i) in dynamicNightPrices" :key="i">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;font-size:12px;border-bottom:1px solid #f3f4f6;">
                     <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                        <span style="font-weight:600;" x-text="new persianDate(new Date(p.date + 'T12:00:00')).format('DD MMM')"></span>
+                        <span style="font-weight:600;" x-text="new persianDate(new Date(p.date + 'T12:00:00')).format('DD MMMM')"></span>
                         <template x-if="p.label">
                             <span :style="p.hostDiscountPct > 0 ? 'font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;' : 'font-size:10px;background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 5px;font-weight:600;'"
                                   x-text="p.label + (p.hostDiscountPct > 0 ? ' · ' + p.hostDiscountPct + '%' : '')"></span>

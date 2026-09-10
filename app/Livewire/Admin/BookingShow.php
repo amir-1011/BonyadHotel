@@ -9,7 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-#[Layout('layouts.admin', ['title' => 'جزئیات رزرو', 'pageTitle' => 'جزئیات رزرو'])]
+#[Layout('layouts.admin')]
 class BookingShow extends Component
 {
     use ManagesBookingDetails;
@@ -75,9 +75,14 @@ class BookingShow extends Component
 
     public function render()
     {
+        $pageTitle = $this->booking->isManualServiceSale() ? 'جزئیات فروش خدمات' : 'جزئیات رزرو';
+
         return view('admin.bookings.show', [
             'booking' => $this->booking,
             'panel'   => 'admin',
+        ])->layout('layouts.admin', [
+            'title'     => $pageTitle,
+            'pageTitle' => $pageTitle,
         ]);
     }
 }

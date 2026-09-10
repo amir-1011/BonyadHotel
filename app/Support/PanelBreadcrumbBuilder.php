@@ -40,6 +40,7 @@ class PanelBreadcrumbBuilder
       str_starts_with($suffix, 'reviews.') => self::append($crumbs, 'نظرات', null),
       $suffix === 'veteran-policy' => self::append($crumbs, 'تعاریف اولیه', null),
       $suffix === 'location-catalog' => self::append($crumbs, 'استان‌ها و انواع', null),
+      $suffix === 'programs.supportive-report' => self::supportiveReport($panel, $crumbs),
       str_starts_with($suffix, 'programs.') => self::programs($panel, $suffix, $route, $crumbs),
       str_starts_with($suffix, 'facility.') => self::facility($panel, $suffix, $crumbs),
       $suffix === 'profile' => self::append($crumbs, 'پروفایل', null),
@@ -243,6 +244,23 @@ class PanelBreadcrumbBuilder
    * @param  list<array{label: string, url: string|null}>  $crumbs
    * @return list<array{label: string, url: string|null}>
    */
+  private static function supportiveReport(string $panel, array $crumbs): array
+  {
+    if ($panel === 'admin') {
+      $crumbs = self::append($crumbs, 'گزارشات مالی', null);
+
+      return self::append($crumbs, 'خدمات حمایتی', null);
+    }
+
+    $crumbs = self::append($crumbs, 'رزروها', route("{$panel}.bookings.index"));
+
+    return self::append($crumbs, 'خدمات حمایتی', null);
+  }
+
+  /**
+   * @param  list<array{label: string, url: string|null}>  $crumbs
+   * @return list<array{label: string, url: string|null}>
+   */
   private static function programs(string $panel, string $suffix, Route $route, array $crumbs): array
   {
     $crumbs = self::append($crumbs, 'برنامه‌ها و اردوها', route("{$panel}.programs.index"));
@@ -251,7 +269,6 @@ class PanelBreadcrumbBuilder
     return match ($suffix) {
       'programs.index' => self::setLast($crumbs, 'برنامه‌ها'),
       'programs.create' => self::append($crumbs, 'ثبت برنامه', null),
-      'programs.supportive-report' => self::append($crumbs, 'خدمات حمایتی', null),
       'programs.show' => self::append($crumbs, self::modelLabel($program, 'جزئیات برنامه'), null),
       default => $crumbs,
     };

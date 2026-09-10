@@ -1,3 +1,3 @@
 <div {{ $attributes->class('ta-sidebar__logo') }}>
-    <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار">
+    <img src="{{ vasset('logo/site-logo.png') }}" alt="موسسه ایثار">
 </div>

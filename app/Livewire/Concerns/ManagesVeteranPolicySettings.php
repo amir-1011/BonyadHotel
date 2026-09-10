@@ -236,6 +236,9 @@ trait ManagesVeteranPolicySettings
             ->where('service_catalog_id', $service->id)
             ->whereNotIn('id', $keptIds)
             ->delete();
+
+        $service->refresh();
+        $service->activateWhenHasActiveVariants();
     }
 
     public function addServiceVariant(?int $serviceId = null): void
@@ -267,6 +270,8 @@ trait ManagesVeteranPolicySettings
         ]);
 
         $this->newVariantDrafts[$serviceId] = ['name' => '', 'price' => 0];
+        $service->refresh();
+        $service->activateWhenHasActiveVariants();
         $this->clearVeteranPolicyCache();
         $this->loadVeteranPolicyData();
         $this->dispatch('toast', type: 'success', message: 'نوع خدمت اضافه شد.');

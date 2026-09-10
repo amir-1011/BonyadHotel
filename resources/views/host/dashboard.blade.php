@@ -59,6 +59,16 @@
     @endforeach
 </div>
 
+@if($myAccommodations->isNotEmpty() && ($hostUser->hostCanAny('accommodations.manual-service-sale', ['write']) || $hostUser->hostCanAny('accommodations.manual-booking', ['write'])))
+<div class="row g-3 mb-4" wire:key="host-dashboard-acc-cards-{{ $filterKey }}">
+    @foreach($myAccommodations as $acc)
+    <div class="col-12 col-md-6">
+        <x-host.accommodation-card :acc="$acc" actions="quick" />
+    </div>
+    @endforeach
+</div>
+@endif
+
 {{-- ── Occupancy calendar — full row ─────────────────────────────────── --}}
 @if($hostUser->hostCan('dashboard.room-status-board', 'read'))
 <div class="row g-4 mb-4">

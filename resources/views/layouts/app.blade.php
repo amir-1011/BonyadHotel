@@ -266,7 +266,7 @@
             {{-- Logo (right in RTL) --}}
             <div class="d-none d-md-flex" style="flex:0 0 auto;justify-content:flex-start;">
             <a href="{{ route('home') }}" wire:navigate class="bnb-logo flex-shrink-0">
-                <img src="{{ vasset('logo/site-logo.png') }}" alt="ایثار" style="height: 40px;">
+                <img src="{{ vasset('logo/site-logo.png') }}" alt="موسسه ایثار" style="height: 40px;">
                 <span class="d-none d-sm-inline" style="color:#009548;">ایثار</span>
             </a>
             </div>

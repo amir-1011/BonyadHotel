@@ -33,6 +33,29 @@ class BookingPricingService
         return $this->calculateSingleRoom($params);
     }
 
+    /**
+     * Pricing for standalone manual service sales (no room / night charges).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    public function calculateManualServiceSale(array $params): array
+    {
+        $today = (string) ($params['reference_date'] ?? now()->format('Y-m-d'));
+
+        $params['check_in'] = $today;
+        $params['check_out'] = $today;
+        $params['guests'] = 1;
+        $params['children_under_6'] = 0;
+        $params['extra_guests'] = 0;
+        $params['bill_full_rooms'] = false;
+        $params['room_type'] = null;
+        $params['room_rate'] = null;
+        unset($params['room_lines']);
+
+        return $this->calculateSingleRoom($params);
+    }
+
     private function policyFor(array $params): VeteranPolicyService
     {
         $accommodation = $params['accommodation'] ?? null;

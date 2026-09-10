@@ -20,8 +20,12 @@
     $naturalTotal = (int) ($pricing['natural_total'] ?? $pricing['total_price'] ?? $booking->total_price);
     $manualAdjustment = (int) ($pricing['manual_total_adjustment'] ?? 0);
     $totalPrice = (int) ($pricing['payable_total'] ?? $booking->total_price);
+    $payableAmount = $booking->isMedicalAccommodation()
+        ? (int) ($booking->employerDebtAmount() ?: $totalPrice)
+        : $totalPrice;
     $platformCommission = (int) ($pricing['platform_commission_amount'] ?? 0);
     $childrenUnder6 = (int) ($pricing['children_under_6'] ?? $booking->children_under_6 ?? 0);
+    $isServiceSale = $booking->isManualServiceSale();
 
     $accGross = $roomSubtotal + $extraGuestsTotal;
     $accDiscountTotal = $childrenDiscount + $veteranAccDiscount + $manualAccDiscount;
@@ -44,7 +48,7 @@
             {{ $booking->isMedicalAccommodation() ? 'بدهی کارفرما (بیمه دی)' : 'مبلغ قابل پرداخت' }}
         </div>
         <div class="bnb-fin-hero__amount" dir="ltr">
-
+            {{ \App\Support\PdfPersian::toPersianDigits(number_format($payableAmount)) }}
             <span class="bnb-fin-currency">ریال</span>
         </div>
         @if($booking->isMedicalAccommodation())
@@ -70,6 +74,7 @@
         @endif
     </section>
 
+    @if(!$isServiceSale)
     {{-- Accommodation --}}
     <section class="bnb-fin-section">
         <header class="bnb-fin-section__head">
@@ -170,6 +175,7 @@
             />
         </div>
     </section>
+    @endif
 
     {{-- Services --}}
     @if($serviceCount > 0)
@@ -243,14 +249,14 @@
             @endif
             @if($platformCommission > 0)
             <x-booking.financial-row
-                label="کارمزد سامانه"
+                label="حق سرویس"
                 :amount="$platformCommission"
                 variant="muted"
             />
             @endif
             <x-booking.financial-row
                 :label="$booking->isMedicalAccommodation() ? 'بدهی کارفرما (بیمه دی)' : 'مبلغ قابل پرداخت'"
-                :amount="$booking->isMedicalAccommodation() ? ($booking->employerDebtAmount() ?: $totalPrice) : $totalPrice"
+                :amount="$payableAmount"
                 variant="hero"
                 class="bnb-fin-row--final"
             />

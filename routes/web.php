@@ -115,6 +115,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Admin\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
     Route::get('/accommodations/{accommodation}/medical-accommodation', \App\Livewire\Admin\AccommodationMedicalAccommodationSettings::class)->name('accommodations.medical-accommodation');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Admin\ManualBooking::class)->name('accommodations.manual-booking');
+    Route::get('/accommodations/{accommodation}/manual-service-sale', \App\Livewire\Admin\ManualServiceSale::class)->name('accommodations.manual-service-sale');
     // Sales report (keep as controller — complex chart data)
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Admin\AccommodationController::class, 'salesReport'])->name('accommodations.report');
 
@@ -208,6 +209,7 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
     Route::get('/accommodations/{accommodation}/cancellation-policy', \App\Livewire\Host\AccommodationCancellationPolicySettings::class)->name('accommodations.cancellation-policy');
     Route::get('/accommodations/{accommodation}/medical-accommodation', \App\Livewire\Host\AccommodationMedicalAccommodationSettings::class)->name('accommodations.medical-accommodation');
     Route::get('/accommodations/{accommodation}/manual-booking', \App\Livewire\Host\ManualBooking::class)->name('accommodations.manual-booking');
+    Route::get('/accommodations/{accommodation}/manual-service-sale', \App\Livewire\Host\ManualServiceSale::class)->name('accommodations.manual-service-sale');
 
     // Bookings
     Route::get('/bookings/export',    [\App\Http\Controllers\Host\BookingController::class, 'export'])->name('bookings.export');

@@ -153,7 +153,8 @@ trait ManagesBookingPriceConfirmations
 
         $this->booking->refresh();
         $naturalAfter = (int) $this->booking->total_price;
-        $manualPortion = $confirmedDelta - ($naturalAfter - $naturalBefore);
+        $vatAmount = $this->confirmedBookingVatAmount($params);
+        $manualPortion = $confirmedDelta - ($naturalAfter - $naturalBefore) - $vatAmount;
 
         $this->finalizeBookingPriceChange($this->booking, $beforeTotal, $confirmedDelta);
         $this->persistServiceManualPriceAdjustment($action, $params, $manualPortion);
@@ -171,10 +172,19 @@ trait ManagesBookingPriceConfirmations
     {
         $capture = $params['payment_capture'] ?? null;
         $uploads = $params['payment_capture_uploads'] ?? [];
-        $reason = $params['price_adjustment_reason'] ?? null;
+        $captureService = app(BookingPaymentCaptureService::class);
+        $composedReason = $captureService->composePriceAdjustmentReason(
+            is_string($params['price_adjustment_reason'] ?? null) ? $params['price_adjustment_reason'] : null,
+            (int) ($params['vat_percent'] ?? 0),
+            (int) ($params['vat_base_amount'] ?? 0),
+        );
 
         if (is_array($capture)) {
-            app(BookingPaymentCaptureService::class)->record(
+            if ($composedReason !== null) {
+                $capture['price_adjustment_reason'] = $composedReason;
+            }
+
+            $captureService->record(
                 $this->booking->fresh(),
                 $confirmedDelta,
                 $capture,
@@ -187,10 +197,10 @@ trait ManagesBookingPriceConfirmations
             return;
         }
 
-        app(BookingPaymentCaptureService::class)->recordOptionalAdjustmentNote(
+        $captureService->recordOptionalAdjustmentNote(
             $this->booking->fresh(),
             $confirmedDelta,
-            is_string($reason) ? $reason : null,
+            $composedReason,
             BookingPaymentRecord::CONTEXT_PRICE_CHANGE,
             $action,
             Auth::user(),
@@ -348,6 +358,17 @@ trait ManagesBookingPriceConfirmations
         } finally {
             DB::rollBack();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    protected function confirmedBookingVatAmount(array $params): int
+    {
+        return BookingPaymentCaptureService::vatAmountFromPercent(
+            max(0, (int) ($params['vat_base_amount'] ?? 0)),
+            (int) ($params['vat_percent'] ?? 0),
+        );
     }
 
     /**

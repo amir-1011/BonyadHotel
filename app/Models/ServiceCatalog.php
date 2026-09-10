@@ -48,6 +48,30 @@ class ServiceCatalog extends Model
             : $this->activeVariants()->exists();
     }
 
+    /**
+     * خدمت والد وقتی حداقل یک نوع (فرزند) فعال دارد در فروش و لیست‌ها «فعال» است.
+     */
+    public function activateWhenHasActiveVariants(): bool
+    {
+        if ($this->is_active || !$this->activeVariants()->exists()) {
+            return false;
+        }
+
+        return $this->update(['is_active' => true]);
+    }
+
+    /**
+     * هم‌تراز کردن وضعیت والد برای همهٔ خدمات یک اقامتگاه (مثلاً دادهٔ قبلی).
+     */
+    public static function activateParentsHavingActiveVariants(int $accommodationId): int
+    {
+        return self::query()
+            ->forAccommodation($accommodationId)
+            ->where('is_active', false)
+            ->whereHas('variants', fn ($q) => $q->where('is_active', true))
+            ->update(['is_active' => true]);
+    }
+
     public function groupDiscounts(): HasMany
     {
         return $this->hasMany(VeteranGroupServiceDiscount::class);

@@ -6,9 +6,10 @@ return [
     | Platform service commission (developer wallet)
     |--------------------------------------------------------------------------
     |
-    | Fixed amount per confirmed booking (accommodation/reservation only).
-    | Services are not commissionable. Program (اردو), credit (اعتباری),
-    | and medical accommodation (اسکان درمانی) bookings are exempt.
+    | Fixed amount per confirmed accommodation booking (manual / online).
+    | Standalone manual service sales (booking_source manual_service) use
+    | percentage + cap below. Program (اردو), credit (اعتباری), and medical
+    | accommodation bookings are exempt.
     |
     */
     'fixed_amount' => (int) env('PLATFORM_COMMISSION_FIXED_AMOUNT', 50_000),

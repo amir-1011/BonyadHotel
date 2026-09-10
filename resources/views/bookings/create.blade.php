@@ -90,7 +90,7 @@
             @endif
             @if($commission > 0)
             <div class="d-flex justify-content-between mb-1" style="font-size:13px;">
-                <span>کارمزد سامانه</span>
+                <span>حق سرویس</span>
                 <span>{{ \App\Support\PdfPersian::toPersianDigits(number_format($commission)) }} ریال</span>
             </div>
             @endif

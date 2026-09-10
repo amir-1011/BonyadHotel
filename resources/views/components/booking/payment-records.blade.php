@@ -47,8 +47,8 @@
                 @if($record->posTerminal)
                 <div>ترمینال: {{ $record->posTerminal->displayLabel() }}</div>
                 @endif
-                @if($record->price_adjustment_reason)
-                <div>توضیح تغییر مبلغ: {{ $record->price_adjustment_reason }}</div>
+                @if($record->priceAdjustmentReasonLabel())
+                <div>توضیح تغییر مبلغ: {{ $record->priceAdjustmentReasonLabel() }}</div>
                 @endif
                 @if($record->recordedBy)
                 <div>ثبت‌کننده: {{ $record->recordedBy->name }}</div>

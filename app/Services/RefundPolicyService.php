@@ -102,6 +102,10 @@ class RefundPolicyService
     $nightsElapsed = $isMidStay ? $this->nightsElapsed($booking, $now) : 0;
     $nightsRemaining = max(0, $totalNights - $nightsElapsed);
 
+    if ($booking->isManualServiceSale()) {
+      return $this->manualServiceSalePreview($booking, $days);
+    }
+
     if ($booking->skipsCancellationPenalties()) {
       return $this->medicalPreview($booking, $days, $totalNights, $nightsElapsed, $nightsRemaining, $isMidStay);
     }
@@ -133,6 +137,28 @@ class RefundPolicyService
    *
    * @return array{days:int, percentage:int, amount:int, nights_total:int, nights_elapsed:int, nights_remaining:int, basis_amount:int, is_mid_stay:bool, guest_paid:bool, medical_used_stay_amount:int, employer_debt_after:int}
    */
+  /**
+   * Standalone service sales: full refund of payable total (no stay-based proration).
+   *
+   * @return array{days:int, percentage:int, amount:int, nights_total:int, nights_elapsed:int, nights_remaining:int, basis_amount:int, is_mid_stay:bool, guest_paid:bool}
+   */
+  private function manualServiceSalePreview(Booking $booking, int $days): array
+  {
+    $total = (int) $booking->total_price;
+
+    return [
+      'days'             => $days,
+      'percentage'       => 100,
+      'amount'           => $total,
+      'nights_total'     => 0,
+      'nights_elapsed'   => 0,
+      'nights_remaining' => 0,
+      'basis_amount'     => $total,
+      'is_mid_stay'      => false,
+      'guest_paid'       => true,
+    ];
+  }
+
   private function medicalPreview(
     Booking $booking,
     int $days,

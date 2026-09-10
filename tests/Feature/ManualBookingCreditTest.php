@@ -78,7 +78,7 @@ class ManualBookingCreditTest extends TestCase
             ->assertSee('کارتخوان');
     }
 
-    public function test_credit_payment_allows_missing_letter(): void
+    public function test_credit_payment_requires_letter(): void
     {
         [$checkIn, $checkOut] = $this->futureStay(2);
 
@@ -93,8 +93,8 @@ class ManualBookingCreditTest extends TestCase
             ->call('nextStep')
             ->set('paymentMethod', Booking::PAYMENT_CREDIT)
             ->call('nextStep')
-            ->assertHasNoErrors()
-            ->assertSet('step', 4);
+            ->assertHasErrors(['creditLetter'])
+            ->assertSet('step', 3);
     }
 
     public function test_credit_livewire_flow_registers_regular_guest_without_discount(): void

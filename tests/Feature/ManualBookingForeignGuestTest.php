@@ -229,6 +229,42 @@ class ManualBookingForeignGuestTest extends TestCase
         $this->assertSame('استانبول، ترکیه', $guestUser->residenceLocationLabel());
     }
 
+    public function test_foreign_guest_without_mobile_can_complete_booking(): void
+    {
+        [$checkIn, $checkOut] = $this->futureStay(1);
+
+        Livewire::actingAs($this->adminUser)
+            ->test(ManualBookingForm::class, [
+                'accommodation' => $this->accommodation->fresh(['roomTypes.rates', 'roomTypes.rooms', 'city']),
+                'panel'         => 'admin',
+            ])
+            ->call('commitRoomFromDrawer', $checkIn, $checkOut, 1, $this->roomType->id, $this->roomRate->id, 0, false, 0, 1)
+            ->call('nextStep')
+            ->set('bookerIsForeignGuest', true)
+            ->set('bookerPassportNumber', 'NO1234567')
+            ->set('foreignCountryId', $this->country->id)
+            ->set('foreignResidenceCityId', $this->residenceCity->id)
+            ->set('guestContactName', 'Maria Garcia')
+            ->set('guestContactMobile', '')
+            ->call('verifyBooker')
+            ->assertSet('bookerVerified', true)
+            ->assertHasNoErrors()
+            ->call('nextStep')
+            ->assertSet('step', 3)
+            ->set('paymentMethod', 'cash')
+            ->call('submit')
+            ->assertSet('step', 5);
+
+        $guestUser = User::where('passport_number', 'NO1234567')->first();
+        $this->assertNotNull($guestUser);
+        $this->assertNull($guestUser->mobile);
+        $this->assertNotNull($guestUser->mobile_verified_at);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertNotNull($booking);
+        $this->assertNull($booking->guest_contact_mobile);
+    }
+
     public function test_existing_foreign_guest_is_reused_by_passport(): void
     {
         $existing = User::create([

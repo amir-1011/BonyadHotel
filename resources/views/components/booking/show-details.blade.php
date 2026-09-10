@@ -5,6 +5,7 @@
 --}}
 @php
     $bid = $booking->id;
+    $isServiceSale = $booking->isManualServiceSale();
     $roomLines = $booking->bookingRooms;
     $hasRoomLines = $roomLines->isNotEmpty();
     $servicesDiscount = $booking->servicesDiscountTotal();
@@ -26,18 +27,28 @@
     $veteranAccDiscount = (int) ($pricingBreakdown['veteran_accommodation_discount_amount'] ?? 0);
     $manualTotalAdjustment = (int) ($pricingBreakdown['manual_total_adjustment'] ?? 0);
     $naturalTotalPrice = (int) ($pricingBreakdown['natural_total'] ?? $booking->total_price);
-    $discountDetailSummary = $booking->veteranDiscountLabel();
-    if (!$booking->billsAsRegularGuest() && count($accBreakdown) > 1) {
-        $discountDetailSummary .= ' · ' . collect($accBreakdown)->map(
-            fn ($row) => \App\Services\AccommodationDiscountTierEngine::tierBreakdownHint($row)
-        )->join(' + ');
-    } elseif (!$booking->billsAsRegularGuest() && $booking->veteran_type_applied && count($accBreakdown) === 1) {
-        $discountDetailSummary .= ' · ' . \App\Services\AccommodationDiscountTierEngine::tierBreakdownHint($accBreakdown[0]);
-    } elseif (!$booking->billsAsRegularGuest() && $booking->veteran_type_applied) {
-        $discountDetailSummary .= ' · ' . $booking->discount_percentage . '٪ اقامت';
-    }
-    if ($manualDiscountGuests->isNotEmpty()) {
-        $discountDetailSummary .= ' · ' . $manualDiscountGuests->count() . ' تخفیف دستی';
+    if ($isServiceSale) {
+        $discountDetailSummary = $booking->veteran_type_applied
+            ? $booking->veteranDiscountLabel() . ' · تخفیف/سهمیه خدمات'
+            : 'بدون گروه ایثارگری';
+        $serviceManualCount = $booking->services->filter(fn ($s) => (int) ($s->manual_discount_percentage ?? 0) > 0)->count();
+        if ($serviceManualCount > 0) {
+            $discountDetailSummary .= ' · ' . $serviceManualCount . ' تخفیف دستی خدمت';
+        }
+    } else {
+        $discountDetailSummary = $booking->veteranDiscountLabel();
+        if (!$booking->billsAsRegularGuest() && count($accBreakdown) > 1) {
+            $discountDetailSummary .= ' · ' . collect($accBreakdown)->map(
+                fn ($row) => \App\Services\AccommodationDiscountTierEngine::tierBreakdownHint($row)
+            )->join(' + ');
+        } elseif (!$booking->billsAsRegularGuest() && $booking->veteran_type_applied && count($accBreakdown) === 1) {
+            $discountDetailSummary .= ' · ' . \App\Services\AccommodationDiscountTierEngine::tierBreakdownHint($accBreakdown[0]);
+        } elseif (!$booking->billsAsRegularGuest() && $booking->veteran_type_applied) {
+            $discountDetailSummary .= ' · ' . $booking->discount_percentage . '٪ اقامت';
+        }
+        if ($manualDiscountGuests->isNotEmpty()) {
+            $discountDetailSummary .= ' · ' . $manualDiscountGuests->count() . ' تخفیف دستی';
+        }
     }
     $discountSummary = $discountDetailSummary;
 
@@ -45,18 +56,22 @@
     $beneficiaryCosts = $booking->beneficiaryCosts;
     $hasBeneficiaries = $beneficiaryCosts->isNotEmpty();
     $hasNotes = $booking->notes || $booking->form_file_path || $booking->hasMedicalReferralLetters() || $booking->hasCreditLetters();
-    $bookingSummaryHtml = view('components.booking.show-details._snippets.booking-summary', ['booking' => $booking])->render();
+    $bookingSummaryHtml = $isServiceSale
+        ? view('components.booking.show-details._snippets.service-sale-summary', ['booking' => $booking])->render()
+        : view('components.booking.show-details._snippets.booking-summary', ['booking' => $booking])->render();
     $allGuestSlots = $booking->allGuestSlotsForDisplay();
     if (!isset($canEditGuestNames)) {
         $canEditGuestNames = $booking->canEditGuestDetails(auth()->user())
             && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('bookings.guests', 'edit'));
     }
     if (!isset($canExtendStay)) {
-        $canExtendStay = $booking->canExtendStay(auth()->user())
+        $canExtendStay = !$isServiceSale
+            && $booking->canExtendStay(auth()->user())
             && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('bookings.dates', 'edit'));
     }
     if (!isset($canModifyBookingRooms)) {
-        $canModifyBookingRooms = $booking->canEditBookingDetails(auth()->user())
+        $canModifyBookingRooms = !$isServiceSale
+            && $booking->canEditBookingDetails(auth()->user())
             && $booking->booking_source !== 'online'
             && !$booking->hasPendingCancellationRequest()
             && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('bookings.rooms', 'write'));
@@ -108,7 +123,9 @@
                 </div>
                 <div class="mt-1">
                     <span class="badge bg-{{ $booking->statusColor() }}">{{ $booking->statusLabel() }}</span>
-                    @if($booking->isManual())
+                    @if($isServiceSale)
+                    <span class="badge bg-info text-dark">فروش خدمات</span>
+                    @elseif($booking->isManual())
                     <span class="badge bg-info text-dark">دستی</span>
                     @endif
                     @if($booking->isMedicalAccommodation())
@@ -127,8 +144,8 @@
         <div class="col-sm-6 col-lg-4">
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-booking-' . $bid,
-                'icon' => 'calendar-check',
-                'title' => 'اطلاعات رزرو',
+                'icon' => $isServiceSale ? 'bag-check' : 'calendar-check',
+                'title' => $isServiceSale ? 'اطلاعات فروش' : 'اطلاعات رزرو',
                 'accent' => 'primary',
                 'summary' => $bookingSummaryHtml,
             ])
@@ -148,12 +165,13 @@
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-discount-' . $bid,
                 'icon' => 'shield-check',
-                'title' => 'ایثارگری و تخفیف',
+                'title' => $isServiceSale ? 'ایثارگری و تخفیف خدمات' : 'ایثارگری و تخفیف',
                 'accent' => 'success',
                 'summary' => e($discountSummary),
             ])
         </div>
 
+        @if(!$isServiceSale)
         <div class="col-sm-6 col-lg-4">
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-rooms-' . $bid,
@@ -173,27 +191,27 @@
                 'summary' => e($guestSummary) . ($manualDiscountGuests->isNotEmpty() ? ' <span class="badge text-bg-info ms-1">' . $manualDiscountGuests->count() . ' تخفیف دستی</span>' : ''),
             ])
         </div>
+        @endif
 
-        @if($servicesCount > 0)
+        @if($servicesCount > 0 || $isServiceSale)
         <div class="col-sm-6 col-lg-4">
             @php
-                $perGuestServices = $booking->guestDetails->isNotEmpty();
                 $servicesSummary = $servicesCount . ' خدمت · ' . \App\Support\PdfPersian::toPersianDigits(number_format($booking->services_subtotal)) . ' ریال';
-                if ($perGuestServices) {
+                if (!$isServiceSale && $booking->guestDetails->isNotEmpty()) {
                     $servicesSummary .= ' · به‌ازای مهمان';
                 }
             @endphp
             @include('components.booking.show-details.summary-card', [
                 'modalId' => 'bd-modal-services-' . $bid,
                 'icon' => 'bag-plus',
-                'title' => 'خدمات اضافی',
+                'title' => $isServiceSale ? 'فهرست خدمات' : 'خدمات اضافی',
                 'accent' => 'dark',
                 'summary' => $servicesSummary,
             ])
         </div>
         @endif
 
-        @if($hasBeneficiaries)
+        @if(!$isServiceSale && $hasBeneficiaries)
         <div class="col-sm-6 col-lg-4">
             @php
                 $beneficiarySummary = $beneficiaryCosts->count() . ' ذینفع · ' . \App\Support\PdfPersian::toPersianDigits(number_format($beneficiaryCosts->sum('debt_amount'))) . ' ریال بدهی';
@@ -251,11 +269,11 @@
 </div>
 
 {{-- ── Modals ── --}}
-@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'allGuestSlots', 'canEditGuestNames', 'canExtendStay', 'canModifyBookingRooms', 'bookerGuest', 'bookerManualDiscount', 'pricingBreakdown', 'accBreakdown', 'veteranAccDiscount'); @endphp
+@php $modalVars = compact('booking', 'panel', 'roomLines', 'hasRoomLines', 'servicesDiscount', 'accommodationDiscount', 'manualDiscountGuests', 'excludedGuests', 'displayGuestRows', 'allGuestSlots', 'canEditGuestNames', 'canExtendStay', 'canModifyBookingRooms', 'bookerGuest', 'bookerManualDiscount', 'pricingBreakdown', 'accBreakdown', 'veteranAccDiscount', 'isServiceSale'); @endphp
 
 @include('components.booking.show-details.detail-modal-live', [
     'id' => 'bd-modal-booking-' . $bid,
-    'title' => 'اطلاعات رزرو',
+    'title' => $isServiceSale ? 'اطلاعات فروش خدمات' : 'اطلاعات رزرو',
     'icon' => 'calendar-check',
     'size' => '',
     'bodyView' => 'components.booking.show-details._modal-booking',
@@ -270,11 +288,12 @@
 ])
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-discount-' . $bid,
-    'title' => 'ایثارگری و تخفیف',
+    'title' => $isServiceSale ? 'ایثارگری و تخفیف خدمات' : 'ایثارگری و تخفیف',
     'icon' => 'shield-check',
     'size' => '',
     'body' => view('components.booking.show-details._modal-discount', $modalVars)->render(),
 ])
+@if(!$isServiceSale)
 @include('components.booking.show-details.detail-modal-live', [
     'id' => 'bd-modal-rooms-' . $bid,
     'title' => 'اتاق‌ها',
@@ -291,16 +310,17 @@
     'bodyView' => 'components.booking.show-details._modal-guests',
     'bodyVars' => $modalVars,
 ])
-@if($servicesCount > 0)
+@endif
+@if($servicesCount > 0 || $isServiceSale)
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-services-' . $bid,
-    'title' => 'خدمات اضافی',
+    'title' => $isServiceSale ? 'فهرست خدمات' : 'خدمات اضافی',
     'icon' => 'bag-plus',
     'size' => 'xl',
     'body' => view('components.booking.show-details._modal-services', $modalVars)->render(),
 ])
 @endif
-@if($hasBeneficiaries)
+@if(!$isServiceSale && $hasBeneficiaries)
 @include('components.booking.show-details.detail-modal', [
     'id' => 'bd-modal-beneficiaries-' . $bid,
     'title' => 'ذینفعان',

@@ -247,13 +247,17 @@
 
         {{-- Dynamic price breakdown (shown when dates selected) --}}
         <div x-show="checkIn && checkOut && hasDynamicPricing"
-             x-data="{ nightPricesOpen: false }"
              style="margin:-4px 0 14px;border:1px solid var(--bnb-border);border-radius:10px;overflow:hidden;">
             <button type="button"
-                    @click="nightPricesOpen = !nightPricesOpen"
+                    class="collapsed"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#bnb-night-prices-collapse"
+                    aria-expanded="false"
+                    aria-controls="bnb-night-prices-collapse"
+                    data-bnb-night-prices-toggle
                     style="width:100%;padding:10px 12px;background:#f9fafb;font-size:11px;font-weight:700;color:var(--bnb-gray);border:none;border-bottom:1px solid var(--bnb-border);display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-family:var(--bnb-font);text-align:right;">
-                <span style="display:flex;align-items:center;gap:8px;min-width:0;">
-                    <i class="bi flex-shrink-0" :class="nightPricesOpen ? 'bi-chevron-up' : 'bi-chevron-down'" style="font-size:12px;color:var(--bnb-gray);"></i>
+                <i class="bi bi-chevron-up bnb-night-prices-chevron flex-shrink-0" aria-hidden="true" style="font-size:12px;color:var(--bnb-gray);"></i>
+                <span style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
                     <span>قیمت به تفکیک شب</span>
                     <span style="font-weight:500;color:var(--bnb-gray);" x-text="'(' + nights + ' شب)'"></span>
                 </span>
@@ -264,11 +268,11 @@
                     <span style="color:var(--bnb-red);font-size:12px;font-weight:700;white-space:nowrap;" x-text="dynamicTotal.toLocaleString('fa-IR') + ' ریال'"></span>
                 </span>
             </button>
-            <div x-show="nightPricesOpen" x-cloak>
+            <div class="collapse" id="bnb-night-prices-collapse">
             <template x-for="(p, i) in dynamicNightPrices" :key="i">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;font-size:12px;border-bottom:1px solid #f3f4f6;">
                     <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                        <span style="font-weight:600;" x-text="new persianDate(new Date(p.date + 'T12:00:00')).format('DD MMM')"></span>
+                        <span style="font-weight:600;" x-text="new persianDate(new Date(p.date + 'T12:00:00')).format('DD MMMM')"></span>
                         <template x-if="p.label">
                             <span :style="p.hostDiscountPct > 0 ? 'font-size:10px;background:#fff7ed;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:700;' : 'font-size:10px;background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 5px;font-weight:600;'"
                                   x-text="p.label + (p.hostDiscountPct > 0 ? ' · ' + p.hostDiscountPct + '%' : '')"></span>
@@ -326,7 +330,7 @@
             </template>
             <template x-if="platformCommissionAmount > 0">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;background:#f8fafc;border-top:1px solid var(--bnb-border);">
-                    <span style="color:#475569;font-weight:600;">کارمزد سامانه</span>
+                    <span style="color:#475569;font-weight:600;">حق سرویس</span>
                     <span style="font-weight:700;color:var(--bnb-dark);" x-text="platformCommissionAmount.toLocaleString('fa-IR') + ' ریال'"></span>
                 </div>
             </template>

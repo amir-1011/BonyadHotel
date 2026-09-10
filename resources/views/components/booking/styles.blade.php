@@ -308,6 +308,8 @@
     background: #fff; border-top: 1px solid var(--bnb-border);
     padding: 12px 16px; box-shadow: 0 -4px 20px rgba(0,0,0,.12);
 }
+.bnb-night-prices-chevron { transition: transform .25s ease; }
+[data-bnb-night-prices-toggle].collapsed .bnb-night-prices-chevron { transform: rotate(180deg); }
 .swal2-container { z-index: 9999 !important; }
 [x-cloak] { display: none !important; }
 </style>

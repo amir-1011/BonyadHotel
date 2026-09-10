@@ -157,6 +157,11 @@ class HostPermissions
                         'description' => 'ثبت رزرو دستی برای اقامتگاه',
                         'actions'     => [self::ACTION_WRITE],
                     ],
+                    'accommodations.manual-service-sale' => [
+                        'label'       => 'فروش دستی خدمات',
+                        'description' => 'ثبت فروش مستقل خدمات (بدون رزرو اقامت)',
+                        'actions'     => [self::ACTION_WRITE],
+                    ],
                     'accommodations.veteran-policy' => [
                         'label'       => 'سیاست ایثارگری اقامتگاه',
                         'description' => 'تنظیم تخفیف‌ها و خدمات ایثارگری',
@@ -962,6 +967,9 @@ class HostPermissions
             ],
             'accommodations.manual-booking' => [
                 'host.accommodations.manual-booking' => self::ACTION_WRITE,
+            ],
+            'accommodations.manual-service-sale' => [
+                'host.accommodations.manual-service-sale' => self::ACTION_WRITE,
             ],
             'accommodations.veteran-policy' => [
                 'host.accommodations.veteran-policy' => self::ACTION_READ,

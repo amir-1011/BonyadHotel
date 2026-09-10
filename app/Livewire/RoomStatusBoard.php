@@ -62,6 +62,8 @@ class RoomStatusBoard extends Component
     /** @var array<int> */
     public array $expandedPhysicalRoomIds = [];
 
+    public bool $hostPhysicalRoomsInitialized = false;
+
     /** @var array<int> */
     public array $dashboardAccommodationIds = [];
 
@@ -804,6 +806,13 @@ class RoomStatusBoard extends Component
 
     public function render()
     {
+        if ($this->panel === 'host' && $this->boardVisible && ! $this->hostPhysicalRoomsInitialized) {
+            if ($this->board !== []) {
+                $this->expandPhysicalRoomsForBoard();
+            }
+            $this->hostPhysicalRoomsInitialized = true;
+        }
+
         $accommodations = $this->panel === 'admin'
             ? Accommodation::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
             : collect();

@@ -23,6 +23,10 @@ class PlatformCommissionEntry extends Model
 
     public const REASON_AMOUNT_ADJUSTED = 'amount_adjusted';
 
+    public const REASON_PERIOD_SETTLEMENT = 'period_settlement';
+
+    public const CATEGORY_KEY_WALLET_SETTLEMENT = 'wallet_settlement';
+
     protected $fillable = [
         'booking_id',
         'accommodation_id',
@@ -87,14 +91,29 @@ class PlatformCommissionEntry extends Model
             self::REASON_BOOKING_CONFIRMED => 'ثبت رزرو',
             self::REASON_BOOKING_CANCELLED => 'لغو رزرو',
             self::REASON_AMOUNT_ADJUSTED   => 'تغییر مبلغ',
+            self::REASON_PERIOD_SETTLEMENT => 'تسویه دوره',
             default                        => $this->reason,
         };
     }
 
+    public function isPeriodSettlement(): bool
+    {
+        return $this->reason === self::REASON_PERIOD_SETTLEMENT
+            || $this->category_key === self::CATEGORY_KEY_WALLET_SETTLEMENT;
+    }
+
     public function categoryLabel(): string
     {
+        if ($this->isPeriodSettlement()) {
+            return 'تسویه دوره';
+        }
+
         if ($this->category === self::CATEGORY_ACCOMMODATION) {
             return 'اقامت / رزرو';
+        }
+
+        if ($this->category_key === 'service_sale') {
+            return 'فروش دستی خدمات';
         }
 
         return $this->serviceCatalog?->name
@@ -109,8 +128,62 @@ class PlatformCommissionEntry extends Model
 
     public function usesFlatBookingFee(): bool
     {
-        return $this->commission_percentage === 0
-            || ($this->meta['commission_model'] ?? null) === 'fixed_per_booking';
+        return $this->commissionModel() === 'fixed_per_booking';
+    }
+
+    public function commissionModel(): string
+    {
+        if ($this->category_key === 'service_sale') {
+            return 'percentage_capped';
+        }
+
+        return (string) ($this->meta['commission_model'] ?? (
+            $this->commission_percentage > 0 ? 'percentage_capped' : 'fixed_per_booking'
+        ));
+    }
+
+    public function isServiceSaleCommission(): bool
+    {
+        return $this->category_key === 'service_sale'
+            || $this->commissionModel() === 'percentage_capped';
+    }
+
+    public function effectiveCommissionPercentage(): int
+    {
+        if ($this->commission_percentage > 0) {
+            return $this->commission_percentage;
+        }
+
+        $fromMeta = (int) ($this->meta['commission_percentage'] ?? 0);
+        if ($fromMeta > 0) {
+            return min(100, $fromMeta);
+        }
+
+        return $this->isServiceSaleCommission()
+            ? (int) config('platform_commission.percentage', 5)
+            : 0;
+    }
+
+    public function effectiveCommissionCapRials(): int
+    {
+        if (!$this->isServiceSaleCommission()) {
+            return (int) $this->commission_cap;
+        }
+
+        $fromMetaRials = (int) ($this->meta['commission_cap_rials'] ?? 0);
+        if ($fromMetaRials > 0) {
+            return $fromMetaRials;
+        }
+
+        if ($this->commission_cap >= 100_000) {
+            return (int) $this->commission_cap;
+        }
+
+        $tomans = (int) ($this->meta['commission_cap_tomans']
+            ?? $this->meta['commission_cap']
+            ?? config('platform_commission.cap', 50_000));
+
+        return max(0, $tomans) * 10;
     }
 
     public function rawCommissionBeforeCap(): int
@@ -119,7 +192,7 @@ class PlatformCommissionEntry extends Model
             return $this->commission_cap;
         }
 
-        return (int) round($this->transaction_amount * $this->commission_percentage / 100);
+        return (int) round($this->transaction_amount * $this->effectiveCommissionPercentage() / 100);
     }
 
     public function wasCapped(): bool
@@ -128,15 +201,17 @@ class PlatformCommissionEntry extends Model
             return false;
         }
 
-        return $this->rawCommissionBeforeCap() > $this->commission_cap;
+        return $this->rawCommissionBeforeCap() > $this->effectiveCommissionCapRials();
     }
 
     public function bookingSourceLabel(): string
     {
         return match ($this->meta['booking_source'] ?? $this->booking?->booking_source ?? '') {
-            'manual' => 'رزرو دستی (پنل)',
-            'online' => 'رزرو آنلاین',
-            default  => '—',
+            'manual'         => 'رزرو دستی (پنل)',
+            'manual_service' => 'فروش دستی خدمات',
+            'online'         => 'رزرو آنلاین',
+            'program'        => 'اردو / برنامه',
+            default          => '—',
         };
     }
 
@@ -157,6 +232,48 @@ class PlatformCommissionEntry extends Model
     public function commissionCalculationSteps(): array
     {
         $steps = [];
+
+        if ($this->isPeriodSettlement()) {
+            $steps[] = 'نوع رکورد: تسویه دوره کارمزد';
+            if (!empty($this->meta['period_start'])) {
+                $steps[] = 'شروع دوره (میلادی): ' . $this->meta['period_start'];
+            } else {
+                $steps[] = 'شروع دوره: ابتدای اولین تراکنش پس از آخرین تسویه';
+            }
+            $steps[] = 'پایان دوره: ' . ($this->meta['period_end_jalali'] ?? $this->meta['period_end'] ?? '—');
+            $steps[] = 'تعداد رکورد در دوره: ' . (int) ($this->meta['entries_count'] ?? 0);
+            $steps[] = 'مبلغ تسویه‌شده: ' . number_format((int) ($this->meta['settled_net'] ?? abs($this->commission_amount))) . ' ریال';
+            $steps[] = 'کسر از کیف پول: ' . number_format(abs($this->commission_amount)) . ' ریال';
+
+            return $steps;
+        }
+
+        if ($this->isServiceSaleCommission()) {
+            $pct = $this->effectiveCommissionPercentage();
+            $capRials = $this->effectiveCommissionCapRials();
+            $steps[] = 'نوع کارمزد: ' . $pct . '٪ از جمع خدمات (فروش دستی خدمات)';
+            $steps[] = 'مبنای محاسبه: جمع مبلغ خطوط خدمت پس از تخفیف ایثارگری — تخفیف والد/نوع و سهمیه هفتگی در قیمت خطوط لحاظ شده است';
+            $steps[] = 'جمع خدمات (بدون کارمزد پلتفرم): ' . number_format($this->transaction_amount) . ' ریال';
+
+            if ($this->isCommissionExemptBooking()) {
+                $steps[] = $this->commissionExemptReason() . ' — کارمزد صفر';
+            } elseif ($this->transaction_amount <= 0) {
+                $steps[] = 'جمع خدمات صفر — کارمزد صفر';
+            } else {
+                $raw = $this->rawCommissionBeforeCap();
+                $steps[] = 'محاسبه خام: ' . number_format($this->transaction_amount) . ' × ' . $pct . '٪ = ' . number_format($raw) . ' ریال';
+                $capTomans = (int) ($capRials / 10);
+                if ($this->wasCapped()) {
+                    $steps[] = 'سقف کارمزد: ' . number_format($capTomans) . ' تومان (' . number_format($capRials) . ' ریال) — مبلغ خام بیش از سقف بود';
+                } else {
+                    $steps[] = 'سقف کارمزد: ' . number_format($capTomans) . ' تومان (' . number_format($capRials) . ' ریال) — زیر سقف';
+                }
+            }
+
+            $steps[] = 'کارمزد نهایی این رکورد: ' . number_format(abs($this->commission_amount)) . ' ریال';
+
+            return $steps;
+        }
 
         if ($this->usesFlatBookingFee()) {
             $steps[] = 'نوع کارمزد: مبلغ ثابت برای هر رزرو';
@@ -197,7 +314,22 @@ class PlatformCommissionEntry extends Model
         $tracking = $this->meta['tracking_code'] ?? $this->booking?->tracking_code ?? '—';
         $amount = number_format(abs($this->commission_amount));
 
+        if ($this->isPeriodSettlement()) {
+            $end = $this->meta['period_end_jalali'] ?? $this->meta['period_end'] ?? '—';
+            $count = (int) ($this->meta['entries_count'] ?? 0);
+
+            return "تسویه دوره کارمزد تا تاریخ {$end} بر اساس {$count} رکورد، به مبلغ {$amount} ریال ثبت شد و از موجودی کیف پول کسر گردید.";
+        }
+
         if ($this->entry_type === self::TYPE_CREDIT && $this->reason === self::REASON_BOOKING_CONFIRMED) {
+            if ($this->isServiceSaleCommission()) {
+                return "با ثبت فروش دستی خدمات «{$tracking}»، جمع خدمات "
+                    . number_format($this->transaction_amount) . " ریال بود و کارمزد "
+                    . $this->effectiveCommissionPercentage() . "٪"
+                    . ($this->wasCapped() ? ' (با اعمال سقف ' . number_format((int) ($this->effectiveCommissionCapRials() / 10)) . ' تومان)' : '')
+                    . " برابر {$amount} ریال به کیف پول کارمزد واریز گردید.";
+            }
+
             if ($this->usesFlatBookingFee()) {
                 if ($this->commission_amount === 0) {
                     if ($this->isCommissionExemptBooking()) {

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ManualBookingService;
 use App\Services\PlatformCommissionService;
 use App\Services\ProgramBookingService;
+use App\Support\JalaliDateTimeInput;
 use App\Support\PlatformCommissionEntryFilter;
 use Carbon\Carbon;
 use Database\Seeders\VeteranPolicySeeder;
@@ -539,7 +540,29 @@ class PlatformCommissionTest extends TestCase
         $response->assertOk();
         $response->assertSee('جستجو و فیلتر');
         $response->assertSee('خروجی اکسل');
-        $response->assertSee('نتیجه فیلتر');
+        $response->assertSee('تسویه دوره');
+        $response->assertSee('جمع تسویه‌شده');
+    }
+
+    public function test_period_settlement_reduces_wallet_balance(): void
+    {
+        $this->createManualBooking(services: []);
+        $balance = $this->commission->walletBalance();
+        $this->assertGreaterThan(0, $balance);
+
+        $jalali = JalaliDateTimeInput::nowJalaliDate();
+        $preview = $this->commission->previewPeriodSettlement($jalali);
+        $this->assertSame($balance, $preview['net_amount']);
+        $this->assertGreaterThanOrEqual(1, $preview['entries_count']);
+
+        $entry = $this->commission->executePeriodSettlement($jalali, $this->adminUser);
+        $this->assertSame(0, $this->commission->walletBalance());
+        $this->assertSame(PlatformCommissionEntry::REASON_PERIOD_SETTLEMENT, $entry->reason);
+        $this->assertSame(-$balance, $entry->commission_amount);
+        $this->assertSame($balance, $this->commission->totalSettledAmount());
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->commission->executePeriodSettlement($jalali, $this->adminUser);
     }
 
     public function test_program_booking_service_does_not_accrue_commission(): void

@@ -23,3 +23,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/database/seeders
+/database/factories
+/PCPOS-ASYNC-1401_04_11
+/Refah-Postman-Com&IP(3.4.6)

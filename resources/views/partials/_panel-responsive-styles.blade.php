@@ -326,6 +326,30 @@
         }
     }
 
+    #manual-booking-form .mbf-pay--medical-options {
+        grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+        margin-bottom: 0;
+    }
+
+    #manual-booking-form .mbf-pay-sublabel {
+        font-size: .68rem;
+        font-weight: 500;
+        color: #a8a8b3;
+        line-height: 1.25;
+        text-align: center;
+        padding: 0 4px;
+    }
+
+    #manual-booking-form .mbf-pay-option.is-active .mbf-pay-sublabel {
+        color: #8b82f0;
+    }
+
+    #manual-booking-form .mbf-pay-option.is-disabled {
+        opacity: .55;
+        pointer-events: none;
+        cursor: not-allowed;
+    }
+
     .ta-metric__value {
         overflow-wrap: anywhere;
         word-break: break-word;
@@ -341,8 +365,9 @@
         }
 
         .ta-topbar {
-            padding: 8px 10px;
+            padding: 0 10px;
             gap: 8px;
+            align-items: center;
         }
 
         .ta-card__head,

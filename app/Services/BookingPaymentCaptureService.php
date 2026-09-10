@@ -16,9 +16,76 @@ use Illuminate\Validation\ValidationException;
 
 class BookingPaymentCaptureService
 {
+    private const VAT_META_PATTERN = '/\x{200B}bnb-vat:(\d+)\z/u';
+
     public function __construct(
         private readonly ProgramDocumentService $documents,
     ) {}
+
+    public static function vatAmountFromPercent(int $baseAmount, int $percent): int
+    {
+        $percent = min(20, max(0, $percent));
+        if ($percent <= 0 || $baseAmount <= 0) {
+            return 0;
+        }
+
+        return (int) round($baseAmount * $percent / 100);
+    }
+
+    public function composePriceAdjustmentReason(?string $manualReason, int $vatPercent, int $vatBaseAmount): ?string
+    {
+        $manualReason = trim((string) $manualReason);
+        $vatAmount = self::vatAmountFromPercent($vatBaseAmount, $vatPercent);
+        $parts = [];
+
+        if ($manualReason !== '') {
+            $parts[] = $manualReason;
+        }
+
+        if ($vatAmount > 0 && $vatPercent > 0) {
+            $parts[] = 'بعلاوه ' . $vatPercent . '٪ مالیات بر ارزش افزوده';
+        }
+
+        if ($parts === []) {
+            return null;
+        }
+
+        $text = implode(' — ', $parts);
+
+        if ($vatAmount > 0) {
+            $text .= "\u{200B}bnb-vat:" . $vatAmount;
+        }
+
+        return $text;
+    }
+
+    public static function displayPriceAdjustmentReason(?string $stored): ?string
+    {
+        if ($stored === null || trim($stored) === '') {
+            return null;
+        }
+
+        $stripped = preg_replace(self::VAT_META_PATTERN, '', trim($stored));
+
+        return $stripped !== '' ? $stripped : null;
+    }
+
+    public static function vatAmountFromStoredReason(?string $stored): int
+    {
+        if ($stored === null || ! preg_match(self::VAT_META_PATTERN, trim($stored), $matches)) {
+            return 0;
+        }
+
+        return (int) $matches[1];
+    }
+
+    public function totalRecordedVatForBooking(Booking $booking): int
+    {
+        $booking->loadMissing('paymentRecords');
+
+        return (int) $booking->paymentRecords
+            ->sum(fn (BookingPaymentRecord $record) => self::vatAmountFromStoredReason($record->price_adjustment_reason));
+    }
 
     /**
      * @param  array<string, mixed>  $capture
