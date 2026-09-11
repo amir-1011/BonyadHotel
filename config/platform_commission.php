@@ -8,8 +8,9 @@ return [
     |
     | Fixed amount per confirmed accommodation booking (manual / online).
     | Standalone manual service sales (booking_source manual_service) use
-    | percentage + cap below. Program (اردو), credit (اعتباری), and medical
-    | accommodation bookings are exempt.
+    | percentage + cap below. Program camp/event/other bookings are exempt.
+    | Hall events (سالن همایش) accrue the same fixed reservation commission.
+    | Credit (اعتباری) and medical accommodation bookings are exempt.
     |
     */
     'fixed_amount' => (int) env('PLATFORM_COMMISSION_FIXED_AMOUNT', 50_000),

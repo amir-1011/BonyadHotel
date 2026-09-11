@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="PLATFORM_COMMISSION_FIXED_AMOUNT" value="50000"/>
+        <env name="PLATFORM_COMMISSION_PERCENTAGE" value="5"/>
+        <env name="PLATFORM_COMMISSION_CAP" value="50000"/>
     </php>
 </phpunit>

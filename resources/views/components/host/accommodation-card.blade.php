@@ -77,6 +77,11 @@
                     <i class="bi bi-door-open me-1"></i>اتاق‌ها
                 </a>
                 @endif
+                @if($hostUser->hostCan('halls.list', 'read'))
+                <a wire:navigate href="{{ route('host.halls.accommodation.index', $acc) }}" class="btn btn-sm btn-outline-info flex-fill">
+                    <i class="bi bi-building me-1"></i>سالن همایش
+                </a>
+                @endif
                 @if($hostUser->hostCan('bookings.list', 'read'))
                 <a wire:navigate href="{{ route('host.bookings.index', ['accommodation_id'=> $acc->id]) }}" class="btn btn-sm btn-outline-primary flex-fill">
                     <i class="bi bi-calendar-check me-1"></i>رزروها

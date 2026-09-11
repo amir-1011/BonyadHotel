@@ -13,6 +13,7 @@ export default defineConfig({
                 'resources/js/image-upload-gate.js',
                 'resources/js/money-input.js',
                 'resources/js/room-type-form.js',
+                'resources/js/hall-form.js',
                 'resources/js/rsb-layout-sort.js',
                 'resources/js/rsb-datepicker.js',
                 'resources/js/occupancy-calendar.js',

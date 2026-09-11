@@ -3,6 +3,7 @@
 <div class="card shadow-sm">
     <div class="card-header py-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
         <a wire:navigate href="{{ route('admin.room-types.index', $accommodation) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-door-open me-1"></i>اتاق‌ها</a>
+        <a wire:navigate href="{{ route('admin.halls.accommodation.index', $accommodation) }}" class="btn btn-sm btn-outline-info"><i class="bi bi-building me-1"></i>سالن همایش</a>
         <a wire:navigate href="{{ route('admin.accommodations.veteran-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check me-1"></i>تعاریف اولیه</a>
         <a wire:navigate href="{{ route('admin.accommodations.cancellation-policy', $accommodation) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-x-circle me-1"></i>سیاست کنسلی</a>
         <a wire:navigate href="{{ route('admin.accommodations.medical-accommodation', $accommodation) }}" class="btn btn-sm btn-outline-info"><i class="bi bi-heart-pulse me-1"></i>اسکان درمانی</a>

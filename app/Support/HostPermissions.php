@@ -207,6 +207,21 @@ class HostPermissions
                         'description' => 'تنظیم قیمت و موجودی روزانه',
                         'actions'     => [self::ACTION_READ, self::ACTION_WRITE, self::ACTION_DELETE],
                     ],
+                    'halls.list' => [
+                        'label'       => 'لیست سالن همایش',
+                        'description' => 'مشاهده سالن‌های تعریف‌شده هر اقامتگاه',
+                        'actions'     => [self::ACTION_READ],
+                    ],
+                    'halls.create' => [
+                        'label'       => 'افزودن سالن',
+                        'description' => 'تعریف سالن همایش، کنفرانس یا سینما',
+                        'actions'     => [self::ACTION_WRITE],
+                    ],
+                    'halls.edit' => [
+                        'label'       => 'ویرایش سالن',
+                        'description' => 'ویرایش مشخصات، امکانات و حذف سالن',
+                        'actions'     => [self::ACTION_READ, self::ACTION_EDIT, self::ACTION_DELETE],
+                    ],
                 ],
             ],
             'bookings' => [
@@ -750,6 +765,37 @@ class HostPermissions
      * @param  array<string, list<string>>  $grants
      * @return array<string, list<string>>
      */
+    public static function backfillHallsGrants(array $grants): array
+    {
+        if ($grants === []) {
+            return $grants;
+        }
+
+        if (! array_key_exists('halls.list', $grants)
+            && (self::grantsHaveModuleAccess('accommodations', $grants)
+                || array_key_exists('room-types.list', $grants))) {
+            $grants['halls.list'] = [self::ACTION_READ];
+        }
+
+        if (! array_key_exists('halls.create', $grants)
+            && (array_key_exists('room-types.create', $grants) || array_key_exists('accommodations.create', $grants))) {
+            $grants['halls.create'] = [self::ACTION_WRITE];
+        }
+
+        if (! array_key_exists('halls.edit', $grants)
+            && (array_key_exists('room-types.edit', $grants) || array_key_exists('accommodations.edit', $grants))) {
+            $grants['halls.edit'] = [self::ACTION_READ, self::ACTION_EDIT, self::ACTION_DELETE];
+        }
+
+        return self::sanitizeGrants($grants);
+    }
+
+    /**
+     * Grant facility-management pages when the host already has full legacy module access.
+     *
+     * @param  array<string, list<string>>  $grants
+     * @return array<string, list<string>>
+     */
     public static function backfillFacilityManagementGrants(array $grants): array
     {
         if ($grants === []) {
@@ -1011,6 +1057,18 @@ class HostPermissions
                 'host.room-types.weekly-price-rules.destroy' => self::ACTION_DELETE,
                 'host.room-types.rate-weekly-price-rules.destroy' => self::ACTION_DELETE,
             ],
+            'halls.list' => [
+                'host.halls.index' => self::ACTION_READ,
+                'host.halls.accommodation.index' => self::ACTION_READ,
+            ],
+            'halls.create' => [
+                'host.halls.create' => self::ACTION_WRITE,
+            ],
+            'halls.edit' => [
+                'host.halls.edit'    => self::ACTION_READ,
+                'host.halls.update'  => self::ACTION_EDIT,
+                'host.halls.destroy' => self::ACTION_DELETE,
+            ],
             'bookings.list' => [
                 'host.bookings.index' => self::ACTION_READ,
             ],
@@ -1083,6 +1141,7 @@ class HostPermissions
         // HTTP method overrides for routes mapped to multiple actions
         $methodOverrides = [
             'host.room-types.store'    => ['page' => 'room-types.create', 'action' => self::ACTION_WRITE],
+            'host.halls.store'         => ['page' => 'halls.create', 'action' => self::ACTION_WRITE],
             'host.programs.destroy'    => ['page' => 'programs.show', 'action' => self::ACTION_DELETE],
         ];
 

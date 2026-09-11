@@ -52,6 +52,7 @@ class ProgramShow extends Component
             'booking.guestDetails.bookingRoom.room',
             'booking.guestDetails.country',
             'booking.guestDetails.residenceCity',
+            'hall.hallType',
             'beneficiaryCosts.beneficiary.province',
             'beneficiaryCosts.beneficiary.user',
             'employer.province',

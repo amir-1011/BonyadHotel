@@ -58,7 +58,6 @@
     $serviceVisuals = [
         'pool' => ['icon' => 'droplet-fill', 'tone' => 'info'],
         'gym' => ['icon' => 'dumbbell', 'tone' => 'secondary'],
-        'multi_purpose_hall' => ['icon' => 'grid-fill', 'tone' => 'warning'],
     ];
 
     $resolveAccTiers = function (array $summary): array {

@@ -29,6 +29,7 @@ class BookingServiceFilterCatalog
         );
 
         $query = ServiceCatalog::query()
+            ->excludingRetiredHalls()
             ->active()
             ->ordered()
             ->with('accommodation:id,name');

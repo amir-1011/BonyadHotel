@@ -11,6 +11,7 @@ class Program extends Model
     public const TYPE_CAMP = 'camp';
     public const TYPE_EVENT = 'event';
     public const TYPE_OTHER = 'other';
+    public const TYPE_HALL = 'hall';
 
     public const PAYMENT_CASH = 'payment';
     public const PAYMENT_CREDIT = 'credit';
@@ -27,6 +28,9 @@ class Program extends Model
         'title',
         'description',
         'program_type',
+        'hall_id',
+        'hall_start_time',
+        'hall_end_time',
         'program_employer_id',
         'contractor',
         'guest_count',
@@ -49,6 +53,11 @@ class Program extends Model
             'payment_documents' => 'array',
             'guest_list_documents' => 'array',
         ];
+    }
+
+    public function isHall(): bool
+    {
+        return $this->program_type === self::TYPE_HALL;
     }
 
     public function booking(): BelongsTo
@@ -76,6 +85,11 @@ class Program extends Model
         return $this->belongsTo(ProgramEmployer::class, 'program_employer_id');
     }
 
+    public function hall(): BelongsTo
+    {
+        return $this->belongsTo(Hall::class);
+    }
+
     public function statusLabel(): string
     {
         return match ($this->status) {
@@ -101,6 +115,7 @@ class Program extends Model
         return match ($this->program_type) {
             self::TYPE_CAMP  => 'اردو',
             self::TYPE_EVENT => 'رویداد',
+            self::TYPE_HALL  => 'سالن همایش',
             default          => 'سایر',
         };
     }
@@ -141,6 +156,7 @@ class Program extends Model
         return [
             self::TYPE_CAMP  => 'اردو',
             self::TYPE_EVENT => 'رویداد',
+            self::TYPE_HALL  => 'سالن همایش',
             self::TYPE_OTHER => 'سایر',
         ];
     }

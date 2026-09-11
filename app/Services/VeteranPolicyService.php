@@ -1615,6 +1615,7 @@ class VeteranPolicyService
                     ->get();
                 $services = ServiceCatalog::query()
                     ->forAccommodation($this->accommodationId)
+                    ->excludingRetiredHalls()
                     ->active()
                     ->ordered()
                     ->with(['variants' => fn ($q) => $q->active()->ordered()])

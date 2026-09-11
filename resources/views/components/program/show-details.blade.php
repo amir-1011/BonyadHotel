@@ -17,6 +17,7 @@
         ? $booking->guestDetails->filter(fn ($g) => !\App\Models\BookingGuestDetail::isGenericGuestName($g->full_name, (int) $g->sort_order))->count()
         : 0;
     $canExtendProgramStay = $booking
+        && ! $program->isHall()
         && $booking->canExtendStay(auth()->user())
         && (($panel ?? 'guest') !== 'host' || auth()->user()?->hostCan('programs.dates', 'edit'));
     $city = $program->accommodation->city;
@@ -73,6 +74,16 @@
                     </div>
                     @endif
                     @if($booking)
+                    @if($program->isHall())
+                    <div class="col-sm-6 col-md-4">
+                        <span class="text-muted small">تاریخ برگزاری</span><br>
+                        <strong>@jalali($booking->check_in)</strong>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <span class="text-muted small">سانس</span><br>
+                        <strong dir="ltr">{{ $program->hall_start_time ? substr((string) $program->hall_start_time, 0, 5) : '—' }} – {{ $program->hall_end_time ? substr((string) $program->hall_end_time, 0, 5) : '—' }}</strong>
+                    </div>
+                    @else
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">تاریخ شروع</span><br>
                         <strong>@jalali($booking->check_in)</strong>
@@ -86,6 +97,7 @@
                         <strong>{{ $nights }} شب</strong>
                     </div>
                     @endif
+                    @endif
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">تعداد نفرات (برنامه)</span><br>
                         <strong>{{ \App\Support\PdfPersian::toPersianDigits(number_format($program->guest_count)) }}</strong>
@@ -96,10 +108,20 @@
                             {{ $registeredGuestCount }} نفر
                         </strong>
                     </div>
+                    @if($program->isHall())
+                    <div class="col-sm-6 col-md-4">
+                        <span class="text-muted small">سالن</span><br>
+                        <strong>{{ $program->hall?->name ?? '—' }}</strong>
+                        @if($program->hall)
+                        <div class="text-muted small mt-1">{{ $program->hall->typeLabel() }} · ظرفیت {{ \App\Support\PdfPersian::toPersianDigits(number_format($program->hall->capacity)) }} نفر</div>
+                        @endif
+                    </div>
+                    @else
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">اتاق‌های اختصاصی</span><br>
                         <strong>{{ $program->rooms_allocated }}</strong>
                     </div>
+                    @endif
                     @if($program->contractor)
                     <div class="col-sm-6 col-md-4">
                         <span class="text-muted small">پیمانکار</span><br>
@@ -214,7 +236,7 @@
         </div>
         @endif
 
-        @if($booking && $booking->bookingRooms->isNotEmpty())
+        @if($booking && $booking->bookingRooms->isNotEmpty() && !$program->isHall())
         <div class="card shadow-sm mb-3">
             <div class="card-header fw-semibold py-2"><i class="bi bi-door-open me-1"></i>اتاق‌های فیزیکی ({{ $booking->bookingRooms->count() }})</div>
             <div class="card-body p-0">

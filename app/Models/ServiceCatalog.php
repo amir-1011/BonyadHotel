@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ServiceCatalog extends Model
 {
+    public const RETIRED_HALL_KEYS = ['multi_purpose_hall', 'conference_hall'];
+
     protected $fillable = [
         'accommodation_id', 'key', 'name', 'default_price', 'supports_free_sessions',
         'default_discount', 'min_discount', 'max_discount',
@@ -80,6 +82,11 @@ class ServiceCatalog extends Model
     public function scopeForAccommodation($query, int $accommodationId)
     {
         return $query->where('accommodation_id', $accommodationId);
+    }
+
+    public function scopeExcludingRetiredHalls($query)
+    {
+        return $query->whereNotIn('key', self::RETIRED_HALL_KEYS);
     }
 
     public function scopeActive($query)

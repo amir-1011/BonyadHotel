@@ -136,6 +136,7 @@ class VeteranPolicySettings extends Component
 
         $serviceKeys = ServiceCatalog::query()
             ->whereIn('accommodation_id', $scopedIds)
+            ->excludingRetiredHalls()
             ->orderBy('sort_order')
             ->pluck('key')
             ->unique()
@@ -144,6 +145,7 @@ class VeteranPolicySettings extends Component
 
         $servicesByKey = ServiceCatalog::query()
             ->whereIn('accommodation_id', $scopedIds)
+            ->excludingRetiredHalls()
             ->ordered()
             ->with(['variants' => fn ($q) => $q->ordered()])
             ->get()

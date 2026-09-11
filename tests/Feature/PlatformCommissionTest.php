@@ -83,7 +83,7 @@ class PlatformCommissionTest extends TestCase
     public function test_program_booking_has_no_commission_even_with_positive_total(): void
     {
         $booking = $this->createBareBooking(totalPrice: 5_000_000, roomAmount: 5_000_000);
-        $this->assertSame(50_000, $this->commission->walletBalance());
+        $this->assertSame($this->commission->fixedAmount(), $this->commission->walletBalance());
 
         $booking->update(['booking_source' => 'program']);
         $this->commission->syncBookingCommissions($booking->fresh());
@@ -622,6 +622,45 @@ class PlatformCommissionTest extends TestCase
         $this->assertGreaterThan(0, $booking->total_price);
         $this->assertSame(0, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
         $this->assertSame(0, $this->commission->walletBalance());
+    }
+
+    public function test_hall_program_booking_accrues_fixed_commission(): void
+    {
+        $type = \App\Models\HallType::query()->where('name', 'کنفرانس')->first()
+            ?? \App\Models\HallType::query()->firstOrCreate(['name' => 'کنفرانس'], ['sort_order' => 1]);
+        $hall = \App\Models\Hall::create([
+            'accommodation_id' => $this->accommodation->id,
+            'hall_type_id'     => $type->id,
+            'name'             => 'سالن کارمزد',
+            'capacity'         => 50,
+            'is_active'        => true,
+        ]);
+
+        $checkIn = now()->addDays(6)->format('Y-m-d');
+
+        $program = app(ProgramBookingService::class)->create(
+            $this->accommodation->fresh(),
+            [
+                'title'           => 'همایش کارمزد',
+                'program_type'    => Program::TYPE_HALL,
+                'guest_count'     => 8,
+                'rooms_allocated' => 0,
+                'check_in'        => $checkIn,
+                'check_out'       => Carbon::parse($checkIn)->addDay()->format('Y-m-d'),
+                'hall_id'         => $hall->id,
+                'hall_start_time' => '09:00',
+                'hall_end_time'   => '11:00',
+                'base_price'      => 800_000,
+            ],
+            $this->adminUser,
+        );
+
+        $booking = $program->booking;
+        $this->assertTrue($booking->isProgram());
+        $this->assertSame(Program::TYPE_HALL, $program->program_type);
+        $this->assertSame($this->commission->fixedAmount(), $this->commission->calculateBookingCommission($booking));
+        $this->assertSame($this->commission->fixedAmount(), $this->commission->walletBalance());
+        $this->assertSame(1, PlatformCommissionEntry::where('booking_id', $booking->id)->count());
     }
 
     /** @param  array<int, array<string, mixed>>  $services */

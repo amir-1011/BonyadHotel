@@ -40,6 +40,14 @@ class HostPermissionsTest extends TestCase
         $this->assertSame('write', $required['action']);
     }
 
+    public function test_route_permission_mapping_for_hall_store(): void
+    {
+        $required = HostPermissions::permissionForRoute('host.halls.store', 'POST');
+
+        $this->assertSame('halls.create', $required['page']);
+        $this->assertSame('write', $required['action']);
+    }
+
     public function test_legacy_cancellation_list_edit_migrates_to_decide_and_settle(): void
     {
         $grants = HostPermissions::sanitizeGrants([

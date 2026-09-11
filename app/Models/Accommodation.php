@@ -148,6 +148,11 @@ class Accommodation extends Model
         return $this->hasMany(RoomType::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function halls()
+    {
+        return $this->hasMany(Hall::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function veteranGroups()
     {
         return $this->hasMany(VeteranGroup::class)->orderBy('sort_order')->orderBy('id');

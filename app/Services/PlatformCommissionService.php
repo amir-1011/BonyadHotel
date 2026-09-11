@@ -35,7 +35,7 @@ class PlatformCommissionService
         $context = $this->commissionContextFromBooking($booking);
         $subtotal = $booking->booking_source === 'manual_service'
             ? $this->manualServiceSaleSubtotal($booking)
-            : $this->bookingNaturalSubtotal($booking);
+            : $this->bookingSubtotalBeforeCommission($booking);
 
         return $this->previewCommissionAmount($context, $subtotal);
     }
@@ -47,6 +47,10 @@ class PlatformCommissionService
     {
         if ($this->isCommissionExemptFromContext($context)) {
             return 0;
+        }
+
+        if (($context['program_type'] ?? null) === \App\Models\Program::TYPE_HALL) {
+            return $this->fixedAmount();
         }
 
         if ($subtotalBeforeCommission <= 0) {
@@ -210,7 +214,11 @@ class PlatformCommissionService
     public function isCommissionExemptFromContext(array $context): bool
     {
         if (($context['booking_source'] ?? null) === 'program') {
-            return true;
+            if (($context['program_type'] ?? null) === \App\Models\Program::TYPE_HALL) {
+                // fall through to credit/medical checks
+            } else {
+                return true;
+            }
         }
 
         if (!empty($context['is_credit']) || ($context['payment_method'] ?? null) === Booking::PAYMENT_CREDIT) {
@@ -227,11 +235,14 @@ class PlatformCommissionService
     /** @return array<string, mixed> */
     public function commissionContextFromBooking(Booking $booking): array
     {
+        $booking->loadMissing('program');
+
         return [
             'booking_source'           => $booking->booking_source,
             'payment_method'           => $booking->payment_method,
             'is_credit'                => $booking->isCredit(),
             'is_medical_accommodation' => $booking->isMedicalAccommodation(),
+            'program_type'             => $booking->program?->program_type,
         ];
     }
 

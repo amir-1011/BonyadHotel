@@ -285,6 +285,7 @@ trait ManagesInlineServiceCatalogWizard
 
         $this->inlineCatalogCards = ServiceCatalog::query()
             ->forAccommodation($this->accommodation->id)
+            ->excludingRetiredHalls()
             ->ordered()
             ->withCount(['variants' => fn ($q) => $q->where('is_active', true)])
             ->get()

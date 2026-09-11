@@ -32,8 +32,8 @@ class VeteranPolicyTest extends TestCase
     public function test_seeder_creates_eight_veteran_groups(): void
     {
         $this->assertDatabaseCount('veteran_groups', 8);
-        $this->assertDatabaseCount('service_catalogs', 6);
-        $this->assertDatabaseCount('veteran_group_service_discounts', 48);
+        $this->assertDatabaseCount('service_catalogs', 4);
+        $this->assertDatabaseCount('veteran_group_service_discounts', 32);
     }
 
     public function test_veteran_70_group_has_70_percent_accommodation_discount(): void
@@ -52,15 +52,14 @@ class VeteranPolicyTest extends TestCase
         $this->assertSame(70, $policy->accommodationDiscount('veteran_70_plus'));
     }
 
-    public function test_conference_hall_discount_is_40_percent_for_all_groups(): void
+    public function test_hall_services_are_not_seeded_in_the_catalog(): void
     {
-        $policy = $this->veteranPolicyFor($this->accommodation);
-        $conference = $this->veteranCatalog($this->accommodation, 'conference_hall');
-
-        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->get() as $group) {
-            $rule = $policy->serviceDiscountRule($group->key, $conference->id);
-            $this->assertSame(40, $rule['discount_percentage'], "Failed for group {$group->key}");
-        }
+        $this->assertFalse(
+            ServiceCatalog::query()
+                ->where('accommodation_id', $this->accommodation->id)
+                ->whereIn('key', ServiceCatalog::RETIRED_HALL_KEYS)
+                ->exists()
+        );
     }
 
     public function test_pool_is_free_eligible_for_70_percent_veterans(): void
@@ -305,7 +304,7 @@ class VeteranPolicyTest extends TestCase
         Livewire::test(VeteranPolicySettings::class)
             ->call('removeService', 'pool')
             ->assertHasNoErrors()
-            ->assertCount('services', 5);
+            ->assertCount('services', 3);
 
         foreach ([$this->accommodation, $secondAccommodation] as $accommodation) {
             $this->assertDatabaseMissing('service_catalogs', [
@@ -372,7 +371,7 @@ class VeteranPolicyTest extends TestCase
         Livewire::test(AccommodationVeteranPolicySettings::class, ['accommodation' => $this->accommodation])
             ->call('removeService', $pool->id)
             ->assertHasNoErrors()
-            ->assertCount('services', 5)
+            ->assertCount('services', 3)
             ->assertSet('services.pool', null);
 
         $this->assertDatabaseMissing('service_catalogs', ['id' => $pool->id]);

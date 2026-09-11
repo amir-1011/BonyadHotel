@@ -71,8 +71,8 @@
         </div>
 
         {{-- اقامتگاه‌ها --}}
-        <div class="ta-nav-group {{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" aria-expanded="{{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+        <div class="ta-nav-group {{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') || request()->routeIs('admin.halls.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="اقامتگاه‌ها" aria-expanded="{{ request()->routeIs('admin.accommodations.*') || request()->routeIs('admin.room-types.*') || request()->routeIs('admin.halls.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-building"></i>
                 <span class="ta-nav-link__label">اقامتگاه‌ها</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
@@ -148,6 +148,20 @@
                        class="{{ request()->routeIs('admin.programs.index') || request()->routeIs('admin.programs.show') ? 'active' : '' }}">لیست برنامه‌ها</a></li>
                 <li><a href="{{ route('admin.programs.create') }}" wire:navigate
                        class="{{ request()->routeIs('admin.programs.create') ? 'active' : '' }}">افزودن برنامه</a></li>
+            </ul>
+            </div>
+        </div>
+
+        <div class="ta-nav-group {{ request()->routeIs('admin.halls.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="سالن همایش" aria-expanded="{{ request()->routeIs('admin.halls.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-building"></i>
+                <span class="ta-nav-link__label">سالن همایش</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                <li><a href="{{ route('admin.halls.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.halls.index') || request()->routeIs('admin.halls.accommodation.index') || request()->routeIs('admin.halls.edit') || request()->routeIs('admin.halls.create') ? 'active' : '' }}">لیست سالن‌ها</a></li>
             </ul>
             </div>
         </div>
@@ -424,6 +438,7 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
 @include('partials._manual-booking-slide')
 @include('partials._swal')
 <script type="module" src="{{ Vite::asset('resources/js/room-type-form.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/hall-form.js') }}" data-navigate-once></script>
 @include('partials._test_site_notice')
 @include('partials._panel-page-transition')
 </body>

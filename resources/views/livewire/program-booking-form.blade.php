@@ -1,15 +1,23 @@
 @php
-    $steps = [
+    $isHall = $programType === \App\Models\Program::TYPE_HALL;
+    $steps = $isHall ? [
+        1 => ['icon' => 'bi-info-circle', 'label' => 'اطلاعات پایه'],
+        2 => ['icon' => 'bi-building', 'label' => 'انتخاب سالن'],
+        4 => ['icon' => 'bi-cash-coin', 'label' => 'مالی'],
+        5 => ['icon' => 'bi-person-lines-fill', 'label' => 'مهمانان'],
+        6 => ['icon' => 'bi-people', 'label' => 'ذینفعان'],
+    ] : [
         1 => ['icon' => 'bi-info-circle', 'label' => 'اطلاعات پایه'],
         2 => ['icon' => 'bi-door-open', 'label' => 'انتخاب اتاق'],
         3 => ['icon' => 'bi-bag-plus', 'label' => 'خدمات و نرخ'],
         4 => ['icon' => 'bi-cash-coin', 'label' => 'مالی'],
         5 => ['icon' => 'bi-person-lines-fill', 'label' => 'مهمانان'],
         6 => ['icon' => 'bi-people', 'label' => 'ذینفعان'],
-        7 => ['icon' => 'bi-check-circle', 'label' => 'تأیید'],
     ];
     $showRoute = $panel === 'admin' ? 'admin.programs.show' : 'host.programs.show';
     $indexRoute = $panel === 'admin' ? 'admin.programs.index' : 'host.programs.index';
+    $hallCreateRoute = $panel === 'admin' ? 'admin.halls.create' : 'host.halls.create';
+    $visibleIndex = 0;
 @endphp
 
 <div id="program-form-root" x-on:manual-booking-rooms-selected.window="$wire.call('onRoomsSelected', $event.detail.rooms ?? [])">
@@ -18,12 +26,13 @@
         <div class="card-body py-3">
             <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
                 @foreach($steps as $num => $meta)
+                    @php $visibleIndex++; @endphp
                     @if($num < 7)
                     <button type="button"
                             wire:click="goToStep({{ $num }})"
                             class="btn btn-sm {{ $step === $num ? 'btn-primary' : ($step > $num ? 'btn-outline-primary' : 'btn-outline-secondary') }}"
                             @disabled($num > $step)>
-                        <i class="bi {{ $meta['icon'] }} me-1"></i>{{ $num }}. {{ $meta['label'] }}
+                        <i class="bi {{ $meta['icon'] }} me-1"></i>{{ $visibleIndex }}. {{ $meta['label'] }}
                     </button>
                     @endif
                 @endforeach
@@ -52,7 +61,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label small fw-semibold">نوع برنامه <span class="text-danger">*</span></label>
-                    <select wire:model="programType" class="form-select">
+                    <select wire:model.live="programType" class="form-select">
                         @foreach(\App\Models\Program::typeOptions() as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
@@ -63,15 +72,29 @@
                     <input type="text" wire:model="title" class="form-control @error('title') is-invalid @enderror" placeholder="مثلاً اردوی دانش‌آموزی بهار ۱۴۰۴">
                     @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
-                <x-program.date-fields :start-date="$startDate" :end-date="$endDate" />
+                <x-program.date-fields :start-date="$startDate" :end-date="$endDate" :single-date="$isHall" />
+                @if($isHall)
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">ساعت شروع سانس <span class="text-danger">*</span></label>
+                    <input type="time" wire:model.live="hallStartTime" class="form-control @error('hallStartTime') is-invalid @enderror" dir="ltr">
+                    @error('hallStartTime')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">ساعت پایان سانس <span class="text-danger">*</span></label>
+                    <input type="time" wire:model.live="hallEndTime" class="form-control @error('hallEndTime') is-invalid @enderror" dir="ltr">
+                    @error('hallEndTime')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                @endif
                 <div class="col-md-4">
                     <label class="form-label small fw-semibold">تعداد نفرات <span class="text-danger">*</span></label>
                     <input type="number" wire:model="guestCount" min="1" class="form-control">
                 </div>
+                @if(!$isHall)
                 <div class="col-md-4">
                     <label class="form-label small fw-semibold">تعداد اتاق اختصاص داده شده به این رزرو <span class="text-danger">*</span></label>
                     <input type="number" wire:model="roomsAllocated" min="1" class="form-control">
                 </div>
+                @endif
                 <div class="col-md-6">
                     <label class="form-label small fw-semibold">کارفرما <span class="text-danger">*</span></label>
                     <select wire:model="programEmployerId" class="form-select @error('programEmployerId') is-invalid @enderror">
@@ -108,6 +131,57 @@
 
     {{-- Step 2 --}}
     @if($step === 2)
+    @if($isHall)
+    <div class="card shadow-sm">
+        <div class="card-header fw-bold"><i class="bi bi-building me-2"></i>انتخاب سالن</div>
+        <div class="card-body">
+            @error('hallId')<div class="alert alert-danger">{{ $message }}</div>@enderror
+            @if($accommodation)
+                @if($halls->isEmpty())
+                <div class="alert alert-warning mb-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <span>برای این اقامتگاه هنوز سالنی تعریف نشده است. ابتدا از بخش
+                        <a href="{{ route($hallCreateRoute, $accommodation) }}" class="alert-link fw-semibold">«سالن همایش»</a>
+                        سالن را ثبت کنید.</span>
+                    <a href="{{ route($hallCreateRoute, $accommodation) }}" class="btn btn-sm btn-warning">
+                        ثبت سالن
+                    </a>
+                </div>
+                @else
+                <div class="row g-3">
+                    @foreach($halls as $hall)
+                    @php $busy = isset($unavailableHallIds[$hall->id]); @endphp
+                    <div class="col-md-6">
+                        <label class="border rounded p-3 d-block h-100 {{ (int) $hallId === (int) $hall->id ? 'border-primary bg-primary-subtle' : '' }} {{ $busy ? 'opacity-50' : '' }}">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" wire:model="hallId" value="{{ $hall->id }}" @disabled($busy)>
+                                <span class="fw-semibold">{{ $hall->name }}</span>
+                                <span class="badge bg-light text-dark border ms-1">{{ $hall->typeLabel() }}</span>
+                            </div>
+                            <div class="small text-muted mt-1">ظرفیت {{ \App\Support\PdfPersian::toPersianDigits(number_format($hall->capacity)) }} نفر</div>
+                            @if($hall->description)
+                            <div class="small mt-1">{{ $hall->description }}</div>
+                            @endif
+                            @if($hall->amenities)
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                @foreach($hall->amenities as $amenity)
+                                <span class="badge bg-light text-dark border">{{ $amenity }}</span>
+                                @endforeach
+                            </div>
+                            @endif
+                            @if($busy)
+                            <div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>در این سانس رزرو شده است</div>
+                            @endif
+                        </label>
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+            @else
+            <div class="alert alert-warning mb-0">ابتدا اقامتگاه را انتخاب کنید.</div>
+            @endif
+        </div>
+    </div>
+    @else
     <div class="card shadow-sm">
         <div class="card-header fw-bold d-flex justify-content-between align-items-center">
             <span><i class="bi bi-door-open me-2"></i>انتخاب اتاق‌های فیزیکی</span>
@@ -178,12 +252,13 @@
         </div>
     </div>
     @endif
+    @endif
 
     {{-- Room picker modal — always in DOM so Alpine can init (scripts loaded via app.js) --}}
     <x-manual-booking.room-picker />
 
     {{-- Step 3 --}}
-    @if($step === 3)
+    @if($step === 3 && !$isHall)
     <div class="card shadow-sm">
         <div class="card-header fw-bold d-flex justify-content-between align-items-center">
             <span><i class="bi bi-bag-plus me-2"></i>تعریف خدمات و نرخ</span>

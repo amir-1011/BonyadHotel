@@ -255,30 +255,11 @@ class VeteranPolicyProvisioner
                 'is_active'              => true,
             ],
             [
-                'key'                    => 'multi_purpose_hall',
-                'name'                   => 'سالن چند منظوره',
-                'default_price'          => 0,
-                'supports_free_sessions' => true,
-                'default_discount'       => 65,
-                'min_discount'           => 50,
-                'max_discount'           => 80,
-                'sort_order'             => 3,
-                'is_active'              => true,
-            ],
-            [
-                'key'              => 'conference_hall',
-                'name'             => 'سالن همایش',
-                'default_price'    => 0,
-                'default_discount' => 40,
-                'sort_order'       => 4,
-                'is_active'        => true,
-            ],
-            [
                 'key'              => 'reception_entrance',
                 'name'             => 'تالار پذیرایی — ورودی',
                 'default_price'    => 0,
                 'default_discount' => 50,
-                'sort_order'       => 5,
+                'sort_order'       => 3,
                 'is_active'        => true,
             ],
             [
@@ -286,7 +267,7 @@ class VeteranPolicyProvisioner
                 'name'             => 'تالار پذیرایی — غذا',
                 'default_price'    => 0,
                 'default_discount' => 20,
-                'sort_order'       => 6,
+                'sort_order'       => 4,
                 'is_active'        => true,
             ],
         ];
@@ -298,9 +279,8 @@ class VeteranPolicyProvisioner
      */
     private function seedDiscountMatrix(array $groupIdByKey, array $serviceIdByKey): void
     {
-        $sportKeys = ['pool', 'gym', 'multi_purpose_hall'];
+        $sportKeys = ['pool', 'gym'];
         $fixedServices = [
-            'conference_hall'    => 40,
             'reception_entrance' => 50,
             'reception_food'     => 20,
         ];

@@ -72,6 +72,7 @@ trait ManagesVeteranPolicySettings
 
         $this->services = ServiceCatalog::query()
             ->forAccommodation($accommodationId)
+            ->excludingRetiredHalls()
             ->ordered()
             ->with(['variants' => fn ($q) => $q->ordered()])
             ->get()
@@ -101,7 +102,7 @@ trait ManagesVeteranPolicySettings
 
         $this->discountMatrix = [];
         foreach (VeteranGroup::query()->forAccommodation($accommodationId)->ordered()->get() as $group) {
-            foreach (ServiceCatalog::query()->forAccommodation($accommodationId)->ordered()->get() as $service) {
+            foreach (ServiceCatalog::query()->forAccommodation($accommodationId)->excludingRetiredHalls()->ordered()->get() as $service) {
                 $row = VeteranGroupServiceDiscount::firstOrCreate(
                     [
                         'veteran_group_id'   => $group->id,
@@ -338,7 +339,7 @@ trait ManagesVeteranPolicySettings
             'is_active'              => true,
         ]);
 
-        foreach (ServiceCatalog::query()->forAccommodation($this->accommodation->id)->ordered()->get() as $service) {
+        foreach (ServiceCatalog::query()->forAccommodation($this->accommodation->id)->excludingRetiredHalls()->ordered()->get() as $service) {
             VeteranGroupServiceDiscount::create([
                 'veteran_group_id'       => $group->id,
                 'service_catalog_id'     => $service->id,

@@ -62,6 +62,12 @@
     "src": "resources/js/facility-detail-modal.js",
     "isEntry": true
   },
+  "resources/js/hall-form.js": {
+    "file": "assets/hall-form-Beuyv7cd.js",
+    "name": "hall-form",
+    "src": "resources/js/hall-form.js",
+    "isEntry": true
+  },
   "resources/js/image-upload-gate.js": {
     "file": "assets/image-upload-gate-Bu7YT0Am.js",
     "name": "image-upload-gate",

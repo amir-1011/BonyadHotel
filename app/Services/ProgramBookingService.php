@@ -39,11 +39,17 @@ class ProgramBookingService
         return DB::transaction(function () use ($accommodation, $data, $createdBy) {
             $checkIn = (string) $data['check_in'];
             $checkOut = (string) $data['check_out'];
-            $roomLines = $this->normalizeRoomLines($accommodation, $data['room_lines'] ?? []);
-            $services = $data['services'] ?? [];
+            $isHall = (($data['program_type'] ?? Program::TYPE_CAMP) === Program::TYPE_HALL);
+            $roomLines = $isHall ? [] : $this->normalizeRoomLines($accommodation, $data['room_lines'] ?? []);
+            $services = $isHall ? [] : ($data['services'] ?? []);
             $beneficiaryCosts = $data['beneficiary_costs'] ?? [];
+            $hall = null;
 
-            $this->assertRoomAvailability($accommodation, $checkIn, $checkOut, $roomLines);
+            if ($isHall) {
+                $hall = $this->assertHallBooking($accommodation, $data, $checkIn);
+            } else {
+                $this->assertRoomAvailability($accommodation, $checkIn, $checkOut, $roomLines);
+            }
 
             $servicesSubtotal = $this->sumServices($services);
             $basePrice = (int) ($data['base_price'] ?? 0);
@@ -156,10 +162,13 @@ class ProgramBookingService
                 'title'             => (string) $data['title'],
                 'description'       => $data['description'] ?? null,
                 'program_type'      => (string) ($data['program_type'] ?? Program::TYPE_CAMP),
+                'hall_id'           => $hall?->id,
+                'hall_start_time'   => $isHall ? app(HallAvailabilityService::class)->normalizeTime((string) $data['hall_start_time']) : null,
+                'hall_end_time'     => $isHall ? app(HallAvailabilityService::class)->normalizeTime((string) $data['hall_end_time']) : null,
                 'program_employer_id' => $employer?->id,
                 'contractor'        => $data['contractor'] ?? null,
                 'guest_count'       => (int) ($data['guest_count'] ?? 1),
-                'rooms_allocated'   => (int) ($data['rooms_allocated'] ?? count($roomLines)),
+                'rooms_allocated'   => $isHall ? 0 : (int) ($data['rooms_allocated'] ?? count($roomLines)),
                 'payment_type'      => (string) ($data['payment_type'] ?? Program::PAYMENT_CASH),
                 'payment_documents' => $paymentDocs,
                 'guest_list_documents' => $guestListDocs,
@@ -199,7 +208,7 @@ class ProgramBookingService
 
             $this->commission->syncBookingCommissions($booking, $createdBy);
 
-            return $program->load(['booking.bookingRooms.room', 'booking.services', 'booking.guestDetails.bookingRoom.room', 'beneficiaryCosts.beneficiary', 'employer', 'accommodation']);
+            return $program->load(['booking.bookingRooms.room', 'booking.services', 'booking.guestDetails.bookingRoom.room', 'beneficiaryCosts.beneficiary', 'employer', 'accommodation', 'hall.hallType']);
         });
     }
 
@@ -242,6 +251,32 @@ class ProgramBookingService
                 'accommodation.city.province',
             ]);
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertHallBooking(Accommodation $accommodation, array $data, string $checkIn): \App\Models\Hall
+    {
+        $hallId = (int) ($data['hall_id'] ?? 0);
+        $hall = \App\Models\Hall::query()
+            ->where('accommodation_id', $accommodation->id)
+            ->where('is_active', true)
+            ->find($hallId);
+
+        if (! $hall) {
+            throw new \RuntimeException('سالن انتخاب‌شده معتبر نیست.');
+        }
+
+        $startTime = (string) ($data['hall_start_time'] ?? '');
+        $endTime = (string) ($data['hall_end_time'] ?? '');
+        if ($startTime === '' || $endTime === '') {
+            throw new \RuntimeException('بازه سانس سالن را مشخص کنید.');
+        }
+
+        app(HallAvailabilityService::class)->assertAvailable($hall, $checkIn, $startTime, $endTime);
+
+        return $hall;
     }
 
     /**

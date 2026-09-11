@@ -8,12 +8,14 @@ use App\Livewire\Concerns\ResolvesAccountingProvince;
 use App\Livewire\Concerns\ManagesProgramEmployers;
 use App\Livewire\Concerns\ManagesProgramGuests;
 use App\Models\Accommodation;
+use App\Models\Hall;
 use App\Models\Program;
 use App\Models\ProgramBeneficiary;
 use App\Models\ProgramEmployer;
 use App\Models\Province;
 use App\Models\RoomType;
 use App\Models\ServiceCatalog;
+use App\Services\HallAvailabilityService;
 use App\Services\ProgramBookingService;
 use App\Services\ProgramDocumentService;
 use Carbon\Carbon;
@@ -46,6 +48,9 @@ class ProgramBookingForm extends Component
     public int $roomsAllocated = 1;
     public string $contractor = '';
     public string $description = '';
+    public ?int $hallId = null;
+    public string $hallStartTime = '';
+    public string $hallEndTime = '';
 
     // Step 2
     /** @var array<int, array{room_type_id:int, room_rate_id:?int, room_id:int, room_name:string, room_type_name:string}> */
@@ -89,9 +94,32 @@ class ProgramBookingForm extends Component
     public function updatedAccommodationId(): void
     {
         $this->roomLines = [];
+        $this->hallId = null;
         $this->beneficiaryRows = [];
         $this->accountingProvinceManuallySet = false;
         $this->syncDefaultAccountingProvinceFromContext();
+    }
+
+    public function updatedProgramType(): void
+    {
+        if ($this->isHallProgram()) {
+            $this->roomLines = [];
+            $this->roomsAllocated = 0;
+            $this->services = [$this->emptyServiceRow()];
+            if ($this->step === 3) {
+                $this->step = 2;
+            }
+        } else {
+            $this->hallId = null;
+            if ($this->roomsAllocated < 1) {
+                $this->roomsAllocated = 1;
+            }
+        }
+    }
+
+    public function isHallProgram(): bool
+    {
+        return $this->programType === Program::TYPE_HALL;
     }
 
     public function updatedRoomsAllocated(): void
@@ -105,17 +133,17 @@ class ProgramBookingForm extends Component
     {
         $this->validateStep($this->step);
 
-        if ($this->step === 4) {
+        if ($this->step === 4 || ($this->isHallProgram() && $this->step === 2)) {
             $this->hydrateGuestStep();
         }
 
-        $this->step = min(7, $this->step + 1);
+        $this->step = $this->nextInternalStep($this->step);
         $this->dispatch('program-step-changed', step: $this->step);
     }
 
     public function prevStep(): void
     {
-        $this->step = max(1, $this->step - 1);
+        $this->step = $this->previousInternalStep($this->step);
         $this->dispatch('program-step-changed', step: $this->step);
     }
 
@@ -132,6 +160,9 @@ class ProgramBookingForm extends Component
         }
 
         for ($s = $this->step; $s < $target; $s++) {
+            if ($this->isHallProgram() && $s === 3) {
+                continue;
+            }
             $this->validateStep($s);
         }
 
@@ -290,6 +321,9 @@ class ProgramBookingForm extends Component
         }
 
         for ($s = 1; $s <= 6; $s++) {
+            if ($this->isHallProgram() && $s === 3) {
+                continue;
+            }
             $this->validateStep($s);
         }
 
@@ -304,7 +338,9 @@ class ProgramBookingForm extends Component
         try {
             $accommodation = $this->resolveAccommodation();
             $checkIn = $this->toGregorian($this->startDate);
-            $checkOut = $this->toGregorian($this->endDate);
+            $checkOut = $this->isHallProgram()
+                ? Carbon::parse($checkIn)->addDay()->toDateString()
+                : $this->toGregorian($this->endDate);
 
             $this->createdProgram = $service->create($accommodation, [
                 'title'              => $this->title,
@@ -313,11 +349,14 @@ class ProgramBookingForm extends Component
                 'program_employer_id' => $this->resolvedProgramEmployerId(),
                 'contractor'         => $this->contractor,
                 'guest_count'        => $this->guestCount,
-                'rooms_allocated'    => $this->roomsAllocated,
+                'rooms_allocated'    => $this->isHallProgram() ? 0 : $this->roomsAllocated,
                 'check_in'           => $checkIn,
                 'check_out'          => $checkOut,
-                'room_lines'         => $this->roomLines,
-                'services'           => $this->filledServices(),
+                'room_lines'         => $this->isHallProgram() ? [] : $this->roomLines,
+                'hall_id'            => $this->isHallProgram() ? $this->hallId : null,
+                'hall_start_time'    => $this->isHallProgram() ? $this->hallStartTime : null,
+                'hall_end_time'      => $this->isHallProgram() ? $this->hallEndTime : null,
+                'services'           => $this->isHallProgram() ? [] : $this->filledServices(),
                 'payment_type'       => $this->paymentType,
                 'payment_documents'  => $this->paymentDocuments,
                 'base_price'         => $this->parsedAmount($this->basePrice),
@@ -387,7 +426,12 @@ class ProgramBookingForm extends Component
             try {
                 $accommodation = $this->resolveAccommodation();
                 $roomTypes = $accommodation->roomTypes->where('is_active', true)->values();
-                $serviceCatalog = ServiceCatalog::forAccommodation($accommodation->id)->active()->ordered()->with('activeVariants')->get();
+                $serviceCatalog = ServiceCatalog::forAccommodation($accommodation->id)
+                    ->excludingRetiredHalls()
+                    ->active()
+                    ->ordered()
+                    ->with('activeVariants')
+                    ->get();
             } catch (\Throwable) {
                 $accommodation = null;
             }
@@ -402,6 +446,25 @@ class ProgramBookingForm extends Component
             $myAccommodations = Accommodation::orderBy('name')->get(['id', 'name']);
         }
 
+        $halls = collect();
+        $unavailableHallIds = [];
+        if ($this->isHallProgram() && $accommodation) {
+            $halls = $accommodation->halls()->with('hallType')->active()->ordered()->get();
+            $eventDate = $this->toGregorian($this->startDate);
+            if ($eventDate && $this->hallStartTime && $this->hallEndTime) {
+                try {
+                    $unavailableHallIds = app(HallAvailabilityService::class)->unavailableHallIds(
+                        $accommodation->id,
+                        $eventDate,
+                        $this->hallStartTime,
+                        $this->hallEndTime,
+                    );
+                } catch (\Throwable) {
+                    $unavailableHallIds = [];
+                }
+            }
+        }
+
         return view('livewire.program-booking-form', compact(
             'accommodation',
             'roomTypes',
@@ -409,34 +472,16 @@ class ProgramBookingForm extends Component
             'beneficiaries',
             'employers',
             'myAccommodations',
+            'halls',
+            'unavailableHallIds',
         ))->with('provinces', Province::query()->orderBy('name')->get());
     }
 
     private function validateStep(int $step): void
     {
         match ($step) {
-            1 => $this->validate([
-                'accommodationId' => ['required', 'integer', 'min:1'],
-                'programType'       => ['required', 'in:camp,event,other'],
-                'title'             => ['required', 'string', 'max:200'],
-                'startDate'         => ['required', 'string'],
-                'endDate'           => ['required', 'string'],
-                'guestCount'        => ['required', 'integer', 'min:1'],
-                'roomsAllocated'    => ['required', 'integer', 'min:1'],
-                'programEmployerId' => ['required', 'integer', 'min:1', 'exists:program_employers,id'],
-                'contractor'        => ['nullable', 'string', 'max:200'],
-                'description'       => ['nullable', 'string', 'max:5000'],
-            ], [], [
-                'accommodationId' => 'اقامتگاه',
-                'programType'     => 'نوع برنامه',
-                'title'           => 'عنوان برنامه',
-                'startDate'       => 'تاریخ شروع',
-                'endDate'         => 'تاریخ پایان',
-                'guestCount'      => 'تعداد نفرات',
-                'roomsAllocated'  => 'تعداد اتاق اختصاص داده شده به این رزرو',
-                'programEmployerId' => 'کارفرما',
-            ]),
-            2 => $this->validateStepRooms(),
+            1 => $this->validateStepBasics(),
+            2 => $this->isHallProgram() ? $this->validateStepHall() : $this->validateStepRooms(),
             3 => null,
             4 => $this->validate([
                 'paymentType' => ['required', 'in:payment,credit,supportive'],
@@ -452,16 +497,74 @@ class ProgramBookingForm extends Component
             default => null,
         };
 
-        if ($step === 1) {
-            $start = $this->toGregorian($this->startDate);
-            $end = $this->toGregorian($this->endDate);
+        if ($step === 4 && in_array($this->paymentType, [Program::PAYMENT_CREDIT, Program::PAYMENT_SUPPORTIVE], true)) {
+            if ($this->paymentDocuments === [] && $this->parsedAmount($this->depositAmount) === 0) {
+                // documents optional but encouraged — no hard fail
+            }
+        }
+    }
 
-            if (!$start) {
+    private function validateStepBasics(): void
+    {
+        $rules = [
+            'accommodationId'   => ['required', 'integer', 'min:1'],
+            'programType'       => ['required', 'in:camp,event,other,hall'],
+            'title'             => ['required', 'string', 'max:200'],
+            'startDate'         => ['required', 'string'],
+            'guestCount'        => ['required', 'integer', 'min:1'],
+            'programEmployerId' => ['required', 'integer', 'min:1', 'exists:program_employers,id'],
+            'contractor'        => ['nullable', 'string', 'max:200'],
+            'description'       => ['nullable', 'string', 'max:5000'],
+        ];
+        $labels = [
+            'accommodationId'   => 'اقامتگاه',
+            'programType'       => 'نوع برنامه',
+            'title'             => 'عنوان برنامه',
+            'startDate'         => $this->isHallProgram() ? 'تاریخ برگزاری' : 'تاریخ شروع',
+            'guestCount'        => 'تعداد نفرات',
+            'programEmployerId' => 'کارفرما',
+        ];
+
+        if ($this->isHallProgram()) {
+            $rules['hallStartTime'] = ['required', 'string'];
+            $rules['hallEndTime'] = ['required', 'string'];
+            $labels['hallStartTime'] = 'ساعت شروع سانس';
+            $labels['hallEndTime'] = 'ساعت پایان سانس';
+        } else {
+            $rules['endDate'] = ['required', 'string'];
+            $rules['roomsAllocated'] = ['required', 'integer', 'min:1'];
+            $labels['endDate'] = 'تاریخ پایان';
+            $labels['roomsAllocated'] = 'تعداد اتاق اختصاص داده شده به این رزرو';
+        }
+
+        $this->validate($rules, [], $labels);
+
+        $start = $this->toGregorian($this->startDate);
+        if (! $start) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'startDate' => $this->isHallProgram() ? 'تاریخ برگزاری معتبر نیست.' : 'تاریخ شروع معتبر نیست.',
+            ]);
+        }
+
+        if ($this->isHallProgram()) {
+            try {
+                $availability = app(HallAvailabilityService::class);
+                $startTime = $availability->normalizeTime($this->hallStartTime);
+                $endTime = $availability->normalizeTime($this->hallEndTime);
+            } catch (\Throwable) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'startDate' => 'تاریخ شروع معتبر نیست.',
+                    'hallStartTime' => 'ساعت سانس معتبر نیست.',
                 ]);
             }
-            if (!$end) {
+
+            if ($endTime <= $startTime) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'hallEndTime' => 'ساعت پایان سانس باید بعد از ساعت شروع باشد.',
+                ]);
+            }
+        } else {
+            $end = $this->toGregorian($this->endDate);
+            if (! $end) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'endDate' => 'تاریخ پایان معتبر نیست.',
                 ]);
@@ -471,22 +574,74 @@ class ProgramBookingForm extends Component
                     'endDate' => 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
                 ]);
             }
-
-            if ($this->panel === 'host') {
-                $accIds = Auth::user()->managedAccommodationIds();
-                if (!$accIds->contains($this->accommodationId)) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'accommodationId' => 'اقامتگاه مجاز نیست.',
-                    ]);
-                }
-            }
         }
 
-        if ($step === 4 && in_array($this->paymentType, [Program::PAYMENT_CREDIT, Program::PAYMENT_SUPPORTIVE], true)) {
-            if ($this->paymentDocuments === [] && $this->parsedAmount($this->depositAmount) === 0) {
-                // documents optional but encouraged — no hard fail
+        if ($this->panel === 'host') {
+            $accIds = Auth::user()->managedAccommodationIds();
+            if (! $accIds->contains($this->accommodationId)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'accommodationId' => 'اقامتگاه مجاز نیست.',
+                ]);
             }
         }
+    }
+
+    private function validateStepHall(): void
+    {
+        if (! $this->hallId) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hallId' => 'سالن را انتخاب کنید.',
+            ]);
+        }
+
+        $hall = Hall::query()
+            ->where('accommodation_id', $this->accommodationId)
+            ->where('is_active', true)
+            ->find($this->hallId);
+
+        if (! $hall) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hallId' => 'سالن انتخاب‌شده معتبر نیست.',
+            ]);
+        }
+
+        $date = $this->toGregorian($this->startDate);
+        if (! $date) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'startDate' => 'ابتدا تاریخ برگزاری را در مرحله قبل ثبت کنید.',
+            ]);
+        }
+
+        try {
+            app(HallAvailabilityService::class)->assertAvailable(
+                $hall,
+                $date,
+                $this->hallStartTime,
+                $this->hallEndTime,
+            );
+        } catch (\RuntimeException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hallId' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function nextInternalStep(int $step): int
+    {
+        if ($this->isHallProgram() && $step === 2) {
+            return 4;
+        }
+
+        return min(7, $step + 1);
+    }
+
+    private function previousInternalStep(int $step): int
+    {
+        if ($this->isHallProgram() && $step === 4) {
+            return 2;
+        }
+
+        return max(1, $step - 1);
     }
 
     private function validateStepRooms(): void
@@ -509,7 +664,7 @@ class ProgramBookingForm extends Component
 
     private function resolveAccommodation(): Accommodation
     {
-        return Accommodation::with(['roomTypes.rates', 'roomTypes.rooms'])
+        return Accommodation::with(['roomTypes.rates', 'roomTypes.rooms', 'halls.hallType'])
             ->findOrFail($this->accommodationId);
     }
 

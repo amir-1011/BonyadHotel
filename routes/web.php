@@ -10,6 +10,8 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\HallAmenityCatalogController;
+use App\Http\Controllers\HallTypeCatalogController;
 use App\Http\Controllers\RoomTypeAmenityCatalogController;
 use App\Http\Controllers\RoomTypeCategoryCatalogController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/room-type-categories', [RoomTypeCategoryCatalogController::class, 'store'])->name('api.room-type-categories.store');
     Route::patch('/api/room-type-categories/{roomTypeCategory}', [RoomTypeCategoryCatalogController::class, 'update'])->name('api.room-type-categories.update');
     Route::delete('/api/room-type-categories/{roomTypeCategory}', [RoomTypeCategoryCatalogController::class, 'destroy'])->name('api.room-type-categories.destroy');
+    Route::post('/api/hall-amenities', [HallAmenityCatalogController::class, 'store'])->name('api.hall-amenities.store');
+    Route::delete('/api/hall-amenities/{hallAmenity}', [HallAmenityCatalogController::class, 'destroy'])->name('api.hall-amenities.destroy');
+    Route::post('/api/hall-types', [HallTypeCatalogController::class, 'store'])->name('api.hall-types.store');
+    Route::patch('/api/hall-types/{hallType}', [HallTypeCatalogController::class, 'update'])->name('api.hall-types.update');
+    Route::delete('/api/hall-types/{hallType}', [HallTypeCatalogController::class, 'destroy'])->name('api.hall-types.destroy');
 });
 
 // ─── User-facing routes (redirected to /admin/login when STAFF_ONLY_MODE=true) ─
@@ -118,6 +125,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/accommodations/{accommodation}/manual-service-sale', \App\Livewire\Admin\ManualServiceSale::class)->name('accommodations.manual-service-sale');
     // Sales report (keep as controller — complex chart data)
     Route::get('/accommodations/{accommodation}/report', [\App\Http\Controllers\Admin\AccommodationController::class, 'salesReport'])->name('accommodations.report');
+
+    Route::get('/halls', [\App\Http\Controllers\Admin\HallController::class, 'index'])->name('halls.index');
+    Route::prefix('/accommodations/{accommodation}/halls')->name('halls.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\HallController::class, 'index'])->name('accommodation.index');
+        Route::get('/create', [\App\Http\Controllers\Admin\HallController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\HallController::class, 'store'])->name('store');
+        Route::get('/{hall}/edit', [\App\Http\Controllers\Admin\HallController::class, 'edit'])->name('edit');
+        Route::put('/{hall}', [\App\Http\Controllers\Admin\HallController::class, 'update'])->name('update');
+        Route::delete('/{hall}', [\App\Http\Controllers\Admin\HallController::class, 'destroy'])->name('destroy');
+    });
 
     // Room Types (complex nested CRUD — keep as controllers)
     Route::prefix('/accommodations/{accommodation}/room-types')->name('room-types.')->group(function () {
@@ -258,6 +275,16 @@ Route::prefix('host')->name('host.')->middleware(['auth', 'host', 'host.permissi
         Route::delete('/{roomType}/daily-availability-range', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyDailyOverrideRange'])->name('daily-availability-range.destroy');
         Route::delete('/{roomType}/weekly-price-rules/{weeklyRule}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyWeeklyPriceRule'])->name('weekly-price-rules.destroy');
         Route::delete('/{roomType}/rate-weekly-price-rules/{rateWeeklyRule}', [\App\Http\Controllers\Host\RoomTypeController::class, 'destroyRateWeeklyPriceRule'])->name('rate-weekly-price-rules.destroy');
+    });
+
+    Route::get('/halls', [\App\Http\Controllers\Host\HallController::class, 'index'])->name('halls.index');
+    Route::prefix('accommodations/{accommodation}/halls')->name('halls.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Host\HallController::class, 'index'])->name('accommodation.index');
+        Route::get('/create', [\App\Http\Controllers\Host\HallController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Host\HallController::class, 'store'])->name('store');
+        Route::get('/{hall}/edit', [\App\Http\Controllers\Host\HallController::class, 'edit'])->name('edit');
+        Route::put('/{hall}', [\App\Http\Controllers\Host\HallController::class, 'update'])->name('update');
+        Route::delete('/{hall}', [\App\Http\Controllers\Host\HallController::class, 'destroy'])->name('destroy');
     });
 
     // Programs — supportive-report and create must come before {program} wildcard

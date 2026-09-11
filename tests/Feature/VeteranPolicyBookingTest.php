@@ -437,17 +437,14 @@ class VeteranPolicyBookingTest extends TestCase
     // 4.  Conference hall — 40% for all groups
     // ──────────────────────────────────────────────────────
 
-    public function test_conference_hall_40_percent_for_all_groups(): void
+    public function test_retired_hall_catalog_keys_are_not_seeded(): void
     {
-        $conference = $this->veteranCatalog($this->accommodation, 'conference_hall');
-        $policy = $this->veteranPolicyFor($this->accommodation);
-
-        foreach (VeteranGroup::forAccommodation($this->accommodation->id)->active()->get() as $group) {
-            $rule = $policy->serviceDiscountRule($group->key, $conference->id);
-            $this->assertSame(40, $rule['discount_percentage'],
-                "Expected 40% for {$group->key}");
-            $this->assertFalse($rule['free_sessions_eligible']);
-        }
+        $this->assertFalse(
+            \App\Models\ServiceCatalog::query()
+                ->where('accommodation_id', $this->accommodation->id)
+                ->whereIn('key', \App\Models\ServiceCatalog::RETIRED_HALL_KEYS)
+                ->exists()
+        );
     }
 
     // ──────────────────────────────────────────────────────
@@ -491,18 +488,10 @@ class VeteranPolicyBookingTest extends TestCase
         $this->assertSame(3, $rule['weekly_free_sessions']);
     }
 
-    public function test_multi_purpose_hall_is_free_for_veteran70(): void
-    {
-        $hall = $this->veteranCatalog($this->accommodation, 'multi_purpose_hall');
-        $rule = $this->veteranPolicyFor($this->accommodation)->serviceDiscountRule('veteran_70_spouses', $hall->id);
-
-        $this->assertTrue($rule['free_sessions_eligible']);
-    }
-
     public function test_sports_services_have_65_percent_for_other_groups(): void
     {
         $policy = $this->veteranPolicyFor($this->accommodation);
-        $sportKeys = ['pool', 'gym', 'multi_purpose_hall'];
+        $sportKeys = ['pool', 'gym'];
         $veteranKeys = [
             'veteran_50_69_dependents', 'veteran_25_49_dependents',
             'martyr_children', 'martyr_parents_dependents',

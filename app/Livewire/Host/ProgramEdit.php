@@ -76,10 +76,10 @@ class ProgramEdit extends Component
         return [
             'title'                 => ['required', 'string', 'max:200'],
             'description'           => ['nullable', 'string', 'max:2000'],
-            'programType'           => ['required', 'in:camp,event,other'],
+            'programType'           => ['required', 'in:camp,event,other,hall'],
             'startDate'             => ['required', 'string'],
             'endDate'               => ['required', 'string'],
-            'roomsAllocated'        => ['required', 'integer', 'min:1'],
+            'roomsAllocated'        => ['required', 'integer', 'min:0'],
             'guestCount'            => ['required', 'integer', 'min:1'],
             'employer'              => ['nullable', 'string', 'max:200'],
             'contractor'            => ['nullable', 'string', 'max:200'],

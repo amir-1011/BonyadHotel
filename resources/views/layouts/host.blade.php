@@ -155,6 +155,22 @@
         </div>
         @endif
 
+        @if($hostUser->hostCan('halls.list', 'read'))
+        <div class="ta-nav-group {{ request()->routeIs('host.halls.*') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="سالن همایش" aria-expanded="{{ request()->routeIs('host.halls.*') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+                <i class="bi bi-building"></i>
+                <span class="ta-nav-link__label">سالن همایش</span>
+                <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
+            </button>
+            <div class="ta-submenu-panel">
+            <ul class="ta-submenu">
+                <li><a href="{{ route('host.halls.index') }}" wire:navigate
+                       class="{{ request()->routeIs('host.halls.*') ? 'active' : '' }}">لیست سالن‌ها</a></li>
+            </ul>
+            </div>
+        </div>
+        @endif
+
         @if($hostUser->hostCan('reviews.list', 'read'))
         <a href="{{ route('host.reviews.index') }}" wire:navigate data-label="نظرات مهمانان"
            class="ta-nav-link {{ request()->routeIs('host.reviews.*') ? 'active' : '' }}">
@@ -435,6 +451,7 @@ window.bnbJalaliCal = window.bnbJalaliCal || {
 @include('partials._manual-booking-slide')
 @include('partials._swal')
 <script type="module" src="{{ Vite::asset('resources/js/room-type-form.js') }}" data-navigate-once></script>
+<script type="module" src="{{ Vite::asset('resources/js/hall-form.js') }}" data-navigate-once></script>
 @include('partials._test_site_notice')
 @include('partials._panel-page-transition')
 </body>
