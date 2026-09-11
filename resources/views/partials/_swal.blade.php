@@ -2187,6 +2187,60 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
         component.call('executeConfirmedPriceChange', action, confirmedDelta, merged);
     }
 
+    function posChargeAmount(preview, confirmedDelta) {
+        var currentTotal = parseInt(preview && preview.current_total, 10) || 0;
+        if (preview && preview.pos_charge_full_amount) {
+            return Math.max(0, currentTotal + (parseInt(confirmedDelta, 10) || 0));
+        }
+        return Math.max(0, parseInt(confirmedDelta, 10) || 0);
+    }
+
+    function waitForPosThenFinalize(component, action, params, confirmedDelta, priceResult) {
+        var hooks = iosOverlayHooks('confirm', 'info');
+        pauseBootstrapModalFocusTraps();
+        Swal.fire(Object.assign({
+            title: '',
+            icon: undefined,
+            html:
+                '<div class="bnb-confirm-body">' +
+                    '<div class="bnb-confirm-icon bnb-confirm-icon--info"><i class="bi bi-upc-scan"></i></div>' +
+                    '<div class="bnb-confirm-text">' +
+                        '<div class="bnb-confirm-title">منتظر کارت‌کشیدن روی پوز</div>' +
+                        '<div class="bnb-confirm-msg">مبلغ روی دستگاه کارتخوان آمده است. کارت را بکشید و تا پایان تراکنش این صفحه را نبندید.</div>' +
+                    '</div>' +
+                '</div>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            showCancelButton: false,
+            customClass: {
+                popup: 'bnb-swal-popup bnb-swal-popup--generic bnb-swal-popup--sheet',
+                htmlContainer: 'bnb-swal-html'
+            }
+        }, hooks));
+
+        var merged = Object.assign({}, params || {});
+        if (priceResult && priceResult.price_adjustment_reason) {
+            merged.price_adjustment_reason = priceResult.price_adjustment_reason;
+        }
+        if (priceResult && typeof priceResult.vat_percent === 'number') {
+            merged.vat_percent = priceResult.vat_percent;
+        } else if (priceResult && priceResult.vat_percent != null) {
+            merged.vat_percent = parseInt(priceResult.vat_percent, 10) || 0;
+        }
+        if (priceResult && priceResult.vat_base_amount != null) {
+            merged.vat_base_amount = parseInt(priceResult.vat_base_amount, 10) || 0;
+        }
+        if (priceResult && priceResult.payment_capture) {
+            merged.payment_capture = priceResult.payment_capture;
+        }
+
+        return component.call('executeConfirmedPriceChange', action, confirmedDelta, merged).finally(function () {
+            Swal.close();
+            resumeBootstrapModalFocusTraps();
+        });
+    }
+
     function runBookingPriceChangeFlow(component, action, params, onCancel) {
         if (!component || !action) {
             bnbToast('error', 'امکان انجام عملیات وجود ندارد.');
@@ -2224,6 +2278,12 @@ body.swal2-shown:not(.swal2-toast-shown) .swal2-container {
                     ? result.value.delta
                     : (parseInt(preview.auto_delta, 10) || 0);
                 var priceResult = result.value || {};
+                var chargeAmount = posChargeAmount(preview, confirmedDelta);
+
+                if (preview.pos_charge_enabled && chargeAmount > 0) {
+                    waitForPosThenFinalize(component, action, params, confirmedDelta, priceResult);
+                    return;
+                }
 
                 if (shouldSkipPaymentCapture(preview, confirmedDelta)) {
                     finalizeConfirmedPriceChange(component, action, params, confirmedDelta, priceResult);

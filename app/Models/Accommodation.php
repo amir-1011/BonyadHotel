@@ -173,6 +173,11 @@ class Accommodation extends Model
         return $this->hasMany(MedicalAccommodationContract::class)->orderByDesc('id');
     }
 
+    public function posMapping()
+    {
+        return $this->hasOne(AccommodationPosMapping::class);
+    }
+
     /**
      * Get the lowest price among all room types and rates.
      */

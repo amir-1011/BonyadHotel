@@ -9,6 +9,8 @@ use App\Livewire\Concerns\ManagesPendingPaymentDocuments;
 use App\Livewire\Concerns\ManagesPosTerminals;
 use App\Livewire\Concerns\ManagesProgramBeneficiaries;
 use App\Livewire\Concerns\ResolvesAccountingProvince;
+use App\Exceptions\PcPosPaymentFailedException;
+use App\Services\AccommodationPosPaymentService;
 use App\Services\BookingPaymentCaptureService;
 use App\Support\JalaliDateTimeInput;
 use App\Models\Country;
@@ -1374,6 +1376,13 @@ class ManualBookingForm extends Component
         $total = (int) ($pricing['total_price'] ?? 0);
         $captureService = app(BookingPaymentCaptureService::class);
         $provinceId = $this->accommodation->resolvedProvince()?->id;
+        $skipCapture = $this->isMedicalAccommodationPayment() || $this->isCreditPayment();
+        $posMeta = app(AccommodationPosPaymentService::class)->previewMeta(
+            $this->accommodation->id,
+            $this->paymentMethod,
+            $skipCapture,
+            chargeFullAmount: true,
+        );
 
         return [
             'error'           => false,
@@ -1388,11 +1397,12 @@ class ManualBookingForm extends Component
                 ? 'فروش خدمات با مبلغ محاسبه‌شده (شامل کارمزد سامانه) ثبت می‌شود. در صورت نیاز مبلغ نهایی را می‌توانید تغییر دهید.'
                 : 'رزرو با مبلغ محاسبه‌شده ثبت می‌شود. در صورت نیاز مبلغ نهایی را می‌توانید تغییر دهید.',
             'payment_method'  => $this->paymentMethod,
-            'skip_payment_capture' => $this->isMedicalAccommodationPayment() || $this->isCreditPayment(),
+            'skip_payment_capture' => $skipCapture,
             'pos_terminals'   => $captureService->terminalsForProvince($provinceId),
             'default_payment_date' => JalaliDateTimeInput::nowJalaliDate(),
             'default_payment_time' => JalaliDateTimeInput::nowTime(),
             'calculated_total' => $total,
+            ...$posMeta,
         ];
     }
 
@@ -1495,6 +1505,20 @@ class ManualBookingForm extends Component
                     : Booking::PAYMENT_CARD_TERMINAL;
             }
 
+            if (! $isMedical && ! $isCredit) {
+                $payable = max(0, (int) ($this->pricingPreview['total_price'] ?? 0) + $priceDelta);
+                $serviceFee = (int) ($this->pricingPreview['platform_commission_amount'] ?? 0);
+                $paymentCapture = app(AccommodationPosPaymentService::class)->chargeOrFail(
+                    $this->accommodation,
+                    $payable,
+                    is_array($paymentCapture) ? $paymentCapture : null,
+                    (string) $payload['payment_method'],
+                    $serviceFee,
+                );
+                $payload['payment_capture'] = $paymentCapture;
+                $payload['payment_capture_uploads'] = is_array($paymentCapture) ? $this->pendingPaymentDocuments : [];
+            }
+
             $booking = $manualBooking->create($this->accommodation, $payload, Auth::user());
 
             $this->clearPendingPaymentDocuments();
@@ -1515,6 +1539,9 @@ class ManualBookingForm extends Component
                 : 'رزرو دستی با موفقیت ثبت شد.';
             session()->flash('status', $successMessage);
             $this->dispatch('toast', type: 'success', message: $successMessage);
+        } catch (PcPosPaymentFailedException $e) {
+            $this->addError('submit', $e->getMessage());
+            $this->dispatch('toast', type: 'error', message: $e->getMessage());
         } catch (\Throwable $e) {
             $this->addError('submit', $e->getMessage());
             $this->dispatch('toast', type: 'error', message: $e->getMessage());

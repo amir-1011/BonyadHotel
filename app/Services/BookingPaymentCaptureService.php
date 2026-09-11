@@ -121,9 +121,14 @@ class BookingPaymentCaptureService
         $tracking = trim((string) ($data['transaction_tracking'] ?? ''));
 
         if ($card === '' && $tracking === '') {
-            throw ValidationException::withMessages([
-                'transaction_tracking' => 'حداقل یکی از «۴ رقم آخر کارت» یا «شماره پیگیری» باید ثبت شود.',
-            ]);
+            $fromPosAgent = ! empty($capture['pos_agent_approved']);
+            if ($fromPosAgent) {
+                $tracking = 'POS';
+            } else {
+                throw ValidationException::withMessages([
+                    'transaction_tracking' => 'حداقل یکی از «۴ رقم آخر کارت» یا «شماره پیگیری» باید ثبت شود.',
+                ]);
+            }
         }
 
         try {
@@ -172,16 +177,21 @@ class BookingPaymentCaptureService
         ?User $recordedBy,
         array $documentUploads = [],
     ): BookingPaymentRecord {
-        $validated = $this->validateCapture($capture, requireTerminal: true);
+        $fromPosAgent = ! empty($capture['pos_agent_approved']);
+        $hasTerminal = isset($capture['pos_terminal_id']) && (int) $capture['pos_terminal_id'] > 0;
+        $validated = $this->validateCapture($capture, requireTerminal: ! $fromPosAgent);
 
-        $terminal = PosTerminal::query()->findOrFail((int) $validated['pos_terminal_id']);
-        $booking->loadMissing('accommodation.city.province', 'accommodation.county.province');
-        $provinceId = $booking->accommodation?->resolvedProvince()?->id;
+        $terminal = null;
+        if ($hasTerminal) {
+            $terminal = PosTerminal::query()->findOrFail((int) $validated['pos_terminal_id']);
+            $booking->loadMissing('accommodation.city.province', 'accommodation.county.province');
+            $provinceId = $booking->accommodation?->resolvedProvince()?->id;
 
-        if ($provinceId && (int) $terminal->province_id !== (int) $provinceId) {
-            throw ValidationException::withMessages([
-                'pos_terminal_id' => 'ترمینال انتخاب‌شده با استان اقامتگاه هم‌خوانی ندارد.',
-            ]);
+            if ($provinceId && (int) $terminal->province_id !== (int) $provinceId) {
+                throw ValidationException::withMessages([
+                    'pos_terminal_id' => 'ترمینال انتخاب‌شده با استان اقامتگاه هم‌خوانی ندارد.',
+                ]);
+            }
         }
 
         $documentPaths = $this->storeDocumentUploads($documentUploads);
@@ -193,6 +203,7 @@ class BookingPaymentCaptureService
         }
 
         $amount = (int) $booking->total_price;
+        $posResponse = is_array($capture['pos_response'] ?? null) ? $capture['pos_response'] : null;
 
         return DB::transaction(function () use (
             $booking,
@@ -201,6 +212,7 @@ class BookingPaymentCaptureService
             $validated,
             $terminal,
             $documentPaths,
+            $posResponse,
             $context,
             $action,
             $recordedBy,
@@ -213,8 +225,9 @@ class BookingPaymentCaptureService
                 'card_last_four' => $validated['card_last_four'],
                 'transaction_tracking' => $validated['transaction_tracking'],
                 'payment_at' => $validated['payment_at'],
-                'pos_terminal_id' => $terminal->id,
+                'pos_terminal_id' => $terminal?->id,
                 'document_paths' => $documentPaths !== [] ? $documentPaths : null,
+                'pos_response' => $posResponse,
                 'context' => $context,
                 'action' => $action,
                 'recorded_by' => $recordedBy?->id,

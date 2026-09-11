@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Exceptions\PcPosPaymentFailedException;
 use App\Models\Booking;
 use App\Models\BookingPaymentRecord;
+use App\Services\AccommodationPosPaymentService;
 use App\Services\BookingPaymentCaptureService;
 use App\Services\BookingPriceChangePreviewService;
 use App\Services\BookingRoomModificationService;
@@ -89,6 +91,12 @@ trait ManagesBookingPriceConfirmations
         $preview['default_payment_date'] = JalaliDateTimeInput::nowJalaliDate();
         $preview['default_payment_time'] = JalaliDateTimeInput::nowTime();
         $preview['calculated_total'] = (int) ($preview['current_total'] ?? 0);
+        $preview = array_merge($preview, app(AccommodationPosPaymentService::class)->previewMeta(
+            $this->booking->accommodation_id,
+            $this->booking->payment_method,
+            (bool) $preview['skip_payment_capture'],
+            chargeFullAmount: false,
+        ));
 
         return $preview;
     }
@@ -142,7 +150,12 @@ trait ManagesBookingPriceConfirmations
         $naturalBefore = $this->captureNaturalBookingTotal($this->booking);
 
         try {
+            $params = $this->chargePosBeforePriceChange($confirmedDelta, $params);
             $this->runPriceChangingMutation($action, $params, preview: false);
+        } catch (PcPosPaymentFailedException $exception) {
+            $this->dispatchBookingToast($exception->getMessage(), 'error');
+
+            return;
         } catch (ValidationException|HttpExceptionInterface $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
@@ -163,6 +176,32 @@ trait ManagesBookingPriceConfirmations
         ]));
         $this->clearPendingPaymentDocuments();
         $this->afterPriceChangingMutation($action);
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    protected function chargePosBeforePriceChange(int $confirmedDelta, array $params): array
+    {
+        $this->booking->loadMissing('accommodation.city.province', 'accommodation.county.province');
+        $accommodation = $this->booking->accommodation;
+        if (! $accommodation) {
+            return $params;
+        }
+
+        $capture = app(AccommodationPosPaymentService::class)->chargeOrFail(
+            $accommodation,
+            $confirmedDelta,
+            is_array($params['payment_capture'] ?? null) ? $params['payment_capture'] : null,
+            $this->booking->payment_method,
+        );
+
+        if (is_array($capture)) {
+            $params['payment_capture'] = $capture;
+        }
+
+        return $params;
     }
 
     /**

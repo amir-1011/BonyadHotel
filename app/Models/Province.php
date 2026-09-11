@@ -22,8 +22,8 @@ class Province extends Model
         return $this->hasMany(City::class);
     }
 
-    public function counties()
+    public function posSettlement()
     {
-        return $this->hasMany(County::class);
+        return $this->hasOne(ProvincePosSettlement::class);
     }
 }

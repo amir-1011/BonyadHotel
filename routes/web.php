@@ -153,6 +153,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/bookings/{booking}', \App\Livewire\Admin\BookingShow::class)->name('bookings.show');
     Route::get('/booking-payment-records', \App\Livewire\Admin\BookingPaymentRecordIndex::class)->name('booking-payment-records.index');
     Route::get('/pos-terminals', \App\Livewire\Admin\PosTerminalIndex::class)->name('pos-terminals.index');
+    Route::get('/pos-mappings', \App\Livewire\Admin\AccommodationPosMappingIndex::class)->name('pos-mappings.index');
+    Route::get('/pos-settlements', \App\Livewire\Admin\ProvincePosSettlementIndex::class)->name('pos-settlements.index');
 
     // Cancellation / refund requests
     Route::get('/cancellation-settings', \App\Livewire\Admin\CancellationSettings::class)->name('cancellation-settings');

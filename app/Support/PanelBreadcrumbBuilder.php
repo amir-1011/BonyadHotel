@@ -37,6 +37,8 @@ class PanelBreadcrumbBuilder
       str_starts_with($suffix, 'commission-wallet') => self::commissionWallet($panel, $suffix, $crumbs),
       str_starts_with($suffix, 'booking-payment-records') => self::append($crumbs, 'تراکنش‌های مالی', null),
       str_starts_with($suffix, 'pos-terminals') => self::append($crumbs, 'ترمینال‌های پز', null),
+      str_starts_with($suffix, 'pos-mappings') => self::append($crumbs, 'مپینگ پوز اقامتگاه', null),
+      str_starts_with($suffix, 'pos-settlements') => self::append($crumbs, 'تسهیم وجه پوز', null),
       str_starts_with($suffix, 'reviews.') => self::append($crumbs, 'نظرات', null),
       $suffix === 'veteran-policy' => self::append($crumbs, 'تعاریف اولیه', null),
       $suffix === 'location-catalog' => self::append($crumbs, 'استان‌ها و انواع', null),

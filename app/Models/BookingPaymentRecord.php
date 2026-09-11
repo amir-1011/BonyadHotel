@@ -23,6 +23,7 @@ class BookingPaymentRecord extends Model
         'payment_at',
         'pos_terminal_id',
         'document_paths',
+        'pos_response',
         'context',
         'action',
         'recorded_by',
@@ -35,6 +36,7 @@ class BookingPaymentRecord extends Model
             'amount_delta' => 'integer',
             'payment_at' => 'datetime',
             'document_paths' => 'array',
+            'pos_response' => 'array',
         ];
     }
 

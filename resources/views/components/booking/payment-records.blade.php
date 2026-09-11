@@ -46,6 +46,28 @@
                 @endif
                 @if($record->posTerminal)
                 <div>ترمینال: {{ $record->posTerminal->displayLabel() }}</div>
+                @elseif(is_array($record->pos_response) && !empty($record->pos_response['resp_tlv']['TM']))
+                <div>شماره ترمینال پوز: <code dir="ltr">{{ $record->pos_response['resp_tlv']['TM'] }}</code></div>
+                @endif
+                @if(is_array($record->pos_response) && ($record->pos_response['resp_tlv']['RS'] ?? '') === '00')
+                <div class="text-success">پرداخت از طریق کارتخوان تأیید شد.</div>
+                @endif
+                @if(is_array($record->pos_response['shares'] ?? null) && $record->pos_response['shares'] !== [])
+                <div class="mt-1">
+                    تسهیم وجه:
+                    <ul class="mb-0 ps-3">
+                        @foreach($record->pos_response['shares'] as $share)
+                        <li>
+                            {{ $share['label'] ?? 'حساب' }}:
+                            <span dir="ltr">{{ \App\Support\PdfPersian::toPersianDigits(number_format((int) ($share['amount'] ?? 0))) }}</span>
+                            ریال
+                            @if(!empty($share['iban']))
+                            <code dir="ltr" class="small">{{ $share['iban'] }}</code>
+                            @endif
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
                 @endif
                 @if($record->priceAdjustmentReasonLabel())
                 <div>توضیح تغییر مبلغ: {{ $record->priceAdjustmentReasonLabel() }}</div>

@@ -87,7 +87,12 @@
                             @if($record->card_last_four)<div dir="ltr">کارت: {{ $record->card_last_four }}</div>@endif
                             @if($record->transaction_tracking)<div dir="ltr">پیگیری: {{ $record->transaction_tracking }}</div>@endif
                         </td>
-                        <td class="small">{{ $record->posTerminal?->displayLabel() ?? '—' }}</td>
+                        <td class="small">
+                            {{ $record->posTerminal?->displayLabel()
+                                ?? (is_array($record->pos_response) && !empty($record->pos_response['resp_tlv']['TM'])
+                                    ? $record->pos_response['resp_tlv']['TM']
+                                    : '—') }}
+                        </td>
                         <td class="small text-muted">{{ \Illuminate\Support\Str::limit($record->priceAdjustmentReasonLabel() ?? '—', 40) }}</td>
                         <td class="text-end">
                             @if($record->hasDocuments())

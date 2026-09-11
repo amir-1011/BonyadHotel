@@ -109,8 +109,8 @@
         </div>
 
         {{-- گزارشات مالی --}}
-        <div class="ta-nav-group {{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.programs.supportive-report') ? 'open' : '' }}">
-            <button type="button" class="ta-nav-link" data-label="گزارشات مالی" aria-expanded="{{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.programs.supportive-report') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
+        <div class="ta-nav-group {{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.pos-mappings.*') || request()->routeIs('admin.pos-settlements.*') || request()->routeIs('admin.programs.supportive-report') ? 'open' : '' }}">
+            <button type="button" class="ta-nav-link" data-label="گزارشات مالی" aria-expanded="{{ request()->routeIs('admin.commission-wallet*') || request()->routeIs('admin.booking-payment-records.*') || request()->routeIs('admin.pos-terminals.*') || request()->routeIs('admin.pos-mappings.*') || request()->routeIs('admin.pos-settlements.*') || request()->routeIs('admin.programs.supportive-report') ? 'true' : 'false' }}" onclick="window.taToggleGroup(this)">
                 <i class="bi bi-wallet2"></i>
                 <span class="ta-nav-link__label">گزارشات مالی</span>
                 <i class="bi bi-chevron-down ta-nav-link__arrow"></i>
@@ -123,6 +123,10 @@
                        class="{{ request()->routeIs('admin.booking-payment-records.*') ? 'active' : '' }}">تراکنش‌های مالی</a></li>
                 <li><a href="{{ route('admin.pos-terminals.index') }}" wire:navigate
                        class="{{ request()->routeIs('admin.pos-terminals.*') ? 'active' : '' }}">ترمینال‌های پز</a></li>
+                <li><a href="{{ route('admin.pos-mappings.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.pos-mappings.*') ? 'active' : '' }}">مپینگ پوز اقامتگاه</a></li>
+                <li><a href="{{ route('admin.pos-settlements.index') }}" wire:navigate
+                       class="{{ request()->routeIs('admin.pos-settlements.*') ? 'active' : '' }}">تسهیم وجه پوز</a></li>
                 <li><a href="{{ route('admin.programs.supportive-report') }}" wire:navigate
                        class="{{ request()->routeIs('admin.programs.supportive-report') ? 'active' : '' }}">خدمات حمایتی</a></li>
             </ul>

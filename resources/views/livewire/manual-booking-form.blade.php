@@ -626,6 +626,12 @@
                 </label>
                 @endif
             </div>
+            @if($paymentMethod === 'card_terminal' && app(\App\Services\AccommodationPosPaymentService::class)->isReady($accommodation->id))
+            <div class="alert alert-success border-success py-2 px-3 small mb-3">
+                <i class="bi bi-upc-scan me-1"></i>
+                پس از تأیید مبلغ، مبلغ روی دستگاه پوز این اقامتگاه می‌آید. کارت را بکشید و تا نتیجه صبر کنید.
+            </div>
+            @endif
 
             @if($this->isMedicalAccommodationPayment())
             <div class="alert alert-info border-info mb-4">
