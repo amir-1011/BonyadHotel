@@ -38,6 +38,8 @@ use Livewire\WithFileUploads;
 
 class ManualBookingForm extends Component
 {
+    public const SHOW_CREDIT_PAYMENT_OPTION = false;
+
     use ManagesProgramBeneficiaries;
     use ManagesPosTerminals;
     use ManagesPendingPaymentDocuments;

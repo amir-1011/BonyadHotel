@@ -619,11 +619,13 @@
                     <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
                     <span class="mbf-pay-label">اسکان درمانی</span>
                 </label>
+                @if(\App\Livewire\ManualBookingForm::SHOW_CREDIT_PAYMENT_OPTION)
                 <label class="mbf-pay-option {{ $paymentMethod === 'credit' ? 'is-active' : '' }}" data-kind="credit">
                     <input type="radio" wire:model.live="paymentMethod" value="credit" class="mbf-pay-input">
                     <span class="mbf-pay-icon" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
                     <span class="mbf-pay-label">اعتباری</span>
                 </label>
+                @endif
                 @endif
             </div>
             @if($paymentMethod === 'card_terminal' && app(\App\Services\AccommodationPosPaymentService::class)->isReady($accommodation->id))
