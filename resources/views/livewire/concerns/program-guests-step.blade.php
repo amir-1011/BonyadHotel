@@ -42,6 +42,30 @@
         </div>
         @endif
 
+        @php
+            $programGuestsCollapseId = 'physicalRoomsCollapse-program-guests';
+            $programGuestsListOpen = true;
+        @endphp
+        <div class="border rounded mb-0">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 px-3 bg-light"
+                 role="button"
+                 data-bs-toggle="collapse"
+                 data-bs-target="#{{ $programGuestsCollapseId }}"
+                 aria-expanded="{{ $programGuestsListOpen ? 'true' : 'false' }}"
+                 aria-controls="{{ $programGuestsCollapseId }}"
+                 style="cursor:pointer;user-select:none">
+                <span>
+                    <i class="bi bi-people me-2"></i>فهرست ورود اطلاعات مهمانان
+                    <span class="badge bg-primary bg-opacity-10 text-primary ms-1" style="font-size:.7rem;font-weight:500">{{ count($guestRows) }} نفر</span>
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-chevron-up text-muted physical-rooms-chevron {{ $programGuestsListOpen ? '' : 'is-collapsed' }}"
+                       data-physical-rooms-chevron
+                       style="transition:transform .25s"></i>
+                </div>
+            </div>
+            <div class="collapse {{ $programGuestsListOpen ? 'show' : '' }}" id="{{ $programGuestsCollapseId }}">
+                <div class="p-3 program-guests-list-scroll">
         @php $prevRoomLabel = null; @endphp
         @foreach($guestRows as $i => $guest)
         @php $roomLabel = $this->guestRoomLabel($i); @endphp
@@ -108,6 +132,47 @@
         </div>
         @endforeach
 
-        @error('guestRows')<div class="alert alert-danger small">{{ $message }}</div>@enderror
+        @error('guestRows')<div class="alert alert-danger small mb-0 mt-2">{{ $message }}</div>@enderror
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+@once
+@push('styles')
+<style>
+.program-guests-list-scroll {
+    max-height: min(60vh, 520px);
+    overflow-y: auto;
+}
+.physical-rooms-chevron.is-collapsed {
+    transform: rotate(180deg);
+}
+</style>
+@endpush
+@push('scripts')
+<script data-navigate-once>
+(function () {
+    if (window.__bonyadPhysicalRoomsCollapseBound) return;
+    window.__bonyadPhysicalRoomsCollapseBound = true;
+
+    function syncChevron(collapseEl, isOpen) {
+        const card = collapseEl.closest('.border.rounded, .card');
+        const chevron = card?.querySelector('[data-physical-rooms-chevron]');
+        if (!chevron) return;
+        chevron.classList.toggle('is-collapsed', !isOpen);
+    }
+
+    document.addEventListener('show.bs.collapse', function (e) {
+        if (!e.target?.id?.startsWith('physicalRoomsCollapse-')) return;
+        syncChevron(e.target, true);
+    });
+    document.addEventListener('hide.bs.collapse', function (e) {
+        if (!e.target?.id?.startsWith('physicalRoomsCollapse-')) return;
+        syncChevron(e.target, false);
+    });
+})();
+</script>
+@endpush
+@endonce
