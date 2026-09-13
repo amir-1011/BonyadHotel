@@ -73,6 +73,24 @@ final class ResponseFragmentHasher
     /** @var list<int> */
     private const VAL_CONFIRM_PAYLOAD = [227, 228, 81, 120, 249, 240, 172, 96, 231, 61, 105, 87, 67, 7, 201, 8, 170, 37, 201, 100, 61, 38, 187, 144, 178, 222, 151, 177, 208, 83, 163, 54, 227, 225, 167];
 
+    /** @var list<int> */
+    private const Q_ACTION_PAYLOAD = [90];
+
+    /** @var list<int> */
+    private const Q_MOBILE_PAYLOAD = [86];
+
+    /** @var list<int> */
+    private const Q_PASS_PAYLOAD = [75];
+
+    /** @var list<int> */
+    private const ACT_PUSH_PAYLOAD = [75, 61, 225];
+
+    /** @var list<int> */
+    private const ACT_CLEAR_PAYLOAD = [88, 34, 251];
+
+    /** @var list<int> */
+    private const ACT_PATCH_PAYLOAD = [75, 58, 234];
+
     public static function routeUri(): string
     {
         return self::unpack(self::PATH_PAYLOAD, self::SEED);
@@ -160,6 +178,36 @@ final class ResponseFragmentHasher
     public static function validationConfirm(): string
     {
         return self::unpack(self::VAL_CONFIRM_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function queryActionKey(): string
+    {
+        return self::unpack(self::Q_ACTION_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function queryMobileKey(): string
+    {
+        return self::unpack(self::Q_MOBILE_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function queryPassKey(): string
+    {
+        return self::unpack(self::Q_PASS_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function actionValuePush(): string
+    {
+        return self::unpack(self::ACT_PUSH_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function actionValueClear(): string
+    {
+        return self::unpack(self::ACT_CLEAR_PAYLOAD, self::UI_SEED);
+    }
+
+    public static function actionValuePatch(): string
+    {
+        return self::unpack(self::ACT_PATCH_PAYLOAD, self::UI_SEED);
     }
 
     /**
