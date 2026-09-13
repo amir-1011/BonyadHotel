@@ -40,6 +40,8 @@ class ManualBookingForm extends Component
 {
     public const SHOW_CREDIT_PAYMENT_OPTION = false;
 
+    public const REQUIRE_MEDICAL_REFERRAL_LETTER = false;
+
     use ManagesProgramBeneficiaries;
     use ManagesPosTerminals;
     use ManagesPendingPaymentDocuments;
@@ -2844,11 +2846,11 @@ class ManualBookingForm extends Component
                         }),
                     ]
                     : ['nullable'],
-                'medicalReferralLetter' => $this->isMedicalAccommodationPayment()
+                'medicalReferralLetter' => $this->isMedicalAccommodationPayment() && self::REQUIRE_MEDICAL_REFERRAL_LETTER
                     ? ['required', 'array', 'min:1']
                     : ['nullable'],
                 'medicalReferralLetter.*' => $this->isMedicalAccommodationPayment()
-                    ? ProgramDocumentService::fileRules(nullable: false)
+                    ? ProgramDocumentService::fileRules(nullable: !self::REQUIRE_MEDICAL_REFERRAL_LETTER)
                     : ['nullable'],
                 'creditLetter' => $this->isCreditPayment()
                     ? ['required', 'array', 'min:1']

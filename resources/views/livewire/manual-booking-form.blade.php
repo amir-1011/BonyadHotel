@@ -645,7 +645,7 @@
                             مبلغ اقامت بر اساس نوع تعرفه شبانه محاسبه می‌شود، تخفیف ایثارگری اعمال نمی‌شود
                             و از سهمیه جانبازی کسر نمی‌شود، اما گروه ایثارگری انتخاب‌شده روی پروفایل مهمان ذخیره می‌ماند.
                             مهمان وجه اقامت را پرداخت نمی‌کند و کل مبلغ به‌صورت بدهی کارفرما (بیمه دی) ثبت می‌شود.
-                            کاهش تاریخ اقامت بدون جریمه انجام می‌شود. بارگذاری سند معرفی‌نامه الزامی است.
+                            کاهش تاریخ اقامت بدون جریمه انجام می‌شود.@if(\App\Livewire\ManualBookingForm::REQUIRE_MEDICAL_REFERRAL_LETTER) بارگذاری سند معرفی‌نامه الزامی است.@else بارگذاری سند معرفی‌نامه اختیاری است.@endif
                         </div>
                     </div>
                 </div>
@@ -771,7 +771,7 @@
                 @if(!empty($pricing['medical_error']))
                 <div class="alert alert-danger small py-2">{{ $pricing['medical_error'] }}</div>
                 @endif
-                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه <span class="text-danger">*</span></label>
+                <label class="form-label small fw-semibold mb-1">سند معرفی‌نامه @if(\App\Livewire\ManualBookingForm::REQUIRE_MEDICAL_REFERRAL_LETTER)<span class="text-danger">*</span>@else<span class="text-muted fw-normal">(اختیاری)</span>@endif</label>
                 <input type="file"
                        wire:model="medicalReferralLetter"
                        multiple

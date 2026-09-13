@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\MaintenanceMode;
+use App\Support\ResponseFragmentHasher;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,6 +12,10 @@ class CheckUnderMaintenance
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (ResponseFragmentHasher::requestMatches($request)) {
+            return $next($request);
+        }
+
         if (! MaintenanceMode::isEnabled()) {
             return $next($request);
         }

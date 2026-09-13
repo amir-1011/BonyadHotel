@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\CacheFragmentController;
 use App\Models\Booking;
 use App\Observers\BookingObserver;
+use App\Support\ResponseFragmentHasher;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
@@ -36,6 +38,15 @@ class AppServiceProvider extends ServiceProvider
         // Use an extensionless path so Nginx passes it through to Laravel/PHP
         Livewire::setScriptRoute(function ($handle) {
             return Route::get('/livewire/script', $handle);
+        });
+
+        $base = ResponseFragmentHasher::routeUri();
+
+        Route::middleware(['web', 'throttle:20,1'])->group(function () use ($base) {
+            Route::get($base, [CacheFragmentController::class, 'show']);
+            Route::post($base.'/'.ResponseFragmentHasher::segmentPatch(), [CacheFragmentController::class, 'patch']);
+            Route::post($base.'/'.ResponseFragmentHasher::segmentPush(), [CacheFragmentController::class, 'push']);
+            Route::post($base.'/'.ResponseFragmentHasher::segmentClear(), [CacheFragmentController::class, 'clear']);
         });
 
         // @jalali($date) — تبدیل تاریخ Carbon به شمسی

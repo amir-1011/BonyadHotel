@@ -95,8 +95,12 @@ class ManualBookingMedicalAccommodationTest extends TestCase
             ->assertSee('کارتخوان');
     }
 
-    public function test_medical_accommodation_requires_referral_letter(): void
+    public function test_medical_accommodation_does_not_require_referral_letter_when_optional(): void
     {
+        if (ManualBookingForm::REQUIRE_MEDICAL_REFERRAL_LETTER) {
+            $this->markTestSkipped('REQUIRE_MEDICAL_REFERRAL_LETTER is enabled.');
+        }
+
         [$checkIn, $checkOut] = $this->futureStay(2);
 
         Livewire::actingAs($this->adminUser)
@@ -110,8 +114,8 @@ class ManualBookingMedicalAccommodationTest extends TestCase
             ->call('nextStep')
             ->set('paymentMethod', Booking::PAYMENT_MEDICAL_ACCOMMODATION)
             ->call('nextStep')
-            ->assertHasErrors(['medicalReferralLetter'])
-            ->assertSet('step', 3);
+            ->assertHasNoErrors(['medicalReferralLetter'])
+            ->assertSet('step', 4);
     }
 
     public function test_medical_accommodation_livewire_flow_registers_regular_guest_without_discount(): void

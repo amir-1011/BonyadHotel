@@ -89,11 +89,9 @@
             <div class="maintenance-icon">
                 <i class="bi bi-tools"></i>
             </div>
-            <h1 class="maintenance-title">سامانه در حال بروزرسانی است</h1>
+            <h1 class="maintenance-title">{{ \App\Support\MaintenanceMode::displayTitle() }}</h1>
             <p class="maintenance-text">
-                در حال اعمال تغییرات و بهبود سامانه رزرو هستیم.
-                <br>
-                لطفاً چند دقیقه دیگر مراجعه کنید.
+                {{ \App\Support\MaintenanceMode::displayMessage() }}
             </p>
             <div class="maintenance-spinner" aria-hidden="true">
                 <span class="maintenance-dot"></span>
